@@ -1,0 +1,20 @@
+CREATE TABLE `users` (
+                         `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户ID（自增主键）',
+                         `avatar` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '头像URL',
+                         `nickname` VARCHAR(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '昵称',
+                         `phone` VARCHAR(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '手机号（唯一）',
+                         `email` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱（唯一）',
+                         `type` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '用户类型（0-普通用户 1-管理员）',
+                         `last_login` TIMESTAMP NULL DEFAULT NULL COMMENT '最后登录时间',
+                         `password` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '密码哈希',
+                         `status` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '状态（0-禁用 1-正常）',
+                         `sex` TINYINT UNSIGNED DEFAULT NULL COMMENT '性别（0-未知 1-男 2-女）',
+                         `introduction` varchar(100) default null comment '个性签名',
+                         `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                         `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                         PRIMARY KEY (`id`),
+                         UNIQUE KEY `uk_phone` (`phone`),
+                         UNIQUE KEY `uk_email` (`email`),
+                         KEY `idx_created_at` (`created_at`),
+                         KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';

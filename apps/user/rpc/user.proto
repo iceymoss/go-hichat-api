@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "./user";
+
+// model
+message UserEntity {
+  string  id = 1;                // 用户id
+  string  avatar = 2;            // 用户头像
+  string  nickname = 3;          // 昵称
+  string  phone  = 4;            // 手机号码
+  string  email = 5;             // 邮件
+  int32   status  = 6;           // 是否锁住
+  int64   lastLogin = 7;         // 上次登陆时间
+  int32   sex = 8;
+  string  introduction = 9;
+  int32   type = 10;             // 用户类别
+  int32   state = 11;            // 用户状态
+}
+
+// req 与 respo
+message Request {
+  string ping = 1;
+}
+
+message Response {
+  string pong = 1;
+}
+
+message LoginReq {
+  string  phone = 1;
+  string   email = 2;
+  string  password = 3;
+}
+
+message LoginResp {
+  string Token = 1;
+  int64 expire = 2;
+}
+
+message RegisterReq{
+  string  phone = 1;
+  string  nickname = 2;
+  string  password = 3;
+  string  avatar = 4;
+  string  type = 5;
+  string  email = 6;
+  int32   sex = 7;
+}
+
+message RegisterResp {
+  string Token = 1;
+  int64 expire = 2;
+}
+
+message GetUserInfoReq {
+  string id = 1;
+}
+
+message GetUserInfoResp {
+  UserEntity user = 1;
+}
+
+message FindUserReq {
+  string name = 1;
+  string phone = 2;
+  repeated string ids = 3;
+}
+
+message FindUserResp {
+  repeated UserEntity user = 1;
+}
+
+service User {
+  rpc Ping(Request) returns (Response); //ping
+  rpc Login(LoginReq) returns (LoginResp); //登录
+  rpc Register(RegisterReq) returns (RegisterResp);  //注册
+  rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoResp); //获取用户信息
+  rpc FindUser(FindUserReq) returns (FindUserResp); //查找用户
+}
