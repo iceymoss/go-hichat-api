@@ -1,6 +1,8 @@
 package ctxdata
 
-import "context"
+import (
+	"context"
+)
 
 func GetUId(ctx context.Context) string {
 	if u, ok := ctx.Value(Identify).(string); ok {

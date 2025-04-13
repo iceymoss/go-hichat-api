@@ -25,3 +25,7 @@ func NewDBErr() error {
 func NewReqParamErr() error {
 	return errors.New(REQUEST_PARAM_ERROR, ErrMsg(REQUEST_PARAM_ERROR))
 }
+
+func NewMsg(msg string) error {
+	return errors.New(SERVER_COMMON_ERROR, msg)
+}
