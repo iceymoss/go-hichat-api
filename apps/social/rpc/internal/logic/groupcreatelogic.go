@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"strconv"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -36,11 +37,18 @@ func (l *GroupCreateLogic) GroupCreate(in *social.GroupCreateReq) (*social.Group
 	if err != nil {
 		errors.Wrapf(xerr.NewMsg("创建失败"), "cur creatorUid type err %v req %v", err, in)
 	}
+
 	groups := &socialmodels.Groups{
-		Name:       in.Name,
-		Icon:       in.Icon,
-		CreatorUid: uint64(creatorUidInt),
-		IsVerify:   1,
+		Name:            in.Name,
+		Icon:            in.Icon,
+		CreatorUid:      in.CreatorUid,
+		IsVerify:        1,
+		Status:          0,
+		GroupType:       1,
+		Notification:    "",
+		NotificationUid: 0,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
 	}
 
 	err = l.svcCtx.GroupsModel.Trans(l.ctx, func(ctx context.Context, session sqlx.Session) error {

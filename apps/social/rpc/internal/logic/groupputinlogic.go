@@ -96,12 +96,12 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 		err = l.createGroupMember(in)
 	}
 
-	groupIdInt, err := strconv.Atoi(in.GroupId)
+	//groupIdInt, err := strconv.Atoi(in.GroupId)
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewMsg("群id不合法"), "find group by groud id err %v, req %v", err, in.GroupId)
 	}
 	//获取群信息
-	groupInfo, err = l.svcCtx.GroupsModel.FindOne(l.ctx, uint64(groupIdInt))
+	groupInfo, err = l.svcCtx.GroupsModel.FindOne(l.ctx, in.GroupId)
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find group by groud id err %v, req %v", err, in.GroupId)
 	}

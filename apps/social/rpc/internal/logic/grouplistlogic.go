@@ -55,12 +55,12 @@ func (l *GroupListLogic) GroupList(in *social.GroupListReq) (*social.GroupListRe
 			Id:              string(v.Id),
 			Name:            v.Name,
 			Icon:            v.Icon,
-			Status:          int32(v.Status.Int64),
+			Status:          int32(v.Status),
 			CreatorUid:      string(v.CreatorUid),
 			GroupType:       int32(v.GroupType),
 			IsVerify:        IsVerify,
-			Notification:    v.Notification.String,
-			NotificationUid: string(v.NotificationUid.Int64),
+			Notification:    v.Notification,
+			NotificationUid: string(v.NotificationUid),
 		})
 	}
 
