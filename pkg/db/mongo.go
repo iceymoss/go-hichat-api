@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	conf "github.com/iceymoss/go-hichat-api/config"
+	conf "github.com/iceymoss/go-hichat-api/common"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

@@ -3,7 +3,7 @@ package db
 import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	conf "github.com/iceymoss/go-hichat-api/config"
+	conf "github.com/iceymoss/go-hichat-api/common"
 	"sync"
 )
 

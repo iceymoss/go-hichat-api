@@ -9,6 +9,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/server"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/common"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
@@ -16,6 +17,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
+
+func init() {
+	common.InitConfig("local", "", "./../../../config")
+}
 
 var configFile = flag.String("f", "etc/social.yaml", "the config file")
 
@@ -25,6 +30,8 @@ func main() {
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
 	ctx := svc.NewServiceContext(c)
+
+	fmt.Println("config:", common.ServiceConf)
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
 		social.RegisterSocialServer(grpcServer, server.NewSocialServer(ctx))

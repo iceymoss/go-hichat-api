@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	conf "github.com/iceymoss/go-hichat-api/config"
+	conf "github.com/iceymoss/go-hichat-api/common"
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
