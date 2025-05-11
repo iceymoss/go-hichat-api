@@ -17,59 +17,69 @@ type SocialServer struct {
 	social.UnimplementedSocialServer
 }
 
+// NewSocialServer 好友业务：请求好友、通过或拒绝申请、好友列表
 func NewSocialServer(svcCtx *svc.ServiceContext) *SocialServer {
 	return &SocialServer{
 		svcCtx: svcCtx,
 	}
 }
 
-// 好友业务：请求好友、通过或拒绝申请、好友列表
+// FriendPutIn 添加好友
 func (s *SocialServer) FriendPutIn(ctx context.Context, in *social.FriendPutInReq) (*social.FriendPutInResp, error) {
 	l := logic.NewFriendPutInLogic(ctx, s.svcCtx)
 	return l.FriendPutIn(in)
 }
 
+// FriendPutInHandle 好友请求处理
 func (s *SocialServer) FriendPutInHandle(ctx context.Context, in *social.FriendPutInHandleReq) (*social.FriendPutInHandleResp, error) {
 	l := logic.NewFriendPutInHandleLogic(ctx, s.svcCtx)
 	return l.FriendPutInHandle(in)
 }
 
+// FriendPutInList 好友请求列表
 func (s *SocialServer) FriendPutInList(ctx context.Context, in *social.FriendPutInListReq) (*social.FriendPutInListResp, error) {
 	l := logic.NewFriendPutInListLogic(ctx, s.svcCtx)
 	return l.FriendPutInList(in)
 }
 
+// FriendList 好友列表
 func (s *SocialServer) FriendList(ctx context.Context, in *social.FriendListReq) (*social.FriendListResp, error) {
 	l := logic.NewFriendListLogic(ctx, s.svcCtx)
 	return l.FriendList(in)
 }
 
 // 群业务：创建群，修改群，群公告，申请群，用户群列表，群成员，申请群，群退出..
+// GroupCreate 创建群
 func (s *SocialServer) GroupCreate(ctx context.Context, in *social.GroupCreateReq) (*social.GroupCreateResp, error) {
 	l := logic.NewGroupCreateLogic(ctx, s.svcCtx)
 	return l.GroupCreate(in)
 }
 
+// GroupPutin 请求加入群聊
 func (s *SocialServer) GroupPutin(ctx context.Context, in *social.GroupPutinReq) (*social.GroupPutinResp, error) {
 	l := logic.NewGroupPutinLogic(ctx, s.svcCtx)
 	return l.GroupPutin(in)
 }
 
+// 群聊请求列表
 func (s *SocialServer) GroupPutinList(ctx context.Context, in *social.GroupPutinListReq) (*social.GroupPutinListResp, error) {
 	l := logic.NewGroupPutinListLogic(ctx, s.svcCtx)
 	return l.GroupPutinList(in)
 }
 
+// GroupPutInHandle 群请求处理
 func (s *SocialServer) GroupPutInHandle(ctx context.Context, in *social.GroupPutInHandleReq) (*social.GroupPutInHandleResp, error) {
 	l := logic.NewGroupPutInHandleLogic(ctx, s.svcCtx)
 	return l.GroupPutInHandle(in)
 }
 
+// GroupList 群列表
 func (s *SocialServer) GroupList(ctx context.Context, in *social.GroupListReq) (*social.GroupListResp, error) {
 	l := logic.NewGroupListLogic(ctx, s.svcCtx)
 	return l.GroupList(in)
 }
 
+// GroupUsers 群成员
 func (s *SocialServer) GroupUsers(ctx context.Context, in *social.GroupUsersReq) (*social.GroupUsersResp, error) {
 	l := logic.NewGroupUsersLogic(ctx, s.svcCtx)
 	return l.GroupUsers(in)

@@ -9,6 +9,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/server"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
+	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
@@ -20,6 +21,7 @@ import (
 var configFile = flag.String("f", "etc/local/user.yaml", "the config file")
 
 func main() {
+	pkcCfg.InitConfig("local", "", "/Users/iceymoss/project/go-hichat-api/config/")
 	flag.Parse()
 
 	var c config.Config

@@ -2,9 +2,11 @@ package db
 
 import (
 	"fmt"
-	"github.com/go-redis/redis/v8"
-	conf "github.com/iceymoss/go-hichat-api/common"
 	"sync"
+
+	conf "github.com/iceymoss/go-hichat-api/pkg/config"
+
+	"github.com/go-redis/redis/v8"
 )
 
 const HICHAT2_RDB = "main"

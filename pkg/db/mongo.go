@@ -2,12 +2,14 @@ package db
 
 import (
 	"context"
-	conf "github.com/iceymoss/go-hichat-api/common"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"sync"
 	"time"
+
+	conf "github.com/iceymoss/go-hichat-api/pkg/config"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var mongoConn = make(map[string]*mongo.Client)

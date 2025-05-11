@@ -2,11 +2,12 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 	"github.com/pkg/errors"
-	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"gorm.io/gorm"
 	"strconv"
 	"time"
 
@@ -51,18 +52,24 @@ func (l *GroupCreateLogic) GroupCreate(in *social.GroupCreateReq) (*social.Group
 		UpdatedAt:       time.Now(),
 	}
 
-	err = l.svcCtx.GroupsModel.Trans(l.ctx, func(ctx context.Context, session sqlx.Session) error {
-		_, err := l.svcCtx.GroupsModel.Insert(l.ctx, session, groups)
-
-		if err != nil {
+	//todo: 事务无效，待处理
+	err = l.svcCtx.GroupsModel.Transact(l.ctx, func(ctx context.Context, db *gorm.DB) error {
+		groupID, insertErr := l.svcCtx.GroupsModel.Insert(l.ctx, groups)
+		if insertErr != nil {
 			return errors.Wrapf(xerr.NewDBErr(), "insert group err %v req %v", err, in)
 		}
 
+		fmt.Println("id:", groupID)
+
 		//将群主加入群里
-		_, err = l.svcCtx.GroupMembersModel.Insert(l.ctx, session, &socialmodels.GroupMembers{
-			GroupId:   string(groups.Id),
-			UserId:    string(creatorUidInt),
-			RoleLevel: int(constants.CreatorGroupRoleLevel),
+		_, err = l.svcCtx.GroupMembersModel.Insert(l.ctx, &socialmodels.GroupMembers{
+			GroupId:     strconv.Itoa(groupID),
+			UserId:      strconv.Itoa(creatorUidInt),
+			RoleLevel:   int(constants.CreatorGroupRoleLevel),
+			JoinTime:    time.Now(),
+			JoinSource:  0,
+			InviterUid:  strconv.Itoa(creatorUidInt),
+			OperatorUid: strconv.Itoa(creatorUidInt),
 		})
 		if err != nil {
 			return errors.Wrapf(xerr.NewDBErr(), "insert group member err %v req %v", err, in)

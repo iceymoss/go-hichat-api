@@ -39,9 +39,9 @@ func (l *GroupUsersLogic) GroupUsers(in *social.GroupUsersReq) (*social.GroupUse
 			GroupId:     v.GroupId,
 			UserId:      v.UserId,
 			RoleLevel:   int32(v.RoleLevel),
-			JoinTime:    v.JoinTime.Time.Unix(),
-			JoinSource:  int32(v.JoinSource.Int64),
-			InviterUid:  v.InviterUid.String,
+			JoinTime:    v.JoinTime.Unix(),
+			JoinSource:  int32(v.JoinSource),
+			InviterUid:  v.InviterUid,
 			OperatorUid: v.OperatorUid,
 		})
 	}

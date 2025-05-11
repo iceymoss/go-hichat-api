@@ -68,7 +68,7 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 			RoleLevel:   int(constants.AtLargeGroupRoleLevel),
 			OperatorUid: in.HandleUid,
 		}
-		_, err = l.svcCtx.GroupMembersModel.Insert(l.ctx, session, groupMember)
+		_, err = l.svcCtx.GroupMembersModel.Insert(l.ctx, groupMember)
 		if err != nil {
 			return errors.Wrapf(xerr.NewDBErr(), "insert friend err %v req %v", err, groupMember)
 		}

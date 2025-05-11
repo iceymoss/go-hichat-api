@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"fmt"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 	"github.com/pkg/errors"
 	"strconv"
@@ -27,9 +26,8 @@ func NewFriendPutInListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *F
 	}
 }
 
-// FriendPutInList 获取未处理的好友申请列表
+// FriendPutInList 获取未处理的好友申请列表,或者获取我发起的申请好友列表
 func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*social.FriendPutInListResp, error) {
-	fmt.Println("in:", in)
 	friendReqList, err := l.svcCtx.FriendRequestsModel.ListFilterHandler(l.ctx, in.UserId, in.Type, in.Class)
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find list friend req err %v req %v", err, in.UserId)

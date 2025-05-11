@@ -4,15 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	conf "github.com/iceymoss/go-hichat-api/common"
+	"strconv"
+	"sync"
+	"time"
+
+	conf "github.com/iceymoss/go-hichat-api/pkg/config"
+
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	gormLogger "gorm.io/gorm/logger"
 	"gorm.io/gorm/utils"
-	"strconv"
-	"sync"
-	"time"
 )
 
 const MYSQL_DB_HICHAT2 = "hichat2"

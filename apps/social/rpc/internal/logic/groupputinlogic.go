@@ -179,7 +179,7 @@ func (l *GroupPutinLogic) createGroupMember(in *social.GroupPutinReq) error {
 		RoleLevel:   int(constants.AtLargeGroupRoleLevel),
 		OperatorUid: in.InviterUid,
 	}
-	_, err := l.svcCtx.GroupMembersModel.Insert(l.ctx, nil, groupMember)
+	_, err := l.svcCtx.GroupMembersModel.Insert(l.ctx, groupMember)
 	if err != nil {
 		return errors.Wrapf(xerr.NewDBErr(), "insert friend err %v req %v", err, groupMember)
 	}

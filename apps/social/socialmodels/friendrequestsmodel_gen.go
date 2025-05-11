@@ -8,6 +8,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"gorm.io/gorm"
 	"strings"
 	"time"
 
@@ -90,20 +92,26 @@ func (m *defaultFriendRequestsModel) FindOne(ctx context.Context, id uint64, uid
 	}
 }
 
+// ListFilterHandler 获取好友申请
 func (m *defaultFriendRequestsModel) ListFilterHandler(ctx context.Context, userId string, typeTag int32, putType string) ([]*FriendRequests, error) {
-	query := fmt.Sprintf("select %s from %s where `user_id` = ?", friendRequestsRows, m.table)
-	if typeTag == 1 {
-		query = fmt.Sprintf("select %s from %s where `req_uid` = ?", friendRequestsRows, m.table)
+	var reqList []*FriendRequests
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	query := mysqlConn.Table(m.table)
+	if typeTag != 0 {
+		query.Where("handle_result = ?", typeTag)
 	}
-	var resp []*FriendRequests
-	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, userId)
+	if putType == "1" {
+		query = query.Where("req_uid = ?", userId)
+	} else {
+		query = query.Where("user_id = ?", userId)
+	}
 
-	switch err {
-	case nil:
-		return resp, nil
-	default:
-		return nil, err
+	err := query.Find(&reqList).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return []*FriendRequests{}, err
 	}
+
+	return reqList, nil
 }
 
 func (m *defaultFriendRequestsModel) FindByReqUidAndUserId(ctx context.Context, rid, uid string) (*FriendRequests, error) {

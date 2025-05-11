@@ -8,6 +8,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"gorm.io/gorm"
 	"strings"
 
 	"github.com/zeromicro/go-zero/core/stores/builder"
@@ -86,16 +88,13 @@ func (m *defaultFriendsModel) FindOne(ctx context.Context, id uint64) (*Friends,
 }
 
 func (m *defaultFriendsModel) ListByUserid(ctx context.Context, userId string) ([]*Friends, error) {
-	query := fmt.Sprintf("select %s from %s where `user_id` = ? ", friendsRows, m.table)
-
-	var resp []*Friends
-	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, userId)
-	switch err {
-	case nil:
-		return resp, nil
-	default:
-		return nil, err
+	var friends []*Friends
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	err := mysqlConn.Table(m.table).Where("user_id = ?", userId).Find(&friends).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return friends, err
 	}
+	return friends, nil
 }
 
 func (m *defaultFriendsModel) FindByUidAndFid(ctx context.Context, uid, fid string) (*Friends, error) {
