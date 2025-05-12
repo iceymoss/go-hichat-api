@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 	"github.com/pkg/errors"
+	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -52,15 +53,15 @@ func (l *GroupListLogic) GroupList(in *social.GroupListReq) (*social.GroupListRe
 			IsVerify = true
 		}
 		respList = append(respList, &social.Groups{
-			Id:              string(v.Id),
+			Id:              strconv.Itoa(v.Id),
 			Name:            v.Name,
 			Icon:            v.Icon,
 			Status:          int32(v.Status),
-			CreatorUid:      string(v.CreatorUid),
+			CreatorUid:      v.CreatorUid,
 			GroupType:       int32(v.GroupType),
 			IsVerify:        IsVerify,
 			Notification:    v.Notification,
-			NotificationUid: string(v.NotificationUid),
+			NotificationUid: strconv.Itoa(v.NotificationUid),
 		})
 	}
 

@@ -7,6 +7,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 	"strconv"
 	"time"
 
@@ -37,8 +38,8 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 	//  3. 群管理员/群创建者邀请：直接进入群
 
 	var (
-		inviteGroupMember *socialmodels.GroupMembers
-		userGroupMember   *socialmodels.GroupMembers
+		inviteGroupMember socialmodels.GroupMembers
+		userGroupMember   socialmodels.GroupMembers
 		groupInfo         *socialmodels.Groups
 
 		err error
@@ -46,25 +47,25 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 
 	//查询用户是否已加入群
 	userGroupMember, err = l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.ReqId, in.GroupId)
-	if err != nil && err != socialmodels.ErrNotFound {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find group member by groud id and  req id err %v, req %v, %v", err,
 			in.GroupId, in.ReqId)
 	}
-	if userGroupMember != nil {
+	if userGroupMember.Id != 0 {
 		return &social.GroupPutinResp{}, nil
 	}
 
 	//查询用户是否已经申请过加入群聊
 	groupReq, err := l.svcCtx.GroupRequestsModel.FindByGroupIdAndReqId(l.ctx, in.GroupId, in.ReqId)
-	if err != nil && err != socialmodels.ErrNotFound {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find group req by groud id and user id err %v, req %v, %v", err,
 			in.GroupId, in.ReqId)
 	}
-	if groupReq != nil {
+	if groupReq.Id != 0 {
 		return &social.GroupPutinResp{}, nil
 	}
 
-	groupReq = &socialmodels.GroupRequests{
+	groupReqTemp := &socialmodels.GroupRequests{
 		ReqId:   in.ReqId,
 		GroupId: in.GroupId,
 		ReqMsg: sql.NullString{
@@ -96,10 +97,6 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 		err = l.createGroupMember(in)
 	}
 
-	//groupIdInt, err := strconv.Atoi(in.GroupId)
-	if err != nil {
-		return nil, errors.Wrapf(xerr.NewMsg("群id不合法"), "find group by groud id err %v, req %v", err, in.GroupId)
-	}
 	//获取群信息
 	groupInfo, err = l.svcCtx.GroupsModel.FindOne(l.ctx, in.GroupId)
 	if err != nil {
@@ -111,23 +108,23 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 		// 不需要
 		defer createGroupMember()
 
-		groupReq.HandleResult = sql.NullInt64{
+		groupReqTemp.HandleResult = sql.NullInt64{
 			Int64: int64(constants.PassHandlerResult),
 			Valid: true,
 		}
 
-		return l.createGroupReq(groupReq, true)
+		return l.createGroupReq(groupReqTemp, true)
 	}
 
 	// 验证进群方式
 	if constants.GroupJoinSource(in.JoinSource) == constants.PutInGroupJoinSource {
 		// 申请
-		return l.createGroupReq(groupReq, false)
+		return l.createGroupReq(groupReqTemp, false)
 	}
 
 	//获取群成员
 	inviteGroupMember, err = l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.InviterUid, in.GroupId)
-	if err != nil {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find group member by groud id and user id err %v, req %v",
 			in.InviterUid, in.GroupId)
 	}
@@ -138,17 +135,17 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 		// 是管理者或创建者邀请
 		defer createGroupMember()
 
-		groupReq.HandleResult = sql.NullInt64{
+		groupReqTemp.HandleResult = sql.NullInt64{
 			Int64: int64(constants.PassHandlerResult),
 			Valid: true,
 		}
-		groupReq.HandleUserId = sql.NullString{
+		groupReqTemp.HandleUserId = sql.NullString{
 			String: in.InviterUid,
 			Valid:  true,
 		}
-		return l.createGroupReq(groupReq, true)
+		return l.createGroupReq(groupReqTemp, true)
 	}
-	return l.createGroupReq(groupReq, false)
+	return l.createGroupReq(groupReqTemp, false)
 
 }
 
@@ -168,7 +165,10 @@ func (l *GroupPutinLogic) createGroupReq(groupReq *socialmodels.GroupRequests, i
 		return &social.GroupPutinResp{GroupId: int32(groupIdInt)}, nil
 	}
 
-	return &social.GroupPutinResp{}, nil
+	id, _ := strconv.Atoi(groupReq.GroupId)
+	return &social.GroupPutinResp{
+		GroupId: int32(id),
+	}, nil
 }
 
 // createGroupMember 加入群

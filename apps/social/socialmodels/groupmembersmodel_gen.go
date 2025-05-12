@@ -35,7 +35,7 @@ type (
 	groupMembersModel interface {
 		Insert(ctx context.Context, data *GroupMembers) (sql.Result, error)
 		FindOne(ctx context.Context, id int64) (*GroupMembers, error)
-		FindByGroudIdAndUserId(ctx context.Context, userId, groupId string) (*GroupMembers, error)
+		FindByGroudIdAndUserId(ctx context.Context, userId, groupId string) (GroupMembers, error)
 		ListByUserId(ctx context.Context, userId string) ([]*GroupMembers, error)
 		ListByGroupId(ctx context.Context, groupId string) ([]*GroupMembers, error)
 		Update(ctx context.Context, data *GroupMembers) error
@@ -96,32 +96,25 @@ func (m *defaultGroupMembersModel) FindOne(ctx context.Context, id int64) (*Grou
 	}
 }
 
-func (m *defaultGroupMembersModel) FindByGroudIdAndUserId(ctx context.Context, userId, groupId string) (*GroupMembers, error) {
-	query := fmt.Sprintf("select %s from %s where `user_id` = ? and `group_id` = ?", groupMembersRows, m.table)
-
+func (m *defaultGroupMembersModel) FindByGroudIdAndUserId(ctx context.Context, userId, groupId string) (GroupMembers, error) {
 	var resp GroupMembers
-	err := m.QueryRowNoCacheCtx(ctx, &resp, query, userId, groupId)
-	switch err {
-	case nil:
-		return &resp, nil
-	default:
-		return nil, err
+	res := m.mysqlConn.Table(m.table).Where("user_id = ?", userId).Where("group_id = ?", groupId).First(&resp)
+	if res.Error != nil {
+		return resp, res.Error
 	}
+
+	return resp, nil
 
 }
 
 func (m *defaultGroupMembersModel) ListByUserId(ctx context.Context, userId string) ([]*GroupMembers, error) {
-	query := fmt.Sprintf("select %s from %s where `user_id` = ?", groupMembersRows, m.table)
-
 	var resp []*GroupMembers
-	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, userId)
-
-	switch err {
-	case nil:
-		return resp, nil
-	default:
+	err := m.mysqlConn.Table(m.table).Select([]string{"group_id", "user_id"}).Where("user_id = ?", userId).Find(&resp).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
+
+	return resp, nil
 }
 
 func (m *defaultGroupMembersModel) ListByGroupId(ctx context.Context, groupId string) ([]*GroupMembers, error) {

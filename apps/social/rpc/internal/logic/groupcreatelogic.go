@@ -2,19 +2,21 @@ package logic
 
 import (
 	"context"
-	"fmt"
-	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
-	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
 	"strconv"
 	"time"
+
+	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 type GroupCreateLogic struct {
@@ -52,30 +54,33 @@ func (l *GroupCreateLogic) GroupCreate(in *social.GroupCreateReq) (*social.Group
 		UpdatedAt:       time.Now(),
 	}
 
-	//todo: 事务无效，待处理
-	err = l.svcCtx.GroupsModel.Transact(l.ctx, func(ctx context.Context, db *gorm.DB) error {
-		groupID, insertErr := l.svcCtx.GroupsModel.Insert(l.ctx, groups)
-		if insertErr != nil {
-			return errors.Wrapf(xerr.NewDBErr(), "insert group err %v req %v", err, in)
-		}
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	tx := mysqlConn.Begin()
+	res := tx.Table("groups").Create(&groups)
+	if res.Error != nil || res.RowsAffected == 0 {
+		tx.Rollback()
+		zLog.Error("create group err", zap.Any("err", res.Error))
+		return nil, res.Error
+	}
 
-		fmt.Println("id:", groupID)
+	groupMember := &socialmodels.GroupMembers{
+		GroupId:     strconv.Itoa(groups.Id),
+		UserId:      strconv.Itoa(creatorUidInt),
+		RoleLevel:   int(constants.CreatorGroupRoleLevel),
+		JoinTime:    time.Now(),
+		JoinSource:  0,
+		InviterUid:  strconv.Itoa(creatorUidInt),
+		OperatorUid: strconv.Itoa(creatorUidInt),
+	}
+	res = tx.Table("group_members").Create(&groupMember)
+	if res.Error != nil || res.RowsAffected == 0 {
+		tx.Rollback()
+		zLog.Error("insert group err", zap.Any("err", res.Error))
+		return nil, res.Error
+	}
 
-		//将群主加入群里
-		_, err = l.svcCtx.GroupMembersModel.Insert(l.ctx, &socialmodels.GroupMembers{
-			GroupId:     strconv.Itoa(groupID),
-			UserId:      strconv.Itoa(creatorUidInt),
-			RoleLevel:   int(constants.CreatorGroupRoleLevel),
-			JoinTime:    time.Now(),
-			JoinSource:  0,
-			InviterUid:  strconv.Itoa(creatorUidInt),
-			OperatorUid: strconv.Itoa(creatorUidInt),
-		})
-		if err != nil {
-			return errors.Wrapf(xerr.NewDBErr(), "insert group member err %v req %v", err, in)
-		}
-		return nil
-	})
+	//提交事务
+	tx.Commit()
 
 	return &social.GroupCreateResp{}, err
 }

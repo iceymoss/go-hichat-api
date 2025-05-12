@@ -8,6 +8,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"gorm.io/gorm"
 	"strings"
 
 	"github.com/zeromicro/go-zero/core/stores/builder"
@@ -31,7 +33,7 @@ type (
 		Trans(ctx context.Context, fn func(context.Context, sqlx.Session) error) error
 		Insert(ctx context.Context, data *GroupRequests) (sql.Result, error)
 		FindOne(ctx context.Context, id int64) (*GroupRequests, error)
-		FindByGroupIdAndReqId(ctx context.Context, groupId, reqId string) (*GroupRequests, error)
+		FindByGroupIdAndReqId(ctx context.Context, groupId, reqId string) (GroupRequests, error)
 		ListNoHandler(ctx context.Context, groupId string) ([]*GroupRequests, error)
 		Update(ctx context.Context, session sqlx.Session, data *GroupRequests) error
 		Delete(ctx context.Context, id int64) error
@@ -94,17 +96,15 @@ func (m *defaultGroupRequestsModel) FindOne(ctx context.Context, id int64) (*Gro
 	}
 }
 
-func (m *defaultGroupRequestsModel) FindByGroupIdAndReqId(ctx context.Context, groupId, reqId string) (*GroupRequests, error) {
-	query := fmt.Sprintf("select %s from %s where `req_id` = ? and `group_id` = ?", groupRequestsRows, m.table)
-
+func (m *defaultGroupRequestsModel) FindByGroupIdAndReqId(ctx context.Context, groupId, reqId string) (GroupRequests, error) {
 	var resp GroupRequests
-	err := m.QueryRowNoCacheCtx(ctx, &resp, query, reqId, groupId)
-	switch err {
-	case nil:
-		return &resp, nil
-	default:
-		return nil, err
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	err := mysqlConn.Table(m.table).Where("req_id = ?", reqId).Where("group_id = ?", groupId).First(&resp).Error
+	if err != nil && err == gorm.ErrRecordNotFound {
+		return resp, err
 	}
+
+	return resp, err
 }
 
 func (m *defaultGroupRequestsModel) ListNoHandler(ctx context.Context, groupId string) ([]*GroupRequests, error) {
@@ -122,13 +122,12 @@ func (m *defaultGroupRequestsModel) ListNoHandler(ctx context.Context, groupId s
 }
 
 func (m *defaultGroupRequestsModel) Insert(ctx context.Context, data *GroupRequests) (sql.Result, error) {
-	groupRequestsIdKey := fmt.Sprintf("%s%v", cacheGroupRequestsIdPrefix, data.Id)
-	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, groupRequestsRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.ReqId, data.GroupId, data.ReqMsg, data.ReqTime, data.JoinSource,
-			data.InviterUserId, data.HandleUserId, data.HandleTime, data.HandleResult)
-	}, groupRequestsIdKey)
-	return ret, err
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	err := mysqlConn.Table(m.table).Create(&data).Error
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
 func (m *defaultGroupRequestsModel) Update(ctx context.Context, session sqlx.Session, data *GroupRequests) error {

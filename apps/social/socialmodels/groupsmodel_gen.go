@@ -77,7 +77,8 @@ func (m *defaultGroupsModel) Transact(ctx context.Context, fn func(ctx context.C
 	// 开启事务
 	return m.mysqlConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 传递事务对象给业务方法
-		return fn(ctx, tx)
+		newCtx := tx.Statement.Context
+		return fn(newCtx, tx)
 	})
 }
 
@@ -91,20 +92,14 @@ func (m *defaultGroupsModel) Delete(ctx context.Context, id string) error {
 }
 
 func (m *defaultGroupsModel) FindOne(ctx context.Context, id string) (*Groups, error) {
-	groupsIdKey := fmt.Sprintf("%s%v", cacheGroupsIdPrefix, id)
 	var resp Groups
-	err := m.QueryRowCtx(ctx, &resp, groupsIdKey, func(ctx context.Context, conn sqlx.SqlConn, v interface{}) error {
-		query := fmt.Sprintf("select %s from %s where `id` = ? limit 1", groupsRows, m.table)
-		return conn.QueryRowCtx(ctx, v, query, id)
-	})
-	switch err {
-	case nil:
-		return &resp, nil
-	case sqlc.ErrNotFound:
-		return nil, ErrNotFound
-	default:
-		return nil, err
+	err := m.mysqlConn.Table(m.table).Where("id = ?", id).First(&resp).Error
+	if err != nil {
+		return &resp, err
 	}
+
+	return &resp, nil
+
 }
 
 func (m *defaultGroupsModel) Insert(ctx context.Context, data *Groups) (int, error) {
@@ -121,19 +116,13 @@ func (m *defaultGroupsModel) Insert(ctx context.Context, data *Groups) (int, err
 }
 
 func (m *defaultGroupsModel) ListByGroupIds(ctx context.Context, ids []string) ([]*Groups, error) {
-	query := fmt.Sprintf("select %s from %s where `id` in (?)", groupsRows, m.table)
-
 	var resp []*Groups
-
-	idStr := strings.Join(ids, "','")
-	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, idStr)
-
-	switch err {
-	case nil:
-		return resp, nil
-	default:
+	err := m.mysqlConn.Table(m.table).Where("id in ?", ids).Find(&resp).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
+
+	return resp, nil
 }
 
 func (m *defaultGroupsModel) Update(ctx context.Context, data *Groups) error {
