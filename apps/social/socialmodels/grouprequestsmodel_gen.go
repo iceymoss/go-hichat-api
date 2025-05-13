@@ -11,6 +11,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"gorm.io/gorm"
 	"strings"
+	"time"
 
 	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/cache"
@@ -53,7 +54,7 @@ type (
 		JoinSource    sql.NullInt64  `db:"join_source"`
 		InviterUserId sql.NullString `db:"inviter_user_id"`
 		HandleUserId  sql.NullString `db:"handle_user_id"`
-		HandleTime    sql.NullTime   `db:"handle_time"`
+		HandleTime    time.Time      `db:"handle_time"`
 		HandleResult  sql.NullInt64  `db:"handle_result"`
 	}
 )
@@ -80,20 +81,14 @@ func (m *defaultGroupRequestsModel) Delete(ctx context.Context, id int64) error 
 }
 
 func (m *defaultGroupRequestsModel) FindOne(ctx context.Context, id int64) (*GroupRequests, error) {
-	groupRequestsIdKey := fmt.Sprintf("%s%v", cacheGroupRequestsIdPrefix, id)
 	var resp GroupRequests
-	err := m.QueryRowCtx(ctx, &resp, groupRequestsIdKey, func(ctx context.Context, conn sqlx.SqlConn, v interface{}) error {
-		query := fmt.Sprintf("select %s from %s where `id` = ? limit 1", groupRequestsRows, m.table)
-		return conn.QueryRowCtx(ctx, v, query, id)
-	})
-	switch err {
-	case nil:
-		return &resp, nil
-	case sqlc.ErrNotFound:
-		return nil, ErrNotFound
-	default:
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	err := mysqlConn.Table(m.table).Where("id = ?", id).First(&resp).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
+
+	return &resp, nil
 }
 
 func (m *defaultGroupRequestsModel) FindByGroupIdAndReqId(ctx context.Context, groupId, reqId string) (GroupRequests, error) {

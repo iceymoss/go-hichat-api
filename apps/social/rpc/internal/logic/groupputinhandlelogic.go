@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 	"github.com/pkg/errors"
-	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -48,33 +49,55 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		return nil, errors.WithStack(ErrGroupReqBeforeRefuse)
 	}
 
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	tx := mysqlConn.Begin()
+
+	groupReq.HandleTime = time.Now()
 	groupReq.HandleResult = sql.NullInt64{
 		Int64: int64(in.HandleResult),
 		Valid: true,
 	}
 
-	err = l.svcCtx.GroupRequestsModel.Trans(l.ctx, func(ctx context.Context, session sqlx.Session) error {
-		if err := l.svcCtx.GroupRequestsModel.Update(l.ctx, session, groupReq); err != nil {
-			return errors.Wrapf(xerr.NewDBErr(), "update friend req err %v req %v", err, groupReq)
-		}
+	//更新申请状态
+	res := tx.Table(constants.GroupRequests).Where("id = ?", groupReq.Id).Save(&groupReq)
+	if res.Error != nil {
+		tx.Rollback()
+		return nil, res.Error
+	}
 
-		if constants.HandlerResult(groupReq.HandleResult.Int64) != constants.PassHandlerResult {
-			return nil
-		}
+	if res.RowsAffected == 0 {
+		tx.Rollback()
+		return nil, errors.New("update err groupRedId:" + groupReq.ReqId)
+	}
 
-		groupMember := &socialmodels.GroupMembers{
-			GroupId:     groupReq.GroupId,
-			UserId:      groupReq.ReqId,
-			RoleLevel:   int(constants.AtLargeGroupRoleLevel),
-			OperatorUid: in.HandleUid,
-		}
-		_, err = l.svcCtx.GroupMembersModel.Insert(l.ctx, groupMember)
-		if err != nil {
-			return errors.Wrapf(xerr.NewDBErr(), "insert friend err %v req %v", err, groupMember)
-		}
+	if constants.HandlerResult(groupReq.HandleResult.Int64) != constants.PassHandlerResult {
+		//拒绝加入群
+		tx.Commit()
+		return &social.GroupPutInHandleResp{}, nil
+	}
 
-		return nil
-	})
+	//插入群成员表
+	groupMember := &socialmodels.GroupMembers{
+		GroupId:     groupReq.GroupId,
+		UserId:      groupReq.ReqId,
+		RoleLevel:   int(constants.AtLargeGroupRoleLevel),
+		OperatorUid: in.HandleUid,
+		JoinTime:    time.Now(),
+		InviterUid:  groupReq.InviterUserId.String,
+	}
+
+	res = tx.Create(&groupMember)
+	if res.Error != nil {
+		tx.Rollback()
+		return nil, res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		tx.Rollback()
+		return nil, errors.New("join  group err:" + groupReq.ReqId + " groupId" + groupReq.GroupId)
+	}
+
+	tx.Commit()
 
 	return &social.GroupPutInHandleResp{}, err
 }

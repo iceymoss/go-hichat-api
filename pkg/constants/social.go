@@ -26,3 +26,5 @@ const (
 	InviteGroupJoinSource GroupJoinSource = iota + 1
 	PutInGroupJoinSource
 )
+
+const GroupRequests = "group_requests"
