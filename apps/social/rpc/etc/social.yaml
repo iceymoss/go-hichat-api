@@ -3,7 +3,7 @@ ListenOn: 127.0.0.1:10001
 Etcd:
   Hosts:
     - 127.0.0.1:2379
-  Key: user.rpc
+  Key: social.rpc
 
 Mysql:
   DataSource: root:123456789@tcp(127.0.0.1:3306)/hichat2?charset=utf8mb4&parseTime=true

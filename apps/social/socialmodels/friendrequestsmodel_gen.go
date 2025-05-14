@@ -76,20 +76,13 @@ func (m *defaultFriendRequestsModel) Delete(ctx context.Context, id uint64) erro
 }
 
 func (m *defaultFriendRequestsModel) FindOne(ctx context.Context, id uint64, uid string) (*FriendRequests, error) {
-	friendRequestsIdKey := fmt.Sprintf("%s%v", cacheFriendRequestsIdPrefix, id)
 	var resp FriendRequests
-	err := m.QueryRowCtx(ctx, &resp, friendRequestsIdKey, func(ctx context.Context, conn sqlx.SqlConn, v any) error {
-		query := fmt.Sprintf("select %s from %s where `id` = ? and `req_uid` = ? limit 1", friendRequestsRows, m.table)
-		return conn.QueryRowCtx(ctx, v, query, id, uid)
-	})
-	switch err {
-	case nil:
-		return &resp, nil
-	case sqlc.ErrNotFound:
-		return nil, ErrNotFound
-	default:
-		return nil, err
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	res := mysqlConn.Table(m.table).Where("id = ?", id).Where("req_uid = ?", uid).First(&resp)
+	if res.Error != nil && res.Error != gorm.ErrRecordNotFound {
+		return nil, res.Error
 	}
+	return &resp, nil
 }
 
 // ListFilterHandler 获取好友申请

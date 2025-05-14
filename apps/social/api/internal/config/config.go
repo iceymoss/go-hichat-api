@@ -10,6 +10,8 @@ type Config struct {
 
 	SocialRpc zrpc.RpcClientConf //连接rpc服务的，通过服务发现etcd去获取到rpc服务的配置
 
+	UserRpc zrpc.RpcClientConf
+
 	JwtAuth struct {
 		AccessSecret string
 		AccessExpire int64

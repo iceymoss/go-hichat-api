@@ -18,7 +18,7 @@ func FriendPutInListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		l := friend.NewFriendPutInListLogic(r.Context(), svcCtx)
+		l := friend.NewFriendPutInListLogic(r.Context(), svcCtx, r)
 		resp, err := l.FriendPutInList(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
