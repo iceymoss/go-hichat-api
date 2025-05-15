@@ -90,7 +90,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: group.GroupUserOnlineHandler(serverCtx),
 			},
 			{
-				// 用户申群列表
+				// 用户群列表
 				Method:  http.MethodGet,
 				Path:    "/groups",
 				Handler: group.GroupListHandler(serverCtx),

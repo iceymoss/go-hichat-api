@@ -107,9 +107,11 @@ type GroupPutInRep struct {
 	ReqMsg     string `json:"req_msg,omitempty"`
 	ReqTime    int64  `json:"req_time,omitempty"`
 	JoinSource int64  `json:"join_source,omitempty"`
+	InviterUid string `json:"inviter_uid"`
 }
 
 type GroupPutInResp struct {
+	GroupId int `json:"group_id"`
 }
 
 type GroupRequests struct {
@@ -146,6 +148,7 @@ type Groups struct {
 	Name            string `json:"name,omitempty"`
 	Icon            string `json:"icon,omitempty"`
 	Status          int64  `json:"status,omitempty"`
+	CreateUid       string `json:"create_uid,omitempty"`
 	GroupType       int64  `json:"group_type,omitempty"`
 	IsVerify        bool   `json:"is_verify,omitempty"`
 	Notification    string `json:"notification,omitempty"`

@@ -37,6 +37,8 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 	//  2. 群成员邀请： 如果群无验证直接进入
 	//  3. 群管理员/群创建者邀请：直接进入群
 
+	//todo: 还存在bug， 并且事务失效的
+
 	var (
 		inviteGroupMember socialmodels.GroupMembers
 		userGroupMember   socialmodels.GroupMembers
@@ -150,6 +152,8 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 }
 
 func (l *GroupPutinLogic) createGroupReq(groupReq *socialmodels.GroupRequests, isPass bool) (*social.GroupPutinResp, error) {
+
+	groupReq.HandleTime = time.Now()
 
 	_, err := l.svcCtx.GroupRequestsModel.Insert(l.ctx, groupReq)
 	if err != nil {
