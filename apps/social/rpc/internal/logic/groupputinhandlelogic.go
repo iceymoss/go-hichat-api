@@ -57,6 +57,12 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		Int64: int64(in.HandleResult),
 		Valid: true,
 	}
+	groupReq.HandleUserId = sql.NullString{
+		String: in.HandleUid,
+		Valid:  true,
+	}
+
+	groupReq.HandleTime = time.Now()
 
 	//更新申请状态
 	res := tx.Table(constants.GroupRequests).Where("id = ?", groupReq.Id).Save(&groupReq)
@@ -84,6 +90,7 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		OperatorUid: in.HandleUid,
 		JoinTime:    time.Now(),
 		InviterUid:  groupReq.InviterUserId.String,
+		JoinSource:  int(groupReq.JoinSource.Int64),
 	}
 
 	res = tx.Create(&groupMember)

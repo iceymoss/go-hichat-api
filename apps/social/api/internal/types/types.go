@@ -77,7 +77,7 @@ type GroupListResp struct {
 type GroupMembers struct {
 	Id            int64  `json:"id,omitempty"`
 	GroupId       string `json:"group_id,omitempty"`
-	UserId        string `json:"user_id,omitempty"`
+	User          User   `json:"user,omitempty"`
 	Nickname      string `json:"nickname,omitempty"`
 	UserAvatarUrl string `json:"user_avatar_url,omitempty"`
 	RoleLevel     int    `json:"role_level,omitempty"`
@@ -95,7 +95,9 @@ type GroupPutInHandleResp struct {
 }
 
 type GroupPutInListRep struct {
-	GroupId string `json:"group_id,omitempty"`
+	GroupId string  `json:"group_id,omitempty"`
+	Type    []int32 `json:"type"`
+	Class   int     `json:"class"`
 }
 
 type GroupPutInListResp struct {
@@ -116,8 +118,8 @@ type GroupPutInResp struct {
 
 type GroupRequests struct {
 	Id            int64  `json:"id,omitempty"`
-	UserId        string `json:"user_id,omitempty"`
-	GroupId       string `json:"group_id,omitempty"`
+	User          User   `json:"user,omitempty"`
+	Group         Groups `json:"group,omitempty"`
 	ReqMsg        string `json:"req_msg,omitempty"`
 	ReqTime       int64  `json:"req_time,omitempty"`
 	JoinSource    int64  `json:"join_source,omitempty"`
@@ -153,4 +155,13 @@ type Groups struct {
 	IsVerify        bool   `json:"is_verify,omitempty"`
 	Notification    string `json:"notification,omitempty"`
 	NotificationUid string `json:"notification_uid,omitempty"`
+}
+
+type User struct {
+	Id            string `json:"id"`
+	Nickname      string `json:"nickname"`
+	Sex           int    `json:"sex"`
+	Avatar        string `json:"avatar"`
+	Introduction  string `json "introduction"`
+	IsCurrentUser int    `json:"is_current_user"`
 }

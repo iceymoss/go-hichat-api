@@ -14,6 +14,8 @@ import (
 )
 
 type (
+	FindGroupListReq      = social.FindGroupListReq
+	FindGroupListResp     = social.FindGroupListResp
 	FriendListReq         = social.FriendListReq
 	FriendListResp        = social.FriendListResp
 	FriendPutInHandleReq  = social.FriendPutInHandleReq
@@ -53,6 +55,7 @@ type (
 		GroupPutInHandle(ctx context.Context, in *GroupPutInHandleReq, opts ...grpc.CallOption) (*GroupPutInHandleResp, error)
 		GroupList(ctx context.Context, in *GroupListReq, opts ...grpc.CallOption) (*GroupListResp, error)
 		GroupUsers(ctx context.Context, in *GroupUsersReq, opts ...grpc.CallOption) (*GroupUsersResp, error)
+		FindGroupList(ctx context.Context, in *FindGroupListReq, opts ...grpc.CallOption) (*FindGroupListResp, error)
 	}
 
 	defaultSocial struct {
@@ -116,4 +119,9 @@ func (m *defaultSocial) GroupList(ctx context.Context, in *GroupListReq, opts ..
 func (m *defaultSocial) GroupUsers(ctx context.Context, in *GroupUsersReq, opts ...grpc.CallOption) (*GroupUsersResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.GroupUsers(ctx, in, opts...)
+}
+
+func (m *defaultSocial) FindGroupList(ctx context.Context, in *FindGroupListReq, opts ...grpc.CallOption) (*FindGroupListResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.FindGroupList(ctx, in, opts...)
 }

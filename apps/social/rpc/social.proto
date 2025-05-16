@@ -55,6 +55,7 @@ message GroupRequests { //
   string inviterUid = 7; //邀请人
   string handleUid = 8; //处理人
   int32  handleResult = 9; // 处理结果
+  int64  handleResultTime = 10; // 处理时间
 }
 
 // req resp
@@ -116,6 +117,8 @@ message GroupPutinResp {
 message GroupPutinListReq {
   string groupId = 1;
   repeated int32  type = 2; //获取处理类型：未处理，已通过，已拒绝
+  int32  class = 3; //1：我发起的申请， 2：我接受到的申请
+  string userId = 4; // 用户id
 }
 message GroupPutinListResp {
   repeated GroupRequests list = 1;
@@ -146,6 +149,14 @@ message GroupUsersResp {
   repeated GroupMembers List = 1;
 }
 
+message FindGroupListReq {
+  repeated string ids = 1; //群id
+}
+
+message FindGroupListResp {
+  repeated Groups list = 1;
+}
+
 
 // svc
 service social {
@@ -163,4 +174,5 @@ service social {
   rpc GroupPutInHandle(GroupPutInHandleReq) returns(GroupPutInHandleResp);
   rpc GroupList(GroupListReq) returns (GroupListResp);
   rpc GroupUsers(GroupUsersReq) returns (GroupUsersResp);
+  rpc FindGroupList(FindGroupListReq) returns (FindGroupListResp);
 }

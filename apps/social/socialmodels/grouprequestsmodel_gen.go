@@ -35,9 +35,10 @@ type (
 		Insert(ctx context.Context, data *GroupRequests) (sql.Result, error)
 		FindOne(ctx context.Context, id int64) (*GroupRequests, error)
 		FindByGroupIdAndReqId(ctx context.Context, groupId, reqId string) (GroupRequests, error)
-		ListNoHandler(ctx context.Context, groupId string) ([]*GroupRequests, error)
 		Update(ctx context.Context, session sqlx.Session, data *GroupRequests) error
 		Delete(ctx context.Context, id int64) error
+		ListHandlerByGroup(ctx context.Context, groupId string, handleResult []int32) ([]*GroupRequests, error)
+		ListReqByUser(ctx context.Context, userId string) ([]*GroupRequests, error)
 	}
 
 	defaultGroupRequestsModel struct {
@@ -102,18 +103,28 @@ func (m *defaultGroupRequestsModel) FindByGroupIdAndReqId(ctx context.Context, g
 	return resp, err
 }
 
-func (m *defaultGroupRequestsModel) ListNoHandler(ctx context.Context, groupId string) ([]*GroupRequests, error) {
-	query := fmt.Sprintf("select %s from %s where `group_id` = ? and `handle_result` = 1 ", groupRequestsRows, m.table)
-
+// ListHandlerByGroup 获取加群申请列表
+func (m *defaultGroupRequestsModel) ListHandlerByGroup(ctx context.Context, groupId string, handleResult []int32) ([]*GroupRequests, error) {
 	var resp []*GroupRequests
-	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, groupId)
-
-	switch err {
-	case nil:
-		return resp, nil
-	default:
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	err := mysqlConn.Table(m.table).Where("group_id = ?", groupId).Where("handle_result in ?", handleResult).Find(&resp).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
+
+	return resp, nil
+}
+
+// ListReqByUser 获取用户群申请列表
+func (m *defaultGroupRequestsModel) ListReqByUser(ctx context.Context, userId string) ([]*GroupRequests, error) {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	var list []*GroupRequests
+	err := mysqlConn.Table(m.table).Where("req_id = ?", userId).Find(&list).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return list, nil
 }
 
 func (m *defaultGroupRequestsModel) Insert(ctx context.Context, data *GroupRequests) (sql.Result, error) {

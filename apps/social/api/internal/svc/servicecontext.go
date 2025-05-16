@@ -8,6 +8,7 @@ import (
 	"github.com/zeromicro/go-zero/zrpc"
 )
 
+// ServiceContext rpc配置，需要调用的模块都需要在这里配置
 type ServiceContext struct {
 	Config config.Config
 	Social socialclient.Social

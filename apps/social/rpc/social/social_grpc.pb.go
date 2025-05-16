@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.28.3
-// source: apps/social/rpc/social.proto
+// source: social.proto
 
 package social
 
@@ -29,6 +29,7 @@ const (
 	Social_GroupPutInHandle_FullMethodName  = "/social.social/GroupPutInHandle"
 	Social_GroupList_FullMethodName         = "/social.social/GroupList"
 	Social_GroupUsers_FullMethodName        = "/social.social/GroupUsers"
+	Social_FindGroupList_FullMethodName     = "/social.social/FindGroupList"
 )
 
 // SocialClient is the client API for Social service.
@@ -50,6 +51,7 @@ type SocialClient interface {
 	GroupPutInHandle(ctx context.Context, in *GroupPutInHandleReq, opts ...grpc.CallOption) (*GroupPutInHandleResp, error)
 	GroupList(ctx context.Context, in *GroupListReq, opts ...grpc.CallOption) (*GroupListResp, error)
 	GroupUsers(ctx context.Context, in *GroupUsersReq, opts ...grpc.CallOption) (*GroupUsersResp, error)
+	FindGroupList(ctx context.Context, in *FindGroupListReq, opts ...grpc.CallOption) (*FindGroupListResp, error)
 }
 
 type socialClient struct {
@@ -160,6 +162,16 @@ func (c *socialClient) GroupUsers(ctx context.Context, in *GroupUsersReq, opts .
 	return out, nil
 }
 
+func (c *socialClient) FindGroupList(ctx context.Context, in *FindGroupListReq, opts ...grpc.CallOption) (*FindGroupListResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FindGroupListResp)
+	err := c.cc.Invoke(ctx, Social_FindGroupList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SocialServer is the server API for Social service.
 // All implementations must embed UnimplementedSocialServer
 // for forward compatibility.
@@ -179,6 +191,7 @@ type SocialServer interface {
 	GroupPutInHandle(context.Context, *GroupPutInHandleReq) (*GroupPutInHandleResp, error)
 	GroupList(context.Context, *GroupListReq) (*GroupListResp, error)
 	GroupUsers(context.Context, *GroupUsersReq) (*GroupUsersResp, error)
+	FindGroupList(context.Context, *FindGroupListReq) (*FindGroupListResp, error)
 	mustEmbedUnimplementedSocialServer()
 }
 
@@ -218,6 +231,9 @@ func (UnimplementedSocialServer) GroupList(context.Context, *GroupListReq) (*Gro
 }
 func (UnimplementedSocialServer) GroupUsers(context.Context, *GroupUsersReq) (*GroupUsersResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupUsers not implemented")
+}
+func (UnimplementedSocialServer) FindGroupList(context.Context, *FindGroupListReq) (*FindGroupListResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FindGroupList not implemented")
 }
 func (UnimplementedSocialServer) mustEmbedUnimplementedSocialServer() {}
 func (UnimplementedSocialServer) testEmbeddedByValue()                {}
@@ -420,6 +436,24 @@ func _Social_GroupUsers_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Social_FindGroupList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindGroupListReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).FindGroupList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_FindGroupList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).FindGroupList(ctx, req.(*FindGroupListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Social_ServiceDesc is the grpc.ServiceDesc for Social service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -467,7 +501,11 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GroupUsers",
 			Handler:    _Social_GroupUsers_Handler,
 		},
+		{
+			MethodName: "FindGroupList",
+			Handler:    _Social_FindGroupList_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "apps/social/rpc/social.proto",
+	Metadata: "social.proto",
 }

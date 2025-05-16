@@ -46,9 +46,9 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 
 	// 验证是否有处理
 	switch constants.HandlerResult(firendReq.HandleResult) {
-	case constants.PassHandlerResult:
+	case constants.PassHandlerResult: //已经通过直接返回
 		return nil, errors.WithStack(ErrFriendReqBeforePass)
-	case constants.RefuseHandlerResult:
+	case constants.RefuseHandlerResult: //已经拒绝直接返回
 		return nil, errors.WithStack(ErrFriendReqBeforeRefuse)
 	}
 

@@ -2,6 +2,7 @@ package group
 
 import (
 	"context"
+	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
@@ -15,7 +16,7 @@ type GroupPutInHandleLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 申请进群处理
+// NewGroupPutInHandleLogic 申请进群处理
 func NewGroupPutInHandleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GroupPutInHandleLogic {
 	return &GroupPutInHandleLogic{
 		Logger: logx.WithContext(ctx),
@@ -25,7 +26,16 @@ func NewGroupPutInHandleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *GroupPutInHandleLogic) GroupPutInHandle(req *types.GroupPutInHandleRep) (resp *types.GroupPutInHandleResp, err error) {
-	// todo: add your logic here and delete this line
+	uid := l.ctx.Value(Identify).(string)
+	_, err = l.svcCtx.Social.GroupPutInHandle(l.ctx, &social.GroupPutInHandleReq{
+		GroupReqId:   req.GroupReqId,
+		GroupId:      req.GroupId,
+		HandleUid:    uid,
+		HandleResult: req.HandleResult,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	return
 }

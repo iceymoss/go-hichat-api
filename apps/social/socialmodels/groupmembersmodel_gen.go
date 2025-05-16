@@ -40,6 +40,7 @@ type (
 		ListByGroupId(ctx context.Context, groupId string) ([]*GroupMembers, error)
 		Update(ctx context.Context, data *GroupMembers) error
 		Delete(ctx context.Context, id int64) error
+		FindMemberByUid(ctx context.Context, groupId, uid string, filter []string) (*GroupMembers, error)
 	}
 
 	defaultGroupMembersModel struct {
@@ -80,20 +81,13 @@ func (m *defaultGroupMembersModel) Delete(ctx context.Context, id int64) error {
 }
 
 func (m *defaultGroupMembersModel) FindOne(ctx context.Context, id int64) (*GroupMembers, error) {
-	groupMembersIdKey := fmt.Sprintf("%s%v", cacheGroupMembersIdPrefix, id)
 	var resp GroupMembers
-	err := m.QueryRowCtx(ctx, &resp, groupMembersIdKey, func(ctx context.Context, conn sqlx.SqlConn, v interface{}) error {
-		query := fmt.Sprintf("select %s from %s where `id` = ? limit 1", groupMembersRows, m.table)
-		return conn.QueryRowCtx(ctx, v, query, id)
-	})
-	switch err {
-	case nil:
-		return &resp, nil
-	case sqlc.ErrNotFound:
-		return nil, ErrNotFound
-	default:
+	err := m.mysqlConn.Table(m.table).Where("id = ?", id).First(&resp).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
+
+	return &resp, nil
 }
 
 func (m *defaultGroupMembersModel) FindByGroudIdAndUserId(ctx context.Context, userId, groupId string) (GroupMembers, error) {
@@ -104,7 +98,16 @@ func (m *defaultGroupMembersModel) FindByGroudIdAndUserId(ctx context.Context, u
 	}
 
 	return resp, nil
+}
 
+func (m *defaultGroupMembersModel) FindMemberByUid(ctx context.Context, groupId, uid string, filter []string) (*GroupMembers, error) {
+	var member GroupMembers
+	err := m.mysqlConn.Table(m.table).Select(filter).Where("group_id = ?", groupId).Where("user_id = ?", uid).First(&member).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return &member, nil
 }
 
 func (m *defaultGroupMembersModel) ListByUserId(ctx context.Context, userId string) ([]*GroupMembers, error) {

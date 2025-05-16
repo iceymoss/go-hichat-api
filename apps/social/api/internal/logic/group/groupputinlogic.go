@@ -17,7 +17,7 @@ type GroupPutInLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 申请进群
+// NewGroupPutInLogic 申请进群
 func NewGroupPutInLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GroupPutInLogic {
 	return &GroupPutInLogic{
 		Logger: logx.WithContext(ctx),
@@ -29,12 +29,12 @@ func NewGroupPutInLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GroupP
 func (l *GroupPutInLogic) GroupPutIn(req *types.GroupPutInRep) (resp *types.GroupPutInResp, err error) {
 	uid := l.ctx.Value(Identify).(string)
 	res, err := l.svcCtx.Social.GroupPutin(l.ctx, &social.GroupPutinReq{
-		GroupId:    req.GroupId,
-		ReqId:      uid,
-		ReqMsg:     req.ReqMsg,
-		ReqTime:    time.Now().Unix(),
-		JoinSource: int32(req.JoinSource),
-		InviterUid: req.InviterUid,
+		GroupId:    req.GroupId,           // 群id
+		ReqId:      uid,                   // 请求者
+		ReqMsg:     req.ReqMsg,            // 请求消息
+		ReqTime:    time.Now().Unix(),     //请求时间
+		JoinSource: int32(req.JoinSource), //请求来源
+		InviterUid: req.InviterUid,        //邀请人
 	})
 	if err != nil {
 		return nil, err
