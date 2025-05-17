@@ -1,2 +1,6 @@
 Name: im.ws
 ListenOn: 0.0.0.0:10090
+
+JwtAuth:
+  AccessSecret: iceymoss.hichat.hichat2.com
+  AccessExpire: 8640000

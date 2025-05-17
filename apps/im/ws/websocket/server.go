@@ -64,8 +64,9 @@ func (s *Server) ServerWs(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// 权限校验
-	if !s.authentication.Auth(s, w, r) {
+	if !s.authentication.Auth(w, r) {
 		s.Info("authentication failed")
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 

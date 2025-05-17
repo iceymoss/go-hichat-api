@@ -8,7 +8,7 @@ import (
 
 type Authentication interface {
 	// Auth 用户权限校验
-	Auth(s *Server, w http.ResponseWriter, r *http.Request) bool
+	Auth(w http.ResponseWriter, r *http.Request) bool
 
 	// UserId 获取用户id
 	UserId(r *http.Request) string
@@ -16,8 +16,7 @@ type Authentication interface {
 
 type authentication struct{}
 
-func (*authentication) Auth(s *Server, w http.ResponseWriter, r *http.Request) bool {
-	fmt.Println("token:", r.Header.Get("Authorization"))
+func (*authentication) Auth(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
