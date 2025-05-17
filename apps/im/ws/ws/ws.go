@@ -23,10 +23,12 @@ func main() {
 		panic(err)
 	}
 
-	srv := websocketServer.NewServer(c.ListenOn)
-	defer srv.Stop()
-
 	ctx := svc.NewServiceContext(c)
+
+	// 实例化websocket服务
+	srv := websocketServer.NewServer(c.ListenOn,
+		websocketServer.WithAuthentication(handler.NewJwtAuto(ctx)))
+	defer srv.Stop()
 
 	// 处理处理方法
 	handler.RegisterHandlers(srv, ctx)

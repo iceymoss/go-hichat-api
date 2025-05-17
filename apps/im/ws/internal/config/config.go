@@ -11,4 +11,9 @@ type Config struct {
 
 	// 服务监听地址
 	ListenOn string
+
+	JwtAuth struct {
+		AccessSecret string
+		AccessExpire int64
+	}
 }
