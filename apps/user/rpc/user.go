@@ -18,10 +18,10 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-var configFile = flag.String("f", "etc/local/user.yaml", "the config file")
+var configFile = flag.String("f", "etc/user-local.yaml", "the config file")
 
 func main() {
-	pkcCfg.InitConfig("local", "", "/Users/iceymoss/project/go-hichat-api/config/")
+	pkcCfg.InitConfig("local", "", "config")
 	flag.Parse()
 
 	var c config.Config
