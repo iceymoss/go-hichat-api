@@ -1,0 +1,10 @@
+syntax = "v1"
+
+info (
+    title: "im服务实例api"
+    author: "iceymoss"
+)
+
+    // -------------- im api v1 --------------
+
+
