@@ -27,10 +27,10 @@ type Server struct {
 	routes map[string]HandlerFunc
 
 	// 用户绑定连接
-	user2Conn map[string]*websocket.Conn
+	user2Conn map[string]*Conn
 
 	// 连接绑定用户
-	conn2User map[*websocket.Conn]string
+	conn2User map[*Conn]string
 
 	// 用户权限相关
 	authentication Authentication
@@ -48,8 +48,8 @@ func NewServer(addr string, opt ...Options) *Server {
 		addr:           addr,
 		upGrader:       websocket.Upgrader{},
 		routes:         make(map[string]HandlerFunc),
-		user2Conn:      make(map[string]*websocket.Conn),
-		conn2User:      make(map[*websocket.Conn]string),
+		user2Conn:      make(map[string]*Conn),
+		conn2User:      make(map[*Conn]string),
 		authentication: newOption(opt...),
 		Logger:         logx.WithContext(context.Background()),
 	}
@@ -70,10 +70,9 @@ func (s *Server) ServerWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 向请求变为websocket
-	conn, err := s.upGrader.Upgrade(w, r, nil)
-	if err != nil {
-		s.Error("upgrade http conn err", err)
+	//
+	conn := NewConn(s, w, r)
+	if conn == nil {
 		return
 	}
 
@@ -84,7 +83,7 @@ func (s *Server) ServerWs(w http.ResponseWriter, r *http.Request) {
 }
 
 // handlerConn 监听连接上的消息
-func (s *Server) handlerConn(conn *websocket.Conn) {
+func (s *Server) handlerConn(conn *Conn) {
 	// 记录连接
 	for {
 		_, msg, err := conn.ReadMessage()
@@ -104,11 +103,21 @@ func (s *Server) handlerConn(conn *websocket.Conn) {
 			return
 		}
 
-		// 获取处理方法
-		if handler, ok := s.routes[message.Method]; ok {
-			handler(s, conn, &message)
-		} else {
-			conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("不存在请求方法 %v 请仔细检查", message.Method)))
+		switch message.FrameType {
+		case FramePing: //心跳检查
+			//ping: 做回应
+			s.Send(&Message{FrameType: FramePing})
+		case FrameData:
+			// 处理正常消息逻辑
+			if handler, ok := s.routes[message.Method]; ok {
+				handler(s, conn, &message)
+			} else {
+				conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("不存在请求方法 %v 请仔细检查", message.Method)))
+				s.Send(&Message{
+					FrameType: FrameData,
+					Data:      fmt.Sprintf("不存在此方法tag: %s 请核对后重试", message.Method),
+				})
+			}
 		}
 	}
 }
@@ -125,7 +134,7 @@ func (s *Server) SendByUserId(msg interface{}, sendIds ...string) error {
 }
 
 // Send push消息到一个或者多个conn中
-func (s *Server) Send(msg interface{}, conns ...*websocket.Conn) error {
+func (s *Server) Send(msg interface{}, conns ...*Conn) error {
 	if len(conns) == 0 {
 		return nil
 	}
@@ -151,12 +160,21 @@ func (s *Server) AddRoutes(rs []Route) {
 }
 
 // addConn 添加连接和用户的映射
-func (s *Server) addConn(conn *websocket.Conn, req *http.Request) {
+func (s *Server) addConn(conn *Conn, req *http.Request) {
 	uid := s.authentication.UserId(req)
 
 	fmt.Println("连接池:", len(s.user2Conn))
 	s.RWMutex.Lock()
 	defer s.RWMutex.Unlock()
+
+	// 原有已经存在了连接, 就旧连接关闭，加入新连接
+	if c := s.user2Conn[uid]; c != nil {
+		fmt.Println("关闭旧连接:", s.user2Conn, "uid:", uid)
+		//这里需要关闭将原来的conn => uid 和 uid => conn 处理掉
+		delete(s.user2Conn, uid)
+		delete(s.conn2User, c)
+		c.Close()
+	}
 
 	s.user2Conn[uid] = conn
 	s.conn2User[conn] = uid
@@ -164,19 +182,19 @@ func (s *Server) addConn(conn *websocket.Conn, req *http.Request) {
 	fmt.Println("连接池变化:", len(s.user2Conn))
 }
 
-func (s *Server) GetConn(uids []string) []*websocket.Conn {
+func (s *Server) GetConn(uids []string) []*Conn {
 	s.RWMutex.RLock()
 	defer s.RWMutex.RUnlock()
 
 	if len(uids) == 0 {
-		res := make([]*websocket.Conn, 0, len(s.user2Conn))
+		res := make([]*Conn, 0, len(s.user2Conn))
 		for _, conn := range s.user2Conn {
 			res = append(res, conn)
 		}
 		return res
 	}
 
-	res := make([]*websocket.Conn, 0, len(uids))
+	res := make([]*Conn, 0, len(uids))
 	for _, uid := range uids {
 		if conn, ok := s.user2Conn[uid]; ok {
 			res = append(res, conn)
@@ -187,7 +205,7 @@ func (s *Server) GetConn(uids []string) []*websocket.Conn {
 }
 
 // GetUsers 根据连接获取用户id
-func (s *Server) GetUsers(conns []*websocket.Conn) []string {
+func (s *Server) GetUsers(conns []*Conn) []string {
 	s.RWMutex.RLock()
 	defer s.RUnlock()
 
@@ -221,18 +239,24 @@ func (s *Server) Stop() {
 }
 
 // Close 关闭连接
-func (s *Server) Close(conn *websocket.Conn) {
-	conn.Close()
-
+func (s *Server) Close(conn *Conn) {
 	s.RWMutex.Lock()
 	defer s.RWMutex.Unlock()
 
+	// 避免出现重复关闭问题
+	uid := s.conn2User[conn]
+	fmt.Println("关闭旧连接1:", s.user2Conn, "conn2User:", s.conn2User)
+	fmt.Println("conn:", conn, "uid:", uid)
+	if uid == "" {
+		return
+	}
+
 	fmt.Println("退出连接池:", len(s.user2Conn))
 
-	// 关闭连接需要维护"连接-用户"关系
-	uid := s.conn2User[conn]
 	delete(s.conn2User, conn)
 	delete(s.user2Conn, uid)
+
+	conn.Close()
 
 	fmt.Println("退出连接池变化", len(s.conn2User))
 }

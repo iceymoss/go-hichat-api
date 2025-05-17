@@ -1,15 +1,28 @@
 package websocket
 
+type FrameType uint8
+
+const (
+	// FrameData 普通消息
+	FrameData FrameType = 0x0
+
+	// FramePing 检查消息
+	FramePing FrameType = 0x1
+)
+
 type Message struct {
-	Method string      `json:"method,omitempty"` // 方法
-	UserId string      `json:"userId,omitempty"` // 接受人
-	FormId string      `json:"formId,omitempty"` // 发起人
-	Data   interface{} `json:"data,omitempty"`   // 消息内容
+	FrameType `json:"frameType"`
+	Method    string      `json:"method,omitempty"`
+	UserId    string      `json:"userId,omitempty"`
+	FormId    string      `json:"formId,omitempty"`
+	Data      interface{} `json:"data,omitempty"`
 }
 
-func NewMessage(fid string, data interface{}) *Message {
+func NewMessage(srv *Server, conn *Conn, data interface{}) *Message {
+	fid := srv.GetUsers([]*Conn{conn})[0]
 	return &Message{
-		FormId: fid,
-		Data:   data,
+		FrameType: FrameData,
+		FormId:    fid,
+		Data:      data,
 	}
 }
