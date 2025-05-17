@@ -39,6 +39,7 @@ start_service rpc user
 start_service api user
 start_service rpc social
 start_service api social
+start_service rpc im
 
 # 阻塞主进程，直到收到终止信号
 echo "所有服务已启动，按 Ctrl+C 停止"

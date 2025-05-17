@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package im;
+
+option go_package = "./im";
+
+
+message Request {
+  string ping = 1;
+}
+
+message Response {
+  string pong = 1;
+}
+
+service Im {
+  rpc Ping(Request) returns (Response);
+}

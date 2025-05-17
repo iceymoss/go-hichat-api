@@ -4,12 +4,12 @@ import (
 	"flag"
 	"fmt"
 	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
-	"github.com/iceymoss/go-hichat-api/pkg/interceptor/rpcserver"
 
-	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/config"
-	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/server"
-	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
-	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/config"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/server"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
+
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/zrpc"
@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-var configFile = flag.String("f", "etc/social-local.yaml", "the config file")
+var configFile = flag.String("f", "etc/im-local.yaml", "the config file")
 
 func main() {
 	flag.Parse()
@@ -28,16 +28,13 @@ func main() {
 	conf.MustLoad(*configFile, &c)
 	ctx := svc.NewServiceContext(c)
 
-	fmt.Println("config:", pkcCfg.ServiceConf)
-
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
-		social.RegisterSocialServer(grpcServer, server.NewSocialServer(ctx))
+		im.RegisterImServer(grpcServer, server.NewImServer(ctx))
 
 		if c.Mode == service.DevMode || c.Mode == service.TestMode {
 			reflection.Register(grpcServer)
 		}
 	})
-	s.AddUnaryInterceptors(rpcserver.LogInterceptor)
 	defer s.Stop()
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
