@@ -34,6 +34,6 @@ func GetMongoConn() *mongo.Client {
 		conn = client
 		mongoMutex.Unlock()
 	}
-	return conn
 
+	return conn
 }

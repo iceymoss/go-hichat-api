@@ -5,63 +5,126 @@ package model
 
 import (
 	"context"
-	"time"
-
-	"github.com/zeromicro/go-zero/core/stores/mon"
+	"fmt"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"time"
 )
 
+const (
+	HiChat2  = "hichat2"
+	ChatLogs = "chat_logs"
+)
+
+type ChatLogQuery struct {
+	ConversationID string
+	StartTime      int64
+	EndTime        int64
+	Status         *int
+	MsgType        *constants.MType
+	Page           int
+	PageSize       int
+}
+
 type chatLogModel interface {
-	Insert(ctx context.Context, data *ChatLog) error
-	FindOne(ctx context.Context, id string) (*ChatLog, error)
-	Update(ctx context.Context, data *ChatLog) (*mongo.UpdateResult, error)
+	Insert(ctx context.Context, log *ChatLog) (*primitive.ObjectID, error)
 	Delete(ctx context.Context, id string) (int64, error)
+	FindByQuery(ctx context.Context, q ChatLogQuery) ([]*ChatLog, int64, error)
+	Update(ctx context.Context, data *ChatLog) (*mongo.UpdateResult, error)
 }
 
 type defaultChatLogModel struct {
-	conn *mon.Model
+	Conn *mongo.Client
 }
 
-func newDefaultChatLogModel(conn *mon.Model) *defaultChatLogModel {
-	return &defaultChatLogModel{conn: conn}
+func newDefaultChatLogModel(conn *mongo.Client) *defaultChatLogModel {
+	return &defaultChatLogModel{
+		Conn: conn,
+	}
 }
 
-func (m *defaultChatLogModel) Insert(ctx context.Context, data *ChatLog) error {
-	if data.ID.IsZero() {
-		data.ID = primitive.NewObjectID()
-		data.CreateAt = time.Now()
-		data.UpdateAt = time.Now()
+// Insert 插入新聊天记录
+func (m *defaultChatLogModel) Insert(ctx context.Context, log *ChatLog) (*primitive.ObjectID, error) {
+	now := time.Now()
+	log.CreateAt = now
+	log.UpdateAt = now
+
+	if log.SendTime == 0 {
+		log.SendTime = now.UnixMilli()
 	}
 
-	_, err := m.conn.InsertOne(ctx, data)
-	return err
-}
-
-func (m *defaultChatLogModel) FindOne(ctx context.Context, id string) (*ChatLog, error) {
-	oid, err := primitive.ObjectIDFromHex(id)
+	res, err := m.Conn.Database(HiChat2).Collection(ChatLogs).InsertOne(ctx, log)
 	if err != nil {
-		return nil, ErrInvalidObjectId
-	}
-
-	var data ChatLog
-
-	err = m.conn.FindOne(ctx, &data, bson.M{"_id": oid})
-	switch err {
-	case nil:
-		return &data, nil
-	case mon.ErrNotFound:
-		return nil, ErrNotFound
-	default:
+		if mongo.IsDuplicateKeyError(err) {
+			return nil, errors.New(fmt.Sprintf("IsDuplicateKeyError: %s", err.Error()))
+		}
 		return nil, err
 	}
+
+	id := res.InsertedID.(primitive.ObjectID)
+	return &id, nil
+}
+
+// FindByQuery 高级查询
+func (m *defaultChatLogModel) FindByQuery(ctx context.Context, q ChatLogQuery) ([]*ChatLog, int64, error) {
+	filter := bson.M{}
+
+	// 构建过滤条件
+	if q.ConversationID != "" {
+		filter["conversationId"] = q.ConversationID
+	}
+	if q.StartTime > 0 || q.EndTime > 0 {
+		timeFilter := bson.M{}
+		if q.StartTime > 0 {
+			timeFilter["$gte"] = q.StartTime
+		}
+		if q.EndTime > 0 {
+			timeFilter["$lte"] = q.EndTime
+		}
+		filter["sendTime"] = timeFilter
+	}
+	if q.Status != nil {
+		filter["status"] = *q.Status
+	}
+	if q.MsgType != nil {
+		filter["msgType"] = *q.MsgType
+	}
+
+	// 分页参数
+	opts := options.Find().
+		SetSort(bson.D{{Key: "sendTime", Value: -1}}).
+		SetSkip(int64((q.Page - 1) * q.PageSize)).
+		SetLimit(int64(q.PageSize))
+
+	// 执行查询
+	cur, err := m.Conn.Database(HiChat2).Collection(ChatLogs).Find(ctx, filter, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cur.Close(ctx)
+
+	var results []*ChatLog
+	if err := cur.All(ctx, &results); err != nil {
+		return nil, 0, err
+	}
+
+	// 获取总数
+	total, err := m.Conn.Database(HiChat2).Collection(ChatLogs).CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return results, total, nil
 }
 
 func (m *defaultChatLogModel) Update(ctx context.Context, data *ChatLog) (*mongo.UpdateResult, error) {
 	data.UpdateAt = time.Now()
 
-	res, err := m.conn.UpdateOne(ctx, bson.M{"_id": data.ID}, bson.M{"$set": data})
+	res, err := m.Conn.Database(HiChat2).Collection(ChatLogs).UpdateOne(ctx, bson.M{"_id": data.ID}, bson.M{"$set": data})
 	return res, err
 }
 
@@ -71,6 +134,6 @@ func (m *defaultChatLogModel) Delete(ctx context.Context, id string) (int64, err
 		return 0, ErrInvalidObjectId
 	}
 
-	res, err := m.conn.DeleteOne(ctx, bson.M{"_id": oid})
-	return res, err
+	res, err := m.Conn.Database(HiChat2).Collection(ChatLogs).DeleteOne(ctx, bson.M{"_id": oid})
+	return res.DeletedCount, err
 }

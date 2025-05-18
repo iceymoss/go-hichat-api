@@ -1,38 +1,49 @@
-package main
+package ws
 
-import (
-	"flag"
-	"fmt"
-	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/handler"
+import "github.com/iceymoss/go-hichat-api/pkg/constants"
 
-	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/config"
-	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/svc"
-	websocketServer "github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
-	"github.com/zeromicro/go-zero/core/conf"
-)
+type Msg struct {
+	constants.MType `mapstructure:"mType"`
+	Content         string `mapstructure:"content"`
+}
 
-var configFile = flag.String("f", "apps/im/ws/etc/im-local.yaml", "the config file")
+// Chat 聊天会话， message 结构中的data字段
+type Chat struct {
+	// 会话id
+	ConversationId string `mapstructure:"conversationId"`
 
-func main() {
-	flag.Parse()
+	// 聊天类型
+	constants.ChatType `mapstructure:"chatType"`
 
-	var c config.Config
-	conf.MustLoad(*configFile, &c)
+	// 发送者
+	SendId string `mapstructure:"sendId"`
 
-	if err := c.SetUp(); err != nil {
-		panic(err)
-	}
+	// 接收者
+	RecvId string `mapstructure:"recvId"`
 
-	ctx := svc.NewServiceContext(c)
+	// 发送时间
+	SendTime int64 `mapstructure:"sendTime"`
 
-	// 实例化websocket服务
-	srv := websocketServer.NewServer(c.ListenOn,
-		websocketServer.WithAuthentication(handler.NewJwtAuto(ctx)))
-	defer srv.Stop()
+	// 发送内容
+	Msg `mapstructure:"msg"`
+}
 
-	// 处理处理方法
-	handler.RegisterHandlers(srv, ctx)
+type Push struct {
+	// 会话id
+	ConversationId string `mapstructure:"conversationId"`
 
-	fmt.Printf("Starting websocket server at %v ...\n", c.ListenOn)
-	srv.Start()
+	// 聊天类型
+	constants.ChatType `mapstructure:"chatType"`
+
+	// 发送者
+	SendId string `mapstructure:"sendId"`
+
+	// 接收者
+	RecvId string `mapstructure:"recvId"`
+
+	// 发送时间
+	SendTime int64 `mapstructure:"sendTime"`
+
+	constants.MType `mapstructure:"mType"`
+	Content         string `mapstructure:"content"`
 }

@@ -21,7 +21,7 @@ start_service() {
       go run "apps/$app_dir/api/$app_dir.go" -f "apps/$app_dir/api/etc/${app_dir}-local.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
       ;;
     im)
-      go run "apps/$app_dir/ws/ws/ws.go" -f "apps/$app_dir/ws/etc/${app_dir}-local.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
+      go run "apps/$app_dir/ws/im.go" -f "apps/$app_dir/ws/etc/${app_dir}-local.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
       ;;
   esac
 
