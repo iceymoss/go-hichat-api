@@ -8,6 +8,9 @@ const (
 
 	// FramePing 检查消息
 	FramePing FrameType = 0x1
+
+	// FrameErr 错误消息
+	FrameErr FrameType = 0x2
 )
 
 type Message struct {
@@ -24,5 +27,12 @@ func NewMessage(srv *Server, conn *Conn, data interface{}) *Message {
 		FrameType: FrameData,
 		FormId:    fid,
 		Data:      data,
+	}
+}
+
+func NewErrMessage(err error) *Message {
+	return &Message{
+		FrameType: FrameErr,
+		Data:      err.Error(),
 	}
 }
