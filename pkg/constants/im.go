@@ -7,22 +7,26 @@ type MType int
 type ChatType int
 
 const (
-	// ChatMsg 聊天类型
-	ChatMsg MType = iota + 1
+	// TextMType 文中
+	TextMType MType = iota + 1
 
-	// FileMsg 文件类型
-	FileMsg
+	// FileMType 文件类型
+	FileMType
 
-	// VoiceMsg 语音类型
-	VoiceMsg
+	// VoiceMType 语音类型
+	VoiceMType
 
-	// ImageMsg 图片类型
-	ImageMsg
+	// ImageMType 图片类型
+	ImageMType
 
-	// MemesMsg 表情包类型
+	// MemesMType 表情包类型
+	MemesMType
 )
 
 const (
-	UserType ChatType = iota + 1
-	GroupType
+	// SingleChatType 单聊
+	SingleChatType ChatType = iota + 1
+
+	// GroupChatType 群聊
+	GroupChatType
 )
