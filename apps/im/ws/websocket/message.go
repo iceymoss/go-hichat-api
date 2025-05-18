@@ -11,6 +11,9 @@ const (
 
 	// FrameErr 错误消息
 	FrameErr FrameType = 0x2
+
+	// FrameNoAck 不应答
+	FrameNoAck FrameType = 0x3
 )
 
 type Message struct {
@@ -21,11 +24,19 @@ type Message struct {
 	Data      interface{} `json:"data,omitempty"`
 }
 
-func NewMessage(srv *Server, conn *Conn, data interface{}) *Message {
+func NewMessageTest(srv *Server, conn *Conn, data interface{}) *Message {
 	fid := srv.GetUsers([]*Conn{conn})[0]
 	return &Message{
 		FrameType: FrameData,
 		FormId:    fid,
+		Data:      data,
+	}
+}
+
+func NewMessage(formId string, data interface{}) *Message {
+	return &Message{
+		FrameType: FrameData,
+		FormId:    formId,
 		Data:      data,
 	}
 }

@@ -49,7 +49,7 @@ func (l *UserLogic) Chat(data *ws.Chat, userId string) error {
 		SendId:         userId,
 		RecvId:         data.RecvId,
 		SendTime:       now,
-		MType:          constants.ChatMsg,
+		MType:          constants.TextMType,
 		Content:        data.Content,
 	}
 
