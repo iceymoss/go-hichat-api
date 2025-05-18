@@ -1,6 +1,6 @@
 package model
 
-import "github.com/iceymoss/go-hichat-api/pkg/db"
+import "github.com/zeromicro/go-zero/core/stores/mon"
 
 var _ ChatLogModel = (*customChatLogModel)(nil)
 
@@ -17,9 +17,9 @@ type (
 )
 
 // NewChatLogModel returns a model for the mongo.
-func NewChatLogModel() ChatLogModel {
-	mongoConn := db.GetMongoConn()
+func NewChatLogModel(url, db, collection string) ChatLogModel {
+	conn := mon.MustNewModel(url, db, collection)
 	return &customChatLogModel{
-		defaultChatLogModel: newDefaultChatLogModel(mongoConn),
+		defaultChatLogModel: newDefaultChatLogModel(conn),
 	}
 }

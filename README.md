@@ -22,9 +22,23 @@ go-hichat-api是HiChat的2.0版本，其模块拆分，使用微服务架构，�
 > GET /v1/user/detail HTTP/1.1
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
+## 需要的配置
+MongoDB：
+```shell
+docker run -d \
+  --name mongo \
+  -p 27017:27017 \
+  -e MONGO_INITDB_ROOT_USERNAME=root \
+  -e MONGO_INITDB_ROOT_PASSWORD=hichat2 \
+  -v "/Users/iceymoss/docker-volume/mongo-data:/data/db" \
+  --restart always \
+  mongo:4.0
+```
 
 ## 如何启动
 直接运行hichat2.sh启动
 ```shell
 ./hichat2.sh
 ```
+
+

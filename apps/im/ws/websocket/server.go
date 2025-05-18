@@ -70,9 +70,10 @@ func (s *Server) ServerWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//
+	// 构造websocket连接
 	conn := NewConn(s, w, r)
 	if conn == nil {
+		zLog.Error("ServerWs.NewConn: build websocket failed")
 		return
 	}
 
@@ -99,8 +100,9 @@ func (s *Server) handlerConn(conn *Conn) {
 		err = json.Unmarshal(msg, &message)
 		if err != nil {
 			zLog.Error("handlerConn.Unmarshal: unmarshal failed ", zap.Error(err))
-			s.Close(conn)
-			return
+			s.Send(NewErrMessage(err), conn)
+			//s.Close(conn)
+			continue
 		}
 
 		switch message.FrameType {
