@@ -32,7 +32,7 @@ type Push struct {
 	// 会话id
 	ConversationId string `mapstructure:"conversationId"`
 
-	// 聊天类型
+	// 聊天类型：1. 私聊、2. 群聊
 	constants.ChatType `mapstructure:"chatType"`
 
 	// 发送者

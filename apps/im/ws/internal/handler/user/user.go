@@ -9,7 +9,7 @@ func OnLine(svc *svc.ServiceContext) libWebsocket.HandlerFunc {
 	return func(srv *libWebsocket.Server, conn *libWebsocket.Conn, msg *libWebsocket.Message) {
 		uids := srv.GetUsers(nil)
 		connList := srv.GetConn(nil)
-		err := srv.Send(libWebsocket.NewMessage(srv, conn, uids), connList...)
+		err := srv.Send(libWebsocket.NewMessageTest(srv, conn, uids), connList...)
 		srv.Info("err ", err)
 	}
 }
