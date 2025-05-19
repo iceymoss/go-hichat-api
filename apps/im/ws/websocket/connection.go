@@ -46,9 +46,12 @@ func NewConn(s *Server, w http.ResponseWriter, r *http.Request) *Conn {
 		return nil
 	}
 
+	uid := s.authentication.UserId(r)
+
 	conn := &Conn{
 		Conn:              c,
 		s:                 s,
+		Uid:               uid,
 		idle:              time.Now(),
 		readMessage:       make([]*Message, 0, 2),
 		readMessageSeq:    make(map[string]*Message, 2),

@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"go.uber.org/zap"
 	"net/url"
+	"sync"
 )
 
 // Client websocket 的客户端
@@ -18,6 +21,7 @@ type client struct {
 	*websocket.Conn
 	host string
 	opt  dailOption
+	mu   sync.Mutex
 }
 
 func NewClient(host string, opts ...DailOptions) *client {
@@ -27,6 +31,10 @@ func NewClient(host string, opts ...DailOptions) *client {
 		opt:  opt,
 		host: host,
 	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	conn, err := c.dail()
 	if err != nil {
 		panic(err)
@@ -47,17 +55,25 @@ func (c *client) dail() (*websocket.Conn, error) {
 func (c *client) Send(v any) error {
 	data, err := json.Marshal(v)
 	if err != nil {
+		zLog.Error("Send.Marshal: json marshal failed", zap.Any("msg", string(data)), zap.Error(err))
 		return err
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	err = c.WriteMessage(websocket.TextMessage, data)
 	if err == nil {
+		zLog.Info("Send.WriteMessage: push to websocket succeed", zap.Any("message", data))
 		return nil
 	}
+
+	zLog.Error("Send.WriteMessage: push data to websocket serve failed", zap.Any("msg", string(data)), zap.Error(err))
 
 	// 发送失败了再建立一次连接
 	conn, cerr := c.dail()
 	if cerr != nil {
+		zLog.Error("Send.dail: dail websocket serve failed", zap.Any("message", data), zap.Error(err))
 		return err
 	}
 	c.Conn = conn

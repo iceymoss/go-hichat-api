@@ -4,3 +4,9 @@ ListenOn: 0.0.0.0:10090
 JwtAuth:
   AccessSecret: iceymoss.hichat.hichat2.com
   AccessExpire: 8640000
+
+
+MsgChatTransfer:
+  Topic: msgChatTransfer
+  Addrs:
+    - 127.0.0.1:9092

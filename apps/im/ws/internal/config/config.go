@@ -16,4 +16,9 @@ type Config struct {
 		AccessSecret string
 		AccessExpire int64
 	}
+
+	MsgChatTransfer struct {
+		Addrs []string
+		Topic string
+	}
 }
