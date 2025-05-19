@@ -13,9 +13,9 @@ type MsgChatTransfer struct {
 	RecvId string `json:"recvId"`
 
 	// 消息类型
-	MsgType constants.MType `json:"msgTyp,omitempty"`
+	MsgType constants.MType `json:"mType,omitempty"`
 	// 消息内容
-	MsgContent string `json:"msgContent,omitempty"`
+	MsgContent string `json:"content,omitempty"`
 	// 发送时间
 	SendTime int64 `json:"sendTime"`
 }

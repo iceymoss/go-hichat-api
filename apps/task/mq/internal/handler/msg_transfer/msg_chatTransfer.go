@@ -3,10 +3,13 @@ package msg_transfer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	model "github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"go.uber.org/zap"
 
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/svc"
 	"github.com/zeromicro/go-queue/kq"
@@ -37,6 +40,8 @@ func (m *MsgChatTransfer) Consume(ctx context.Context, key, value string) error 
 		return err
 	}
 
+	fmt.Printf("已经收到消息了: %+v\n", data)
+
 	// 写入数据库（如 MongoDB 聊天记录）
 	if err := m.addChatLog(ctx, data); err != nil {
 		return err
@@ -46,9 +51,12 @@ func (m *MsgChatTransfer) Consume(ctx context.Context, key, value string) error 
 	err := m.svcCtx.WsClient.Send(websocket.Message{
 		FrameType: websocket.FrameNoAck,
 		Method:    "push",
-		FormId:    constants.SYSTEM_ROOT_UID,
+		FormId:    constants.REDIS_SYSTEM_ROOT_TOEKN,
 		Data:      data,
 	})
+	if err != nil {
+		zLog.Error("Consume.Send: push to websocket serve failed", zap.Any("msg", data), zap.Error(err))
+	}
 
 	//todo:
 	// 4.错误处理（重试队列/DLQ）
