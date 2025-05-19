@@ -33,7 +33,7 @@ func NewUserLogic(ctx context.Context, srv *websocket.Server, svcCtx *svc.Servic
 	}
 }
 
-// Chat 聊天，构建聊天内容
+// Chat 聊天，构建聊天内容，同步版本:直接写入数据库和推送给客户端
 func (l *UserLogic) Chat(data *ws.Chat, userId string) error {
 	if data.ConversationId == "" {
 		// 生成会话

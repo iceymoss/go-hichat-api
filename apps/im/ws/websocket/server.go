@@ -99,7 +99,7 @@ func (s *Server) handlerConn(conn *Conn) {
 		var message Message
 		err = json.Unmarshal(msg, &message)
 		if err != nil {
-			zLog.Error("handlerConn.Unmarshal: unmarshal failed ", zap.Error(err))
+			zLog.Error("handlerConn.Unmarshal: unmarshal failed ", zap.Any("msg", string(msg)), zap.Error(err))
 			s.Send(NewErrMessage(err), conn)
 			//s.Close(conn)
 			continue
@@ -109,7 +109,7 @@ func (s *Server) handlerConn(conn *Conn) {
 		case FramePing: //心跳检查
 			//ping: 做回应
 			s.Send(&Message{FrameType: FramePing})
-		case FrameData:
+		case FrameData, FrameNoAck:
 			// 处理正常消息逻辑
 			if handler, ok := s.routes[message.Method]; ok {
 				handler(s, conn, &message)

@@ -23,6 +23,8 @@ start_service() {
     im)
       go run "apps/$app_dir/ws/im.go" -f "apps/$app_dir/ws/etc/${app_dir}-local.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
       ;;
+    task)
+      go run "apps/$app_dir/mq/mq.go" -f "apps/$app_dir/mq/etc/mq-local.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
   esac
 
   PIDS+=($!)
@@ -37,6 +39,7 @@ SERVICES=(
   "api social"
   "rpc im"
   "im im"
+  "task task"
 )
 
 # 遍历数组启动服务

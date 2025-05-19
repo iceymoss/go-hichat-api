@@ -41,6 +41,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 	header := http.Header{}
 	header.Set("Authorization", token)
+
+	// mq消费端连接websocket服务
 	svcCtx.WsClient = websocket.NewClient(c.Ws.Host, websocket.WithClientHeader(header))
 
 	return svcCtx
