@@ -1,5 +1,7 @@
 package websocket
 
+import "time"
+
 type FrameType uint8
 
 const (
@@ -12,16 +14,25 @@ const (
 	// FrameErr 错误消息
 	FrameErr FrameType = 0x2
 
+	// FrameAck 应答
+	FrameAck FrameType = 0x3
+
 	// FrameNoAck 不应答
-	FrameNoAck FrameType = 0x3
+	FrameNoAck FrameType = 0x4
+
+	FrameCAck FrameType = 0x5
 )
 
 type Message struct {
-	FrameType `json:"frameType"`
-	Method    string      `json:"method,omitempty"`
-	UserId    string      `json:"userId,omitempty"`
-	FormId    string      `json:"formId,omitempty"`
-	Data      interface{} `json:"data,omitempty"`
+	Id        string             `json:"id"`               // 消息id
+	AckSeq    int                `json:"ackSeq,omitempty"` // 消息确认序号
+	ackTime   time.Time          `json:"ackTime"`          // 消息确认时间
+	errCount  int                `json:"errCount"`         // 消息错误次数
+	FrameType `json:"frameType"` // 消息类型
+	Method    string             `json:"method,omitempty"` // 业务处理方法
+	UserId    string             `json:"userId,omitempty"` // 接受者id
+	FormId    string             `json:"formId,omitempty"` // 发送者id
+	Data      interface{}        `json:"data,omitempty"`   // 消息详细信息
 }
 
 func NewMessageTest(srv *Server, conn *Conn, data interface{}) *Message {

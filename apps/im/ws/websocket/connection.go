@@ -12,6 +12,7 @@ import (
 type Conn struct {
 	idleMu sync.Mutex
 
+	// 当前连接的用户id
 	Uid string
 
 	// websocket 连接
@@ -29,12 +30,19 @@ type Conn struct {
 	// 运行最大空闲定时器
 	maxConnectionIdle time.Duration
 
-	messageMu      sync.Mutex
-	readMessage    []*Message
+	// 消息确认机制的锁
+	messageMu sync.Mutex
+
+	// 当前连接的消息确认队列, 接收消息处理队列，采用数组存储可保障数据的顺序。
+	readMessages []*Message
+
+	// 当前连接的消息, 记录ack机制中的消息处理结果与进展
 	readMessageSeq map[string]*Message
 
+	// 用于和writeHandler协程进行通信,消息通道，在ack验证完成后将消息投递与writeHandler处理。
 	message chan *Message
 
+	// 当前连接状态
 	done chan struct{}
 }
 
@@ -47,18 +55,21 @@ func NewConn(s *Server, w http.ResponseWriter, r *http.Request) *Conn {
 	}
 
 	uid := s.authentication.UserId(r)
-
+	//需要满足三次ack操作，客户端发起-> 服务端收到消息并且确认消息 -> 客户端收到消息确认消息 -> ack成功，服务端做后续处理
 	conn := &Conn{
 		Conn:              c,
 		s:                 s,
 		Uid:               uid,
 		idle:              time.Now(),
-		readMessage:       make([]*Message, 0, 2),
-		readMessageSeq:    make(map[string]*Message, 2),
-		message:           make(chan *Message, 1),
+		readMessages:      make([]*Message, 0, 2),       // 记录客户端的两次消息
+		readMessageSeq:    make(map[string]*Message, 2), // 记录客户端的两次消息
+		message:           make(chan *Message, 1),       // 用于同步消息给WriteHandler的chan,容量为1刚刚好使得channel是有缓存，但因为容量只有1可以保证发送和接收操作的顺序，从而确保数据的有序性。
 		done:              make(chan struct{}),
 		maxConnectionIdle: defaultMaxConnectionIdle,
 	}
+
+	// 对客户端进行健康检查
+	go conn.keepalive()
 
 	return conn
 }
@@ -112,6 +123,43 @@ func (c *Conn) keepalive() {
 			return
 		}
 	}
+}
+
+// 将消息记录到队列中，一个消息的确认流程，消息id是唯一的
+func (c *Conn) appendMsgMq(msg *Message) {
+	c.messageMu.Lock()
+	defer c.messageMu.Unlock()
+	// 读队列
+	if m, ok := c.readMessageSeq[msg.Id]; ok {
+		// 客户端可能重复发送了消息 或者 收到ack消息
+		if len(c.readMessages) == 0 {
+			// 数据已经被处理不存在，顾属于重复了
+			return
+		}
+
+		//m.Id != msg.Id 不是同一个消息的ack, 或者m.AckSeq >= msg.AckSeq 都说明，消息重复了
+		if m.Id != msg.Id || m.AckSeq >= msg.AckSeq {
+			// 数据已经被处理不存在，顾属于重复了
+			// ack的消息内容还是一致或大于接收的序号说明也是重复了
+			return
+		}
+
+		// 等于最新的记录
+		c.readMessageSeq[msg.Id] = msg
+		return
+	}
+
+	// 注意：后续逻辑只能是客户端某一个消息的第一次发送
+	// 客户端不能一上来就发送FrameAck类型的消息
+	// 这个只能用来做应答的，不应该出现在之类
+	// 因为意外发送ack信息，直接过滤
+	if msg.FrameType == FrameAck {
+		return
+	}
+
+	// 记录该消息
+	c.readMessages = append(c.readMessages, msg)
+	c.readMessageSeq[msg.Id] = msg
 }
 
 // ReadMessage 从客户端读取到消息，表示不空闲
