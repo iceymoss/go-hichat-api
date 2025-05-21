@@ -1,6 +1,7 @@
 package conversation
 
 import (
+	"fmt"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
@@ -38,6 +39,8 @@ func Chat(srvCtx *svc.ServiceContext) websocket.HandlerFunc {
 				data.ConversationId = data.RecvId
 			}
 		}
+
+		fmt.Printf("数据推送给mq: %+v\n", data)
 
 		// 向mq推送数据
 		err := srvCtx.MsgChatTransferClient.Push(&mq.MsgChatTransfer{

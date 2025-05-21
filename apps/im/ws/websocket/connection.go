@@ -55,6 +55,7 @@ func NewConn(s *Server, w http.ResponseWriter, r *http.Request) *Conn {
 	}
 
 	uid := s.authentication.UserId(r)
+	fmt.Println("连接的uid", uid)
 	//需要满足三次ack操作，客户端发起-> 服务端收到消息并且确认消息 -> 客户端收到消息确认消息 -> ack成功，服务端做后续处理
 	conn := &Conn{
 		Conn:              c,
@@ -69,7 +70,7 @@ func NewConn(s *Server, w http.ResponseWriter, r *http.Request) *Conn {
 	}
 
 	// 对客户端进行健康检查
-	go conn.keepalive()
+	//go conn.keepalive()
 
 	return conn
 }
@@ -144,8 +145,9 @@ func (c *Conn) appendMsgMq(msg *Message) {
 			return
 		}
 
-		// 等于最新的记录
+		// 等于最新的记录，记录消息确认最新状态
 		c.readMessageSeq[msg.Id] = msg
+		fmt.Printf("消息被客户端确认了: %+v\n", msg)
 		return
 	}
 
