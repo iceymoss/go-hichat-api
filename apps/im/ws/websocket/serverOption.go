@@ -1,6 +1,8 @@
 package websocket
 
-import "time"
+import (
+	"time"
+)
 
 type Options func(opt *option)
 
@@ -22,10 +24,9 @@ type option struct {
 
 func newOption(opts ...Options) option {
 	o := option{
-		Authentication: new(authentication),
-		pattern:        "/ws",
-		ackTimeout:     defaultAckTimeout,
-		sendErrCount:   sendErrCount,
+		pattern:      "/ws",
+		ackTimeout:   defaultAckTimeout,
+		sendErrCount: sendErrCount,
 	}
 
 	for _, opt := range opts {
@@ -45,6 +46,7 @@ func WithAck(ack AckType) Options {
 func WithAuthentication(authentication Authentication) Options {
 	return func(opt *option) {
 		opt.Authentication = authentication
+		opt.ack = RigorAck
 	}
 }
 

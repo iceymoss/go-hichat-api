@@ -1,9 +1,7 @@
 package websocket
 
 import (
-	"fmt"
 	"net/http"
-	"time"
 )
 
 type Authentication interface {
@@ -14,17 +12,17 @@ type Authentication interface {
 	UserId(r *http.Request) string
 }
 
-type authentication struct{}
-
-func (*authentication) Auth(w http.ResponseWriter, r *http.Request) bool {
-	return true
-}
-
-func (*authentication) UserId(r *http.Request) string {
-	query := r.URL.Query()
-	if query != nil && query["userId"] != nil {
-		return fmt.Sprintf("%v", query["userId"])
-	}
-
-	return fmt.Sprintf("%v", time.Now().UnixMilli())
-}
+//type authentication struct{}
+//
+//func (*authentication) Auth(w http.ResponseWriter, r *http.Request) bool {
+//	return true
+//}
+//
+//func (*authentication) UserId(r *http.Request) string {
+//	query := r.URL.Query()
+//	if query != nil && query["userId"] != nil {
+//		return fmt.Sprintf("%v", query["userId"])
+//	}
+//
+//	return fmt.Sprintf("%v", time.Now().UnixMilli())
+//}

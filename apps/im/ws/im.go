@@ -29,9 +29,11 @@ func main() {
 
 	ctx := svc.NewServiceContext(c)
 
+	option := websocketServer.WithAuthentication(handler.NewJwtAuto(ctx))
+	//option = websocketServer.WithAck(websocketServer.RigorAck)
+
 	// 实例化websocket服务
-	srv := websocketServer.NewServer(c.ListenOn,
-		websocketServer.WithAuthentication(handler.NewJwtAuto(ctx)))
+	srv := websocketServer.NewServer(c.ListenOn, option)
 	defer srv.Stop()
 
 	// 处理处理方法

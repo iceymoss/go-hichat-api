@@ -73,6 +73,7 @@ func NewServer(addr string, opt ...Options) *Server {
 		user2Conn:      make(map[string]*Conn),
 		conn2User:      make(map[*Conn]string),
 		authentication: newOption(opt...),
+		opt:            newOption(opt...),
 		Logger:         logx.WithContext(context.Background()),
 	}
 }
@@ -111,6 +112,8 @@ func (s *Server) handlerConn(conn *Conn) {
 	// 协程处理ack完成后的逻辑
 	go s.handleWrite(conn)
 
+	fmt.Println("系统ack级别：", s.opt.ack)
+
 	// 系统ack级别，如果需要ack
 	if s.opt.ack != NoAck {
 		// 接收ack并且确认
@@ -137,6 +140,7 @@ func (s *Server) handlerConn(conn *Conn) {
 			continue
 		}
 
+		fmt.Printf("socket服务器收到消息: %+v", message)
 		if s.opt.ack != NoAck && message.FrameType != FrameNoAck {
 			// 将消息写入队列
 			conn.appendMsgMq(&message)
@@ -149,6 +153,7 @@ func (s *Server) handlerConn(conn *Conn) {
 func (s *Server) readAck(conn *Conn) {
 
 	send := func(msg *Message, conn *Conn) error {
+		fmt.Printf("发送消息给客户端: %+v\n", msg)
 		err := s.Send(msg, conn)
 		if err == nil {
 			return nil
@@ -179,8 +184,9 @@ func (s *Server) readAck(conn *Conn) {
 		conn.messageMu.Lock()
 		if len(conn.readMessages) == 0 {
 			conn.messageMu.Unlock()
+			// 没有消息进来的时候
 			// 没有消息可以睡眠100 毫秒 -- 目的是让程序缓一缓
-			time.Sleep(100 * time.Microsecond)
+			time.Sleep(3 * time.Second)
 			continue
 		}
 
@@ -235,7 +241,7 @@ func (s *Server) readAck(conn *Conn) {
 				conn.readMessages = conn.readMessages[1:]
 				conn.messageMu.Unlock()
 				conn.message <- message
-				s.Infof("message ack RigorAck success mid %v ", message.Id)
+				s.Infof("message ack RigorAck success mid %v ack-type %v ", message.Id, message.FrameType)
 				continue
 			}
 
@@ -262,7 +268,7 @@ func (s *Server) readAck(conn *Conn) {
 				}
 			}
 			// 没有超时，我们让程序等等
-			time.Sleep(300 * time.Microsecond)
+			time.Sleep(3 * time.Second)
 		}
 	}
 }
@@ -276,6 +282,7 @@ func (s *Server) handleWrite(conn *Conn) {
 			return
 		case message := <-conn.message: // 监听conn.message的消息
 			// 依据请求消息类型分类处理
+			fmt.Printf("handleWrite 收到消息，准备推入mq：%+v", message)
 			switch message.FrameType {
 			case FramePing:
 				// ping：回复
