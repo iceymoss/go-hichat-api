@@ -38,6 +38,15 @@ go-hichat-api是HiChat的2.0版本，其模块拆分，使用微服务架构，�
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ## 需要的配置
+#### mysql
+
+#### redis
+
+#### etcd
+
+#### kafka
+
+#### mongo
 MongoDB：
 ```shell
 docker run -d \
