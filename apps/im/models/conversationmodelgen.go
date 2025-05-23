@@ -6,20 +6,22 @@ package model
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/zeromicro/go-zero/core/stores/mon"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
-
-const Conversation_Collection = "conversation"
 
 type conversationModel interface {
 	Insert(ctx context.Context, data *Conversation) error
 	FindOne(ctx context.Context, id string) (*Conversation, error)
 	Update(ctx context.Context, data *Conversation) (*mongo.UpdateResult, error)
 	Delete(ctx context.Context, id string) (int64, error)
+	ListByConversationIds(ctx context.Context, ids []string) ([]*Conversation, error)
+	UpdateMsg(ctx context.Context, chatLog *ChatLog) error
 }
 
 type defaultConversationModel struct {
@@ -30,11 +32,12 @@ func newDefaultConversationModel(conn *mongo.Client) *defaultConversationModel {
 	return &defaultConversationModel{conn: conn}
 }
 
-// 获取集合快捷方法
+// getColl 获取集合快捷方法
 func (m *defaultConversationModel) getColl() *mongo.Collection {
 	return m.conn.Database(HiChat2).Collection(Conversation_Collection)
 }
 
+// Insert 创建一个会话
 func (m *defaultConversationModel) Insert(ctx context.Context, data *Conversation) error {
 	if data.ID.IsZero() {
 		data.ID = primitive.NewObjectID()
@@ -46,24 +49,27 @@ func (m *defaultConversationModel) Insert(ctx context.Context, data *Conversatio
 	return err
 }
 
+// FindOne 根据会话id查询一个会话
 func (m *defaultConversationModel) FindOne(ctx context.Context, id string) (*Conversation, error) {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, ErrInvalidObjectId
 	}
 
-	var result Conversation
-	err = m.getColl().FindOne(ctx, bson.M{"_id": oid}).Decode(&result)
+	var data Conversation
 
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, ErrNotFound
-		}
+	err = m.getColl().FindOne(ctx, bson.M{"_id": oid}).Decode(&data)
+	switch err {
+	case nil:
+		return &data, nil
+	case mon.ErrNotFound:
+		return nil, ErrNotFound
+	default:
 		return nil, err
 	}
-	return &result, nil
 }
 
+// Update 根据会话id更新会话
 func (m *defaultConversationModel) Update(ctx context.Context, data *Conversation) (*mongo.UpdateResult, error) {
 	data.UpdateAt = time.Now()
 
@@ -77,6 +83,7 @@ func (m *defaultConversationModel) Update(ctx context.Context, data *Conversatio
 	return result, nil
 }
 
+// Delete 删除会话
 func (m *defaultConversationModel) Delete(ctx context.Context, id string) (int64, error) {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -88,4 +95,81 @@ func (m *defaultConversationModel) Delete(ctx context.Context, id string) (int64
 		return 0, err
 	}
 	return result.DeletedCount, nil
+}
+
+// ListByConversationIds 根据会话ID列表批量查询会话
+func (m *defaultConversationModel) ListByConversationIds(ctx context.Context, ids []string) ([]*Conversation, error) {
+	var results []*Conversation
+
+	// 转换ID为ObjectID
+	objectIDs := make([]primitive.ObjectID, 0, len(ids))
+	for _, id := range ids {
+		oid, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			return nil, ErrInvalidObjectId
+		}
+		objectIDs = append(objectIDs, oid)
+	}
+
+	// 构建查询条件
+	filter := bson.M{
+		"_id": bson.M{"$in": objectIDs},
+	}
+
+	collection := m.conn.Database(HiChat2).Collection(Conversation_Collection)
+	cursor, err := collection.Find(ctx, filter)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("查询失败: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	if err = cursor.All(ctx, &results); err != nil {
+		return nil, fmt.Errorf("数据解码失败: %w", err)
+	}
+
+	// 处理空结果
+	if len(results) == 0 {
+		return nil, ErrNotFound
+	}
+
+	return results, nil
+}
+
+// UpdateMsg 更新会话的最后消息和总数
+func (m *defaultConversationModel) UpdateMsg(ctx context.Context, chatLog *ChatLog) error {
+	// 构建会话ID
+	oid, err := primitive.ObjectIDFromHex(chatLog.ConversationId)
+	if err != nil {
+		return ErrInvalidObjectId
+	}
+
+	// 原子操作：更新最后消息 + 总数递增
+	update := bson.M{
+		"$set": bson.M{
+			"lastMsg":       chatLog.MsgContent,
+			"lastMsgTime":   chatLog.SendTime,
+			"lastMsgSender": chatLog.SendId,
+		},
+		"$inc": bson.M{"total": 1},
+	}
+
+	collection := m.getColl()
+	result, err := collection.UpdateOne(
+		ctx,
+		bson.M{"_id": oid},
+		update,
+	)
+	if err != nil {
+		return fmt.Errorf("更新失败: %w", err)
+	}
+
+	// 检查是否成功更新
+	if result.MatchedCount == 0 {
+		return ErrNotFound
+	}
+
+	return nil
 }

@@ -20,6 +20,8 @@ const (
 	ChatLogs = "chat_logs"
 )
 
+var DefaultChatLogCount int64 = 100
+
 type ChatLogQuery struct {
 	ConversationID string
 	StartTime      int64
@@ -35,6 +37,9 @@ type chatLogModel interface {
 	Delete(ctx context.Context, id string) (int64, error)
 	FindByQuery(ctx context.Context, q ChatLogQuery) ([]*ChatLog, int64, error)
 	Update(ctx context.Context, data *ChatLog) (*mongo.UpdateResult, error)
+
+	//根据时间获取列表
+	ListBySendTime(ctx context.Context, conversationId string, startSendTime, endSendTime, count int64) ([]*ChatLog, error)
 }
 
 type defaultChatLogModel struct {
@@ -136,4 +141,63 @@ func (m *defaultChatLogModel) Delete(ctx context.Context, id string) (int64, err
 
 	res, err := m.Conn.Database(HiChat2).Collection(ChatLogs).DeleteOne(ctx, bson.M{"_id": oid})
 	return res.DeletedCount, err
+}
+
+// ListBySendTime 根据发送时间获取对应会话的聊天记录
+func (m *defaultChatLogModel) ListBySendTime(ctx context.Context, conversationId string, startSendTime, endSendTime, count int64) ([]*ChatLog, error) {
+	// 初始化返回结构和默认参数
+	var data []*ChatLog
+	opt := options.Find()
+
+	// 构建基础查询条件
+	filter := bson.M{
+		"conversationId": conversationId,
+	}
+
+	// 处理时间范围逻辑（修复关键错误点）
+	timeFilter := bson.M{}
+	if startSendTime > 0 && endSendTime > 0 {
+		// 有效时间区间查询
+		if startSendTime > endSendTime {
+			return nil, errors.New("起始时间不能晚于结束时间")
+		}
+		timeFilter["$gte"] = startSendTime
+		timeFilter["$lte"] = endSendTime
+	} else if startSendTime > 0 {
+		// 查询大于等于起始时间的历史消息
+		timeFilter["$gte"] = startSendTime
+	} else if endSendTime > 0 {
+		// 查询早于等于结束时间的历史消息
+		timeFilter["$lte"] = endSendTime
+	}
+
+	// 如果有时间条件才加入查询
+	if len(timeFilter) > 0 {
+		filter["sendTime"] = timeFilter
+	}
+
+	// 设置排序和分页（优化排序逻辑）
+	opt.SetSort(bson.D{{Key: "sendTime", Value: -1}})
+
+	// 处理返回数量
+	if count > 0 {
+		opt.SetLimit(count)
+	} else {
+		opt.SetLimit(DefaultChatLogCount)
+	}
+
+	// 执行查询
+	collection := m.Conn.Database(HiChat2).Collection(ChatLogs)
+	cursor, err := collection.Find(ctx, filter, opt)
+	if err != nil {
+		return nil, fmt.Errorf("数据库查询失败: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	// 解码结果
+	if err = cursor.All(ctx, &data); err != nil {
+		return nil, fmt.Errorf("数据解码失败: %w", err)
+	}
+
+	return data, nil
 }

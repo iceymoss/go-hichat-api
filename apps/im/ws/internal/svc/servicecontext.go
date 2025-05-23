@@ -14,7 +14,7 @@ type ServiceContext struct {
 	ChatLogModel model.ChatLogModel
 
 	// 会话
-	ConversationModel model.ConversationModel
+	ConversationsModel model.ConversationsModel
 
 	//mq客户端
 	MsgChatTransferClient mq_client.MsgChatTransferClient
@@ -24,7 +24,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
 		Config:                c,
 		ChatLogModel:          model.NewChatLogModel(),
-		ConversationModel:     model.NewConversationModel(),
+		ConversationsModel:    model.NewConversationsModel(),
 		MsgChatTransferClient: mq_client.NewMsgChatTransferClient(c.MsgChatTransfer.Addrs, c.MsgChatTransfer.Topic),
 	}
 }
