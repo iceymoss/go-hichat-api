@@ -9,22 +9,23 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type PingLogic struct {
+type PutConversationsLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 	logx.Logger
 }
 
-func NewPingLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PingLogic {
-	return &PingLogic{
+func NewPutConversationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutConversationsLogic {
+	return &PutConversationsLogic{
 		ctx:    ctx,
 		svcCtx: svcCtx,
 		Logger: logx.WithContext(ctx),
 	}
 }
 
-func (l *PingLogic) Ping(in *im.Request) (*im.Response, error) {
+// 更新会话
+func (l *PutConversationsLogic) PutConversations(in *im.PutConversationsReq) (*im.PutConversationsResp, error) {
 	// todo: add your logic here and delete this line
 
-	return &im.Response{}, nil
+	return &im.PutConversationsResp{}, nil
 }
