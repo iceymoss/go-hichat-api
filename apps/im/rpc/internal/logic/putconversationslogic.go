@@ -2,6 +2,10 @@ package logic
 
 import (
 	"context"
+	models "github.com/iceymoss/go-hichat-api/apps/im/models"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/xerr"
+	"github.com/pkg/errors"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
@@ -23,9 +27,38 @@ func NewPutConversationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
-// 更新会话
+// PutConversations 更新会话
 func (l *PutConversationsLogic) PutConversations(in *im.PutConversationsReq) (*im.PutConversationsResp, error) {
-	// todo: add your logic here and delete this line
+	// 获取用户会话
+	conversations, err := l.svcCtx.ConversationsModel.FindByUserId(l.ctx, in.UserId)
+	if err != nil {
+		return nil, errors.Wrapf(xerr.NewDBErr(), "find conversation by userId err %v req %v", err, in.UserId)
+	}
 
-	return &im.PutConversationsResp{}, nil
+	if conversations.ConversationList == nil {
+		conversations.ConversationList = make(map[string]*models.Conversation)
+	}
+
+	for k, i := range in.ConversationList {
+		var oldTotal int
+		if conversations.ConversationList[k] != nil {
+			oldTotal = conversations.ConversationList[k].Total
+		}
+
+		conversations.ConversationList[k] = &models.Conversation{
+			ConversationId: i.ConversationId,
+			ChatType:       constants.ChatType(i.ChatType),
+			IsShow:         i.IsShow,
+			// 更新最新的已读总记录
+			Total: int(i.Read) + oldTotal,
+			Seq:   i.Seq,
+		}
+	}
+
+	_, err = l.svcCtx.ConversationsModel.Update(l.ctx, conversations)
+	if err != nil {
+		return nil, errors.Wrapf(xerr.NewDBErr(), "update conversation err %v req %v", err, conversations)
+	}
+
+	return &im.PutConversationsResp{}, err
 }

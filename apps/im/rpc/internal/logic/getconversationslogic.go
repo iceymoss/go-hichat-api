@@ -2,6 +2,10 @@ package logic
 
 import (
 	"context"
+	models "github.com/iceymoss/go-hichat-api/apps/im/models"
+	"github.com/iceymoss/go-hichat-api/pkg/xerr"
+	"github.com/pkg/errors"
+	"github.com/zeromicro/go-zero/core/errorx"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
@@ -23,9 +27,72 @@ func NewGetConversationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
-// 获取会话
+// GetConversations 获取会话
 func (l *GetConversationsLogic) GetConversations(in *im.GetConversationsReq) (*im.GetConversationsResp, error) {
-	// todo: add your logic here and delete this line
+	// 获取用户会话信息
+	data, err := l.svcCtx.ConversationsModel.FindByUserId(l.ctx, in.UserId)
+	if err != nil {
+		if err == models.ErrNotFound {
+			return &im.GetConversationsResp{}, nil
+		}
+		return nil, errors.Wrapf(xerr.NewDBErr(), "find conversation by userId err %v req %v", err, in.UserId)
+	}
 
-	return &im.GetConversationsResp{}, nil
+	var res im.GetConversationsResp
+	conversationMap := make(map[string]*im.Conversation, len(data.ConversationList))
+	for k, v := range data.ConversationList {
+		msg := im.ChatLog{
+			Id:             v.ID.String(),
+			ConversationId: v.ConversationId,
+			SendId:         v.Msg.SendId,
+			RecvId:         v.Msg.RecvId,
+			MsgType:        int32(v.Msg.MsgType),
+			MsgContent:     v.Msg.MsgContent,
+			ChatType:       int32(v.ChatType),
+			SendTime:       v.Msg.SendTime,
+			ReadRecords:    v.Msg.ReadRecords,
+		}
+		conversationMap[k] = &im.Conversation{
+			ConversationId: v.ConversationId,
+			ChatType:       int32(v.ChatType),
+			TargetId:       v.Msg.RecvId,
+			IsShow:         v.IsShow,
+			Seq:            v.Seq,
+			Total:          int32(v.Total),
+			ToRead:         0,
+			Read:           0,
+			Msg:            &msg,
+		}
+	}
+
+	res.ConversationList = conversationMap
+	// 会话id
+	ids := make([]string, 0, len(data.ConversationList))
+	for _, conversation := range data.ConversationList {
+		ids = append(ids, conversation.ConversationId)
+	}
+
+	// 批量获取会话，统计会话的消息情况
+	list, err := l.svcCtx.ConversationModel.ListByConversationIds(l.ctx, ids)
+	if err != nil {
+		return nil, errorx.Wrapf(xerr.NewDBErr(), "list conversation by ids err %v, req %v", err, ids)
+	}
+
+	for _, conversation := range list {
+		if _, ok := res.ConversationList[conversation.ConversationId]; !ok {
+			continue
+		}
+
+		total := res.ConversationList[conversation.ConversationId].Total
+		if total < int32(conversation.Total) {
+			// 有新的消息
+			res.ConversationList[conversation.ConversationId].Total = int32(conversation.Total)
+			// 待读消息量
+			res.ConversationList[conversation.ConversationId].ToRead = int32(conversation.Total) - total
+			// 有新消息一定显示
+			res.ConversationList[conversation.ConversationId].IsShow = true
+		}
+	}
+
+	return &res, nil
 }
