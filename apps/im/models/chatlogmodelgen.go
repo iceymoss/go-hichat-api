@@ -40,6 +40,8 @@ type chatLogModel interface {
 
 	//根据时间获取列表
 	ListBySendTime(ctx context.Context, conversationId string, startSendTime, endSendTime, count int64) ([]*ChatLog, error)
+
+	FindOne(ctx context.Context, id string) (*ChatLog, error)
 }
 
 type defaultChatLogModel struct {
@@ -50,6 +52,32 @@ func newDefaultChatLogModel(conn *mongo.Client) *defaultChatLogModel {
 	return &defaultChatLogModel{
 		Conn: conn,
 	}
+}
+
+func (m *defaultChatLogModel) FindOne(ctx context.Context, id string) (*ChatLog, error) {
+	// 转换字符串ID为ObjectID
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, fmt.Errorf("id to objectID err: %v", err)
+	}
+
+	// 构建查询过滤器
+	filter := bson.M{"_id": objectID}
+
+	// 获取集合
+	collection := m.Conn.Database(HiChat2).Collection(ChatLogs)
+
+	// 执行查询
+	var result ChatLog
+	err = collection.FindOne(ctx, filter).Decode(&result)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+
+	return &result, nil
 }
 
 // Insert 插入新聊天记录
