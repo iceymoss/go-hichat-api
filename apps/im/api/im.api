@@ -1,95 +1,88 @@
 syntax = "v1"
 
 info (
-    title: "hichat2"
-    author: "iceymoss"
+	title:  "im消息服务"
+	author: "iceymoss"
 )
 
 // ------- domain.api --------------------
-
 type (
-    ChatLog {
-        Id             string `json:"id,omitempty"`
-        ConversationId string `json:"conversationId,omitempty"`
-        SendId         string `json:"sendId,omitempty"`
-        RecvId         string `json:"recvId,omitempty"`
-        MsgType        int32  `json:"msgType,omitempty"`
-        MsgContent     string `json:"msgContent,omitempty"`
-        ChatType       int32  `json:"chatType,omitempty"`
-        SendTime       int64  `json:"SendTime,omitempty"`
-    }
-
-    Conversation {
-        ConversationId string `json:"conversationId,omitempty"`
-        ChatType       int32  `json:"ChatType,omitempty"`
-        IsShow         bool   `json:"isShow,omitempty"`
-        Seq            int64  `json:"seq,omitempty"`
-        Read           int32  `json:"read,omitempty"`
-    }
+	ChatLog {
+		Id             string `json:"id,omitempty"`
+		ConversationId string `json:"conversationId,omitempty"`
+		SendId         string `json:"sendId,omitempty"`
+		RecvId         string `json:"recvId,omitempty"`
+		MsgType        int32  `json:"msgType,omitempty"`
+		MsgContent     string `json:"msgContent,omitempty"`
+		ChatType       int32  `json:"chatType,omitempty"`
+		SendTime       int64  `json:"sendTime,omitempty"` // 修正字段名统一小写
+	}
+	Conversation {
+		ConversationId string `json:"conversationId,omitempty"`
+		ChatType       int32  `json:"chatType,omitempty"` // 修正字段名统一小写
+		IsShow         bool   `json:"isShow,omitempty"`
+		Seq            int64  `json:"seq,omitempty"`
+		Read           int32  `json:"read,omitempty"`
+	}
 )
 
 // -------------- im api v1 --------------
-
 type (
-    ChatLogReq {
-        MsgId          string `json:"msgId"`
-        ConversationId string `json:"conversationId"`
-        StartSendTime  int64  `json:"startSendTime,omitempty"`
-        EndSendTime    int64  `json:"endSendTime,omitempty"`
-        Count          int64  `json:"count,omitempty"`
-    }
-    ChatLogResp {
-        List []*ChatLog `json:"list"`
-    }
-
-    GetConversationsReq  struct{}
-    GetConversationsResp {
-        ConversationList map[string]*Conversation `json:"conversationList"`
-    }
-
-    PutConversationsReq {
-        ConversationList map[string]*Conversation `json:"conversationList"`
-    }
-    PutConversationsResp struct{}
-
-    SetUpUserConversationReq {
-        SendId   string `json:"sendId,omitempty"`
-        RecvId   string `json:"recvId,omitempty"`
-        ChatType int32  `json:"ChatType,omitempty"`
-    }
-    setUpUserConversationResp struct{}
-
-    GetChatLogReadRecordsReq {
-        MsgId string `json:"msgId"`
-    }
-    GetChatLogReadRecordsResp {
-        Reads   []string `json:"reads"`
-        UnReads []string `json:"unReads"`
-    }
+	ChatLogReq {
+		MsgId          string `json:"msgId"`
+		ConversationId string `json:"conversationId"`
+		StartSendTime  int64  `json:"startSendTime,omitempty"`
+		EndSendTime    int64  `json:"endSendTime,omitempty"`
+		Count          int64  `json:"count,omitempty"`
+	}
+	ChatLogResp {
+		List []ChatLog `json:"list"` // 移除多余星号*
+	}
+	GetConversationsReq  {} // GoZero DSL不允许struct{}
+	GetConversationsResp {
+		ConversationList map[string]Conversation `json:"conversationList"` // 移除星号*
+	}
+	PutConversationsReq {
+		ConversationList map[string]Conversation `json:"conversationList"` // 移除星号*
+	}
+	PutConversationsResp  {} // GoZero DSL不允许struct{}
+	SetUpUserConversationReq {
+		SendId   string `json:"sendId,omitempty"`
+		RecvId   string `json:"recvId,omitempty"`
+		ChatType int32  `json:"chatType,omitempty"` // 字段名统一小写
+	}
+	SetUpUserConversationResp  {} // 类型名首字母必须大写
+	GetChatLogReadRecordsReq {
+		MsgId string `json:"msgId"`
+	}
+	GetChatLogReadRecordsResp {
+		Reads   []string `json:"reads"`
+		UnReads []string `json:"unReads"`
+	}
 )
 
-@server(
-    prefix: v1/im
-    jwt: JwtAuth
+@server (
+	prefix: v1/im
+	jwt:    JwtAuth
 )
 service im {
-    @doc "根据用户获取聊天记录"
-    @handler getChatLog
-    get /chatlog(ChatLogReq) returns(ChatLogResp)
+	@doc "根据用户获取聊天记录"
+	@handler getChatLog
+	get /chatlog (ChatLogReq) returns (ChatLogResp) // 增加空格分隔参数
 
-    @handler getChatLogReadRecords
-    get /chatlog/readRecords(GetChatLogReadRecordsReq) returns(GetChatLogReadRecordsResp)
+	@handler getChatLogReadRecords
+	get /chatlog/readRecords (GetChatLogReadRecordsReq) returns (GetChatLogReadRecordsResp)
 
-    @doc "建立会话"
-    @handler setUpUserConversation
-    post /setup/conversation(SetUpUserConversationReq) returns(setUpUserConversationResp)
+	@doc "建立会话"
+	@handler setUpUserConversation
+	post /setup/conversation (SetUpUserConversationReq) returns (SetUpUserConversationResp) // 响应类型首字母大写
 
-    @doc "获取会话"
-    @handler getConversations
-    get /conversation(GetConversationsReq) returns(GetConversationsResp)
+	@doc "获取会话"
+	@handler getConversations
+	get /conversation (GetConversationsReq) returns (GetConversationsResp)
 
-    @doc "更新会话"
-    @handler putConversations
-    put /conversation(PutConversationsReq) returns(PutConversationsResp)
+	@doc "更新会话"
+	@handler putConversations
+	put /conversation (PutConversationsReq) returns (PutConversationsResp)
 }
 
