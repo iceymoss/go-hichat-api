@@ -38,6 +38,7 @@ SERVICES=(
   "rpc social"
   "api social"
   "rpc im"
+  "api im"
   "im im"
   "task task"
 )
