@@ -7,6 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.uber.org/zap"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,7 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-const Conversation_Collection = "conversation"
+const Conversation_Collections = "conversations"
 
 type conversationsModel interface {
 	Insert(ctx context.Context, data *Conversations) error
@@ -34,7 +37,7 @@ func newDefaultConversationsModel(conn *mongo.Client) *defaultConversationsModel
 
 // 获取集合快捷方法
 func (m *defaultConversationsModel) getColl() *mongo.Collection {
-	return m.conn.Database(HiChat2).Collection(Conversation_Collection)
+	return m.conn.Database(HiChat2).Collection(Conversation_Collections)
 }
 
 func (m *defaultConversationsModel) Insert(ctx context.Context, data *Conversations) error {
@@ -50,6 +53,7 @@ func (m *defaultConversationsModel) Insert(ctx context.Context, data *Conversati
 
 func (m *defaultConversationsModel) FindOne(ctx context.Context, id string) (*Conversations, error) {
 	oid, err := primitive.ObjectIDFromHex(id)
+	fmt.Println("old", oid)
 	if err != nil {
 		return nil, ErrInvalidObjectId
 	}
@@ -67,16 +71,61 @@ func (m *defaultConversationsModel) FindOne(ctx context.Context, id string) (*Co
 }
 
 func (m *defaultConversationsModel) Update(ctx context.Context, data *Conversations) (*mongo.UpdateResult, error) {
-	data.UpdateAt = time.Now()
+	// 确保更新时间戳准确
+	data.UpdateAt = time.Now().UTC() // 使用UTC时间避免时区问题
 
+	// 构建原子性操作
 	filter := bson.M{"_id": data.ID}
-	update := bson.M{"$set": data} // 使用$set操作符
+	update := bson.M{"$set": data}
 
-	result, err := m.getColl().UpdateOne(ctx, filter, update)
+	// 执行 Upsert 操作（存在则更新，不存在则创建）
+	result, err := m.getColl().UpdateOne(
+		ctx,
+		filter,
+		update,
+		options.Update().SetUpsert(true), // 启用 Upsert 模式
+	)
+
+	// 错误处理
 	if err != nil {
-		return nil, err
+		logFields := []zap.Field{
+			zap.Any("filter", filter),
+			zap.Any("update", update),
+			zap.Error(err),
+		}
+
+		// 区分错误类型记录日志
+		if mongo.IsDuplicateKeyError(err) {
+			zLog.Error("唯一键冲突", logFields...)
+			return nil, fmt.Errorf("会话已存在: %w", err)
+		} else if isNetworkError(err) {
+			zLog.Warn("网络波动导致更新失败", logFields...)
+			return nil, fmt.Errorf("网络连接异常: %w", err)
+		} else {
+			zLog.Error("数据库更新失败", logFields...)
+			return nil, fmt.Errorf("系统错误: %w", err)
+		}
 	}
+
+	// 验证操作结果
+	if result.MatchedCount == 0 && result.UpsertedCount == 0 {
+		zLog.Warn("未匹配到文档且未创建新文档",
+			zap.Int64("matched", result.MatchedCount),
+			zap.Int64("upserted", result.UpsertedCount),
+		)
+		return nil, errors.New("操作未生效")
+	}
+
 	return result, nil
+}
+
+// isNetworkError 错误类型判断示例
+func isNetworkError(err error) bool {
+	var cmdErr mongo.CommandError
+	if errors.As(err, &cmdErr) {
+		return cmdErr.HasErrorLabel("NetworkError")
+	}
+	return false
 }
 
 func (m *defaultConversationsModel) Delete(ctx context.Context, id string) (int64, error) {
