@@ -27,7 +27,7 @@ func NewPutConversationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
-// PutConversations 更新会话
+// PutConversations 更新用户会话
 func (l *PutConversationsLogic) PutConversations(in *im.PutConversationsReq) (*im.PutConversationsResp, error) {
 	// 获取用户会话
 	conversations, err := l.svcCtx.ConversationsModel.FindByUserId(l.ctx, in.UserId)
@@ -35,6 +35,7 @@ func (l *PutConversationsLogic) PutConversations(in *im.PutConversationsReq) (*i
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find conversation by userId err %v req %v", err, in.UserId)
 	}
 
+	// 会话为空，则生成一个会话
 	if conversations.ConversationList == nil {
 		conversations.ConversationList = make(map[string]*models.Conversation)
 	}
@@ -50,6 +51,7 @@ func (l *PutConversationsLogic) PutConversations(in *im.PutConversationsReq) (*i
 			ChatType:       constants.ChatType(i.ChatType),
 			IsShow:         i.IsShow,
 			// 更新最新的已读总记录
+			//	i.Read前端传入某一个会话的消息已经被接收站读取的数量
 			Total: int(i.Read) + oldTotal,
 			Seq:   i.Seq,
 		}

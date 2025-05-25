@@ -21,15 +21,19 @@ type ServiceContext struct {
 	// imChatLogModel 聊天记录集合数据结构
 	ChatLogModel model.ChatLogModel
 
-	// ConversationModel 会话相关
+	// ConversationModel 会话详情相关
 	ConversationModel model.ConversationModel
+
+	// 用户会话相关
+	ConversationsModel model.ConversationsModel
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	svcCtx := &ServiceContext{
-		Config:            c,
-		ConversationModel: model.NewConversationModel(),
-		ChatLogModel:      model.NewChatLogModel(),
+		Config:             c,
+		ConversationModel:  model.NewConversationModel(),
+		ChatLogModel:       model.NewChatLogModel(),
+		ConversationsModel: model.NewConversationsModel(),
 	}
 
 	token, err := svcCtx.GetToken()
