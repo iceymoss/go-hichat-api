@@ -74,6 +74,12 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data mq.MsgChatTransfe
 		MsgContent:     data.MsgContent,
 		ChatType:       data.ChatType,
 	}
+
+	// 记录聊天记录
 	_, err := m.svcCtx.ChatLogModel.Insert(ctx, &chatLog)
+
+	// 更新会话的最后一次聊天记录
+	err = m.svcCtx.ConversationModel.UpdateMsg(ctx, &chatLog)
+
 	return err
 }

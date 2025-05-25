@@ -15,6 +15,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+const Conversation_Collection = "conversation"
+
 type conversationModel interface {
 	Insert(ctx context.Context, data *Conversation) error
 	FindOne(ctx context.Context, id string) (*Conversation, error)
@@ -51,14 +53,9 @@ func (m *defaultConversationModel) Insert(ctx context.Context, data *Conversatio
 
 // FindOne 根据会话id查询一个会话
 func (m *defaultConversationModel) FindOne(ctx context.Context, id string) (*Conversation, error) {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, ErrInvalidObjectId
-	}
-
 	var data Conversation
 
-	err = m.getColl().FindOne(ctx, bson.M{"_id": oid}).Decode(&data)
+	err := m.getColl().FindOne(ctx, bson.M{"conversationId": id}).Decode(&data)
 	switch err {
 	case nil:
 		return &data, nil
@@ -102,18 +99,18 @@ func (m *defaultConversationModel) ListByConversationIds(ctx context.Context, id
 	var results []*Conversation
 
 	// 转换ID为ObjectID
-	objectIDs := make([]primitive.ObjectID, 0, len(ids))
-	for _, id := range ids {
-		oid, err := primitive.ObjectIDFromHex(id)
-		if err != nil {
-			return nil, ErrInvalidObjectId
-		}
-		objectIDs = append(objectIDs, oid)
-	}
+	//objectIDs := make([]primitive.ObjectID, 0, len(ids))
+	//for _, id := range ids {
+	//	oid, err := primitive.ObjectIDFromHex(id)
+	//	if err != nil {
+	//		return nil, ErrInvalidObjectId
+	//	}
+	//	objectIDs = append(objectIDs, oid)
+	//}
 
 	// 构建查询条件
 	filter := bson.M{
-		"_id": bson.M{"$in": objectIDs},
+		"conversationId": bson.M{"$in": ids},
 	}
 
 	collection := m.conn.Database(HiChat2).Collection(Conversation_Collection)
@@ -140,26 +137,21 @@ func (m *defaultConversationModel) ListByConversationIds(ctx context.Context, id
 
 // UpdateMsg 更新会话的最后消息和总数
 func (m *defaultConversationModel) UpdateMsg(ctx context.Context, chatLog *ChatLog) error {
-	// 构建会话ID
-	oid, err := primitive.ObjectIDFromHex(chatLog.ConversationId)
-	if err != nil {
-		return ErrInvalidObjectId
-	}
-
 	// 原子操作：更新最后消息 + 总数递增
 	update := bson.M{
 		"$set": bson.M{
 			"lastMsg":       chatLog.MsgContent,
 			"lastMsgTime":   chatLog.SendTime,
 			"lastMsgSender": chatLog.SendId,
+			"msg":           chatLog,
 		},
-		"$inc": bson.M{"total": 1},
+		"$inc": bson.M{"total": 1}, //聊天消息数+1
 	}
 
 	collection := m.getColl()
 	result, err := collection.UpdateOne(
 		ctx,
-		bson.M{"_id": oid},
+		bson.M{"conversationId": chatLog.ConversationId},
 		update,
 	)
 	if err != nil {

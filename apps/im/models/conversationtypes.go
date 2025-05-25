@@ -24,9 +24,10 @@ type Conversation struct {
 	// 会话下消息总数
 	Total int `bson:"total,omitempty"`
 
+	// 会话序号
 	Seq int64 `bson:"seq"`
 
-	// 会话消息
+	// 当前会话的最晚的一条聊天记录，用于在会用会话聊天，展示给用户看最新的未读消息内容
 	Msg *ChatLog `bson:"msg,omitempty"`
 
 	UpdateAt time.Time `bson:"updateAt,omitempty" json:"updateAt,omitempty"`

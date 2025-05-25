@@ -28,8 +28,6 @@ func NewGetChatLogLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetCha
 // GetChatLog 获取会话记录
 // 依据传递的数据时间点获取
 func (l *GetChatLogLogic) GetChatLog(in *im.GetChatLogReq) (*im.GetChatLogResp, error) {
-	// todo: add your logic here and delete this line
-
 	// 根据id查询
 	if in.MsgId != "" {
 		chatlog, err := l.svcCtx.ChatLogModel.FindOne(l.ctx, in.MsgId)
