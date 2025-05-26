@@ -2,6 +2,9 @@ package logic
 
 import (
 	"context"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"go.uber.org/zap"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/types"
@@ -15,7 +18,7 @@ type GetChatLogLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 根据用户获取聊天记录
+// NewGetChatLogLogic 根据用户获取聊天记录
 func NewGetChatLogLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetChatLogLogic {
 	return &GetChatLogLogic{
 		Logger: logx.WithContext(ctx),
@@ -26,6 +29,34 @@ func NewGetChatLogLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetCha
 
 func (l *GetChatLogLogic) GetChatLog(req *types.ChatLogReq) (resp *types.ChatLogResp, err error) {
 	// todo: add your logic here and delete this line
+	res, err := l.svcCtx.IM.GetChatLog(l.ctx, &im.GetChatLogReq{
+		ConversationId: req.ConversationId,
+		StartSendTime:  req.StartSendTime,
+		EndSendTime:    req.EndSendTime,
+		Count:          req.Count,
+		MsgId:          req.MsgId,
+	})
+	if err != nil {
+		zLog.Error("get chatlog failed", zap.Error(err))
+		return nil, err
+	}
+
+	list := make([]types.ChatLog, 0, len(res.List))
+
+	for _, v := range res.List {
+		list = append(list, types.ChatLog{
+			Id:             v.Id,
+			ConversationId: v.ConversationId,
+			SendId:         v.SendId,
+			RecvId:         v.RecvId,
+			MsgType:        v.MsgType,
+			MsgContent:     v.MsgContent,
+			ChatType:       v.ChatType,
+			SendTime:       v.SendTime,
+		})
+	}
+
+	resp = &types.ChatLogResp{List: list}
 
 	return
 }
