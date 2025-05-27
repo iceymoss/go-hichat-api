@@ -4,11 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"strconv"
 	"time"
@@ -206,6 +209,18 @@ func (l *GroupPutinLogic) createGroupMember(in *social.GroupPutinReq, tx *gorm.D
 	if res.Error != nil || res.RowsAffected == 0 {
 		tx.Rollback()
 		return errors.Wrapf(xerr.NewDBErr(), "insert friend err %v req %v", res.Error, groupMember)
+	}
+
+	//为新成员添加会话
+	_, err := l.svcCtx.IM.CreateGroupConversation(l.ctx, &im.CreateGroupConversationReq{
+		GroupId:  in.GroupId,
+		CreateId: in.ReqId,
+	})
+	if err != nil {
+		tx.Rollback()
+		zLog.Error("GroupCreate.CreateGroupConversation: create group conversation failed", zap.Any("uid", in.ReqId), zap.Error(err))
+		tx.Rollback()
+		return err
 	}
 
 	return nil
