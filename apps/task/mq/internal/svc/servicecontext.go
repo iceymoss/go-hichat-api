@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
+	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/config"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/zeromicro/go-zero/zrpc"
 	"net/http"
 )
 
@@ -26,6 +28,9 @@ type ServiceContext struct {
 
 	// 用户会话相关
 	ConversationsModel model.ConversationsModel
+
+	// 导入social微服务模块
+	socialclient.Social
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -34,6 +39,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		ConversationModel:  model.NewConversationModel(),
 		ChatLogModel:       model.NewChatLogModel(),
 		ConversationsModel: model.NewConversationsModel(),
+		Social:             socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
 	}
 
 	token, err := svcCtx.GetToken()

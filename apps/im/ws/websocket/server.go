@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/threading"
 	"go.uber.org/zap"
 	"net/http"
 	"sync"
@@ -62,6 +63,9 @@ type Server struct {
 
 	// 日志相关
 	logx.Logger
+
+	// 处理并发数
+	TaskRunner *threading.TaskRunner
 }
 
 // NewServer 初始化一个websocket服务实例
@@ -75,6 +79,7 @@ func NewServer(addr string, opt ...Options) *Server {
 		authentication: newOption(opt...),
 		opt:            newOption(opt...),
 		Logger:         logx.WithContext(context.Background()),
+		TaskRunner:     threading.NewTaskRunner(newOption(opt...).concurrency),
 	}
 }
 
