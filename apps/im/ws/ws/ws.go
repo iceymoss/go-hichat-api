@@ -38,6 +38,8 @@ type Push struct {
 	// 发送者
 	SendId string `mapstructure:"sendId"`
 
+	RecvIdList []string `mapstructure:"recvIdList"`
+
 	// 接收者
 	RecvId string `mapstructure:"recvId"`
 

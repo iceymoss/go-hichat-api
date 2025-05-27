@@ -20,13 +20,20 @@ type option struct {
 
 	// sendErrCount 发送失败计数
 	sendErrCount int
+
+	// 最大并发数
+	maxConnectionIdle time.Duration
+
+	concurrency int
 }
 
 func newOption(opts ...Options) option {
 	o := option{
-		pattern:      "/ws",
-		ackTimeout:   defaultAckTimeout,
-		sendErrCount: sendErrCount,
+		pattern:           "/ws",
+		ackTimeout:        defaultAckTimeout,
+		sendErrCount:      sendErrCount,
+		maxConnectionIdle: defaultMaxConnectionIdle,
+		concurrency:       defaultConcurrency,
 	}
 
 	for _, opt := range opts {
@@ -43,6 +50,11 @@ func WithAck(ack AckType) Options {
 	}
 }
 
+func WithConcurrency(concurrency int) Options {
+	return func(opt *option) {
+		opt.concurrency = concurrency
+	}
+}
 func WithAuthentication(authentication Authentication) Options {
 	return func(opt *option) {
 		opt.Authentication = authentication

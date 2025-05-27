@@ -15,4 +15,9 @@ const (
 	defaultAckTimeout = 30 * time.Second
 
 	sendErrCount = 5
+
+	// defaultServerHandlerConcurrency 默认并发数
+	defaultServerHandlerConcurrency = 10
+
+	defaultConcurrency = 10
 )

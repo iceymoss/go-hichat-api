@@ -6,6 +6,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/ws"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -22,30 +23,46 @@ func Push(svcCtx *svc.ServiceContext) websocket.HandlerFunc {
 			return
 		}
 
-		fmt.Printf("data: %+v\n", data)
-
-		rconn := srv.GetConn([]string{data.RecvId})
-		if len(rconn) == 0 {
-			// 离线
-			return
+		switch data.ChatType {
+		case constants.SingleChatType:
+			single(srv, &data, data.RecvId)
+		case constants.GroupChatType:
+			group(srv, &data)
 		}
-
-		srv.Infof("push msg %v", msg)
-
-		sendMsg := websocket.NewMessage(
-			data.SendId, &ws.Chat{
-				ConversationId: data.ConversationId,
-				RecvId:         data.RecvId,
-				SendId:         data.SendId,
-				SendTime:       data.SendTime,
-
-				Msg: ws.Msg{
-					MType:   data.MType,
-					Content: data.Content,
-				},
-			})
-
-		fmt.Printf("push到客户端的数据: %+v \n", sendMsg)
-		srv.Send(sendMsg, rconn[0])
 	}
+}
+
+func single(srv *websocket.Server, data *ws.Push, recvId string) error {
+	rconn := srv.GetConn([]string{data.RecvId})
+	if len(rconn) == 0 {
+		// 离线
+		return nil
+	}
+	srv.Infof("push  uid %v", recvId)
+	sendMsg := websocket.NewMessage(
+		data.SendId, &ws.Chat{
+			ConversationId: data.ConversationId,
+			RecvId:         data.RecvId,
+			SendId:         data.SendId,
+			SendTime:       data.SendTime,
+
+			Msg: ws.Msg{
+				MType:   data.MType,
+				Content: data.Content,
+			},
+		})
+	fmt.Printf("push到客户端的数据: %+v \n", sendMsg)
+	return srv.Send(sendMsg, rconn[0])
+}
+
+// group 基于并发发送
+func group(srv *websocket.Server, data *ws.Push) error {
+	for _, id := range data.RecvIdList {
+		func(id string) {
+			srv.TaskRunner.Schedule(func() {
+				single(srv, data, id)
+			})
+		}(id)
+	}
+	return nil
 }
