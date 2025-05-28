@@ -30,7 +30,7 @@ type ServiceContext struct {
 	ConversationsModel model.ConversationsModel
 
 	// 导入social微服务模块
-	socialclient.Social
+	Social socialclient.Social
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {

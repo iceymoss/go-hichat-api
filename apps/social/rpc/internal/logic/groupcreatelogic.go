@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"strconv"
 	"time"
 
@@ -80,19 +79,23 @@ func (l *GroupCreateLogic) GroupCreate(in *social.GroupCreateReq) (*social.Group
 		return nil, res.Error
 	}
 
+	//
+
 	//为群主添加会话
-	_, err = l.svcCtx.IM.CreateGroupConversation(l.ctx, &im.CreateGroupConversationReq{
-		GroupId:  strconv.Itoa(groups.Id),
-		CreateId: strconv.Itoa(creatorUidInt),
-	})
-	if err != nil {
-		zLog.Error("GroupCreate.CreateGroupConversation: create group conversation failed", zap.Any("uid", creatorUidInt), zap.Error(err))
-		tx.Rollback()
-		return nil, err
-	}
+	//_, err = l.svcCtx.IM.CreateGroupConversation(l.ctx, &im.CreateGroupConversationReq{
+	//	GroupId:  strconv.Itoa(groups.Id),
+	//	CreateId: strconv.Itoa(creatorUidInt),
+	//})
+	//if err != nil {
+	//	zLog.Error("GroupCreate.CreateGroupConversation: create group conversation failed", zap.Any("uid", creatorUidInt), zap.Error(err))
+	//	tx.Rollback()
+	//	return nil, err
+	//}
 
 	//提交事务
 	tx.Commit()
 
-	return &social.GroupCreateResp{}, err
+	return &social.GroupCreateResp{
+		GroupId: strconv.Itoa(groups.Id),
+	}, err
 }

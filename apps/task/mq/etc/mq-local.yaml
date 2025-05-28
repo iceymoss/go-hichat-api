@@ -20,3 +20,21 @@ MsgChatTransfer:
 
 Ws:
   Host: 127.0.0.1:10090
+
+SocialRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: social.rpc
+
+UserRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: user.rpc
+
+ImRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: im.rpc
