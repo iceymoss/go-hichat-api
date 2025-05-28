@@ -100,7 +100,9 @@ message GroupCreateReq { //创建群
   int32  status = 4;
   string creator_uid = 5;
 }
-message GroupCreateResp {}
+message GroupCreateResp {
+  string groupId = 1;
+}
 
 message GroupPutinReq {
   string groupId = 2;
@@ -112,6 +114,7 @@ message GroupPutinReq {
 }
 message GroupPutinResp {
   int32 groupId = 1;
+  int32 isPass = 2;
 }
 
 message GroupPutinListReq {
@@ -133,7 +136,9 @@ message GroupPutInHandleReq {
   string username = 6;
   string userAvatarUrl = 7;
 }
-message GroupPutInHandleResp {}
+message GroupPutInHandleResp {
+  string groupId = 1;
+}
 
 message GroupListReq{
   string userId = 1;

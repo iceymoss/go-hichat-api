@@ -27,11 +27,11 @@ func NewCreateGroupConversationLogic(ctx context.Context, svcCtx *svc.ServiceCon
 	}
 }
 
-// CreateGroupConversation 创建群会话
+// CreateGroupConversation 创建群会话,创建群时创建
 func (l *CreateGroupConversationLogic) CreateGroupConversation(in *im.CreateGroupConversationReq) (*im.CreateGroupConversationResp, error) {
 	res := &im.CreateGroupConversationResp{}
 
-	// 群群聊中，群id就是会话id
+	// 群聊中，群id就是会话id
 	_, err := l.svcCtx.ConversationModel.FindOne(l.ctx, in.GroupId)
 	if err == nil {
 		return res, nil
@@ -48,6 +48,12 @@ func (l *CreateGroupConversationLogic) CreateGroupConversation(in *im.CreateGrou
 	if err != nil {
 		return res, errorx.Wrapf(xerr.NewDBErr(), "insert conversation err %v, req %v", err, in)
 	}
+
+	_, err = NewSetUpUserConversationLogic(l.ctx, l.svcCtx).SetUpUserConversation(&im.SetUpUserConversationReq{
+		SendId:   in.CreateId,
+		RecvId:   in.GroupId,
+		ChatType: int32(constants.GroupChatType),
+	})
 
 	return res, nil
 }

@@ -3,7 +3,10 @@ package group
 import (
 	"context"
 	"errors"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"go.uber.org/zap"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
@@ -19,7 +22,7 @@ type CreateGroupLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 创群
+// NewCreateGroupLogic 创群
 func NewCreateGroupLogic(ctx context.Context, svcCtx *svc.ServiceContext) *CreateGroupLogic {
 	return &CreateGroupLogic{
 		Logger: logx.WithContext(ctx),
@@ -33,13 +36,23 @@ func (l *CreateGroupLogic) CreateGroup(req *types.GroupCreateReq) (resp *types.G
 		return nil, errors.New("group name is empty")
 	}
 	uid := l.ctx.Value(Identify).(string)
-	_, err = l.svcCtx.Social.GroupCreate(l.ctx, &social.GroupCreateReq{
+	res, err := l.svcCtx.Social.GroupCreate(l.ctx, &social.GroupCreateReq{
 		Name:       req.Name,
 		Icon:       req.Icon,
 		Status:     0,
 		CreatorUid: uid,
 	})
 	if err != nil {
+		zLog.Error("CreateGroup.GroupCreate: create group failed", zap.Error(err))
+		return nil, err
+	}
+
+	_, err = l.svcCtx.Im.CreateGroupConversation(l.ctx, &im.CreateGroupConversationReq{
+		GroupId:  res.GroupId,
+		CreateId: uid,
+	})
+	if err != nil {
+		zLog.Error("CreateGroup.CreateGroupConversation: create conversation failed", zap.Error(err))
 		return nil, err
 	}
 
