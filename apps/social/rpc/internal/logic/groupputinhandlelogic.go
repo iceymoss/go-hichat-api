@@ -3,14 +3,11 @@ package logic
 import (
 	"context"
 	"database/sql"
-	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
@@ -108,17 +105,19 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 	}
 
 	//为新成员添加会话
-	_, err = l.svcCtx.IM.CreateGroupConversation(l.ctx, &im.CreateGroupConversationReq{
-		GroupId:  groupReq.GroupId,
-		CreateId: groupReq.ReqId,
-	})
-	if err != nil {
-		zLog.Error("GroupCreate.CreateGroupConversation: create group conversation failed", zap.Any("uid", groupReq.ReqId), zap.Error(err))
-		tx.Rollback()
-		return nil, err
-	}
+	//_, err = l.svcCtx.IM.CreateGroupConversation(l.ctx, &im.CreateGroupConversationReq{
+	//	GroupId:  groupReq.GroupId,
+	//	CreateId: groupReq.ReqId,
+	//})
+	//if err != nil {
+	//	zLog.Error("GroupCreate.CreateGroupConversation: create group conversation failed", zap.Any("uid", groupReq.ReqId), zap.Error(err))
+	//	tx.Rollback()
+	//	return nil, err
+	//}
 
 	tx.Commit()
 
-	return &social.GroupPutInHandleResp{}, err
+	return &social.GroupPutInHandleResp{
+		GroupId: groupReq.GroupId,
+	}, err
 }

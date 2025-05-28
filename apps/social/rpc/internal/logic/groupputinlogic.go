@@ -4,14 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"strconv"
 	"time"
@@ -185,7 +182,7 @@ func (l *GroupPutinLogic) createGroupReq(groupReq *socialmodels.GroupRequests, i
 		if err != nil {
 			return nil, errors.Wrapf(xerr.NewMsg("群id不合法"), "find group by groud id err %v, req %v", err, groupReq)
 		}
-		return &social.GroupPutinResp{GroupId: int32(groupIdInt)}, nil
+		return &social.GroupPutinResp{GroupId: int32(groupIdInt), IsPass: 1}, nil
 	}
 
 	id, _ := strconv.Atoi(groupReq.GroupId)
@@ -212,16 +209,16 @@ func (l *GroupPutinLogic) createGroupMember(in *social.GroupPutinReq, tx *gorm.D
 	}
 
 	//为新成员添加会话
-	_, err := l.svcCtx.IM.CreateGroupConversation(l.ctx, &im.CreateGroupConversationReq{
-		GroupId:  in.GroupId,
-		CreateId: in.ReqId,
-	})
-	if err != nil {
-		tx.Rollback()
-		zLog.Error("GroupCreate.CreateGroupConversation: create group conversation failed", zap.Any("uid", in.ReqId), zap.Error(err))
-		tx.Rollback()
-		return err
-	}
+	//_, err := l.svcCtx.IM.CreateGroupConversation(l.ctx, &im.CreateGroupConversationReq{
+	//	GroupId:  in.GroupId,
+	//	CreateId: in.ReqId,
+	//})
+	//if err != nil {
+	//	tx.Rollback()
+	//	zLog.Error("GroupCreate.CreateGroupConversation: create group conversation failed", zap.Any("uid", in.ReqId), zap.Error(err))
+	//	tx.Rollback()
+	//	return err
+	//}
 
 	return nil
 }
