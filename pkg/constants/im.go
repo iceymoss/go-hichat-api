@@ -21,6 +21,8 @@ const (
 
 	// MemesMType 表情包类型
 	MemesMType
+
+	ContentMakeRead
 )
 
 const (

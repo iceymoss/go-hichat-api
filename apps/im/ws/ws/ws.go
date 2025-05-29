@@ -3,8 +3,14 @@ package ws
 import "github.com/iceymoss/go-hichat-api/pkg/constants"
 
 type Msg struct {
+	// 消息类型
 	constants.MType `mapstructure:"mType"`
-	Content         string `mapstructure:"content"`
+
+	// 消息内容
+	Content string `mapstructure:"content"`
+
+	// 已读记录 key为消息id、value为消息值
+	ReadRecords map[string]string `mapstructure:"readRecords"`
 }
 
 // Chat 聊天会话， message 结构中的data字段
@@ -46,6 +52,17 @@ type Push struct {
 	// 发送时间
 	SendTime int64 `mapstructure:"sendTime"`
 
+	// 已读记录 key为消息id、value为消息值
+	ReadRecords map[string]string `mapstructure:"readRecords"`
+
 	constants.MType `mapstructure:"mType"`
 	Content         string `mapstructure:"content"`
+}
+
+// MarkRead 已读标记
+type MarkRead struct {
+	constants.ChatType `mapstructure:"chatType"`
+	RecvId             string   `mapstructure:"recvId"`
+	ConversationId     string   `mapstructure:"conversationId"`
+	MsgIds             []string `mapstructure:"msgIds"`
 }

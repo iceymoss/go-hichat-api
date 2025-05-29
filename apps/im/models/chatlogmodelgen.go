@@ -7,11 +7,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/pkg/errors"
+	"github.com/zeromicro/go-zero/core/logx"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.uber.org/zap"
 	"time"
 )
 
@@ -38,10 +41,17 @@ type chatLogModel interface {
 	FindByQuery(ctx context.Context, q ChatLogQuery) ([]*ChatLog, int64, error)
 	Update(ctx context.Context, data *ChatLog) (*mongo.UpdateResult, error)
 
-	//根据时间获取列表
+	// 根据时间获取列表
 	ListBySendTime(ctx context.Context, conversationId string, startSendTime, endSendTime, count int64) ([]*ChatLog, error)
 
+	// 根据id获取消息
 	FindOne(ctx context.Context, id string) (*ChatLog, error)
+
+	// 根据id批量获取消息
+	ListByMsgId(ctx context.Context, id []string) ([]*ChatLog, error)
+
+	// 更新已读数
+	UpdateMakeRead(ctx context.Context, id primitive.ObjectID, readRecords []byte) error
 }
 
 type defaultChatLogModel struct {
@@ -171,6 +181,69 @@ func (m *defaultChatLogModel) Delete(ctx context.Context, id string) (int64, err
 	return res.DeletedCount, err
 }
 
+func (m *defaultChatLogModel) ListByMsgId(ctx context.Context, msgIds []string) ([]*ChatLog, error) {
+	// 处理空输入
+	if len(msgIds) == 0 {
+		return []*ChatLog{}, nil
+	}
+
+	// 转换ID并验证有效性
+	ids := make([]primitive.ObjectID, 0, len(msgIds))
+	for _, id := range msgIds {
+		oid, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			// 记录无效ID并跳过
+			logx.WithContext(ctx).Errorf("无效的消息ID格式: %s, 错误: %v", id, err)
+			continue
+		}
+		ids = append(ids, oid)
+	}
+
+	// 检查是否有有效ID
+	if len(ids) == 0 {
+		return nil, errors.New("所有提供的消息ID格式无效")
+	}
+
+	// 构建查询过滤器
+	filter := bson.M{"_id": bson.M{"$in": ids}}
+
+	// 获取集合
+	collection := m.Conn.Database(HiChat2).Collection(ChatLogs)
+
+	// 执行查询
+	cursor, err := collection.Find(ctx, filter)
+	if err != nil {
+		logx.WithContext(ctx).Errorf("查询消息失败: %v", err)
+		return nil, fmt.Errorf("数据库查询失败: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	// 解码结果
+	var results []*ChatLog
+	for cursor.Next(ctx) {
+		var chatLog ChatLog
+		if err := cursor.Decode(&chatLog); err != nil {
+			logx.WithContext(ctx).Errorf("消息解码失败: %v", err)
+			continue // 跳过无效文档继续处理
+		}
+		results = append(results, &chatLog)
+	}
+
+	// 检查游标错误
+	if err := cursor.Err(); err != nil {
+		logx.WithContext(ctx).Errorf("游标迭代错误: %v", err)
+		return nil, fmt.Errorf("数据处理失败: %w", err)
+	}
+
+	// 处理空结果
+	if len(results) == 0 {
+		logx.WithContext(ctx).Infof("未找到指定消息: %v", msgIds)
+		return nil, ErrNotFound
+	}
+
+	return results, nil
+}
+
 // ListBySendTime 根据发送时间获取对应会话的聊天记录
 func (m *defaultChatLogModel) ListBySendTime(ctx context.Context, conversationId string, startSendTime, endSendTime, count int64) ([]*ChatLog, error) {
 	// 初始化返回结构和默认参数
@@ -228,4 +301,41 @@ func (m *defaultChatLogModel) ListBySendTime(ctx context.Context, conversationId
 	}
 
 	return data, nil
+}
+
+func (m *defaultChatLogModel) UpdateMakeRead(ctx context.Context, id primitive.ObjectID, readRecords []byte) error {
+	// 验证输入参数
+	if id.IsZero() {
+		logx.WithContext(ctx).Errorf("更新已读记录失败: 无效的消息ID")
+		return errors.New("无效的消息ID")
+	}
+
+	if len(readRecords) == 0 {
+		zLog.Error("更新已读记录: 空记录消息", zap.Any("id", id.Hex()))
+	}
+
+	// 构建更新操作
+	filter := bson.M{"_id": id}
+	update := bson.M{"$set": bson.M{"readRecords": readRecords}}
+
+	// 执行更新操作
+	collection := m.Conn.Database(HiChat2).Collection(ChatLogs)
+	result, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		logx.WithContext(ctx).Errorf("更新已读记录失败: 消息ID=%s, 错误: %v", id.Hex(), err)
+		return fmt.Errorf("数据库更新失败: %w", err)
+	}
+
+	// 检查更新结果
+	switch {
+	case result.MatchedCount == 0:
+		zLog.Error("未找到消息记录", zap.Any("id", id.Hex()))
+		return ErrNotFound
+	case result.ModifiedCount == 0:
+		zLog.Error("未找到消息记录", zap.Any("id", id.Hex()))
+		return nil
+	default:
+		zLog.Error("成功更新已读记录: 消息", zap.Any("id", id.Hex()), zap.Any("更新记录数", result.ModifiedCount))
+		return nil
+	}
 }
