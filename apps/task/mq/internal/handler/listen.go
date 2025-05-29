@@ -25,5 +25,6 @@ func (l *Listen) Services() []service.Service {
 	// 注册处理逻辑
 	return []service.Service{
 		kq.MustNewQueue(l.svc.Config.MsgChatTransfer, consumeHandle),
+		kq.MustNewQueue(l.svc.Config.MsgReadTransfer, msgTransfer.NewMsgReadTransfer(l.svc)),
 	}
 }

@@ -20,6 +20,8 @@ type Config struct {
 
 	MsgChatTransfer kq.KqConf
 
+	MsgReadTransfer kq.KqConf
+
 	Ws struct {
 		Host string
 	}
