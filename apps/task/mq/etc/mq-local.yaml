@@ -18,6 +18,15 @@ MsgChatTransfer:
   Offset: first
   Consumers: 1
 
+MsgReadTransfer:
+  Name: msgReadTrans
+  Brokers:
+    - 127.0.0.1:9092
+  Group: kafka
+  Topic: msgReadTransfer
+  Offset: first
+  Consumers: 1
+
 Ws:
   Host: 127.0.0.1:10090
 

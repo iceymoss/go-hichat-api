@@ -37,7 +37,7 @@ type ChatLog struct {
 	// 聊天类型
 	ChatType constants.ChatType `bson:"chatType"`
 
-	// 阅读记录
+	// 已读记录
 	ReadRecords []byte `bson:"readRecords"`
 
 	// 更新时间

@@ -9,22 +9,20 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
+	"github.com/iceymoss/go-hichat-api/pkg/bitmap"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/zeromicro/go-queue/kq"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // MsgChatTransfer 实现ConsumeHandler接口
 type MsgChatTransfer struct {
-	logx.Logger
-	svcCtx *svc.ServiceContext
+	*BaseChatTransfer
 }
 
 // NewMsgChatTransfer 实例化一个MsgChatTransfer
 func NewMsgChatTransfer(svc *svc.ServiceContext) kq.ConsumeHandler {
 	return &MsgChatTransfer{
-		Logger: logx.WithContext(context.Background()),
-		svcCtx: svc,
+		BaseChatTransfer: NewBaseMsgChatTransfer(svc),
 	}
 }
 
@@ -46,15 +44,7 @@ func (m *MsgChatTransfer) Consume(ctx context.Context, key, value string) error 
 		return err
 	}
 
-	switch data.ChatType {
-	case constants.SingleChatType:
-		//推送至 WebSocket 客户端
-		err = m.single(ctx, &data)
-	case constants.GroupChatType:
-		err = m.group(ctx, &data)
-	}
-
-	return err
+	return m.MsgChatTransfer(ctx, &data)
 }
 
 // addChatLog 将聊天记录消息持久化到数据库中
@@ -67,6 +57,11 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data mq.MsgChatTransfe
 		MsgContent:     data.MsgContent,
 		ChatType:       data.ChatType,
 	}
+
+	// 消息发起人标记为已读
+	readRecords := bitmap.NewBitmap(0)
+	readRecords.Set(chatLog.SendId)
+	chatLog.ReadRecords = readRecords.Export()
 
 	// 记录聊天记录
 	_, err := m.svcCtx.ChatLogModel.Insert(ctx, &chatLog)
