@@ -150,6 +150,7 @@ func (s *Server) handlerConn(conn *Conn) {
 			// 将消息写入队列
 			conn.appendMsgMq(&message)
 		} else {
+			// 直接将消息交给handleWrite处理
 			conn.message <- &message
 		}
 	}
@@ -187,6 +188,7 @@ func (s *Server) readAck(conn *Conn) {
 		}
 
 		conn.messageMu.Lock()
+		// 这里相当于自旋
 		if len(conn.readMessages) == 0 {
 			conn.messageMu.Unlock()
 			// 没有消息进来的时候

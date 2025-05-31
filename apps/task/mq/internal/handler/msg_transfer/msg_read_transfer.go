@@ -35,7 +35,12 @@ func (m *MsgReadTransfer) Consume(ctx context.Context, key, value string) error 
 		return err
 	}
 
-	fmt.Printf("已经收到消息了: %+v\n", data)
+	fmt.Printf("已经收到消息了用户已读标识: %+v\n", data)
+	// 业务处理 -- 更新
+	readRecords, err := m.UpdateChatLogRead(ctx, &data)
+	if err != nil {
+		return err
+	}
 
 	return m.MsgChatTransfer(ctx, &mq.MsgChatTransfer{
 		ChatType:       data.ChatType,
@@ -43,7 +48,7 @@ func (m *MsgReadTransfer) Consume(ctx context.Context, key, value string) error 
 		SendId:         data.SendId,
 		RecvId:         data.RecvId,
 		ContentType:    constants.ContentMakeRead,
-		ReadRecords:    data.ReadRecords,
+		ReadRecords:    readRecords,
 	})
 }
 
