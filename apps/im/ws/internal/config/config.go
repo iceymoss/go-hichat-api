@@ -17,8 +17,12 @@ type Config struct {
 		AccessExpire int64
 	}
 
-	MsgChatTransfer struct {
-		Addrs []string
-		Topic string
-	}
+	MsgChatTransfer kafkaCfg
+
+	MsgMarkRead kafkaCfg
+}
+
+type kafkaCfg struct {
+	Addrs []string
+	Topic string
 }

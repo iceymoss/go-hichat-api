@@ -21,10 +21,11 @@ func NewListen(svc *svc.ServiceContext) *Listen {
 // Services 服务监控 service 是go-zero的一个服务模块
 func (l *Listen) Services() []service.Service {
 	// NewMsgChatTransfer 结构体实现了 kq.ConsumeHandle接口
-	consumeHandle := msgTransfer.NewMsgChatTransfer(l.svc)
+	msgChatConsumeHandle := msgTransfer.NewMsgChatTransfer(l.svc)
+	msgChatMarkReadConsumeHandle := msgTransfer.NewMsgReadTransfer(l.svc)
 	// 注册处理逻辑
 	return []service.Service{
-		kq.MustNewQueue(l.svc.Config.MsgChatTransfer, consumeHandle),
-		kq.MustNewQueue(l.svc.Config.MsgReadTransfer, msgTransfer.NewMsgReadTransfer(l.svc)),
+		kq.MustNewQueue(l.svc.Config.MsgChatTransfer, msgChatConsumeHandle),
+		kq.MustNewQueue(l.svc.Config.MsgReadTransfer, msgChatMarkReadConsumeHandle),
 	}
 }
