@@ -18,13 +18,16 @@ type ServiceContext struct {
 
 	//mq客户端
 	MsgChatTransferClient mq_client.MsgChatTransferClient
+
+	MsgMarkReadTransferClient mq_client.MsgReadTransferClient
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
-		Config:                c,
-		ChatLogModel:          model.NewChatLogModel(),
-		ConversationsModel:    model.NewConversationsModel(),
-		MsgChatTransferClient: mq_client.NewMsgChatTransferClient(c.MsgChatTransfer.Addrs, c.MsgChatTransfer.Topic),
+		Config:                    c,
+		ChatLogModel:              model.NewChatLogModel(),
+		ConversationsModel:        model.NewConversationsModel(),
+		MsgChatTransferClient:     mq_client.NewMsgChatTransferClient(c.MsgChatTransfer.Addrs, c.MsgChatTransfer.Topic),
+		MsgMarkReadTransferClient: mq_client.NewMsgReadTransferClient(c.MsgChatTransfer.Addrs, c.MsgChatTransfer.Topic),
 	}
 }

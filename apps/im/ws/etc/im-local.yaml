@@ -10,3 +10,8 @@ MsgChatTransfer:
   Topic: msgChatTransfer
   Addrs:
     - 127.0.0.1:9092
+
+MsgMarkRead:
+  Topic: msgReadTransfer
+  Addrs:
+    - 127.0.0.1:9092
