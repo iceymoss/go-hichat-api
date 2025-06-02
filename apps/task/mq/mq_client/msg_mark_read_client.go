@@ -29,7 +29,7 @@ func (c *msgReadTransferClient) Push(msg *mq.MsgMarkRead) error {
 		return err
 	}
 
-	ctx := context.Background()
+	ct := context.Background()
 
-	return c.pusher.Push(ctx, string(body))
+	return c.pusher.Push(ct, string(body))
 }
