@@ -70,6 +70,7 @@ service im {
 	@handler getChatLog
 	get /chatlog (ChatLogReq) returns (ChatLogResp) // 增加空格分隔参数
 
+	@doc "获取聊天记录已读情况"
 	@handler getChatLogReadRecords
 	get /chatlog/readRecords (GetChatLogReadRecordsReq) returns (GetChatLogReadRecordsResp)
 
