@@ -1,6 +1,18 @@
 Name: im.rpc
 ListenOn: 0.0.0.0:10002
+
 Etcd:
   Hosts:
   - 127.0.0.1:2379
   Key: im.rpc
+
+SocialRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: social.rpc
+    Timeout: 10000     # 超时10秒
+    RetryCount: 5      # 重试5次
+    RetryInterval: 500 # 每次重试间隔500ms
+    NonBlock: true     # 非阻塞模式
+
