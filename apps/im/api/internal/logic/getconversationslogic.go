@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"go.uber.org/zap"
@@ -29,6 +30,7 @@ func NewGetConversationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
+// GetConversations 获取用户会话(聊天列表)列表
 func (l *GetConversationsLogic) GetConversations(req *types.GetConversationsReq) (resp *types.GetConversationsResp, err error) {
 	uid := l.ctx.Value(Identify).(string)
 	res, err := l.svcCtx.IM.GetConversations(l.ctx, &im.GetConversationsReq{
@@ -39,15 +41,31 @@ func (l *GetConversationsLogic) GetConversations(req *types.GetConversationsReq)
 		return nil, err
 	}
 
+	// 会话列表需要展示最后一条聊天信息,需要从会话详情中获取会话last_msg
 	conversations := make(map[string]types.Conversation, len(res.ConversationList))
 	for k, v := range res.ConversationList {
+		var message types.ChatLog
+		if v.Msg != nil {
+			message = types.ChatLog{
+				ConversationId: v.Msg.ConversationId,
+				SendId:         v.Msg.SendId,
+				RecvId:         v.Msg.RecvId,
+				MsgType:        v.Msg.MsgType,
+				MsgContent:     v.Msg.MsgContent,
+				ChatType:       v.ChatType,
+				SendTime:       v.Msg.SendTime,
+			}
+		}
+
 		conversations[k] = types.Conversation{
 			ConversationId: v.ConversationId,
 			ChatType:       v.ChatType,
 			IsShow:         v.IsShow,
 			Seq:            v.Seq,
-			Read:           v.Read,
+			Read:           v.ToRead, //未读数量
+			Msg:            message,
 		}
+		fmt.Printf("conversations: %+v\n", conversations[k])
 	}
 
 	resp = &types.GetConversationsResp{ConversationList: conversations}
