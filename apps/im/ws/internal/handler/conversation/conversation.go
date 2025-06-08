@@ -10,6 +10,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/wuid"
+	"github.com/pkg/errors"
 	"time"
 )
 
@@ -61,7 +62,6 @@ func Chat(srvCtx *svc.ServiceContext) websocket.HandlerFunc {
 // MarkRead 向mq推送已读未读消息的
 func MarkRead(svc *svc.ServiceContext) websocket.HandlerFunc {
 	return func(srv *websocket.Server, conn *websocket.Conn, msg *websocket.Message) {
-		// todo: 已读未读处理
 		var data ws.MarkRead
 		if err := mapstructure.Decode(msg.Data, &data); err != nil {
 			srv.Send(websocket.NewErrMessage(err), conn)
@@ -74,10 +74,12 @@ func MarkRead(svc *svc.ServiceContext) websocket.HandlerFunc {
 			SendId:         conn.Uid,            // 消息阅读者
 			RecvId:         data.RecvId,         // 接收者
 			MsgIds:         data.MsgIds,         // 已被阅读消息id
+			ReadRecords:    data.ReadRecords,    // 消息阅读状态 消息id => 当前用户阅读状态
 		})
 
 		if err != nil {
-			srv.Send(websocket.NewErrMessage(err), conn)
+			errStr := errors.New(fmt.Sprintf("push mq fialed: %s", err.Error()))
+			srv.Send(websocket.NewErrMessage(errStr), conn)
 			return
 		}
 	}

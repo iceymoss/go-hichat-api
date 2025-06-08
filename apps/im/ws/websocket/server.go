@@ -145,6 +145,8 @@ func (s *Server) handlerConn(conn *Conn) {
 			continue
 		}
 
+		// TODO: 这里有一个bug，当用户直接第一次传入一个ack = 2的值，会导致当前用户连接整个ack机制锁死，消息发送不了了
+
 		fmt.Printf("socket服务器收到消息: %+v", message)
 		if s.opt.ack != NoAck && message.FrameType != FrameNoAck {
 			// 将消息写入队列
@@ -207,6 +209,8 @@ func (s *Server) readAck(conn *Conn) {
 			conn.readMessages = conn.readMessages[1:]
 			continue
 		}
+
+		fmt.Printf("ack应答中 message: %+v\n", message)
 
 		// 根据ack的确认策略选择合适的处理方式
 		switch s.opt.ack {

@@ -62,7 +62,10 @@ type Push struct {
 // MarkRead 已读标记
 type MarkRead struct {
 	constants.ChatType `mapstructure:"chatType"`
-	RecvId             string   `mapstructure:"recvId"`
-	ConversationId     string   `mapstructure:"conversationId"`
-	MsgIds             []string `mapstructure:"msgIds"`
+	RecvId             string `mapstructure:"recvId"`
+	ConversationId     string `mapstructure:"conversationId"`
+	// 发送者
+	SendId      string            `mapstructure:"sendId"`
+	MsgIds      []string          `mapstructure:"msgIds"`
+	ReadRecords map[string]string `mapstructure:"readRecords"`
 }

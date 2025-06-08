@@ -16,9 +16,10 @@ type ServiceContext struct {
 	// 会话
 	ConversationsModel model.ConversationsModel
 
-	//mq客户端
+	// mq客户端
 	MsgChatTransferClient mq_client.MsgChatTransferClient
 
+	//
 	MsgMarkReadTransferClient mq_client.MsgReadTransferClient
 }
 
@@ -28,6 +29,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		ChatLogModel:              model.NewChatLogModel(),
 		ConversationsModel:        model.NewConversationsModel(),
 		MsgChatTransferClient:     mq_client.NewMsgChatTransferClient(c.MsgChatTransfer.Addrs, c.MsgChatTransfer.Topic),
-		MsgMarkReadTransferClient: mq_client.NewMsgReadTransferClient(c.MsgChatTransfer.Addrs, c.MsgChatTransfer.Topic),
+		MsgMarkReadTransferClient: mq_client.NewMsgReadTransferClient(c.MsgMarkRead.Addrs, c.MsgMarkRead.Topic),
 	}
 }
