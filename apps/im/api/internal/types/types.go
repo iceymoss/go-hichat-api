@@ -27,11 +27,12 @@ type ChatLogResp struct {
 }
 
 type Conversation struct {
-	ConversationId string `json:"conversationId,omitempty"`
-	ChatType       int32  `json:"chatType,omitempty"` // 修正字段名统一小写
-	IsShow         bool   `json:"isShow,omitempty"`
-	Seq            int64  `json:"seq,omitempty"`
-	Read           int32  `json:"read,omitempty"`
+	ConversationId string  `json:"conversationId,omitempty"`
+	ChatType       int32   `json:"chatType,omitempty"` // 修正字段名统一小写
+	IsShow         bool    `json:"isShow,omitempty"`
+	Seq            int64   `json:"seq,omitempty"`
+	Read           int32   `json:"read"`
+	Msg            ChatLog `json:"message, optional"`
 }
 
 type GetChatLogReadRecordsReq struct {

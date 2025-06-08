@@ -27,7 +27,7 @@ func NewPutConversationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
-// PutConversations 更新用户会话
+// PutConversations 更新用户会话，主要用于更新未读消息数量
 func (l *PutConversationsLogic) PutConversations(in *im.PutConversationsReq) (*im.PutConversationsResp, error) {
 	// 获取用户会话
 	conversations, err := l.svcCtx.ConversationsModel.FindByUserId(l.ctx, in.UserId)
