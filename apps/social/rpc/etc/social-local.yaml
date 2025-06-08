@@ -13,9 +13,3 @@ Cache:
     Type: node
     Pass: easy-chat
 
-ImRpc:
-  Etcd:
-    Hosts:
-      - 127.0.0.1:2379
-    Key: im.rpc
-
