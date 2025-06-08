@@ -18,7 +18,7 @@ type MsgChatTransfer struct {
 	MsgType constants.MType `json:"mType,omitempty"`
 
 	// 已读记录
-	ReadRecords map[string]string `mapstructure:"readRecords"`
+	ReadRecords map[string]string `json:"readRecords"`
 
 	// 消息内容
 	MsgContent string `json:"content,omitempty"`

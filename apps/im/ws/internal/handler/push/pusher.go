@@ -23,6 +23,8 @@ func Push(svcCtx *svc.ServiceContext) websocket.HandlerFunc {
 			return
 		}
 
+		fmt.Printf("ws服务端接收到mq推送的数据了:%+v\n", data)
+
 		switch data.ChatType {
 		case constants.SingleChatType:
 			single(srv, &data, data.RecvId)
@@ -45,10 +47,10 @@ func single(srv *websocket.Server, data *ws.Push, recvId string) error {
 			RecvId:         data.RecvId,
 			SendId:         data.SendId,
 			SendTime:       data.SendTime,
-
 			Msg: ws.Msg{
-				MType:   data.MType,
-				Content: data.Content,
+				MType:       data.MType,
+				Content:     data.Content,
+				ReadRecords: data.ReadRecords,
 			},
 		})
 	fmt.Printf("push到客户端的数据: %+v \n", sendMsg)

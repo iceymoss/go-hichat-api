@@ -30,7 +30,7 @@ func (m *BaseChatTransfer) MsgChatTransfer(ctx context.Context, data *mq.MsgChat
 		err error
 	)
 
-	fmt.Printf("已经收到消息了: %+v\n", data)
+	fmt.Printf("ws客户端已经收到消息了，准备发送到ws服务端: %+v\n", data)
 
 	switch data.ChatType {
 	case constants.SingleChatType:
