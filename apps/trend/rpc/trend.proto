@@ -1,0 +1,260 @@
+syntax = "proto3";
+
+package trend;
+
+option go_package = "./trend";
+
+
+import "google/protobuf/timestamp.proto";  // 导入时间戳类型
+
+// 动态服务接口定义
+service TrendService {
+  // 发布动态
+  rpc CreateTrend(CreateTrendRequest) returns (CreateTrendResponse);
+
+  // 删除动态
+  rpc DeleteTrend(DeleteTrendRequest) returns (DeleteTrendResponse);
+
+  // 更新动态
+  rpc UpdateTrend(UpdateTrendRequest) returns (UpdateTrendResponse);
+
+  // 获取动态列表
+  rpc ListTrends(ListTrendsRequest) returns (ListTrendsResponse);
+
+  // 获取单个动态详情
+  rpc GetTrendDetail(GetTrendDetailRequest) returns (GetTrendDetailResponse);
+
+  // 获取最新动态（用于朋友圈/论坛动态流）
+  rpc GetLatestTrends(GetLatestTrendsRequest) returns (GetLatestTrendsResponse);
+
+  // 获取用户个人动态列表
+  rpc GetUserTrends(GetUserTrendsRequest) returns (GetUserTrendsResponse);
+}
+
+// ========== 枚举类型定义 ==========
+
+// 动态内容类型
+enum TrendType {
+  TREND_TYPE_UNSPECIFIED = 0;  // 未指定类型（应避免使用）
+  TEXT = 1;        // 纯文本动态
+  MIXED = 2;       // 图文混合动态
+  ARTICLE = 3;     // 长文动态（带标题）
+  SHARE = 4;       // 第三方内容分享（如文章/视频）
+  VIDEO = 5;       // 视频动态
+  AD = 6;          // 广告动态（需特殊处理）
+}
+
+// 动态可见范围
+enum VisibilityScope {
+  SCOPE_UNSPECIFIED = 0;  // 未指定范围（应避免使用）
+  PRIVATE = 1;      // 仅自己可见
+  FRIENDS = 2;      // 好友圈可见（朋友圈）
+  PUBLIC = 3;       // 公开可见（公共论坛）
+}
+
+// 朋友圈状态
+enum CircleState {
+  CIRCLE_STATE_UNSPECIFIED = 0;  // 未指定状态
+  CIRCLE_HIDDEN = 1;    // 朋友圈隐藏（不可见）
+  CIRCLE_VISIBLE = 2;   // 朋友圈可见
+  CIRCLE_DELETED = 3;   // 朋友圈已删除
+}
+
+// 公共论坛状态
+enum PublicState {
+  PUBLIC_STATE_UNSPECIFIED = 0;  // 未指定状态
+  PUBLIC_DRAFT = 1;     // 草稿状态（未发布）
+  PUBLIC_PUBLISHED = 2; // 已发布（正常展示）
+  PUBLIC_PENDING = 3;   // 审核中（临时状态）
+  PUBLIC_DELETED = 4;   // 已删除（不可见）
+}
+
+// ========== 消息结构定义 ==========
+
+// 动态中使用的资源项（图片/视频）
+message Resource {
+  string url = 1;          // 资源访问URL
+  string content_type = 2; // MIME类型：image/jpeg, video/mp4
+  int32 width = 3;         // 资源宽度（像素）
+  int32 height = 4;        // 资源高度（像素）
+  int32 duration = 5;      // 视频时长（秒）
+  int32 sort = 6;          // 资源排序位置
+}
+
+// 动态核心数据结构
+message Trend {
+  int64 id = 1;           // 动态唯一ID
+  int64 user_id = 2;       // 发布用户ID
+
+  // 动态基本信息
+  TrendType type = 3;       // 动态类型
+  string content = 4;       // 文本内容
+  VisibilityScope scope = 7; // 可见范围
+
+  // 状态管理
+  CircleState circle_state = 5;  // 朋友圈状态
+  PublicState public_state = 6;  // 公共论坛状态
+
+  // 时间管理
+  google.protobuf.Timestamp circle_time = 8;  // 朋友圈发布时间
+  google.protobuf.Timestamp public_time = 9;  // 论坛发布时间
+  google.protobuf.Timestamp create_time = 10; // 原始创建时间
+
+  // 互动数据
+  int32 reply_count = 11;   // 评论数量
+  int32 agree_count = 12;   // 点赞数量
+
+  // 附加信息
+  string position = 13;       // 位置信息
+  string title = 14;          // 长文标题（类型3）
+  repeated int64 at_user_ids = 15;  // @的用户ID列表
+
+  // 内容资源
+  repeated Resource resources = 16;  // 图片/视频资源
+  string cover_url = 18;       // 封面图URL（视频/长文）
+  string share_url = 19;       // 第三方分享链接
+
+  // 功能开关
+  bool open_reply = 17;        // 是否允许评论
+
+  // 系统信息
+  string device_id = 20;       // 发布设备ID
+}
+
+// 分页参数
+message Pagination {
+  int32 page = 1;       // 页码（从1开始计数）
+  int32 page_size = 2;  // 每页数量
+}
+
+// 分页信息
+message PageInfo {
+  int32 total = 1;        // 总记录数
+  int32 total_pages = 2;  // 总页数
+}
+
+// ========== 服务接口请求/响应 ==========
+
+// 1. 发布动态请求
+message CreateTrendRequest {
+  int64 user_id = 1;            // 发布用户ID（必须）
+  TrendType type = 2;            // 动态类型（必须）
+  string content = 3;            // 正文内容（必须）
+  VisibilityScope scope = 4;      // 可见范围（必须）
+
+  repeated Resource resources = 5; // 关联的资源（可选）
+  string position = 6;            // 位置信息（可选）
+  string title = 7;               // 长文标题（可选）
+  repeated int64 at_user_ids = 8;   // @的用户ID列表（可选）
+  bool open_reply = 9;            // 是否允许评论（默认开启）
+  string cover_url = 10;          // 封面图URL（类型3/5可选）
+  string share_url = 11;          // 分享链接（类型4/5可选）
+}
+
+// 发布动态响应
+message CreateTrendResponse {
+  int64 trend_id = 1;                       // 新创建的动态ID
+  google.protobuf.Timestamp create_time = 2; // 动态创建时间
+}
+
+// 2. 删除目标枚举
+enum DeleteTarget {
+  DELETE_TARGET_UNSPECIFIED = 0;  // 未指定目标
+  DELETE_CIRCLE_ONLY = 1;   // 仅删除朋友圈部分
+  DELETE_PUBLIC_ONLY = 2;   // 仅删除论坛部分
+  DELETE_BOTH = 3;          // 同时删除两个平台
+}
+
+// 删除动态请求
+message DeleteTrendRequest {
+  int64 trend_id = 1;  // 要删除的动态ID（必须）
+  int64 user_id = 2;    // 执行删除的用户ID（用于验证）
+  DeleteTarget target = 3; // 删除的目标平台（必须）
+}
+
+// 删除动态响应
+message DeleteTrendResponse {
+  bool success = 1;  // 删除操作是否成功
+}
+
+// 3. 更新动态请求
+message UpdateTrendRequest {
+  int64 trend_id = 1;  // 要更新的动态ID（必须）
+  int64 user_id = 2;    // 执行更新的用户ID（用于验证）
+
+  // 可更新的字段（每次请求只能更新一个）
+  oneof update_field {
+    string content = 3;       // 更新正文内容
+    string title = 4;          // 更新标题
+    VisibilityScope scope = 5; // 更新可见范围
+    bool open_reply = 6;       // 更新评论状态
+    string cover_url = 7;      // 更新封面图
+    string share_url = 8;      // 更新分享链接
+  }
+}
+
+// 更新动态响应
+message UpdateTrendResponse {
+  Trend trend = 1;  // 更新后的完整动态数据
+}
+
+// 4. 获取动态列表请求
+message ListTrendsRequest {
+  repeated int64 trend_ids = 1;   // 要查询的动态ID列表（可选）
+  Pagination pagination = 2;       // 分页参数（必须）
+  repeated TrendType types = 3;    // 按类型过滤（可选）
+}
+
+// 动态列表响应
+message ListTrendsResponse {
+  repeated Trend trends = 1;  // 动态列表数据
+  PageInfo page_info = 2;     // 分页信息
+}
+
+// 5. 动态详情请求
+message GetTrendDetailRequest {
+  int64 trend_id = 1;  // 要查询的动态ID（必须）
+  int64 user_id = 2;    // 当前查看的用户ID（用于权限检查）
+}
+
+// 动态详情响应
+message GetTrendDetailResponse {
+  Trend trend = 1;  // 动态详细信息
+}
+
+// 6. 动态流类型
+enum FeedType {
+  FEED_TYPE_UNSPECIFIED = 0;  // 未指定类型
+  FEED_FRIENDS = 1;  // 朋友圈动态流
+  FEED_PUBLIC = 2;   // 公共论坛动态流
+  FEED_HOT = 3;      // 热门动态流
+}
+
+// 获取最新动态请求（用于动态流）
+message GetLatestTrendsRequest {
+  FeedType type = 1;            // 动态流类型（必须）
+  int64 user_id = 2;              // 当前用户ID（用于个性化推荐）
+  int64 last_trend_id = 3;         // 上一次加载的最后一条动态ID（用于分页）
+  int32 count = 4;                // 请求数量（默认20）
+}
+
+// 最新动态响应
+message GetLatestTrendsResponse {
+  repeated Trend trends = 1;      // 动态列表
+  int64 last_trend_id = 2;         // 本次返回的最后一条动态ID（用于下次分页）
+  bool has_more = 3;              // 是否还有更多数据
+}
+
+// 7. 获取用户动态列表请求
+message GetUserTrendsRequest {
+  int64 target_user_id = 1;  // 要查询的用户ID（必须）
+  int64 request_user_id = 2;  // 发出请求的用户ID（用于权限检查）
+  VisibilityScope scope = 3;   // 可见范围过滤（可选）
+  Pagination pagination = 4;   // 分页参数（必须）
+}
+
+// 用户动态列表响应
+message GetUserTrendsResponse {
+  repeated Trend trends = 1;  // 用户的动态列表
+  PageInfo page_info = 2;      // 分页信息
+}
