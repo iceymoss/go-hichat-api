@@ -11,5 +11,5 @@ Mysql:
 Cache:
   - Host: 127.0.0.1:6379
     Type: node
-    Pass: easy-chat
+    Pass: hi-chat
 
