@@ -1,9 +1,9 @@
-Name: social.rpc
-ListenOn: 127.0.0.1:10001
+Name: trend.rpc
+ListenOn: 0.0.0.0:8091
 Etcd:
   Hosts:
-    - 127.0.0.1:2379
-  Key: social.rpc
+  - 127.0.0.1:2379
+  Key: trend.rpc
 
 Mysql:
   DataSource: root:123456789@tcp(127.0.0.1:3306)/hichat2?charset=utf8mb4&parseTime=true
@@ -11,5 +11,4 @@ Mysql:
 Cache:
   - Host: 127.0.0.1:6379
     Type: node
-    Pass: hi-chat
-
+    Pass: easy-chat
