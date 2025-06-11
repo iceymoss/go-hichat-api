@@ -41,6 +41,7 @@ SERVICES=(
   "api im"
   "im im"
   "task task"
+  "rpc trend"
 )
 
 # 遍历数组启动服务

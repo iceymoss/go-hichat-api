@@ -50,6 +50,7 @@ enum VisibilityScope {
   PRIVATE = 1;      // 仅自己可见
   FRIENDS = 2;      // 好友圈可见（朋友圈）
   PUBLIC = 3;       // 公开可见（公共论坛）
+  COMMON = 4;       // 朋友圈和论坛都可见
 }
 
 // 朋友圈状态
