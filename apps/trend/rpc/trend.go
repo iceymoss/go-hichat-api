@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
+	"github.com/iceymoss/go-hichat-api/pkg/interceptor/rpcserver"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/server"
@@ -16,10 +18,12 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-var configFile = flag.String("f", "etc/trend.yaml", "the config file")
+var configFile = flag.String("f", "etc/trend-local.yaml", "the config file")
 
 func main() {
 	flag.Parse()
+
+	pkcCfg.InitConfig("local", "", "config")
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
@@ -32,6 +36,8 @@ func main() {
 			reflection.Register(grpcServer)
 		}
 	})
+
+	s.AddUnaryInterceptors(rpcserver.LogInterceptor)
 	defer s.Stop()
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
