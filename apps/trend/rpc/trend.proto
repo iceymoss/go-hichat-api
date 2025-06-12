@@ -124,8 +124,8 @@ message Trend {
 
 // 分页参数
 message Pagination {
-  int32 page = 1;       // 页码（从1开始计数）
-  int32 page_size = 2;  // 每页数量
+  int32 last_id = 1;       // 页码（从1开始计数）
+  int32 last_time = 2;  // 每页数量
 }
 
 // 分页信息
