@@ -8,9 +8,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"gorm.io/gorm"
 	"strings"
 	"time"
 
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+
+	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
@@ -29,10 +33,16 @@ var (
 
 type (
 	trendModel interface {
-		Insert(ctx context.Context, data *Trend) (sql.Result, error)
+		Insert(ctx context.Context, data *Trend) (uint64, error)
 		FindOne(ctx context.Context, id uint64) (*Trend, error)
 		Update(ctx context.Context, data *Trend) error
-		Delete(ctx context.Context, id uint64) error
+		Delete(ctx context.Context, id uint64, class int) error
+		IncAgreeOrReply(ctx context.Context, id uint64, class int, inc int) error
+		SetTop(ctx context.Context, id uint64, isTop bool) error
+		OpenReply(ctx context.Context, id uint64, isOpen bool) error
+		SetCircleOrPublicState(ctx context.Context, id uint64, ispub bool, ran int) error
+		List(ctx context.Context, isPub bool, lastId int, lastTime int64, filter []string, sort string, sortType int) (*[]Trend, error)
+		ListByUserIds(ctx context.Context, userList []string, lastTime int64, filter []string, isPub bool) (*[]Trend, error)
 	}
 
 	defaultTrendModel struct {
@@ -50,10 +60,11 @@ type (
 		AgreeCount  uint64         `db:"agree_count"`  // 点赞数量
 		Createtime  time.Time      `db:"createtime"`   // 原始创建时间
 		Updatetime  time.Time      `db:"updatetime"`   // 最后更新时间
-		CircleState int64          `db:"circle_state"` // 朋友圈状态：0-不可见，1-可见，2-朋友圈删除
-		PublicState int64          `db:"public_state"` // 公共论坛状态：0-未发布，1-已发布，2-审核中，3-论坛删除
+		CircleState int64          `db:"circle_state"` // 朋友圈状态：2-不可见，1-可见，0-朋友圈删除
+		PublicState int64          `db:"public_state"` // 公共论坛状态：3-未发布，1-已发布，2-审核中，0-论坛删除
 		CircleTime  time.Time      `db:"circle_time"`  // 朋友圈发布时间
 		PublicTime  sql.NullTime   `db:"public_time"`  // 公共论坛发布时间
+		State       int64          `db:"state"`        // 是否删除 0-删除，1-正常
 		IsAd        int64          `db:"is_ad"`        // 是否广告：0-普通，1-广告
 		Url         string         `db:"url"`          // 广告/视频链接（类型5使用）
 		AdEndTime   sql.NullTime   `db:"ad_end_time"`  // 广告展示截止时间
@@ -76,22 +87,175 @@ func newTrendModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Option) *
 	}
 }
 
-func (m *defaultTrendModel) Delete(ctx context.Context, id uint64) error {
-	trendIdKey := fmt.Sprintf("%s%v", cacheTrendIdPrefix, id)
-	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("delete from %s where `id` = ?", m.table)
-		return conn.ExecCtx(ctx, query, id)
-	}, trendIdKey)
-	return err
+func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string, lastTime int64, filter []string, isPub bool) (*[]Trend, error) {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	query := mysqlConn.Table(m.table).Select(filter)
+	if isPub {
+		query.Where("public_state = ?", 1)
+	} else {
+		query.Where("circle_state = ?", 1)
+	}
+
+	var trendList []Trend
+	err := query.Where("state = ?", 1).
+		Where("userid in ?", userList).
+		Order("createtime DESC").
+		Find(&trendList).Limit(30).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return &trendList, nil
+
+}
+
+func (m *defaultTrendModel) List(ctx context.Context, isPub bool, lastId int, lastTime int64, filter []string, sort string, sortType int) (*[]Trend, error) {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	query := mysqlConn.Table(m.table).Select(filter)
+	var trendList []Trend
+	if lastId > 0 {
+		query = query.Where("id > ?", lastId)
+	}
+
+	if lastTime > 0 {
+		query = query.Where("createtime > ?", lastTime)
+	}
+
+	sortTypePoint := "ACS"
+	if sortType < 0 {
+		sortTypePoint = "DESC"
+	}
+
+	if isPub {
+		query.Where("public_state = ?", 1)
+	} else {
+		query.Where("circle_state = ?", 1)
+	}
+
+	err := query.Where("state = ?", 1).
+		Order(fmt.Sprintf("%s %s", sort, sortTypePoint)).
+		Find(&trendList).Limit(30).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return &trendList, nil
+}
+
+func (m *defaultTrendModel) SetCircleOrPublicState(ctx context.Context, id uint64, ispub bool, ran int) error {
+	authStateCulom := "circle_state"
+	if ispub {
+		authStateCulom = "public_state"
+	}
+
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	res := mysqlConn.Table(m.table).Where("id = ?", id).Update(authStateCulom, ran)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return errors.New("set reply state failed")
+	}
+
+	return nil
+}
+
+func (m *defaultTrendModel) OpenReply(ctx context.Context, id uint64, isOpen bool) error {
+	open := 0
+	if isOpen {
+		open = 1
+	}
+
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	res := mysqlConn.Table(m.table).Where("id = ?", id).Update("open_reply", open)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return errors.New("set reply state failed")
+	}
+
+	return nil
+
+}
+
+// class: 1删除朋友圈，2删除论坛，3删除所有
+func (m *defaultTrendModel) Delete(ctx context.Context, id uint64, class int) error {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	query := mysqlConn.Table(m.table).Where("id = ?", id)
+	state := "state"
+	if class == 1 {
+		state = "circle_state"
+	} else if class == 2 {
+		state = "public_state"
+	}
+
+	res := query.Update(state, 0)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return errors.New("delete trend failed")
+	}
+
+	return nil
+}
+
+func (m *defaultTrendModel) SetTop(ctx context.Context, id uint64, isTop bool) error {
+	top := 0
+	if isTop {
+		top = 1
+	}
+
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	res := mysqlConn.Table(m.table).Where("id = ?", id).Update("is_top", top)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return errors.New("set top failed")
+	}
+
+	return nil
+}
+
+func (m *defaultTrendModel) IncAgreeOrReply(ctx context.Context, id uint64, class int, inc int) error {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+
+	var trend Trend
+	err := mysqlConn.Table(m.table).Select([]string{"id", "agree_count", "reply_count"}).Where("id = ?", id).First(&trend).Error
+	if err != nil {
+		return err
+	}
+
+	count := trend.AgreeCount + 1
+	updateData := "agree_count"
+	if class == 1 {
+		updateData = "reply_count"
+		count = trend.ReplyCount + 1
+	}
+
+	res := mysqlConn.Table(m.table).Where("id = ?", id).Update(updateData, count)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return errors.New(fmt.Sprintf("update %s failed", updateData))
+	}
+
+	return nil
 }
 
 func (m *defaultTrendModel) FindOne(ctx context.Context, id uint64) (*Trend, error) {
-	trendIdKey := fmt.Sprintf("%s%v", cacheTrendIdPrefix, id)
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	var resp Trend
-	err := m.QueryRowCtx(ctx, &resp, trendIdKey, func(ctx context.Context, conn sqlx.SqlConn, v any) error {
-		query := fmt.Sprintf("select %s from %s where `id` = ? limit 1", trendRows, m.table)
-		return conn.QueryRowCtx(ctx, v, query, id)
-	})
+	err := mysqlConn.Table(m.table).Where("id = ?", id).First(&resp).Error
 	switch err {
 	case nil:
 		return &resp, nil
@@ -102,21 +266,32 @@ func (m *defaultTrendModel) FindOne(ctx context.Context, id uint64) (*Trend, err
 	}
 }
 
-func (m *defaultTrendModel) Insert(ctx context.Context, data *Trend) (sql.Result, error) {
-	trendIdKey := fmt.Sprintf("%s%v", cacheTrendIdPrefix, data.Id)
-	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, trendRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Userid, data.Type, data.Content, data.Position, data.ReplyCount, data.AgreeCount, data.Createtime, data.Updatetime, data.CircleState, data.PublicState, data.CircleTime, data.PublicTime, data.IsAd, data.Url, data.AdEndTime, data.OpenReply, data.IsTop, data.Title, data.Idlist, data.PicSort, data.ShareId, data.Cover, data.Ip, data.Device)
-	}, trendIdKey)
-	return ret, err
+func (m *defaultTrendModel) Insert(ctx context.Context, data *Trend) (uint64, error) {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	res := mysqlConn.Table(m.table).Create(&data)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return 0, errors.New("create trend faile")
+	}
+	return data.Id, nil
 }
 
 func (m *defaultTrendModel) Update(ctx context.Context, data *Trend) error {
-	trendIdKey := fmt.Sprintf("%s%v", cacheTrendIdPrefix, data.Id)
-	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, trendRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, data.Userid, data.Type, data.Content, data.Position, data.ReplyCount, data.AgreeCount, data.Createtime, data.Updatetime, data.CircleState, data.PublicState, data.CircleTime, data.PublicTime, data.IsAd, data.Url, data.AdEndTime, data.OpenReply, data.IsTop, data.Title, data.Idlist, data.PicSort, data.ShareId, data.Cover, data.Ip, data.Device, data.Id)
-	}, trendIdKey)
+	//TODO:
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	var trend Trend
+	err := mysqlConn.Table(m.table).Where("id = ?", data.Id).First(&trend).Error
+	if err != nil {
+		return err
+	}
+
+	if data.ReplyCount != 0 {
+
+	}
+
 	return err
 }
 
