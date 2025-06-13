@@ -132,8 +132,14 @@ message Pagination {
 message PageInfo {
   int32 total = 1;        // 总记录数
   int32 total_pages = 2;  // 总页数
+  int32 last_id = 3; // keyset分页
+  int64 last_time = 4; // keyset分页
 }
 
+message Point {
+  double longitude = 1;  // 经度
+  double latitude = 2;   // 纬度
+}
 // ========== 服务接口请求/响应 ==========
 
 // 1. 发布动态请求
@@ -142,19 +148,22 @@ message CreateTrendRequest {
   TrendType type = 2;            // 动态类型（必须）
   string content = 3;            // 正文内容（必须）
   VisibilityScope scope = 4;      // 可见范围（必须）
-
-  repeated Resource resources = 5; // 关联的资源（可选）
-  string position = 6;            // 位置信息（可选）
+  repeated string resources = 5; // 关联的资源（可选）
+  string position_name = 6;            // 位置信息（可选）
+  Point position_point = 14;          // 坐标信息
   string title = 7;               // 长文标题（可选）
   repeated int64 at_user_ids = 8;   // @的用户ID列表（可选）
   bool open_reply = 9;            // 是否允许评论（默认开启）
   string cover_url = 10;          // 封面图URL（类型3/5可选）
   string share_url = 11;          // 分享链接（类型4/5可选）
+  string device = 12;             // 客户端设备id
+  string ip = 13;                 // 客户端ip
 }
 
 // 发布动态响应
 message CreateTrendResponse {
   int64 trend_id = 1;                       // 新创建的动态ID
+  int64 code = 3;                           // 状态信息：1000:成功，2000:动态内容包含敏感信息
   google.protobuf.Timestamp create_time = 2; // 动态创建时间
 }
 
