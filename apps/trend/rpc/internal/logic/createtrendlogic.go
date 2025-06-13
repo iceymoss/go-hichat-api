@@ -110,6 +110,7 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 		Updatetime:    time.Now(),
 		CircleState:   int64(circleState),
 		State:         1,
+		Idlist:        []string{},
 		OpenReply:     openReply,
 		Title:         in.Title,
 		PicArr:        in.Resources,

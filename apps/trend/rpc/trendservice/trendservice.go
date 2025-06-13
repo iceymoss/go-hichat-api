@@ -45,7 +45,7 @@ type (
 		ListTrends(ctx context.Context, in *ListTrendsRequest, opts ...grpc.CallOption) (*ListTrendsResponse, error)
 		// 获取单个动态详情
 		GetTrendDetail(ctx context.Context, in *GetTrendDetailRequest, opts ...grpc.CallOption) (*GetTrendDetailResponse, error)
-		// 获取最新动态（用于朋友圈/论坛动态流）
+		// 获取最新动态
 		GetLatestTrends(ctx context.Context, in *GetLatestTrendsRequest, opts ...grpc.CallOption) (*GetLatestTrendsResponse, error)
 		// 获取用户个人动态列表
 		GetUserTrends(ctx context.Context, in *GetUserTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error)
@@ -92,7 +92,7 @@ func (m *defaultTrendService) GetTrendDetail(ctx context.Context, in *GetTrendDe
 	return client.GetTrendDetail(ctx, in, opts...)
 }
 
-// 获取最新动态（用于朋友圈/论坛动态流）
+// 获取最新动态
 func (m *defaultTrendService) GetLatestTrends(ctx context.Context, in *GetLatestTrendsRequest, opts ...grpc.CallOption) (*GetLatestTrendsResponse, error) {
 	client := trend.NewTrendServiceClient(m.cli.Conn())
 	return client.GetLatestTrends(ctx, in, opts...)

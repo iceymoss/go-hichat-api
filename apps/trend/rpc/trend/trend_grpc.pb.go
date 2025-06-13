@@ -44,7 +44,7 @@ type TrendServiceClient interface {
 	ListTrends(ctx context.Context, in *ListTrendsRequest, opts ...grpc.CallOption) (*ListTrendsResponse, error)
 	// 获取单个动态详情
 	GetTrendDetail(ctx context.Context, in *GetTrendDetailRequest, opts ...grpc.CallOption) (*GetTrendDetailResponse, error)
-	// 获取最新动态（用于朋友圈/论坛动态流）
+	// 获取最新动态
 	GetLatestTrends(ctx context.Context, in *GetLatestTrendsRequest, opts ...grpc.CallOption) (*GetLatestTrendsResponse, error)
 	// 获取用户个人动态列表
 	GetUserTrends(ctx context.Context, in *GetUserTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error)
@@ -144,7 +144,7 @@ type TrendServiceServer interface {
 	ListTrends(context.Context, *ListTrendsRequest) (*ListTrendsResponse, error)
 	// 获取单个动态详情
 	GetTrendDetail(context.Context, *GetTrendDetailRequest) (*GetTrendDetailResponse, error)
-	// 获取最新动态（用于朋友圈/论坛动态流）
+	// 获取最新动态
 	GetLatestTrends(context.Context, *GetLatestTrendsRequest) (*GetLatestTrendsResponse, error)
 	// 获取用户个人动态列表
 	GetUserTrends(context.Context, *GetUserTrendsRequest) (*GetUserTrendsResponse, error)

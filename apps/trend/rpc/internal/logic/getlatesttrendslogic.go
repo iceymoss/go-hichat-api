@@ -2,6 +2,8 @@ package logic
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
@@ -23,9 +25,16 @@ func NewGetLatestTrendsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *G
 	}
 }
 
-// 获取最新动态（用于朋友圈/论坛动态流）
+// GetLatestTrends 获取最新动态
 func (l *GetLatestTrendsLogic) GetLatestTrends(in *trend.GetLatestTrendsRequest) (*trend.GetLatestTrendsResponse, error) {
-	// todo: add your logic here and delete this line
+	list, err := l.svcCtx.Trend.List(l.ctx, int(in.LastTrendId), 0, in.UserIds, []string{"*"}, "id", -1)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("GetLatestTrends.List: %v", err))
+	}
+
+	if len(*list) > 0 {
+
+	}
 
 	return &trend.GetLatestTrendsResponse{}, nil
 }

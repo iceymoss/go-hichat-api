@@ -41,7 +41,7 @@ type (
 		SetTop(ctx context.Context, id uint64, isTop bool) error
 		OpenReply(ctx context.Context, id uint64, isOpen bool) error
 		SetCircleState(ctx context.Context, id uint64, ran int) error
-		List(ctx context.Context, lastId int, lastTime int64, filter []string, sort string, sortType int) (*[]Trend, error)
+		List(ctx context.Context, lastId int, lastTime int64, userIds []string, filter []string, sort string, sortType int) (*[]Trend, error)
 		ListByUserIds(ctx context.Context, userList []string, lastTime int64, filter []string) (*[]Trend, error)
 	}
 
@@ -101,7 +101,7 @@ func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string
 
 }
 
-func (m *defaultTrendModel) List(ctx context.Context, lastId int, lastTime int64, filter []string, sort string, sortType int) (*[]Trend, error) {
+func (m *defaultTrendModel) List(ctx context.Context, lastId int, lastTime int64, userIds []string, filter []string, sort string, sortType int) (*[]Trend, error) {
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	query := mysqlConn.Table(m.table).Select(filter)
 	var trendList []Trend
@@ -120,6 +120,7 @@ func (m *defaultTrendModel) List(ctx context.Context, lastId int, lastTime int64
 
 	err := query.Where("state = ?", 1).
 		Where("circle_state = ?", 1).
+		Where("userid in ?", userIds).
 		Order(fmt.Sprintf("%s %s", sort, sortTypePoint)).
 		Find(&trendList).Limit(30).Error
 

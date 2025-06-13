@@ -24,7 +24,7 @@ service TrendService {
   // 获取单个动态详情
   rpc GetTrendDetail(GetTrendDetailRequest) returns (GetTrendDetailResponse);
 
-  // 获取最新动态（用于朋友圈/论坛动态流）
+  // 获取最新动态
   rpc GetLatestTrends(GetLatestTrendsRequest) returns (GetLatestTrendsResponse);
 
   // 获取用户个人动态列表
@@ -179,7 +179,6 @@ enum DeleteTarget {
 message DeleteTrendRequest {
   int64 trend_id = 1;  // 要删除的动态ID（必须）
   int64 user_id = 2;    // 执行删除的用户ID（用于验证）
-  DeleteTarget target = 3; // 删除的目标平台（必须）
 }
 
 // 删除动态响应
@@ -243,9 +242,9 @@ enum FeedType {
 // 获取最新动态请求（用于动态流）
 message GetLatestTrendsRequest {
   FeedType type = 1;            // 动态流类型（必须）
-  int64 user_id = 2;              // 当前用户ID（用于个性化推荐）
+  repeated string user_ids = 2;     // 好友id
   int64 last_trend_id = 3;         // 上一次加载的最后一条动态ID（用于分页）
-  int32 count = 4;                // 请求数量（默认20）
+  int32 count = 4;                // 请求数量（默认30）
 }
 
 // 最新动态响应

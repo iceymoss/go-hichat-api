@@ -1032,9 +1032,8 @@ func (x *CreateTrendResponse) GetCreateTime() *timestamppb.Timestamp {
 // 删除动态请求
 type DeleteTrendRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	TrendId       int64                  `protobuf:"varint,1,opt,name=trend_id,json=trendId,proto3" json:"trend_id,omitempty"`        // 要删除的动态ID（必须）
-	UserId        int64                  `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`           // 执行删除的用户ID（用于验证）
-	Target        DeleteTarget           `protobuf:"varint,3,opt,name=target,proto3,enum=trend.DeleteTarget" json:"target,omitempty"` // 删除的目标平台（必须）
+	TrendId       int64                  `protobuf:"varint,1,opt,name=trend_id,json=trendId,proto3" json:"trend_id,omitempty"` // 要删除的动态ID（必须）
+	UserId        int64                  `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`    // 执行删除的用户ID（用于验证）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1081,13 +1080,6 @@ func (x *DeleteTrendRequest) GetUserId() int64 {
 		return x.UserId
 	}
 	return 0
-}
-
-func (x *DeleteTrendRequest) GetTarget() DeleteTarget {
-	if x != nil {
-		return x.Target
-	}
-	return DeleteTarget_DELETE_TARGET_UNSPECIFIED
 }
 
 // 删除动态响应
@@ -1561,9 +1553,9 @@ func (x *GetTrendDetailResponse) GetTrend() *Trend {
 type GetLatestTrendsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Type          FeedType               `protobuf:"varint,1,opt,name=type,proto3,enum=trend.FeedType" json:"type,omitempty"`                // 动态流类型（必须）
-	UserId        int64                  `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`                  // 当前用户ID（用于个性化推荐）
+	UserIds       []string               `protobuf:"bytes,2,rep,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"`                // 好友id
 	LastTrendId   int64                  `protobuf:"varint,3,opt,name=last_trend_id,json=lastTrendId,proto3" json:"last_trend_id,omitempty"` // 上一次加载的最后一条动态ID（用于分页）
-	Count         int32                  `protobuf:"varint,4,opt,name=count,proto3" json:"count,omitempty"`                                  // 请求数量（默认20）
+	Count         int32                  `protobuf:"varint,4,opt,name=count,proto3" json:"count,omitempty"`                                  // 请求数量（默认30）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1605,11 +1597,11 @@ func (x *GetLatestTrendsRequest) GetType() FeedType {
 	return FeedType_FEED_TYPE_UNSPECIFIED
 }
 
-func (x *GetLatestTrendsRequest) GetUserId() int64 {
+func (x *GetLatestTrendsRequest) GetUserIds() []string {
 	if x != nil {
-		return x.UserId
+		return x.UserIds
 	}
-	return 0
+	return nil
 }
 
 func (x *GetLatestTrendsRequest) GetLastTrendId() int64 {
@@ -1883,11 +1875,10 @@ const file_trend_proto_rawDesc = "" +
 	"\btrend_id\x18\x01 \x01(\x03R\atrendId\x12\x12\n" +
 	"\x04code\x18\x03 \x01(\x03R\x04code\x12;\n" +
 	"\vcreate_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"createTime\"u\n" +
+	"createTime\"H\n" +
 	"\x12DeleteTrendRequest\x12\x19\n" +
 	"\btrend_id\x18\x01 \x01(\x03R\atrendId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\x03R\x06userId\x12+\n" +
-	"\x06target\x18\x03 \x01(\x0e2\x13.trend.DeleteTargetR\x06target\"/\n" +
+	"\auser_id\x18\x02 \x01(\x03R\x06userId\"/\n" +
 	"\x13DeleteTrendResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\"\x9b\x02\n" +
 	"\x12UpdateTrendRequest\x12\x19\n" +
@@ -1916,10 +1907,10 @@ const file_trend_proto_rawDesc = "" +
 	"\btrend_id\x18\x01 \x01(\x03R\atrendId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\x03R\x06userId\"<\n" +
 	"\x16GetTrendDetailResponse\x12\"\n" +
-	"\x05trend\x18\x01 \x01(\v2\f.trend.TrendR\x05trend\"\x90\x01\n" +
+	"\x05trend\x18\x01 \x01(\v2\f.trend.TrendR\x05trend\"\x92\x01\n" +
 	"\x16GetLatestTrendsRequest\x12#\n" +
-	"\x04type\x18\x01 \x01(\x0e2\x0f.trend.FeedTypeR\x04type\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\x03R\x06userId\x12\"\n" +
+	"\x04type\x18\x01 \x01(\x0e2\x0f.trend.FeedTypeR\x04type\x12\x19\n" +
+	"\buser_ids\x18\x02 \x03(\tR\auserIds\x12\"\n" +
 	"\rlast_trend_id\x18\x03 \x01(\x03R\vlastTrendId\x12\x14\n" +
 	"\x05count\x18\x04 \x01(\x05R\x05count\"~\n" +
 	"\x17GetLatestTrendsResponse\x12$\n" +
@@ -2038,39 +2029,38 @@ var file_trend_proto_depIdxs = []int32{
 	1,  // 9: trend.CreateTrendRequest.scope:type_name -> trend.VisibilityScope
 	10, // 10: trend.CreateTrendRequest.position_point:type_name -> trend.Point
 	25, // 11: trend.CreateTrendResponse.create_time:type_name -> google.protobuf.Timestamp
-	4,  // 12: trend.DeleteTrendRequest.target:type_name -> trend.DeleteTarget
-	1,  // 13: trend.UpdateTrendRequest.scope:type_name -> trend.VisibilityScope
-	7,  // 14: trend.UpdateTrendResponse.trend:type_name -> trend.Trend
-	8,  // 15: trend.ListTrendsRequest.pagination:type_name -> trend.Pagination
-	0,  // 16: trend.ListTrendsRequest.types:type_name -> trend.TrendType
-	7,  // 17: trend.ListTrendsResponse.trends:type_name -> trend.Trend
-	9,  // 18: trend.ListTrendsResponse.page_info:type_name -> trend.PageInfo
-	7,  // 19: trend.GetTrendDetailResponse.trend:type_name -> trend.Trend
-	5,  // 20: trend.GetLatestTrendsRequest.type:type_name -> trend.FeedType
-	7,  // 21: trend.GetLatestTrendsResponse.trends:type_name -> trend.Trend
-	1,  // 22: trend.GetUserTrendsRequest.scope:type_name -> trend.VisibilityScope
-	8,  // 23: trend.GetUserTrendsRequest.pagination:type_name -> trend.Pagination
-	7,  // 24: trend.GetUserTrendsResponse.trends:type_name -> trend.Trend
-	9,  // 25: trend.GetUserTrendsResponse.page_info:type_name -> trend.PageInfo
-	11, // 26: trend.TrendService.CreateTrend:input_type -> trend.CreateTrendRequest
-	13, // 27: trend.TrendService.DeleteTrend:input_type -> trend.DeleteTrendRequest
-	15, // 28: trend.TrendService.UpdateTrend:input_type -> trend.UpdateTrendRequest
-	17, // 29: trend.TrendService.ListTrends:input_type -> trend.ListTrendsRequest
-	19, // 30: trend.TrendService.GetTrendDetail:input_type -> trend.GetTrendDetailRequest
-	21, // 31: trend.TrendService.GetLatestTrends:input_type -> trend.GetLatestTrendsRequest
-	23, // 32: trend.TrendService.GetUserTrends:input_type -> trend.GetUserTrendsRequest
-	12, // 33: trend.TrendService.CreateTrend:output_type -> trend.CreateTrendResponse
-	14, // 34: trend.TrendService.DeleteTrend:output_type -> trend.DeleteTrendResponse
-	16, // 35: trend.TrendService.UpdateTrend:output_type -> trend.UpdateTrendResponse
-	18, // 36: trend.TrendService.ListTrends:output_type -> trend.ListTrendsResponse
-	20, // 37: trend.TrendService.GetTrendDetail:output_type -> trend.GetTrendDetailResponse
-	22, // 38: trend.TrendService.GetLatestTrends:output_type -> trend.GetLatestTrendsResponse
-	24, // 39: trend.TrendService.GetUserTrends:output_type -> trend.GetUserTrendsResponse
-	33, // [33:40] is the sub-list for method output_type
-	26, // [26:33] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	1,  // 12: trend.UpdateTrendRequest.scope:type_name -> trend.VisibilityScope
+	7,  // 13: trend.UpdateTrendResponse.trend:type_name -> trend.Trend
+	8,  // 14: trend.ListTrendsRequest.pagination:type_name -> trend.Pagination
+	0,  // 15: trend.ListTrendsRequest.types:type_name -> trend.TrendType
+	7,  // 16: trend.ListTrendsResponse.trends:type_name -> trend.Trend
+	9,  // 17: trend.ListTrendsResponse.page_info:type_name -> trend.PageInfo
+	7,  // 18: trend.GetTrendDetailResponse.trend:type_name -> trend.Trend
+	5,  // 19: trend.GetLatestTrendsRequest.type:type_name -> trend.FeedType
+	7,  // 20: trend.GetLatestTrendsResponse.trends:type_name -> trend.Trend
+	1,  // 21: trend.GetUserTrendsRequest.scope:type_name -> trend.VisibilityScope
+	8,  // 22: trend.GetUserTrendsRequest.pagination:type_name -> trend.Pagination
+	7,  // 23: trend.GetUserTrendsResponse.trends:type_name -> trend.Trend
+	9,  // 24: trend.GetUserTrendsResponse.page_info:type_name -> trend.PageInfo
+	11, // 25: trend.TrendService.CreateTrend:input_type -> trend.CreateTrendRequest
+	13, // 26: trend.TrendService.DeleteTrend:input_type -> trend.DeleteTrendRequest
+	15, // 27: trend.TrendService.UpdateTrend:input_type -> trend.UpdateTrendRequest
+	17, // 28: trend.TrendService.ListTrends:input_type -> trend.ListTrendsRequest
+	19, // 29: trend.TrendService.GetTrendDetail:input_type -> trend.GetTrendDetailRequest
+	21, // 30: trend.TrendService.GetLatestTrends:input_type -> trend.GetLatestTrendsRequest
+	23, // 31: trend.TrendService.GetUserTrends:input_type -> trend.GetUserTrendsRequest
+	12, // 32: trend.TrendService.CreateTrend:output_type -> trend.CreateTrendResponse
+	14, // 33: trend.TrendService.DeleteTrend:output_type -> trend.DeleteTrendResponse
+	16, // 34: trend.TrendService.UpdateTrend:output_type -> trend.UpdateTrendResponse
+	18, // 35: trend.TrendService.ListTrends:output_type -> trend.ListTrendsResponse
+	20, // 36: trend.TrendService.GetTrendDetail:output_type -> trend.GetTrendDetailResponse
+	22, // 37: trend.TrendService.GetLatestTrends:output_type -> trend.GetLatestTrendsResponse
+	24, // 38: trend.TrendService.GetUserTrends:output_type -> trend.GetUserTrendsResponse
+	32, // [32:39] is the sub-list for method output_type
+	25, // [25:32] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_trend_proto_init() }

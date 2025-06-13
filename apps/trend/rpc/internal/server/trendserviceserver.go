@@ -53,7 +53,7 @@ func (s *TrendServiceServer) GetTrendDetail(ctx context.Context, in *trend.GetTr
 	return l.GetTrendDetail(in)
 }
 
-// 获取最新动态（用于朋友圈/论坛动态流）
+// 获取最新动态
 func (s *TrendServiceServer) GetLatestTrends(ctx context.Context, in *trend.GetLatestTrendsRequest) (*trend.GetLatestTrendsResponse, error) {
 	l := logic.NewGetLatestTrendsLogic(ctx, s.svcCtx)
 	return l.GetLatestTrends(in)
