@@ -36,13 +36,13 @@ type (
 		Insert(ctx context.Context, data *Trend) (uint64, error)
 		FindOne(ctx context.Context, id uint64) (*Trend, error)
 		Update(ctx context.Context, data *Trend) error
-		Delete(ctx context.Context, id uint64, class int) error
+		Delete(ctx context.Context, id uint64) error
 		IncAgreeOrReply(ctx context.Context, id uint64, class int, inc int) error
 		SetTop(ctx context.Context, id uint64, isTop bool) error
 		OpenReply(ctx context.Context, id uint64, isOpen bool) error
-		SetCircleOrPublicState(ctx context.Context, id uint64, ispub bool, ran int) error
-		List(ctx context.Context, isPub bool, lastId int, lastTime int64, filter []string, sort string, sortType int) (*[]Trend, error)
-		ListByUserIds(ctx context.Context, userList []string, lastTime int64, filter []string, isPub bool) (*[]Trend, error)
+		SetCircleState(ctx context.Context, id uint64, ran int) error
+		List(ctx context.Context, lastId int, lastTime int64, filter []string, sort string, sortType int) (*[]Trend, error)
+		ListByUserIds(ctx context.Context, userList []string, lastTime int64, filter []string) (*[]Trend, error)
 	}
 
 	defaultTrendModel struct {
@@ -51,32 +51,30 @@ type (
 	}
 
 	Trend struct {
-		Id          uint64         `db:"id"`           // 动态ID
-		Userid      uint64         `db:"userid"`       // 发表用户ID
-		Type        uint64         `db:"type"`         // 动态类型：1文本，2混合(图片)，3长文，4第三方分享(如B站视频)，5视频，6置顶广告
-		Content     string         `db:"content"`      // 动态内容
-		Position    string         `db:"position"`     // 位置信息
-		ReplyCount  uint64         `db:"reply_count"`  // 评论数量
-		AgreeCount  uint64         `db:"agree_count"`  // 点赞数量
-		Createtime  time.Time      `db:"createtime"`   // 原始创建时间
-		Updatetime  time.Time      `db:"updatetime"`   // 最后更新时间
-		CircleState int64          `db:"circle_state"` // 朋友圈状态：2-不可见，1-可见，0-朋友圈删除
-		PublicState int64          `db:"public_state"` // 公共论坛状态：3-未发布，1-已发布，2-审核中，0-论坛删除
-		CircleTime  time.Time      `db:"circle_time"`  // 朋友圈发布时间
-		PublicTime  sql.NullTime   `db:"public_time"`  // 公共论坛发布时间
-		State       int64          `db:"state"`        // 是否删除 0-删除，1-正常
-		IsAd        int64          `db:"is_ad"`        // 是否广告：0-普通，1-广告
-		Url         string         `db:"url"`          // 广告/视频链接（类型5使用）
-		AdEndTime   sql.NullTime   `db:"ad_end_time"`  // 广告展示截止时间
-		OpenReply   int64          `db:"open_reply"`   // 是否开启评论：0-关闭，1-开启
-		IsTop       int64          `db:"is_top"`       // 是否置顶：0-否，1-是
-		Title       string         `db:"title"`        // 长文标题（类型3使用）
-		Idlist      sql.NullString `db:"idlist"`       // @用户ID列表（使用JSON数组）
-		PicSort     sql.NullString `db:"pic_sort"`     // 图片ID排序
-		ShareId     int64          `db:"share_id"`     // 第三方内容ID（类型4使用）
-		Cover       string         `db:"cover"`        // 封面图URL（类型3/5使用）
-		Ip          string         `db:"ip"`           // 发布者IP地址
-		Device      string         `db:"device"`       // 发布设备标识
+		Id            uint64       `db:"id"`            // 动态ID
+		Userid        uint64       `db:"userid"`        // 发表用户ID
+		Type          uint64       `db:"type"`          // 动态类型：1文本，2混合(图片)，3长文，4第三方分享(如B站视频)，5视频，6置顶广告
+		Content       string       `db:"content"`       // 动态内容
+		PositionName  string       `db:"position_name"` // 位置名称
+		PositionPoint []float64    `db:"position"`      // 位置信息
+		ReplyCount    uint64       `db:"reply_count"`   // 评论数量
+		AgreeCount    uint64       `db:"agree_count"`   // 点赞数量
+		Createtime    time.Time    `db:"createtime"`    // 原始创建时间
+		Updatetime    time.Time    `db:"updatetime"`    // 最后更新时间
+		CircleState   int64        `db:"circle_state"`  // 朋友圈状态：2-不可见，1-可见，0-朋友圈删除,
+		State         int64        `db:"state"`         // 是否删除 0-删除，1-正常
+		IsAd          int64        `db:"is_ad"`         // 是否广告：0-普通，1-广告
+		Url           string       `db:"url"`           // 广告/视频链接（类型5使用）
+		AdEndTime     sql.NullTime `db:"ad_end_time"`   // 广告展示截止时间
+		OpenReply     int64        `db:"open_reply"`    // 是否开启评论：0-关闭，1-开启
+		IsTop         int64        `db:"is_top"`        // 是否置顶：0-否，1-是
+		Title         string       `db:"title"`         // 长文标题（类型3使用）
+		Idlist        []string     `db:"idlist"`        // @用户ID列表（使用JSON数组）
+		PicArr        []string     `db:"pic_arr"`       // 图片url或者视频
+		ShareUrl      string       `db:"share_url"`     // 第三方内容ID（类型4使用）
+		Cover         string       `db:"cover"`         // 封面图URL（类型3/5使用）
+		Ip            string       `db:"ip"`            // 发布者IP地址
+		Device        string       `db:"device"`        // 发布设备标识
 	}
 )
 
@@ -87,17 +85,11 @@ func newTrendModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Option) *
 	}
 }
 
-func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string, lastTime int64, filter []string, isPub bool) (*[]Trend, error) {
+func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string, lastTime int64, filter []string) (*[]Trend, error) {
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
-	query := mysqlConn.Table(m.table).Select(filter)
-	if isPub {
-		query.Where("public_state = ?", 1)
-	} else {
-		query.Where("circle_state = ?", 1)
-	}
-
 	var trendList []Trend
-	err := query.Where("state = ?", 1).
+	err := mysqlConn.Table(m.table).Select(filter).Where("state = ?", 1).
+		Where("circle_state = ?", 1).
 		Where("userid in ?", userList).
 		Order("createtime DESC").
 		Find(&trendList).Limit(30).Error
@@ -109,7 +101,7 @@ func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string
 
 }
 
-func (m *defaultTrendModel) List(ctx context.Context, isPub bool, lastId int, lastTime int64, filter []string, sort string, sortType int) (*[]Trend, error) {
+func (m *defaultTrendModel) List(ctx context.Context, lastId int, lastTime int64, filter []string, sort string, sortType int) (*[]Trend, error) {
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	query := mysqlConn.Table(m.table).Select(filter)
 	var trendList []Trend
@@ -126,13 +118,8 @@ func (m *defaultTrendModel) List(ctx context.Context, isPub bool, lastId int, la
 		sortTypePoint = "DESC"
 	}
 
-	if isPub {
-		query.Where("public_state = ?", 1)
-	} else {
-		query.Where("circle_state = ?", 1)
-	}
-
 	err := query.Where("state = ?", 1).
+		Where("circle_state = ?", 1).
 		Order(fmt.Sprintf("%s %s", sort, sortTypePoint)).
 		Find(&trendList).Limit(30).Error
 
@@ -143,12 +130,8 @@ func (m *defaultTrendModel) List(ctx context.Context, isPub bool, lastId int, la
 	return &trendList, nil
 }
 
-func (m *defaultTrendModel) SetCircleOrPublicState(ctx context.Context, id uint64, ispub bool, ran int) error {
+func (m *defaultTrendModel) SetCircleState(ctx context.Context, id uint64, ran int) error {
 	authStateCulom := "circle_state"
-	if ispub {
-		authStateCulom = "public_state"
-	}
-
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	res := mysqlConn.Table(m.table).Where("id = ?", id).Update(authStateCulom, ran)
 	if res.Error != nil {
@@ -182,18 +165,12 @@ func (m *defaultTrendModel) OpenReply(ctx context.Context, id uint64, isOpen boo
 
 }
 
-// class: 1删除朋友圈，2删除论坛，3删除所有
-func (m *defaultTrendModel) Delete(ctx context.Context, id uint64, class int) error {
+// class: 1删除朋友圈，3删除所有
+func (m *defaultTrendModel) Delete(ctx context.Context, id uint64) error {
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	query := mysqlConn.Table(m.table).Where("id = ?", id)
 	state := "state"
-	if class == 1 {
-		state = "circle_state"
-	} else if class == 2 {
-		state = "public_state"
-	}
-
-	res := query.Update(state, 0)
+	res := query.Update(state, 0).Update("circle_state", 0)
 	if res.Error != nil {
 		return res.Error
 	}
