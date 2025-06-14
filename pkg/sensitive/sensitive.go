@@ -8,7 +8,7 @@ import (
 	"github.com/importcjj/sensitive"
 )
 
-const SensitiveROOT = "/home/jeff/icey/open-source/go-hichat-api/resources/sensitive/"
+const SensitiveROOT = "resources/sensitive/"
 
 type SensitiveType string
 

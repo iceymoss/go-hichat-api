@@ -22,6 +22,8 @@ import (
 	"github.com/zeromicro/go-zero/core/stringx"
 )
 
+const Limit = 30
+
 var (
 	trendFieldNames          = builder.RawFieldNames(&Trend{})
 	trendRows                = strings.Join(trendFieldNames, ",")
@@ -41,7 +43,7 @@ type (
 		SetTop(ctx context.Context, id uint64, isTop bool) error
 		OpenReply(ctx context.Context, id uint64, isOpen bool) error
 		SetCircleState(ctx context.Context, id uint64, ran int) error
-		List(ctx context.Context, lastId int, lastTime int64, filter []string, sort string, sortType int) (*[]Trend, error)
+		List(ctx context.Context, lastId int, lastTime int64, userIds []string, filter []string, sort string, sortType int) (*[]Trend, error)
 		ListByUserIds(ctx context.Context, userList []string, lastTime int64, filter []string) (*[]Trend, error)
 	}
 
@@ -56,7 +58,7 @@ type (
 		Type          uint64       `db:"type"`          // 动态类型：1文本，2混合(图片)，3长文，4第三方分享(如B站视频)，5视频，6置顶广告
 		Content       string       `db:"content"`       // 动态内容
 		PositionName  string       `db:"position_name"` // 位置名称
-		PositionPoint []float64    `db:"position"`      // 位置信息
+		PositionPoint []float32    `db:"position"`      // 位置信息
 		ReplyCount    uint64       `db:"reply_count"`   // 评论数量
 		AgreeCount    uint64       `db:"agree_count"`   // 点赞数量
 		Createtime    time.Time    `db:"createtime"`    // 原始创建时间
@@ -92,7 +94,7 @@ func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string
 		Where("circle_state = ?", 1).
 		Where("userid in ?", userList).
 		Order("createtime DESC").
-		Find(&trendList).Limit(30).Error
+		Find(&trendList).Limit(Limit).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
@@ -101,7 +103,7 @@ func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string
 
 }
 
-func (m *defaultTrendModel) List(ctx context.Context, lastId int, lastTime int64, filter []string, sort string, sortType int) (*[]Trend, error) {
+func (m *defaultTrendModel) List(ctx context.Context, lastId int, lastTime int64, userIds []string, filter []string, sort string, sortType int) (*[]Trend, error) {
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	query := mysqlConn.Table(m.table).Select(filter)
 	var trendList []Trend
@@ -120,8 +122,9 @@ func (m *defaultTrendModel) List(ctx context.Context, lastId int, lastTime int64
 
 	err := query.Where("state = ?", 1).
 		Where("circle_state = ?", 1).
+		Where("userid in ?", userIds).
 		Order(fmt.Sprintf("%s %s", sort, sortTypePoint)).
-		Find(&trendList).Limit(30).Error
+		Find(&trendList).Limit(Limit).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
