@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/iceymoss/go-hichat-api/apps/trend/models"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
@@ -32,9 +33,50 @@ func (l *GetLatestTrendsLogic) GetLatestTrends(in *trend.GetLatestTrendsRequest)
 		return nil, errors.New(fmt.Sprintf("GetLatestTrends.List: %v", err))
 	}
 
+	var lastId uint64
 	if len(*list) > 0 {
-
+		lastId = (*list)[len(*list)-1].Id
 	}
 
-	return &trend.GetLatestTrendsResponse{}, nil
+	trendList := make([]*trend.Trend, 0, len(*list))
+	for _, v := range *list {
+		readScope := trend.VisibilityScope_SCOPE_UNSPECIFIED
+		switch v.CircleState {
+		case 2:
+			readScope = trend.VisibilityScope_PRIVATE
+		case 1:
+			readScope = trend.VisibilityScope_FRIENDS
+		}
+		trendList = append(trendList, &trend.Trend{
+			Id:            int64(v.Id),
+			UserId:        int64(v.Userid),
+			Type:          trend.TrendType(v.Type),
+			Content:       v.Content,
+			Scope:         readScope,
+			CreateTime:    v.Createtime.Unix(),
+			ReplyCount:    int32(v.ReplyCount),
+			AgreeCount:    int32(v.AgreeCount),
+			PositionName:  v.PositionName,
+			PositionPoint: v.PositionPoint,
+			Title:         v.Title,
+			AtUserIds:     v.Idlist,
+			Resources:     v.PicArr,
+			CoverUrl:      v.Cover,
+			ShareUrl:      v.ShareUrl,
+			OpenReply:     int32(v.OpenReply),
+			DeviceId:      v.Device,
+			Ip:            v.Ip,
+		})
+	}
+
+	hasMore := false
+	if len(trendList) > models.Limit {
+		hasMore = true
+	}
+
+	return &trend.GetLatestTrendsResponse{
+		Trends:      trendList,
+		LastTrendId: int64(lastId),
+		HasMore:     hasMore,
+	}, nil
 }
