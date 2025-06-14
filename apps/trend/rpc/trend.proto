@@ -24,7 +24,7 @@ service TrendService {
   // 获取单个动态详情
   rpc GetTrendDetail(GetTrendDetailRequest) returns (GetTrendDetailResponse);
 
-  // 获取最新动态（用于朋友圈/论坛动态流）
+  // 获取最新动态
   rpc GetLatestTrends(GetLatestTrendsRequest) returns (GetLatestTrendsResponse);
 
   // 获取用户个人动态列表
@@ -49,16 +49,6 @@ enum VisibilityScope {
   SCOPE_UNSPECIFIED = 0;  // 未指定范围（应避免使用）
   PRIVATE = 1;      // 仅自己可见
   FRIENDS = 2;      // 好友圈可见（朋友圈）
-  PUBLIC = 3;       // 公开可见（公共论坛）
-  COMMON = 4;       // 朋友圈和论坛都可见
-}
-
-// 朋友圈状态
-enum CircleState {
-  CIRCLE_STATE_UNSPECIFIED = 0;  // 未指定状态
-  CIRCLE_HIDDEN = 1;    // 朋友圈隐藏（不可见）
-  CIRCLE_VISIBLE = 2;   // 朋友圈可见
-  CIRCLE_DELETED = 3;   // 朋友圈已删除
 }
 
 // 公共论坛状态
@@ -92,34 +82,30 @@ message Trend {
   string content = 4;       // 文本内容
   VisibilityScope scope = 7; // 可见范围
 
-  // 状态管理
-  CircleState circle_state = 5;  // 朋友圈状态
-  PublicState public_state = 6;  // 公共论坛状态
-
   // 时间管理
-  google.protobuf.Timestamp circle_time = 8;  // 朋友圈发布时间
-  google.protobuf.Timestamp public_time = 9;  // 论坛发布时间
-  google.protobuf.Timestamp create_time = 10; // 原始创建时间
+  int64 create_time = 10; // 原始创建时间
 
   // 互动数据
   int32 reply_count = 11;   // 评论数量
   int32 agree_count = 12;   // 点赞数量
 
   // 附加信息
-  string position = 13;       // 位置信息
+  string position_name = 13;       // 位置信息
+  repeated float position_point = 21; // 经纬度
   string title = 14;          // 长文标题（类型3）
-  repeated int64 at_user_ids = 15;  // @的用户ID列表
+  repeated string at_user_ids = 15;  // @的用户ID列表
 
   // 内容资源
-  repeated Resource resources = 16;  // 图片/视频资源
+  repeated string resources = 16;  // 图片/视频资源
   string cover_url = 18;       // 封面图URL（视频/长文）
   string share_url = 19;       // 第三方分享链接
 
   // 功能开关
-  bool open_reply = 17;        // 是否允许评论
+  int32 open_reply = 17;        // 是否允许评论
 
   // 系统信息
   string device_id = 20;       // 发布设备ID
+  string ip = 22;              // ip信息
 }
 
 // 分页参数
@@ -179,7 +165,6 @@ enum DeleteTarget {
 message DeleteTrendRequest {
   int64 trend_id = 1;  // 要删除的动态ID（必须）
   int64 user_id = 2;    // 执行删除的用户ID（用于验证）
-  DeleteTarget target = 3; // 删除的目标平台（必须）
 }
 
 // 删除动态响应
@@ -243,9 +228,9 @@ enum FeedType {
 // 获取最新动态请求（用于动态流）
 message GetLatestTrendsRequest {
   FeedType type = 1;            // 动态流类型（必须）
-  int64 user_id = 2;              // 当前用户ID（用于个性化推荐）
+  repeated string user_ids = 2;     // 好友id
   int64 last_trend_id = 3;         // 上一次加载的最后一条动态ID（用于分页）
-  int32 count = 4;                // 请求数量（默认20）
+  int32 count = 4;                // 请求数量（默认30）
 }
 
 // 最新动态响应

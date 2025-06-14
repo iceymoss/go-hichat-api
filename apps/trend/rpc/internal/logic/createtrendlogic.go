@@ -2,7 +2,9 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/sensitive"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,7 +34,7 @@ func NewCreateTrendLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Creat
 
 // CreateTrend 发布动态
 func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.CreateTrendResponse, error) {
-	// 获取分布式锁，放置被刷
+	// 获取分布式锁，放置被刷，默认锁30s
 	rdb := db.GetRedisConn()
 	key := "trend:user:push:time"
 	lastPushTimeStr, err := rdb.HGet(l.ctx, key, strconv.Itoa(int(in.UserId))).Result()
@@ -57,11 +59,16 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 			Code: 4000,
 		}, status.Error(codes.InvalidArgument, "内容超过2000字限制")
 	}
+
 	// 敏感词过滤
-	if !checkTrendContent(in.Content) {
+	pass, sensitiveWord, err := checkTrendContent(in.Content + in.Title)
+	if err != nil {
+		return nil, err
+	}
+	if !pass {
 		return &trend.CreateTrendResponse{
 			Code: 2000,
-		}, errors.New("please speak carefully")
+		}, errors.New(fmt.Sprintf("动态标题或内容包含敏感词:%s", sensitiveWord))
 	}
 
 	// 图片检查
@@ -103,6 +110,7 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 		Updatetime:    time.Now(),
 		CircleState:   int64(circleState),
 		State:         1,
+		Idlist:        []string{},
 		OpenReply:     openReply,
 		Title:         in.Title,
 		PicArr:        in.Resources,
@@ -120,9 +128,15 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 	return &trend.CreateTrendResponse{TrendId: int64(id)}, nil
 }
 
-func checkTrendContent(content string) bool {
-	//TODO:
-	return true
+func checkTrendContent(content string) (bool, string, error) {
+	word, err := sensitive.NewWord(sensitive.ALL_FILE)
+	if err != nil {
+		return false, "", err
+	}
+
+	pass, sensitiveWord := word.Validate(content)
+
+	return pass, sensitiveWord, nil
 }
 
 func checkTrendPic(urls []string) bool {
