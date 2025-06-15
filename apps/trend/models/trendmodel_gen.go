@@ -44,7 +44,7 @@ type (
 		OpenReply(ctx context.Context, id uint64, isOpen bool) error
 		SetCircleState(ctx context.Context, id uint64, ran int) error
 		List(ctx context.Context, lastId int, lastTime int64, userIds []string, filter []string, sort string, sortType int) (*[]Trend, error)
-		ListByUserIds(ctx context.Context, userList []string, lastTime int64, filter []string) (*[]Trend, error)
+		ListByUserIds(ctx context.Context, userList []string, lastId int, scpoe int32, filter []string) (*[]Trend, error)
 	}
 
 	defaultTrendModel struct {
@@ -58,7 +58,7 @@ type (
 		Type          uint64       `db:"type"`          // 动态类型：1文本，2混合(图片)，3长文，4第三方分享(如B站视频)，5视频，6置顶广告
 		Content       string       `db:"content"`       // 动态内容
 		PositionName  string       `db:"position_name"` // 位置名称
-		PositionPoint []float32    `db:"position"`      // 位置信息
+		PositionPoint string       `db:"position"`      // 位置信息
 		ReplyCount    uint64       `db:"reply_count"`   // 评论数量
 		AgreeCount    uint64       `db:"agree_count"`   // 点赞数量
 		Createtime    time.Time    `db:"createtime"`    // 原始创建时间
@@ -71,14 +71,18 @@ type (
 		OpenReply     int64        `db:"open_reply"`    // 是否开启评论：0-关闭，1-开启
 		IsTop         int64        `db:"is_top"`        // 是否置顶：0-否，1-是
 		Title         string       `db:"title"`         // 长文标题（类型3使用）
-		Idlist        []string     `db:"idlist"`        // @用户ID列表（使用JSON数组）
-		PicArr        []string     `db:"pic_arr"`       // 图片url或者视频
+		Idlist        string       `db:"idlist"`        // @用户ID列表（使用JSON数组）
+		PicArr        string       `db:"pic_arr"`       // 图片url或者视频
 		ShareUrl      string       `db:"share_url"`     // 第三方内容ID（类型4使用）
 		Cover         string       `db:"cover"`         // 封面图URL（类型3/5使用）
 		Ip            string       `db:"ip"`            // 发布者IP地址
 		Device        string       `db:"device"`        // 发布设备标识
 	}
 )
+
+func (t Trend) TableName() string {
+	return "trend"
+}
 
 func newTrendModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Option) *defaultTrendModel {
 	return &defaultTrendModel{
@@ -87,11 +91,12 @@ func newTrendModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Option) *
 	}
 }
 
-func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string, lastTime int64, filter []string) (*[]Trend, error) {
+func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string, lastId int, scpoe int32, filter []string) (*[]Trend, error) {
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	var trendList []Trend
 	err := mysqlConn.Table(m.table).Select(filter).Where("state = ?", 1).
-		Where("circle_state = ?", 1).
+		Where("id > ?", lastId).
+		Where("circle_state = ?", scpoe).
 		Where("userid in ?", userList).
 		Order("createtime DESC").
 		Find(&trendList).Limit(Limit).Error
@@ -235,12 +240,12 @@ func (m *defaultTrendModel) IncAgreeOrReply(ctx context.Context, id uint64, clas
 func (m *defaultTrendModel) FindOne(ctx context.Context, id uint64) (*Trend, error) {
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	var resp Trend
-	err := mysqlConn.Table(m.table).Where("id = ?", id).First(&resp).Error
+	err := mysqlConn.Table(m.table).Where("id = ? and state = ?", id, 1).First(&resp).Error
 	switch err {
 	case nil:
 		return &resp, nil
-	case sqlc.ErrNotFound:
-		return nil, ErrNotFound
+	case gorm.ErrRecordNotFound:
+		return &Trend{}, nil
 	default:
 		return nil, err
 	}
