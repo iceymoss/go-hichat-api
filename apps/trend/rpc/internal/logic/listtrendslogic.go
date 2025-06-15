@@ -2,11 +2,14 @@ package logic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 type ListTrendsLogic struct {
@@ -23,9 +26,30 @@ func NewListTrendsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListTr
 	}
 }
 
-// 获取动态列表
+// ListTrends 获取动态列表
 func (l *ListTrendsLogic) ListTrends(in *trend.ListTrendsRequest) (*trend.ListTrendsResponse, error) {
-	// todo: add your logic here and delete this line
+	list, err := l.svcCtx.Trend.List(l.ctx, int(in.Pagination.LastId), in.Pagination.LastTime, in.UserIds, []string{"*"}, "createtime", -1)
+	if err != nil {
+		zLog.Error("ListTrends.List: get trend list filed", zap.Any("lastId", "in.Pagination.LastId"), zap.Any("lastTime", in.Pagination.LastTime))
+		return nil, err
+	}
 
-	return &trend.ListTrendsResponse{}, nil
+	trendList := make([]*trend.Trend, 0, len(*list))
+	for _, v := range *list {
+		trendList = append(trendList, trendToResp(v))
+	}
+
+	last := &trend.Trend{}
+	if len(trendList) > 0 {
+		last = trendList[len(trendList)-1]
+		fmt.Printf("data: %+v\n", last)
+	}
+
+	return &trend.ListTrendsResponse{
+		Trends: trendList,
+		PageInfo: &trend.PageInfo{
+			LastId:   int32(last.Id),
+			LastTime: last.CreateTime,
+		},
+	}, nil
 }

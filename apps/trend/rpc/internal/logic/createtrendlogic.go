@@ -2,20 +2,24 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
-	"github.com/iceymoss/go-hichat-api/pkg/sensitive"
-	"github.com/pkg/errors"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"strconv"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/models"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
-
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"github.com/iceymoss/go-hichat-api/pkg/sensitive"
 	"github.com/zeromicro/go-zero/core/logx"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type CreateTrendLogic struct {
@@ -39,7 +43,20 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 	key := "trend:user:push:time"
 	lastPushTimeStr, err := rdb.HGet(l.ctx, key, strconv.Itoa(int(in.UserId))).Result()
 	if err != nil {
-		return nil, err
+		// 特殊处理键不存在的情况（redis.Nil 错误）
+		if errors.Is(err, redis.Nil) {
+			// 键不存在时不报错，使用默认空值继续执行
+			lastPushTimeStr = ""
+			zLog.Info("CreateTrend.HGet: key not found, using default",
+				zap.Any("user", in.UserId),
+				zap.String("key", key))
+		} else {
+			// 其他错误需要记录并返回
+			zLog.Error("CreateTrend.HGet: get trend:user:push:time failed",
+				zap.Any("user", in.UserId),
+				zap.Error(err))
+			return nil, err
+		}
 	}
 
 	lastPushTime := 0
@@ -79,14 +96,8 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 	}
 
 	// 发版 => 朋友圈：直接发
-	trendTypeStr := in.Type.String()
-	trendTypeInt, err := strconv.Atoi(trendTypeStr)
-	if err != nil {
-		return nil, err
-	}
-
-	circleState := 2                               //默认不可见
-	if in.Scope == trend.VisibilityScope_FRIENDS { //朋友圈
+	circleState := 2                                         //默认可见
+	if int(in.Scope) == int(trend.VisibilityScope_PRIVATE) { //朋友圈
 		circleState = 1
 	}
 
@@ -96,24 +107,57 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 	}
 
 	// 处理图片或者视频
-	positionPoint := make([]float64, 0, 2)
-	positionPoint = append(positionPoint, in.PositionPoint.Latitude)
-	positionPoint = append(positionPoint, in.PositionPoint.Longitude)
+
+	// 处理位置
+	positionPoint := make([]float32, 0, 2)
+	positionPoint = append(positionPoint, float32(in.PositionPoint.Latitude))
+	positionPoint = append(positionPoint, float32(in.PositionPoint.Longitude))
+
+	var positionPointStr string
+	if len(positionPoint) > 0 {
+		positionPointByte, err := json.Marshal(positionPoint)
+		if err != nil {
+			zLog.Error("CreateTrend.Marshal: marshal fail", zap.Any("positionPoint", positionPoint), zap.Error(err))
+			return nil, err
+		}
+		positionPointStr = string(positionPointByte)
+	}
+
+	var atUserIdsStr string
+	if len(in.AtUserIds) > 0 {
+		AtUserIds, err := json.Marshal(in.AtUserIds)
+		if err != nil {
+			zLog.Error("CreateTrend.Marshal: marshal fail", zap.Any("atUserIds", in.AtUserIds), zap.Error(err))
+			return nil, err
+		}
+		atUserIdsStr = string(AtUserIds)
+		fmt.Println("data:", atUserIdsStr, AtUserIds, in.AtUserIds)
+	}
+
+	var resourcesStr string
+	if len(in.Resources) > 0 {
+		resources, err := json.Marshal(in.Resources)
+		if err != nil {
+			zLog.Error("CreateTrend.Marshal: marshal fail", zap.Any("Resources", in.Resources), zap.Error(err))
+			return nil, err
+		}
+		resourcesStr = string(resources)
+	}
 
 	id, err := l.svcCtx.Trend.Insert(l.ctx, &models.Trend{
 		Userid:        uint64(in.UserId),
-		Type:          uint64(trendTypeInt),
+		Type:          uint64(in.Type),
 		Content:       in.Content,
 		PositionName:  in.PositionName,
-		PositionPoint: positionPoint,
+		PositionPoint: positionPointStr,
 		Createtime:    time.Now(),
 		Updatetime:    time.Now(),
 		CircleState:   int64(circleState),
 		State:         1,
-		Idlist:        []string{},
+		Idlist:        atUserIdsStr,
 		OpenReply:     openReply,
 		Title:         in.Title,
-		PicArr:        in.Resources,
+		PicArr:        resourcesStr,
 		ShareUrl:      in.ShareUrl,
 		Cover:         in.CoverUrl,
 		Ip:            in.Ip,
@@ -125,11 +169,11 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 
 	rdb.HSet(l.ctx, key, time.Now().Unix())
 
-	return &trend.CreateTrendResponse{TrendId: int64(id)}, nil
+	return &trend.CreateTrendResponse{TrendId: int64(id), Code: 1000}, nil
 }
 
 func checkTrendContent(content string) (bool, string, error) {
-	word, err := sensitive.NewWord(sensitive.ALL_FILE)
+	word, err := sensitive.NewWord(sensitive.OTHER_FILE)
 	if err != nil {
 		return false, "", err
 	}
