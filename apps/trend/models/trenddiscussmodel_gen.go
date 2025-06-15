@@ -8,11 +8,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
-	"github.com/pkg/errors"
 	"strings"
 	"time"
 
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+
+	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"

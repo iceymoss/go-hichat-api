@@ -49,6 +49,7 @@ enum VisibilityScope {
   SCOPE_UNSPECIFIED = 0;  // 未指定范围（应避免使用）
   PRIVATE = 1;      // 仅自己可见
   FRIENDS = 2;      // 好友圈可见（朋友圈）
+  ALL     = 3;      // 全部
 }
 
 // 公共论坛状态
@@ -93,7 +94,7 @@ message Trend {
   string position_name = 13;       // 位置信息
   repeated float position_point = 21; // 经纬度
   string title = 14;          // 长文标题（类型3）
-  repeated string at_user_ids = 15;  // @的用户ID列表
+  repeated int32 at_user_ids = 15;  // @的用户ID列表
 
   // 内容资源
   repeated string resources = 16;  // 图片/视频资源
@@ -110,16 +111,14 @@ message Trend {
 
 // 分页参数
 message Pagination {
-  int32 last_id = 1;       // 页码（从1开始计数）
-  int32 last_time = 2;  // 每页数量
+  int32 last_id = 1;       // 游标id
+  int64 last_time = 2;  // 游标时间
 }
 
 // 分页信息
 message PageInfo {
-  int32 total = 1;        // 总记录数
-  int32 total_pages = 2;  // 总页数
-  int32 last_id = 3; // keyset分页
-  int64 last_time = 4; // keyset分页
+  int32 last_id = 1; // keyset分页
+  int64 last_time = 2; // keyset分页
 }
 
 message Point {
@@ -138,7 +137,7 @@ message CreateTrendRequest {
   string position_name = 6;            // 位置信息（可选）
   Point position_point = 14;          // 坐标信息
   string title = 7;               // 长文标题（可选）
-  repeated int64 at_user_ids = 8;   // @的用户ID列表（可选）
+  repeated int32 at_user_ids = 8;   // @的用户ID列表（可选）
   bool open_reply = 9;            // 是否允许评论（默认开启）
   string cover_url = 10;          // 封面图URL（类型3/5可选）
   string share_url = 11;          // 分享链接（类型4/5可选）
@@ -150,7 +149,6 @@ message CreateTrendRequest {
 message CreateTrendResponse {
   int64 trend_id = 1;                       // 新创建的动态ID
   int64 code = 3;                           // 状态信息：1000:成功，2000:动态内容包含敏感信息
-  google.protobuf.Timestamp create_time = 2; // 动态创建时间
 }
 
 // 2. 删除目标枚举
@@ -195,9 +193,11 @@ message UpdateTrendResponse {
 
 // 4. 获取动态列表请求
 message ListTrendsRequest {
-  repeated int64 trend_ids = 1;   // 要查询的动态ID列表（可选）
-  Pagination pagination = 2;       // 分页参数（必须）
-  repeated TrendType types = 3;    // 按类型过滤（可选）
+  Pagination pagination = 1;       // 分页参数（必须）
+  repeated TrendType types = 2;    // 按类型过滤（可选）
+  string sortColum  = 3;           // 排序字段
+  int32 sortType   = 4;            // 排序方向
+  repeated string userIds = 5;     // 用户id
 }
 
 // 动态列表响应
@@ -209,7 +209,6 @@ message ListTrendsResponse {
 // 5. 动态详情请求
 message GetTrendDetailRequest {
   int64 trend_id = 1;  // 要查询的动态ID（必须）
-  int64 user_id = 2;    // 当前查看的用户ID（用于权限检查）
 }
 
 // 动态详情响应
@@ -227,7 +226,7 @@ enum FeedType {
 
 // 获取最新动态请求（用于动态流）
 message GetLatestTrendsRequest {
-  FeedType type = 1;            // 动态流类型（必须）
+  VisibilityScope type = 1;            // 动态流类型（必须）
   repeated string user_ids = 2;     // 好友id
   int64 last_trend_id = 3;         // 上一次加载的最后一条动态ID（用于分页）
   int32 count = 4;                // 请求数量（默认30）
@@ -242,8 +241,7 @@ message GetLatestTrendsResponse {
 
 // 7. 获取用户动态列表请求
 message GetUserTrendsRequest {
-  int64 target_user_id = 1;  // 要查询的用户ID（必须）
-  int64 request_user_id = 2;  // 发出请求的用户ID（用于权限检查）
+  string target_user_id = 1;  // 要查询的用户ID（必须）
   VisibilityScope scope = 3;   // 可见范围过滤（可选）
   Pagination pagination = 4;   // 分页参数（必须）
 }
