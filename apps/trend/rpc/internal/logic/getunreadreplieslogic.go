@@ -2,14 +2,14 @@ package logic
 
 import (
 	"context"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
+	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 type GetUnreadRepliesLogic struct {
