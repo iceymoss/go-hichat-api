@@ -209,6 +209,7 @@ func (m *defaultTrendModel) SetTop(ctx context.Context, id uint64, isTop bool) e
 	return nil
 }
 
+// IncAgreeOrReply 评论/点赞 +1 或者 -1 class = 1评论，class = 0点赞
 func (m *defaultTrendModel) IncAgreeOrReply(ctx context.Context, id uint64, class int, inc int) error {
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 
@@ -220,9 +221,16 @@ func (m *defaultTrendModel) IncAgreeOrReply(ctx context.Context, id uint64, clas
 
 	count := trend.AgreeCount + 1
 	updateData := "agree_count"
+	if inc < 0 {
+		count = trend.AgreeCount - 1
+	}
+
 	if class == 1 {
 		updateData = "reply_count"
 		count = trend.ReplyCount + 1
+		if inc < 0 {
+			count = trend.ReplyCount - 1
+		}
 	}
 
 	res := mysqlConn.Table(m.table).Where("id = ?", id).Update(updateData, count)
@@ -245,7 +253,7 @@ func (m *defaultTrendModel) FindOne(ctx context.Context, id uint64) (*Trend, err
 	case nil:
 		return &resp, nil
 	case gorm.ErrRecordNotFound:
-		return &Trend{}, nil
+		return &Trend{}, gorm.ErrRecordNotFound
 	default:
 		return nil, err
 	}
