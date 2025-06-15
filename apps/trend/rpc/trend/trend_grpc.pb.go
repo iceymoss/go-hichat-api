@@ -19,13 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	TrendService_CreateTrend_FullMethodName     = "/trend.TrendService/CreateTrend"
-	TrendService_DeleteTrend_FullMethodName     = "/trend.TrendService/DeleteTrend"
-	TrendService_UpdateTrend_FullMethodName     = "/trend.TrendService/UpdateTrend"
-	TrendService_ListTrends_FullMethodName      = "/trend.TrendService/ListTrends"
-	TrendService_GetTrendDetail_FullMethodName  = "/trend.TrendService/GetTrendDetail"
-	TrendService_GetLatestTrends_FullMethodName = "/trend.TrendService/GetLatestTrends"
-	TrendService_GetUserTrends_FullMethodName   = "/trend.TrendService/GetUserTrends"
+	TrendService_CreateTrend_FullMethodName        = "/trend.TrendService/CreateTrend"
+	TrendService_DeleteTrend_FullMethodName        = "/trend.TrendService/DeleteTrend"
+	TrendService_UpdateTrend_FullMethodName        = "/trend.TrendService/UpdateTrend"
+	TrendService_ListTrends_FullMethodName         = "/trend.TrendService/ListTrends"
+	TrendService_GetTrendDetail_FullMethodName     = "/trend.TrendService/GetTrendDetail"
+	TrendService_GetLatestTrends_FullMethodName    = "/trend.TrendService/GetLatestTrends"
+	TrendService_GetUserTrends_FullMethodName      = "/trend.TrendService/GetUserTrends"
+	TrendService_CreateRootDiscuss_FullMethodName  = "/trend.TrendService/CreateRootDiscuss"
+	TrendService_CreateChildDiscuss_FullMethodName = "/trend.TrendService/CreateChildDiscuss"
+	TrendService_GetTrendDiscusses_FullMethodName  = "/trend.TrendService/GetTrendDiscusses"
+	TrendService_GetRootDiscusses_FullMethodName   = "/trend.TrendService/GetRootDiscusses"
+	TrendService_GetChildDiscusses_FullMethodName  = "/trend.TrendService/GetChildDiscusses"
+	TrendService_DeleteDiscuss_FullMethodName      = "/trend.TrendService/DeleteDiscuss"
+	TrendService_GetUnreadReplies_FullMethodName   = "/trend.TrendService/GetUnreadReplies"
 )
 
 // TrendServiceClient is the client API for TrendService service.
@@ -48,6 +55,22 @@ type TrendServiceClient interface {
 	GetLatestTrends(ctx context.Context, in *GetLatestTrendsRequest, opts ...grpc.CallOption) (*GetLatestTrendsResponse, error)
 	// 获取用户个人动态列表
 	GetUserTrends(ctx context.Context, in *GetUserTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error)
+	// 评论服务定义
+	// 动态评论相关模块
+	// 1. 发表一级评论（父评论ID=0）
+	CreateRootDiscuss(ctx context.Context, in *CreateDiscussReq, opts ...grpc.CallOption) (*CreateDiscussResp, error)
+	// 2. 发表多级评论（二级、三级等）
+	CreateChildDiscuss(ctx context.Context, in *CreateDiscussReq, opts ...grpc.CallOption) (*CreateDiscussResp, error)
+	// 3. 获取动态的多级评论树（树形结构）
+	GetTrendDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesTreeResp, error)
+	// 4. 获取一级评论（分页）
+	GetRootDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesListResp, error)
+	// 5. 获取子评论（指定父评论下的所有评论）
+	GetChildDiscusses(ctx context.Context, in *GetChildDiscussesReq, opts ...grpc.CallOption) (*DiscussesListResp, error)
+	// 6. 删除评论（支持任意级别评论删除）
+	DeleteDiscuss(ctx context.Context, in *DeleteDiscussReq, opts ...grpc.CallOption) (*DeleteDiscussResp, error)
+	// 7. 获取未读回复
+	GetUnreadReplies(ctx context.Context, in *GetUnreadRepliesReq, opts ...grpc.CallOption) (*RepliesListResp, error)
 }
 
 type trendServiceClient struct {
@@ -128,6 +151,76 @@ func (c *trendServiceClient) GetUserTrends(ctx context.Context, in *GetUserTrend
 	return out, nil
 }
 
+func (c *trendServiceClient) CreateRootDiscuss(ctx context.Context, in *CreateDiscussReq, opts ...grpc.CallOption) (*CreateDiscussResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateDiscussResp)
+	err := c.cc.Invoke(ctx, TrendService_CreateRootDiscuss_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *trendServiceClient) CreateChildDiscuss(ctx context.Context, in *CreateDiscussReq, opts ...grpc.CallOption) (*CreateDiscussResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateDiscussResp)
+	err := c.cc.Invoke(ctx, TrendService_CreateChildDiscuss_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *trendServiceClient) GetTrendDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesTreeResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DiscussesTreeResp)
+	err := c.cc.Invoke(ctx, TrendService_GetTrendDiscusses_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *trendServiceClient) GetRootDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesListResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DiscussesListResp)
+	err := c.cc.Invoke(ctx, TrendService_GetRootDiscusses_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *trendServiceClient) GetChildDiscusses(ctx context.Context, in *GetChildDiscussesReq, opts ...grpc.CallOption) (*DiscussesListResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DiscussesListResp)
+	err := c.cc.Invoke(ctx, TrendService_GetChildDiscusses_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *trendServiceClient) DeleteDiscuss(ctx context.Context, in *DeleteDiscussReq, opts ...grpc.CallOption) (*DeleteDiscussResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteDiscussResp)
+	err := c.cc.Invoke(ctx, TrendService_DeleteDiscuss_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *trendServiceClient) GetUnreadReplies(ctx context.Context, in *GetUnreadRepliesReq, opts ...grpc.CallOption) (*RepliesListResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RepliesListResp)
+	err := c.cc.Invoke(ctx, TrendService_GetUnreadReplies_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TrendServiceServer is the server API for TrendService service.
 // All implementations must embed UnimplementedTrendServiceServer
 // for forward compatibility.
@@ -148,6 +241,22 @@ type TrendServiceServer interface {
 	GetLatestTrends(context.Context, *GetLatestTrendsRequest) (*GetLatestTrendsResponse, error)
 	// 获取用户个人动态列表
 	GetUserTrends(context.Context, *GetUserTrendsRequest) (*GetUserTrendsResponse, error)
+	// 评论服务定义
+	// 动态评论相关模块
+	// 1. 发表一级评论（父评论ID=0）
+	CreateRootDiscuss(context.Context, *CreateDiscussReq) (*CreateDiscussResp, error)
+	// 2. 发表多级评论（二级、三级等）
+	CreateChildDiscuss(context.Context, *CreateDiscussReq) (*CreateDiscussResp, error)
+	// 3. 获取动态的多级评论树（树形结构）
+	GetTrendDiscusses(context.Context, *GetDiscussesReq) (*DiscussesTreeResp, error)
+	// 4. 获取一级评论（分页）
+	GetRootDiscusses(context.Context, *GetDiscussesReq) (*DiscussesListResp, error)
+	// 5. 获取子评论（指定父评论下的所有评论）
+	GetChildDiscusses(context.Context, *GetChildDiscussesReq) (*DiscussesListResp, error)
+	// 6. 删除评论（支持任意级别评论删除）
+	DeleteDiscuss(context.Context, *DeleteDiscussReq) (*DeleteDiscussResp, error)
+	// 7. 获取未读回复
+	GetUnreadReplies(context.Context, *GetUnreadRepliesReq) (*RepliesListResp, error)
 	mustEmbedUnimplementedTrendServiceServer()
 }
 
@@ -178,6 +287,27 @@ func (UnimplementedTrendServiceServer) GetLatestTrends(context.Context, *GetLate
 }
 func (UnimplementedTrendServiceServer) GetUserTrends(context.Context, *GetUserTrendsRequest) (*GetUserTrendsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserTrends not implemented")
+}
+func (UnimplementedTrendServiceServer) CreateRootDiscuss(context.Context, *CreateDiscussReq) (*CreateDiscussResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateRootDiscuss not implemented")
+}
+func (UnimplementedTrendServiceServer) CreateChildDiscuss(context.Context, *CreateDiscussReq) (*CreateDiscussResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateChildDiscuss not implemented")
+}
+func (UnimplementedTrendServiceServer) GetTrendDiscusses(context.Context, *GetDiscussesReq) (*DiscussesTreeResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTrendDiscusses not implemented")
+}
+func (UnimplementedTrendServiceServer) GetRootDiscusses(context.Context, *GetDiscussesReq) (*DiscussesListResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRootDiscusses not implemented")
+}
+func (UnimplementedTrendServiceServer) GetChildDiscusses(context.Context, *GetChildDiscussesReq) (*DiscussesListResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetChildDiscusses not implemented")
+}
+func (UnimplementedTrendServiceServer) DeleteDiscuss(context.Context, *DeleteDiscussReq) (*DeleteDiscussResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteDiscuss not implemented")
+}
+func (UnimplementedTrendServiceServer) GetUnreadReplies(context.Context, *GetUnreadRepliesReq) (*RepliesListResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUnreadReplies not implemented")
 }
 func (UnimplementedTrendServiceServer) mustEmbedUnimplementedTrendServiceServer() {}
 func (UnimplementedTrendServiceServer) testEmbeddedByValue()                      {}
@@ -326,6 +456,132 @@ func _TrendService_GetUserTrends_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TrendService_CreateRootDiscuss_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateDiscussReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TrendServiceServer).CreateRootDiscuss(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TrendService_CreateRootDiscuss_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TrendServiceServer).CreateRootDiscuss(ctx, req.(*CreateDiscussReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TrendService_CreateChildDiscuss_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateDiscussReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TrendServiceServer).CreateChildDiscuss(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TrendService_CreateChildDiscuss_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TrendServiceServer).CreateChildDiscuss(ctx, req.(*CreateDiscussReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TrendService_GetTrendDiscusses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDiscussesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TrendServiceServer).GetTrendDiscusses(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TrendService_GetTrendDiscusses_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TrendServiceServer).GetTrendDiscusses(ctx, req.(*GetDiscussesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TrendService_GetRootDiscusses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDiscussesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TrendServiceServer).GetRootDiscusses(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TrendService_GetRootDiscusses_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TrendServiceServer).GetRootDiscusses(ctx, req.(*GetDiscussesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TrendService_GetChildDiscusses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetChildDiscussesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TrendServiceServer).GetChildDiscusses(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TrendService_GetChildDiscusses_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TrendServiceServer).GetChildDiscusses(ctx, req.(*GetChildDiscussesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TrendService_DeleteDiscuss_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteDiscussReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TrendServiceServer).DeleteDiscuss(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TrendService_DeleteDiscuss_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TrendServiceServer).DeleteDiscuss(ctx, req.(*DeleteDiscussReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TrendService_GetUnreadReplies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUnreadRepliesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TrendServiceServer).GetUnreadReplies(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TrendService_GetUnreadReplies_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TrendServiceServer).GetUnreadReplies(ctx, req.(*GetUnreadRepliesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TrendService_ServiceDesc is the grpc.ServiceDesc for TrendService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -360,6 +616,34 @@ var TrendService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserTrends",
 			Handler:    _TrendService_GetUserTrends_Handler,
+		},
+		{
+			MethodName: "CreateRootDiscuss",
+			Handler:    _TrendService_CreateRootDiscuss_Handler,
+		},
+		{
+			MethodName: "CreateChildDiscuss",
+			Handler:    _TrendService_CreateChildDiscuss_Handler,
+		},
+		{
+			MethodName: "GetTrendDiscusses",
+			Handler:    _TrendService_GetTrendDiscusses_Handler,
+		},
+		{
+			MethodName: "GetRootDiscusses",
+			Handler:    _TrendService_GetRootDiscusses_Handler,
+		},
+		{
+			MethodName: "GetChildDiscusses",
+			Handler:    _TrendService_GetChildDiscusses_Handler,
+		},
+		{
+			MethodName: "DeleteDiscuss",
+			Handler:    _TrendService_DeleteDiscuss_Handler,
+		},
+		{
+			MethodName: "GetUnreadReplies",
+			Handler:    _TrendService_GetUnreadReplies_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

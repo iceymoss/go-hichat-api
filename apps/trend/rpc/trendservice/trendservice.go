@@ -14,14 +14,25 @@ import (
 )
 
 type (
+	CreateDiscussReq        = trend.CreateDiscussReq
+	CreateDiscussResp       = trend.CreateDiscussResp
 	CreateTrendRequest      = trend.CreateTrendRequest
 	CreateTrendResponse     = trend.CreateTrendResponse
+	DeleteDiscussReq        = trend.DeleteDiscussReq
+	DeleteDiscussResp       = trend.DeleteDiscussResp
 	DeleteTrendRequest      = trend.DeleteTrendRequest
 	DeleteTrendResponse     = trend.DeleteTrendResponse
+	Discuss                 = trend.Discuss
+	DiscussPagination       = trend.DiscussPagination
+	DiscussesListResp       = trend.DiscussesListResp
+	DiscussesTreeResp       = trend.DiscussesTreeResp
+	GetChildDiscussesReq    = trend.GetChildDiscussesReq
+	GetDiscussesReq         = trend.GetDiscussesReq
 	GetLatestTrendsRequest  = trend.GetLatestTrendsRequest
 	GetLatestTrendsResponse = trend.GetLatestTrendsResponse
 	GetTrendDetailRequest   = trend.GetTrendDetailRequest
 	GetTrendDetailResponse  = trend.GetTrendDetailResponse
+	GetUnreadRepliesReq     = trend.GetUnreadRepliesReq
 	GetUserTrendsRequest    = trend.GetUserTrendsRequest
 	GetUserTrendsResponse   = trend.GetUserTrendsResponse
 	ListTrendsRequest       = trend.ListTrendsRequest
@@ -29,6 +40,7 @@ type (
 	PageInfo                = trend.PageInfo
 	Pagination              = trend.Pagination
 	Point                   = trend.Point
+	RepliesListResp         = trend.RepliesListResp
 	Resource                = trend.Resource
 	Trend                   = trend.Trend
 	UpdateTrendRequest      = trend.UpdateTrendRequest
@@ -49,6 +61,20 @@ type (
 		GetLatestTrends(ctx context.Context, in *GetLatestTrendsRequest, opts ...grpc.CallOption) (*GetLatestTrendsResponse, error)
 		// 获取用户个人动态列表
 		GetUserTrends(ctx context.Context, in *GetUserTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error)
+		// 评论服务定义
+		CreateRootDiscuss(ctx context.Context, in *CreateDiscussReq, opts ...grpc.CallOption) (*CreateDiscussResp, error)
+		// 2. 发表多级评论（二级、三级等）
+		CreateChildDiscuss(ctx context.Context, in *CreateDiscussReq, opts ...grpc.CallOption) (*CreateDiscussResp, error)
+		// 3. 获取动态的多级评论树（树形结构）
+		GetTrendDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesTreeResp, error)
+		// 4. 获取一级评论（分页）
+		GetRootDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesListResp, error)
+		// 5. 获取子评论（指定父评论下的所有评论）
+		GetChildDiscusses(ctx context.Context, in *GetChildDiscussesReq, opts ...grpc.CallOption) (*DiscussesListResp, error)
+		// 6. 删除评论（支持任意级别评论删除）
+		DeleteDiscuss(ctx context.Context, in *DeleteDiscussReq, opts ...grpc.CallOption) (*DeleteDiscussResp, error)
+		// 7. 获取未读回复
+		GetUnreadReplies(ctx context.Context, in *GetUnreadRepliesReq, opts ...grpc.CallOption) (*RepliesListResp, error)
 	}
 
 	defaultTrendService struct {
@@ -102,4 +128,46 @@ func (m *defaultTrendService) GetLatestTrends(ctx context.Context, in *GetLatest
 func (m *defaultTrendService) GetUserTrends(ctx context.Context, in *GetUserTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error) {
 	client := trend.NewTrendServiceClient(m.cli.Conn())
 	return client.GetUserTrends(ctx, in, opts...)
+}
+
+// 评论服务定义
+func (m *defaultTrendService) CreateRootDiscuss(ctx context.Context, in *CreateDiscussReq, opts ...grpc.CallOption) (*CreateDiscussResp, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.CreateRootDiscuss(ctx, in, opts...)
+}
+
+// 2. 发表多级评论（二级、三级等）
+func (m *defaultTrendService) CreateChildDiscuss(ctx context.Context, in *CreateDiscussReq, opts ...grpc.CallOption) (*CreateDiscussResp, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.CreateChildDiscuss(ctx, in, opts...)
+}
+
+// 3. 获取动态的多级评论树（树形结构）
+func (m *defaultTrendService) GetTrendDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesTreeResp, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.GetTrendDiscusses(ctx, in, opts...)
+}
+
+// 4. 获取一级评论（分页）
+func (m *defaultTrendService) GetRootDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesListResp, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.GetRootDiscusses(ctx, in, opts...)
+}
+
+// 5. 获取子评论（指定父评论下的所有评论）
+func (m *defaultTrendService) GetChildDiscusses(ctx context.Context, in *GetChildDiscussesReq, opts ...grpc.CallOption) (*DiscussesListResp, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.GetChildDiscusses(ctx, in, opts...)
+}
+
+// 6. 删除评论（支持任意级别评论删除）
+func (m *defaultTrendService) DeleteDiscuss(ctx context.Context, in *DeleteDiscussReq, opts ...grpc.CallOption) (*DeleteDiscussResp, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.DeleteDiscuss(ctx, in, opts...)
+}
+
+// 7. 获取未读回复
+func (m *defaultTrendService) GetUnreadReplies(ctx context.Context, in *GetUnreadRepliesReq, opts ...grpc.CallOption) (*RepliesListResp, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.GetUnreadReplies(ctx, in, opts...)
 }
