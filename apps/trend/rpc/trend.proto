@@ -29,7 +29,31 @@ service TrendService {
 
   // 获取用户个人动态列表
   rpc GetUserTrends(GetUserTrendsRequest) returns (GetUserTrendsResponse);
+
+  // 评论服务定义
+  // 动态评论相关模块
+  // 1. 发表一级评论（父评论ID=0）
+  rpc CreateRootDiscuss(CreateDiscussReq) returns (CreateDiscussResp);
+
+  // 2. 发表多级评论（二级、三级等）
+  rpc CreateChildDiscuss(CreateDiscussReq) returns (CreateDiscussResp);
+
+  // 3. 获取动态的多级评论树（树形结构）
+  rpc GetTrendDiscusses(GetDiscussesReq) returns (DiscussesTreeResp);
+
+  // 4. 获取一级评论（分页）
+  rpc GetRootDiscusses(GetDiscussesReq) returns (DiscussesListResp);
+
+  // 5. 获取子评论（指定父评论下的所有评论）
+  rpc GetChildDiscusses(GetChildDiscussesReq) returns (DiscussesListResp);
+
+  // 6. 删除评论（支持任意级别评论删除）
+  rpc DeleteDiscuss(DeleteDiscussReq) returns (DeleteDiscussResp);
+
+  // 7. 获取未读回复
+  rpc GetUnreadReplies(GetUnreadRepliesReq) returns (RepliesListResp);
 }
+
 
 // ========== 枚举类型定义 ==========
 
@@ -250,4 +274,99 @@ message GetUserTrendsRequest {
 message GetUserTrendsResponse {
   repeated Trend trends = 1;  // 用户的动态列表
   PageInfo page_info = 2;      // 分页信息
+}
+
+// ========== 数据结构定义 ==========
+
+// 评论基本信息
+message Discuss {
+  uint64 id = 1;           // 评论ID
+  uint64 trend_id = 2;      // 所属动态ID
+  uint64 father = 3;        // 父评论ID（0表示一级评论）
+  uint64 root_id = 4;        // 根评论ID（多级评论的祖先ID）
+  uint64 replyer = 5;       // 评论者用户ID
+  uint64 user_id = 6;       // 被评论者用户ID
+  uint32 level = 7;         // 评论层级（1=一级,2=二级...）
+  string content = 8;       // 评论内容
+  repeated uint64 at_user_ids = 9; // @用户的ID列表
+  uint64 agree_count = 10;   // 点赞数
+  uint64 discuss_count = 11; // 子评论数量
+  uint32 state = 12;         // 状态（0=已删除,1=正常）
+  bool read = 13;           // 已读状态（true=已读）
+  int64 create_time = 14;   // 创建时间(时间戳)
+  int64 update_time = 15;   // 更新时间(时间戳)
+  repeated Discuss children = 16; // 子评论（树形结构时使用）
+}
+
+// 分页参数
+message DiscussPagination {
+  int32 page = 1;    // 当前页码（从1开始）
+  int32 size = 2;    // 每页条数
+}
+
+// ========== 请求/响应结构 ==========
+
+// 创建评论请求
+message CreateDiscussReq {
+  uint64 trend_id = 1;       // 动态ID
+  uint64 father = 2;         // 父评论ID（创建一级评论时为0）
+  uint64 user_id = 3;        // 被评论者用户ID
+  string content = 4;        // 评论内容
+  repeated uint64 at_user_ids = 5; // @的用户ID列表
+  uint64 replyer = 6;        // 评论者用户ID
+}
+
+// 创建评论响应
+message CreateDiscussResp {
+  Discuss discuss = 1;      // 创建的评论信息
+}
+
+// 获取评论请求
+message GetDiscussesReq {
+  uint64 trend_id = 1;      // 动态ID
+  Pagination pagination = 2; // 分页参数（可选）
+  bool include_children = 3; // 是否包含子评论（树形结构）
+}
+
+// 评论树形响应
+message DiscussesTreeResp {
+  repeated Discuss discusses = 1; // 树形评论列表（一级评论包含子评论）
+  Pagination pagination = 2;      // 分页信息
+}
+
+// 评论列表响应
+message DiscussesListResp {
+  repeated Discuss discusses = 1; // 评论列表
+  Pagination pagination = 2;      // 分页信息
+  uint64 total = 3;               // 总数
+}
+
+// 获取子评论请求
+message GetChildDiscussesReq {
+  uint64 root_id = 1;        // 根评论ID
+  uint64 father = 2;         // 父评论ID
+  Pagination pagination = 3; // 分页参数
+}
+
+// 删除评论请求
+message DeleteDiscussReq {
+  uint64 id = 1;             // 要删除的评论ID
+}
+
+// 删除评论响应
+message DeleteDiscussResp {
+  bool success = 1;          // 是否成功
+}
+
+// 获取未读回复请求
+message GetUnreadRepliesReq {
+  uint64 user_id = 1;        // 用户ID
+  Pagination pagination = 2;  // 分页参数
+}
+
+// 未读回复列表响应
+message RepliesListResp {
+  repeated Discuss replies = 1; // 未读回复列表
+  Pagination pagination = 2;    // 分页信息
+  uint64 total = 3;             // 总数
 }

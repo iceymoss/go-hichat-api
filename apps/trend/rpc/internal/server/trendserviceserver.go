@@ -64,3 +64,45 @@ func (s *TrendServiceServer) GetUserTrends(ctx context.Context, in *trend.GetUse
 	l := logic.NewGetUserTrendsLogic(ctx, s.svcCtx)
 	return l.GetUserTrends(in)
 }
+
+// 评论服务定义
+func (s *TrendServiceServer) CreateRootDiscuss(ctx context.Context, in *trend.CreateDiscussReq) (*trend.CreateDiscussResp, error) {
+	l := logic.NewCreateRootDiscussLogic(ctx, s.svcCtx)
+	return l.CreateRootDiscuss(in)
+}
+
+// 2. 发表多级评论（二级、三级等）
+func (s *TrendServiceServer) CreateChildDiscuss(ctx context.Context, in *trend.CreateDiscussReq) (*trend.CreateDiscussResp, error) {
+	l := logic.NewCreateChildDiscussLogic(ctx, s.svcCtx)
+	return l.CreateChildDiscuss(in)
+}
+
+// 3. 获取动态的多级评论树（树形结构）
+func (s *TrendServiceServer) GetTrendDiscusses(ctx context.Context, in *trend.GetDiscussesReq) (*trend.DiscussesTreeResp, error) {
+	l := logic.NewGetTrendDiscussesLogic(ctx, s.svcCtx)
+	return l.GetTrendDiscusses(in)
+}
+
+// 4. 获取一级评论（分页）
+func (s *TrendServiceServer) GetRootDiscusses(ctx context.Context, in *trend.GetDiscussesReq) (*trend.DiscussesListResp, error) {
+	l := logic.NewGetRootDiscussesLogic(ctx, s.svcCtx)
+	return l.GetRootDiscusses(in)
+}
+
+// 5. 获取子评论（指定父评论下的所有评论）
+func (s *TrendServiceServer) GetChildDiscusses(ctx context.Context, in *trend.GetChildDiscussesReq) (*trend.DiscussesListResp, error) {
+	l := logic.NewGetChildDiscussesLogic(ctx, s.svcCtx)
+	return l.GetChildDiscusses(in)
+}
+
+// 6. 删除评论（支持任意级别评论删除）
+func (s *TrendServiceServer) DeleteDiscuss(ctx context.Context, in *trend.DeleteDiscussReq) (*trend.DeleteDiscussResp, error) {
+	l := logic.NewDeleteDiscussLogic(ctx, s.svcCtx)
+	return l.DeleteDiscuss(in)
+}
+
+// 7. 获取未读回复
+func (s *TrendServiceServer) GetUnreadReplies(ctx context.Context, in *trend.GetUnreadRepliesReq) (*trend.RepliesListResp, error) {
+	l := logic.NewGetUnreadRepliesLogic(ctx, s.svcCtx)
+	return l.GetUnreadReplies(in)
+}
