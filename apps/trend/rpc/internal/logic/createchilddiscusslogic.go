@@ -84,7 +84,7 @@ func (l *CreateChildDiscussLogic) CreateChildDiscuss(in *trend.CreateDiscussReq)
 
 	// 获取根评论id, 非二级评论直接继承
 	rootId := parentDiscuss.Rootid
-	if parentDiscuss.Level == 2 {
+	if newLevel == 2 {
 		//是二级评论,获取一级评论id，作为根id
 		rootId = parentDiscuss.Id
 	}
@@ -121,6 +121,22 @@ func (l *CreateChildDiscussLogic) CreateChildDiscuss(in *trend.CreateDiscussReq)
 		l.Logger.Error("更新父评论计数失败", logx.Field("error", err))
 		zLog.Error("CreateChildDiscuss.IncAgreeOrDiscuss: 更新父评论计数失败", zap.Any("fatherId", discuss.Father), zap.Error(err))
 		// 不中断流程，只记录日志
+	}
+
+	if newLevel > 2 {
+		// 更新根评论的评论数
+		if err = l.svcCtx.TrendDiscuss.IncAgreeOrDiscuss(l.ctx, uint64(rootId), 1, 1); err != nil {
+			l.Logger.Error("更新根评论计数失败", logx.Field("error", err))
+			zLog.Error("CreateChildDiscuss.IncAgreeOrDiscuss: 更新根评论计数失败", zap.Any("root", discuss.Father), zap.Error(err))
+			// 不中断流程，只记录日志
+		}
+	}
+
+	// 更新动态总评论数
+	err = l.svcCtx.Trend.IncAgreeOrReply(l.ctx, in.TrendId, 1, 1)
+	if err != nil {
+		zLog.Error("CreateChildDiscuss.IncAgreeOrReply: inc reply failed", zap.Error(err))
+		// 不中断处理，业务上可以接受丢失
 	}
 
 	// 13. 发送通知（如果被回复用户不是自己）需要通知状态作者，被评论者
