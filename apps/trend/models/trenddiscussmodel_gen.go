@@ -44,6 +44,7 @@ type (
 		FindFirstByTrendId(ctx context.Context, trendId uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error)
 		FindUnreadByUser(ctx context.Context, userId int, lastId int) ([]*TrendDiscuss, error)
 		MarkReadById(ctx context.Context, idList []uint64) error
+		DeleteByRoots(ctx context.Context, ids []uint64) error
 	}
 
 	defaultTrendDiscussModel struct {
@@ -77,6 +78,10 @@ func newTrendDiscussModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Op
 	}
 }
 
+func (*TrendDiscuss) TableName() string {
+	return "trend_discuss"
+}
+
 func (m *defaultTrendDiscussModel) MarkReadById(ctx context.Context, idList []uint64) error {
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).WithContext(ctx)
 	err := mysqlConn.Table(m.table).Where("id in ?", idList).Update(" \\`read\\` ", 1).Error
@@ -85,6 +90,11 @@ func (m *defaultTrendDiscussModel) MarkReadById(ctx context.Context, idList []ui
 	}
 
 	return nil
+}
+
+func (m *defaultTrendDiscussModel) DeleteByRoots(ctx context.Context, ids []uint64) error {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).WithContext(ctx)
+	return mysqlConn.Table(m.table).Where("rootid in ?", ids).Update("state", 0).Error
 }
 
 func (m *defaultTrendDiscussModel) FindUnreadByUser(ctx context.Context, userId int, lastId int) ([]*TrendDiscuss, error) {
