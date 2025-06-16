@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"errors"
-
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
