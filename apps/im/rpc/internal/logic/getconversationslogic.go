@@ -3,14 +3,15 @@ package logic
 import (
 	"context"
 	"fmt"
+
 	models "github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
+
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/errorx"
-
 	"github.com/zeromicro/go-zero/core/logx"
 )
 

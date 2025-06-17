@@ -3,19 +3,19 @@ package logic
 import (
 	"context"
 	"fmt"
+
 	models "github.com/iceymoss/go-hichat-api/apps/im/models"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/wuid"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
+
 	"github.com/pkg/errors"
+	"github.com/zeromicro/go-zero/core/logx"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-
-	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
-	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
-
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type SetUpUserConversationLogic struct {

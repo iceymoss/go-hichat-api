@@ -4,18 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	models "github.com/iceymoss/go-hichat-api/apps/im/models"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
+
 	"github.com/zeromicro/go-zero/core/errorx"
-	"go.uber.org/zap"
-
-	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
-	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
-
 	"github.com/zeromicro/go-zero/core/logx"
+
+	"go.uber.org/zap"
 )
 
 type CreateGroupConversationLogic struct {

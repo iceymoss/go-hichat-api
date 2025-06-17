@@ -2,12 +2,12 @@ package logic
 
 import (
 	"context"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
-	"github.com/pkg/errors"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
+	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
+	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
