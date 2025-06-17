@@ -2,14 +2,16 @@ package svc
 
 import (
 	"fmt"
+	"time"
+
 	models "github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc/connectivity"
-	"time"
 )
 
 type ServiceContext struct {
