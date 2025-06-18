@@ -77,6 +77,7 @@ func (l *CreateRootDiscussLogic) CreateRootDiscuss(in *trend.CreateDiscussReq) (
 		Idlist:     serializeAtUserIds(in.AtUserIds), // JSON 序列化 @用户列表
 		State:      1,                                // 正常状态
 		Read:       0,                                // 未读
+		Path:       "/",
 		Createtime: now,
 		Updatetime: now,
 	}
