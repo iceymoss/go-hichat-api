@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
@@ -32,27 +33,39 @@ func (l *DeleteDiscussLogic) DeleteDiscuss(in *trend.DeleteDiscussReq) (*trend.D
 		zLog.Error("DeleteDiscuss.FindOne: get filed", zap.Any("id", in.Id), zap.Error(err))
 		return nil, err
 	}
-	err = l.svcCtx.TrendDiscuss.Delete(l.ctx, in.Id)
+
+	// 获取子评论
+	currentPath := fmt.Sprintf("%s%d/", discus.Path, discus.Id)
+	deleteIds, count, err := l.svcCtx.TrendDiscuss.FindChildrenByPath(l.ctx, currentPath)
 	if err != nil {
-		zLog.Error("DeleteDiscuss.Delete: delete filed", zap.Any("id", in.Id), zap.Error(err))
+		zLog.Error("FindChildrenByPath failed", zap.Error(err))
 		return nil, err
 	}
 
-	// 删除关联的评论
-	//if discus.Level == 1 {
-	//	err := l.svcCtx.TrendDiscuss.DeleteByRoots(l.ctx, []uint64{discus.Rootid})
-	//	if err != nil {
-	//		zLog.Error("DeleteDiscuss.v: delete filed", zap.Any("id", in.Id), zap.Error(err))
-	//		// 不中断
-	//	}
-	//}
-
-	// 动态总评论数-1
-	// 更新动态总评论数
-	err = l.svcCtx.Trend.IncAgreeOrReply(l.ctx, uint64(discus.Trendid), 1, -1)
+	err = l.svcCtx.TrendDiscuss.Deletes(l.ctx, deleteIds)
 	if err != nil {
-		zLog.Error("DeleteDiscuss.IncAgreeOrReply: -inc reply failed", zap.Error(err))
-		// 不中断处理，业务上可以接受丢失
+		zLog.Error("Deletes failed", zap.Error(err))
+		return nil, err
+	}
+
+	// 扣减当前评论的父亲评论的评论数据
+	newCount := int(discus.DiscussCount) - count
+	if discus.Father != 0 {
+		if newCount < 0 {
+			newCount = 0
+		}
+		err = l.svcCtx.TrendDiscuss.SetDiscuss(l.ctx, discus.Id, newCount)
+		if err != nil {
+			zLog.Error("SetDiscuss failed", zap.Error(err))
+			return nil, err
+		}
+	}
+
+	// 更新动态总评论数
+	err = l.svcCtx.Trend.SetTrendReplyCount(l.ctx, discus.Id, newCount)
+	if err != nil {
+		zLog.Error("SetTrendReplyCount failed", zap.Error(err))
+		return nil, err
 	}
 
 	return &trend.DeleteDiscussResp{

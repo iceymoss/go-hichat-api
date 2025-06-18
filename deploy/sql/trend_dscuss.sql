@@ -13,6 +13,7 @@ CREATE TABLE `trend_discuss` (
                                  `discuss_count` INT NOT NULL DEFAULT 0 COMMENT '子评论数量',
                                  `state` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '状态（0=已删除, 1=正常）',
                                  `read` TINYINT NOT NULL DEFAULT 1 COMMENT '已读状态（0=已读, 1=未读）',
+                                  path          VARCHAR(1000)    DEFAULT '/'               NOT NULL COMMENT '评论路径，例如:评论1 (id=1, path=/) 评论2 (id=2, path=/1/) 评论3 (id=3, path=/1/2/)',
                                  `createtime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                  `updatetime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
 
@@ -28,7 +29,9 @@ CREATE TABLE `trend_discuss` (
                                  INDEX `idx_trendid_createtime` (`trendid`, `createtime`),
                                  INDEX `idx_father_level` (`father`, `level`),
                                  INDEX `idx_trendid_updatetime` (`trendid`, `updatetime`),
-                                 INDEX `idx_updatetime_state` (`updatetime`, `state`)
+                                 INDEX `idx_updatetime_state` (`updatetime`, `state`),
+                                 INDEX `idx_path_level` (`path`(100), `level`),
+                                 INDEX  `idx_path` (`path`(255));
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='动态评论表（支持多级嵌套结构）';
 
 -- ID  | trendid | father | rootid | content

@@ -92,20 +92,21 @@ func (l *CreateChildDiscussLogic) CreateChildDiscuss(in *trend.CreateDiscussReq)
 	// 创建评论实体
 	now := time.Now()
 	discuss := models.TrendDiscuss{
-		Trendid:      parentDiscuss.Trendid,            // 动态ID从父评论获取
-		Father:       int64(in.Father),                 // 父评论ID
-		Replyer:      in.Replyer,                       // 评论者ID
-		Rootid:       rootId,                           // 根评论id
-		Userid:       in.UserId,                        // 被回复用户ID（通常为父评论的作者）
-		Level:        newLevel,                         // 层级
-		Content:      in.Content,                       // 评论内容
-		Idlist:       serializeAtUserIds(in.AtUserIds), // JSON 序列化 @用户列表
-		AgreeCount:   0,                                // 点赞数
-		DiscussCount: 0,                                // 子评论数
-		State:        1,                                // 状态（1=正常）
-		Read:         0,                                // 未读
-		Createtime:   now,                              // 创建时间
-		Updatetime:   now,                              // 更新时间
+		Trendid:      parentDiscuss.Trendid,                                      // 动态ID从父评论获取
+		Father:       int64(in.Father),                                           // 父评论ID
+		Replyer:      in.Replyer,                                                 // 评论者ID
+		Rootid:       rootId,                                                     // 根评论id
+		Userid:       in.UserId,                                                  // 被回复用户ID（通常为父评论的作者）
+		Level:        newLevel,                                                   // 层级
+		Content:      in.Content,                                                 // 评论内容
+		Idlist:       serializeAtUserIds(in.AtUserIds),                           // JSON 序列化 @用户列表
+		AgreeCount:   0,                                                          // 点赞数
+		DiscussCount: 0,                                                          // 子评论数
+		State:        1,                                                          // 状态（1=正常）
+		Read:         0,                                                          // 未读
+		Path:         fmt.Sprintf("%s/%d", parentDiscuss.Path, parentDiscuss.Id), //评论路径，通过path前缀可以查询到当前评论的所有子评论
+		Createtime:   now,                                                        // 创建时间
+		Updatetime:   now,                                                        // 更新时间
 	}
 
 	// 存储评论
