@@ -7,6 +7,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,6 +36,7 @@ type (
 		FindOne(ctx context.Context, id uint64) (*TrendDiscuss, error)
 		Update(ctx context.Context, data UpdateInput) error
 		Delete(ctx context.Context, id uint64) error
+		Deletes(ctx context.Context, id []uint64) error
 		IncAgreeOrDiscuss(ctx context.Context, id uint64, class int, inc int) error
 		FindChildrenByRootIds(ctx context.Context, rootIds []uint64) ([]*TrendDiscuss, error)
 		FindByTrendWithKeyset(ctx context.Context, trendID uint64, level int, lastCursorID uint64, size int) ([]*TrendDiscuss, bool, error)
@@ -45,6 +47,8 @@ type (
 		FindUnreadByUser(ctx context.Context, userId int, lastId int) ([]*TrendDiscuss, error)
 		MarkReadById(ctx context.Context, idList []uint64) error
 		DeleteByRoots(ctx context.Context, ids []uint64) error
+		FindChildrenByPath(ctx context.Context, path string) ([]uint64, int, error)
+		SetDiscuss(ctx context.Context, id uint64, count int) error
 	}
 
 	defaultTrendDiscussModel struct {
@@ -66,6 +70,7 @@ type (
 		DiscussCount int64     `db:"discuss_count"` // 子评论数量
 		State        uint64    `db:"state"`         // 状态（0=已删除, 1=正常）
 		Read         int64     `db:"read"`          // 已读状态（0=已读, 1=未读）
+		Path         string    `db:"path"`          // 评论路径 用于快讯查询当前记录评论的所有子评论
 		Createtime   time.Time `db:"createtime"`    // 创建时间
 		Updatetime   time.Time `db:"updatetime"`    // 最后更新时间
 	}
@@ -87,6 +92,87 @@ func (m *defaultTrendDiscussModel) MarkReadById(ctx context.Context, idList []ui
 	err := mysqlConn.Table(m.table).Where("id in ?", idList).Update("`read`", 1).Error
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (m *defaultTrendDiscussModel) SetDiscuss(ctx context.Context, id uint64, count int) error {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	res := mysqlConn.Table(m.table).Where("id = ?", id).Update("discuss_count", count)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return errors.New(fmt.Sprintf("SetDiscuss failed id: %d", id))
+	}
+
+	return nil
+}
+
+func (m *defaultTrendDiscussModel) FindChildrenByPath(ctx context.Context, path string) ([]uint64, int, error) {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+
+	// 单次查询获取所有后代ID（包括当前评论）
+	rows, err := mysqlConn.Table(m.table).Select("id").Where("path LIKE ?", path+"%").Rows()
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	// 处理查询结果
+	var deleteIDs []uint64
+	for rows.Next() {
+		var id uint64
+		if err := rows.Scan(&id); err == nil {
+			deleteIDs = append(deleteIDs, id)
+		}
+	}
+
+	// 总数 = 后代ID数 + 当前评论自身
+	totalCount := len(deleteIDs) + 1
+
+	// 添加当前评论ID
+	selfID := extractLastID(path)
+	deleteIDs = append(deleteIDs, selfID)
+
+	return deleteIDs, totalCount, nil
+}
+
+// 辅助函数：从路径中提取自身ID
+func extractLastID(path string) uint64 {
+	parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
+	if len(parts) < 2 {
+		return 0
+	}
+	idStr := parts[len(parts)-1]
+	id, _ := strconv.ParseUint(idStr, 10, 64)
+	return id
+}
+
+// 获取祖先ID列表
+func getAncestorIDs(path string) []uint64 {
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	ids := make([]uint64, 0, len(segments)-1)
+
+	for _, s := range segments[:len(segments)-1] { // 排除自身ID
+		if id, err := strconv.ParseUint(s, 10, 64); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func (m *defaultTrendDiscussModel) Deletes(ctx context.Context, ids []uint64) error {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	res := mysqlConn.Table(m.table).Where("id in ? AND state = 1", ids).Update("state", 0)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return errors.New(fmt.Sprintf("delete failed ids: %v", ids))
 	}
 
 	return nil

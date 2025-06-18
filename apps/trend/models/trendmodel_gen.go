@@ -45,6 +45,7 @@ type (
 		SetCircleState(ctx context.Context, id uint64, ran int) error
 		List(ctx context.Context, lastId int, lastTime int64, userIds []string, filter []string, sort string, sortType int) (*[]Trend, error)
 		ListByUserIds(ctx context.Context, userList []string, lastId int, scpoe int32, filter []string) (*[]Trend, error)
+		SetTrendReplyCount(ctx context.Context, id uint64, resIncCount int) error
 	}
 
 	defaultTrendModel struct {
@@ -89,6 +90,31 @@ func newTrendModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Option) *
 		CachedConn: sqlc.NewConn(conn, c, opts...),
 		table:      "`trend`",
 	}
+}
+
+func (m *defaultTrendModel) SetTrendReplyCount(ctx context.Context, id uint64, resIncCount int) error {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	var trend Trend
+	err := mysqlConn.Table(m.table).Where("id = ?", id).First(&trend).Error
+	if err != nil {
+		return err
+	}
+
+	newCount := int(trend.ReplyCount) - resIncCount
+	if newCount < 0 {
+		newCount = 0
+	}
+
+	res := mysqlConn.Table(m.table).Where("id = ?", id).Update("reply_count", newCount)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return errors.New(fmt.Sprintf("set trends.reply_count failed id: %d", id))
+	}
+
+	return nil
 }
 
 func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string, lastId int, scpoe int32, filter []string) (*[]Trend, error) {
@@ -273,7 +299,6 @@ func (m *defaultTrendModel) Insert(ctx context.Context, data *Trend) (uint64, er
 }
 
 func (m *defaultTrendModel) Update(ctx context.Context, data *Trend) error {
-	//TODO:
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	var trend Trend
 	err := mysqlConn.Table(m.table).Where("id = ?", data.Id).First(&trend).Error
@@ -282,10 +307,27 @@ func (m *defaultTrendModel) Update(ctx context.Context, data *Trend) error {
 	}
 
 	if data.ReplyCount != 0 {
-
+		trend.ReplyCount = data.ReplyCount
 	}
 
-	return err
+	if data.AgreeCount != 0 {
+		trend.AgreeCount = data.AgreeCount
+	}
+
+	trend.Updatetime = time.Now()
+
+	//TODO:
+
+	res := mysqlConn.Table(m.table).Where("id = ?", data.Id).Save(&trend)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return errors.New(fmt.Sprintf("update failed id: %s", data.Id))
+	}
+
+	return nil
 }
 
 func (m *defaultTrendModel) formatPrimary(primary any) string {
