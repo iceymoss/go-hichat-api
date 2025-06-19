@@ -62,7 +62,7 @@ func (l *DeleteDiscussLogic) DeleteDiscuss(in *trend.DeleteDiscussReq) (*trend.D
 	}
 
 	// 更新动态总评论数
-	err = l.svcCtx.Trend.SetTrendReplyCount(l.ctx, discus.Id, newCount)
+	err = l.svcCtx.Trend.SetTrendReplyCount(l.ctx, uint64(discus.Trendid), count)
 	if err != nil {
 		zLog.Error("SetTrendReplyCount failed", zap.Error(err))
 		return nil, err
