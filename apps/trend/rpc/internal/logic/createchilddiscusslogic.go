@@ -103,8 +103,8 @@ func (l *CreateChildDiscussLogic) CreateChildDiscuss(in *trend.CreateDiscussReq)
 		AgreeCount:   0,                                                          // 点赞数
 		DiscussCount: 0,                                                          // 子评论数
 		State:        1,                                                          // 状态（1=正常）
-		Read:         0,                                                          // 未读
-		Path:         fmt.Sprintf("%s/%d", parentDiscuss.Path, parentDiscuss.Id), //评论路径，通过path前缀可以查询到当前评论的所有子评论
+		Read:         1,                                                          // 未读
+		Path:         fmt.Sprintf("%s%d/", parentDiscuss.Path, parentDiscuss.Id), //评论路径，通过path前缀可以查询到当前评论的所有子评论
 		Createtime:   now,                                                        // 创建时间
 		Updatetime:   now,                                                        // 更新时间
 	}
