@@ -89,7 +89,7 @@ func (*TrendDiscuss) TableName() string {
 
 func (m *defaultTrendDiscussModel) MarkReadById(ctx context.Context, idList []uint64) error {
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).WithContext(ctx)
-	err := mysqlConn.Table(m.table).Where("id in ?", idList).Update("`read`", 1).Error
+	err := mysqlConn.Table(m.table).Where("id in ?", idList).Update("`read`", 0).Error
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (m *defaultTrendDiscussModel) FindUnreadByUser(ctx context.Context, userId 
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).WithContext(ctx)
 
 	var discusses []*TrendDiscuss
-	err := mysqlConn.Table(m.table).Where("userid = ?", userId).Where("state = ?", 1).Where("`read` = ?", 0).Order("createtime DESC").Find(&discusses).Error
+	err := mysqlConn.Table(m.table).Where("userid = ?", userId).Where("state = ?", 1).Where("`read` = ?", 1).Order("createtime DESC").Find(&discusses).Error
 	if err != nil {
 		return nil, err
 	}
