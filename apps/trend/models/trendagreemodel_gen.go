@@ -7,6 +7,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"gorm.io/gorm"
 	"strings"
 	"time"
 
@@ -36,6 +37,7 @@ type (
 		FindOneByUseridTrendId(ctx context.Context, userid uint64, trendId uint64, state int) (*TrendAgree, error)
 		Update(ctx context.Context, data *TrendAgree) error
 		Delete(ctx context.Context, id uint64) error
+		AgreeInc(ctx context.Context, userId uint64, authorId uint64, trendId uint64, incType int) error
 	}
 
 	defaultTrendAgreeModel struct {
@@ -65,6 +67,45 @@ func newTrendAgreeModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Opti
 
 func (defaultTrendAgreeModel) TableName() string {
 	return "trend_agree"
+}
+
+func (m *defaultTrendAgreeModel) AgreeInc(ctx context.Context, userId uint64, authorId uint64, trendId uint64, incType int) error {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	var agreeTemp TrendAgree
+	err := mysqlConn.Table(m.table).Where("trend_id = ?", trendId).Where("userid = ?", userId).First(&agreeTemp).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return err
+	}
+
+	// 第一次点赞,创建记录
+	if (err == gorm.ErrRecordNotFound || agreeTemp.Id == 0) && incType > 0 {
+		//insert
+		_, inserErr := m.Insert(ctx, &TrendAgree{
+			Userid:     userId,
+			AuthorId:   authorId,
+			TrendId:    trendId,
+			OpTime:     time.Now(),
+			State:      1,
+			IsRead:     1,
+			CreateTime: time.Now(),
+			UpdateTime: time.Now(),
+		})
+
+		return inserErr
+	}
+
+	if agreeTemp.Id > 0 {
+		agreeTemp.State = 0
+		if incType > 0 {
+			agreeTemp.State = 1
+		}
+	}
+
+	agreeTemp.OpTime = time.Now()
+	agreeTemp.UpdateTime = time.Now()
+	upErr := m.Update(ctx, &agreeTemp)
+
+	return upErr
 }
 
 func (m *defaultTrendAgreeModel) Delete(ctx context.Context, id uint64) error {

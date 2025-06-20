@@ -432,13 +432,12 @@ message LikeToggleRequest {
   uint32 user_id = 1;            // 操作用户ID
   uint32 trend_id = 2;           // 目标动态ID
   uint32 author_id = 3;           // 动态作者ID (防止伪造)
+  int32  like_type = 4;           // 1点赞，-1取消点赞
 }
 
 // 点赞/取消点赞响应
 message LikeToggleResponse {
   bool success = 1;              // 操作是否成功
-  LikeInfo current_state = 2;    // 当前点赞状态
-  uint32 total_count = 3;        // 当前点赞总数
   string error_message = 4;      // 错误信息
 }
 
