@@ -47,6 +47,8 @@ func (l *GetLatestTrendsLogic) GetLatestTrends(in *trend.GetLatestTrendsRequest)
 		trendList = append(trendList, trendToResp(v))
 	}
 
+	// TODO: 获取评论和点赞数据
+
 	hasMore := false
 	if len(trendList) > models.Limit {
 		hasMore = true

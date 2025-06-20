@@ -48,6 +48,7 @@ func (l *GetRootDiscussesLogic) GetRootDiscusses(in *trend.GetDiscussesReq) (*tr
 		discusses, err := l.svcCtx.TrendDiscuss.FindFirstByTrendId(
 			l.ctx,
 			in.TrendId,
+			in.Uids,
 			uint64(in.Pagination.LastId),
 			30,
 		)

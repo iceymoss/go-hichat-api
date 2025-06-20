@@ -89,8 +89,8 @@ enum TrendType {
 // 动态可见范围
 enum VisibilityScope {
   SCOPE_UNSPECIFIED = 0;  // 未指定范围（应避免使用）
-  PRIVATE = 1;      // 仅自己可见
-  FRIENDS = 2;      // 好友圈可见（朋友圈）
+  PRIVATE = 1;      // 好友圈可见（朋友圈）
+  FRIENDS = 2;      // 仅自己可见
   ALL     = 3;      // 全部
 }
 
@@ -344,6 +344,7 @@ message GetDiscussesReq {
   uint64 trend_id = 1;      // 动态ID
   Pagination pagination = 2; // 分页参数（可选）
   bool include_children = 3; // 是否包含子评论（树形结构）
+  repeated string uids = 4; // 好友id
 }
 
 // 评论树形响应
