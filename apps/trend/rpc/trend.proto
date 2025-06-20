@@ -52,6 +52,24 @@ service TrendService {
 
   // 7. 获取未读回复
   rpc GetUnreadReplies(GetUnreadRepliesReq) returns (RepliesListResp);
+
+  // 点赞/取消点赞
+  rpc ToggleLike(LikeToggleRequest) returns (LikeToggleResponse);
+
+  // 获取动态点赞摘要 (用于动态下方展示)
+  rpc GetTrendLikeSummary(GetTrendLikeSummaryRequest) returns (GetTrendLikeSummaryResponse);
+
+  // 批量获取点赞摘要 (用于动态流)
+  rpc BatchGetTrendLikeSummary(BatchTrendLikeSummaryRequest) returns (BatchTrendLikeSummaryResponse);
+
+  // 获取点赞用户列表 (微信"查看全部点赞")
+  rpc GetLikedUsers(GetLikedUsersRequest) returns (GetLikedUsersResponse);
+
+  // 获取未读点赞通知
+  rpc GetUnreadLikes(GetUnreadLikesRequest) returns (GetUnreadLikesResponse);
+
+  // 标记点赞为已读
+  rpc MarkLikesRead(MarkLikesReadRequest) returns (MarkLikesReadResponse);
 }
 
 
@@ -369,4 +387,103 @@ message RepliesListResp {
   repeated Discuss replies = 1; // 未读回复列表
   Pagination pagination = 2;    // 分页信息
   uint64 total = 3;             // 总数
+}
+
+// ===== 核心数据类型 =====
+
+// 点赞信息 (与微信接口对齐)
+message LikeInfo {
+  uint64 id = 1;                 // 点赞记录ID
+  uint32 user_id = 2;            // 点赞用户ID
+  string nickname = 3;           // 用户昵称 (补充字段)
+  string avatar = 4;             // 用户头像 (补充字段)
+  uint32 trend_id = 5;           // 动态ID
+  google.protobuf.Timestamp create_time = 6; // 点赞创建时间
+  bool is_liked = 7;             // 当前是否点赞
+  bool is_read = 8;              // 是否已读
+}
+
+// 动态点赞摘要
+message TrendLikeSummary {
+  uint32 trend_id = 1;           // 动态ID
+  uint32 like_count = 2;         // 点赞总数
+  bool is_liked = 3;             // 当前用户是否点赞
+  repeated LikeInfo preview_likes = 4; // 预览点赞用户 (最多3个)
+  uint32 preview_count = 5;      // 预览显示的数字
+}
+
+// ===== 请求/响应消息 =====
+
+// 点赞/取消点赞请求 (微信使用单一接口)
+message LikeToggleRequest {
+  uint32 user_id = 1;            // 操作用户ID
+  uint32 trend_id = 2;           // 目标动态ID
+  uint32 author_id = 3;           // 动态作者ID (防止伪造)
+}
+
+// 点赞/取消点赞响应
+message LikeToggleResponse {
+  bool success = 1;              // 操作是否成功
+  LikeInfo current_state = 2;    // 当前点赞状态
+  uint32 total_count = 3;        // 当前点赞总数
+  string error_message = 4;      // 错误信息
+}
+
+// 获取动态点赞摘要请求
+message GetTrendLikeSummaryRequest {
+  uint32 user_id = 1;            // 当前用户ID
+  uint32 trend_id = 2;           // 动态ID
+}
+
+// 获取动态点赞摘要响应
+message GetTrendLikeSummaryResponse {
+  TrendLikeSummary summary = 1;
+}
+
+// 获取点赞用户列表请求 (微信的"查看更多")
+message GetLikedUsersRequest {
+  uint32 trend_id = 1;           // 动态ID
+  uint32 cursor = 2;             // 分页游标
+  uint32 limit = 3;              // 每页数量 (默认20)
+}
+
+// 获取点赞用户列表响应
+message GetLikedUsersResponse {
+  repeated LikeInfo users = 1;   // 点赞用户列表
+  uint32 next_cursor = 2;        // 下一页游标(0表示结束)
+  bool has_more = 3;             // 是否有更多
+}
+
+// 获取未读点赞通知请求
+message GetUnreadLikesRequest {
+  uint32 user_id = 1;            // 当前用户ID (作者ID)
+}
+
+// 获取未读点赞通知响应
+message GetUnreadLikesResponse {
+  repeated LikeInfo likes = 1;   // 未读点赞列表
+  uint32 total_unread = 2;       // 未读总数
+}
+
+// 标记已读请求
+message MarkLikesReadRequest {
+  uint32 user_id = 1;            // 当前用户ID
+  repeated uint64 like_ids = 2;  // 要标记的点赞ID
+}
+
+message MarkLikesReadResponse {
+
+}
+
+// ===== 批量操作 =====
+
+// 批量获取点赞摘要请求
+message BatchTrendLikeSummaryRequest {
+  uint32 user_id = 1;            // 当前用户ID
+  repeated uint32 trend_ids = 2;  // 动态ID列表
+}
+
+// 批量获取点赞摘要响应
+message BatchTrendLikeSummaryResponse {
+  map<uint32, TrendLikeSummary> summaries = 1; // key=trend_id
 }
