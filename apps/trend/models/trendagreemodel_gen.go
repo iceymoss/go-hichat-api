@@ -6,16 +6,18 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/pkg/errors"
+	"github.com/zeromicro/go-zero/c
 	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
-	"github.com/zeromicro/go-zero/core/stringx"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -30,9 +32,9 @@ var (
 
 type (
 	trendAgreeModel interface {
-		Insert(ctx context.Context, data *TrendAgree) (sql.Result, error)
+		Insert(ctx context.Context, data *TrendAgree) (int, error)
 		FindOne(ctx context.Context, id uint64) (*TrendAgree, error)
-		FindOneByUseridTrendId(ctx context.Context, userid uint64, trendId uint64) (*TrendAgree, error)
+		FindOneByUseridTrendId(ctx context.Context, userid uint64, trendId uint64, state int) (*TrendAgree, error)
 		Update(ctx context.Context, data *TrendAgree) error
 		Delete(ctx context.Context, id uint64) error
 	}
@@ -62,31 +64,40 @@ func newTrendAgreeModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Opti
 	}
 }
 
+func (defaultTrendAgreeModel) TableName() string {
+	return "trend_agree"
+}
+
 func (m *defaultTrendAgreeModel) Delete(ctx context.Context, id uint64) error {
 	data, err := m.FindOne(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	trendAgreeIdKey := fmt.Sprintf("%s%v", cacheTrendAgreeIdPrefix, id)
-	trendAgreeUseridTrendIdKey := fmt.Sprintf("%s%v:%v", cacheTrendAgreeUseridTrendIdPrefix, data.Userid, data.TrendId)
-	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("delete from %s where `id` = ?", m.table)
-		return conn.ExecCtx(ctx, query, id)
-	}, trendAgreeIdKey, trendAgreeUseridTrendIdKey)
+	data.State = 0
+	data.UpdateTime = time.Now()
+	data.OpTime = time.Now()
+
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	res := mysqlConn.Table(m.table).Where("id = ?", id).Updates(data)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("delete agree failed id: %s", id)
+	}
+
 	return err
 }
 
 func (m *defaultTrendAgreeModel) FindOne(ctx context.Context, id uint64) (*TrendAgree, error) {
-	trendAgreeIdKey := fmt.Sprintf("%s%v", cacheTrendAgreeIdPrefix, id)
-	var resp TrendAgree
-	err := m.QueryRowCtx(ctx, &resp, trendAgreeIdKey, func(ctx context.Context, conn sqlx.SqlConn, v any) error {
-		query := fmt.Sprintf("select %s from %s where `id` = ? limit 1", trendAgreeRows, m.table)
-		return conn.QueryRowCtx(ctx, v, query, id)
-	})
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	var agree TrendAgree
+	err := mysqlConn.Table(m.table).Where("id = ?", id).First(&agree).Error
 	switch err {
 	case nil:
-		return &resp, nil
+		return &agree, nil
 	case sqlc.ErrNotFound:
 		return nil, ErrNotFound
 	default:
@@ -94,19 +105,18 @@ func (m *defaultTrendAgreeModel) FindOne(ctx context.Context, id uint64) (*Trend
 	}
 }
 
-func (m *defaultTrendAgreeModel) FindOneByUseridTrendId(ctx context.Context, userid uint64, trendId uint64) (*TrendAgree, error) {
-	trendAgreeUseridTrendIdKey := fmt.Sprintf("%s%v:%v", cacheTrendAgreeUseridTrendIdPrefix, userid, trendId)
-	var resp TrendAgree
-	err := m.QueryRowIndexCtx(ctx, &resp, trendAgreeUseridTrendIdKey, m.formatPrimary, func(ctx context.Context, conn sqlx.SqlConn, v any) (i any, e error) {
-		query := fmt.Sprintf("select %s from %s where `userid` = ? and `trend_id` = ? limit 1", trendAgreeRows, m.table)
-		if err := conn.QueryRowCtx(ctx, &resp, query, userid, trendId); err != nil {
-			return nil, err
-		}
-		return resp.Id, nil
-	}, m.queryPrimary)
+// FindOneByUseridTrendId 获取用户点赞情况
+func (m *defaultTrendAgreeModel) FindOneByUseridTrendId(ctx context.Context, userid uint64, trendId uint64, state int) (*TrendAgree, error) {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	var agree TrendAgree
+	err := mysqlConn.Table(m.table).
+		Where("userid = ?", userid).
+		Where("trend_id = ?", trendId).
+		Where("state = ?", state).
+		First(&agree).Error
 	switch err {
 	case nil:
-		return &resp, nil
+		return &agree, nil
 	case sqlc.ErrNotFound:
 		return nil, ErrNotFound
 	default:
@@ -114,14 +124,17 @@ func (m *defaultTrendAgreeModel) FindOneByUseridTrendId(ctx context.Context, use
 	}
 }
 
-func (m *defaultTrendAgreeModel) Insert(ctx context.Context, data *TrendAgree) (sql.Result, error) {
-	trendAgreeIdKey := fmt.Sprintf("%s%v", cacheTrendAgreeIdPrefix, data.Id)
-	trendAgreeUseridTrendIdKey := fmt.Sprintf("%s%v:%v", cacheTrendAgreeUseridTrendIdPrefix, data.Userid, data.TrendId)
-	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?)", m.table, trendAgreeRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Userid, data.AuthorId, data.TrendId, data.OpTime, data.State, data.IsRead)
-	}, trendAgreeIdKey, trendAgreeUseridTrendIdKey)
-	return ret, err
+func (m *defaultTrendAgreeModel) Insert(ctx context.Context, data *TrendAgree) (int, error) {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	res := mysqlConn.Table(m.table).Create(&data)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return 0, errors.New("create agree failed")
+	}
+	return int(data.Id), nil
 }
 
 func (m *defaultTrendAgreeModel) Update(ctx context.Context, newData *TrendAgree) error {
@@ -130,12 +143,19 @@ func (m *defaultTrendAgreeModel) Update(ctx context.Context, newData *TrendAgree
 		return err
 	}
 
-	trendAgreeIdKey := fmt.Sprintf("%s%v", cacheTrendAgreeIdPrefix, data.Id)
-	trendAgreeUseridTrendIdKey := fmt.Sprintf("%s%v:%v", cacheTrendAgreeUseridTrendIdPrefix, data.Userid, data.TrendId)
-	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, trendAgreeRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.Userid, newData.AuthorId, newData.TrendId, newData.OpTime, newData.State, newData.IsRead, newData.Id)
-	}, trendAgreeIdKey, trendAgreeUseridTrendIdKey)
+	newData.UpdateTime = time.Now()
+	newData.OpTime = time.Now()
+
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	res := mysqlConn.Table(m.table).Where("id = ?", data.Id).Updates(newData)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("update agree failed id: %s", data.Id)
+	}
+
 	return err
 }
 
