@@ -34,6 +34,8 @@ func (l *GetTrendDetailLogic) GetTrendDetail(in *trend.GetTrendDetailRequest) (*
 		return nil, err
 	}
 
+	// TODO: 获取动态评论和点赞数据
+
 	return &trend.GetTrendDetailResponse{
 		Trend: trendToResp(*data),
 	}, nil

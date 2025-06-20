@@ -43,6 +43,8 @@ func (l *GetUserTrendsLogic) GetUserTrends(in *trend.GetUserTrendsRequest) (*tre
 		last = trendList[len(trendList)-1]
 	}
 
+	// TODO: 获取点赞和评论数据
+
 	return &trend.GetUserTrendsResponse{
 		Trends: trendList,
 		PageInfo: &trend.PageInfo{

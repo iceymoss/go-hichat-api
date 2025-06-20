@@ -43,7 +43,7 @@ type (
 		CountByRootId(ctx context.Context, rootId uint64) (int64, error)
 		FindChildrenWithKeyset(ctx context.Context, parentID uint64, lastCursorID uint64, lastCursorTime time.Time, size int) ([]*TrendDiscuss, bool, error)
 		FindChildrenByRootId(ctx context.Context, rootId uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error)
-		FindFirstByTrendId(ctx context.Context, trendId uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error)
+		FindFirstByTrendId(ctx context.Context, trendId uint64, uids []string, astId uint64, pageSize int) ([]*TrendDiscuss, error)
 		FindUnreadByUser(ctx context.Context, userId int, lastId int) ([]*TrendDiscuss, error)
 		MarkReadById(ctx context.Context, idList []uint64) error
 		DeleteByRoots(ctx context.Context, ids []uint64) error
@@ -195,7 +195,7 @@ func (m *defaultTrendDiscussModel) FindUnreadByUser(ctx context.Context, userId 
 	return discusses, nil
 }
 
-func (m *defaultTrendDiscussModel) FindFirstByTrendId(ctx context.Context, trendId uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error) {
+func (m *defaultTrendDiscussModel) FindFirstByTrendId(ctx context.Context, trendId uint64, uids []string, lastId uint64, pageSize int) ([]*TrendDiscuss, error) {
 	// 获取数据库连接
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).WithContext(ctx)
 	query := mysqlConn.Table(m.table)
@@ -206,6 +206,7 @@ func (m *defaultTrendDiscussModel) FindFirstByTrendId(ctx context.Context, trend
 	var discusses []*TrendDiscuss
 	err := query.Where("trendid = ?", trendId).
 		Where("state = ?", 1).
+		Where("replyer in ?", uids).
 		Order("id DESC").
 		Limit(pageSize).
 		Find(&discusses).

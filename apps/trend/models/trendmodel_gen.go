@@ -120,12 +120,23 @@ func (m *defaultTrendModel) SetTrendReplyCount(ctx context.Context, id uint64, r
 func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string, lastId int, scpoe int32, filter []string) (*[]Trend, error) {
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	var trendList []Trend
-	err := mysqlConn.Table(m.table).Select(filter).Where("state = ?", 1).
+	query := mysqlConn.Table(m.table).Select(filter).Where("state = ?", 1).
 		Where("id > ?", lastId).
-		Where("circle_state = ?", scpoe).
 		Where("userid in ?", userList).
-		Order("createtime DESC").
-		Find(&trendList).Limit(Limit).Error
+		Order("createtime DESC")
+
+	switch scpoe {
+	case 1:
+		query = query.Where("circle_state = ?", 1)
+	case 2:
+		query = query.Where("circle_state = ?", 2)
+	case 3: // 获取所有
+		query = query.Where("circle_state in ?", []int{1, 2})
+	default:
+		return nil, errors.New("不支持当前权限")
+	}
+
+	err := query.Find(&trendList).Limit(Limit).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
