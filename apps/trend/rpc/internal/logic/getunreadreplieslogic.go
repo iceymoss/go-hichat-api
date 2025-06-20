@@ -5,11 +5,8 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
-	"go.uber.org/zap"
 )
 
 type GetUnreadRepliesLogic struct {
@@ -45,11 +42,11 @@ func (l *GetUnreadRepliesLogic) GetUnreadReplies(in *trend.GetUnreadRepliesReq) 
 	}
 
 	// 更新未读状态,标记为已读
-	err = l.svcCtx.TrendDiscuss.MarkReadById(l.ctx, idList)
-	if err != nil {
-		zLog.Error("GetUnreadReplies.MarkReadById: 标记为已读失败", zap.Any("idList", idList), zap.Error(err))
-		return nil, err
-	}
+	//err = l.svcCtx.TrendDiscuss.MarkReadById(l.ctx, idList)
+	//if err != nil {
+	//	zLog.Error("GetUnreadReplies.MarkReadById: 标记为已读失败", zap.Any("idList", idList), zap.Error(err))
+	//	return nil, err
+	//}
 
 	return &trend.RepliesListResp{
 		Replies: list,

@@ -53,6 +53,9 @@ service TrendService {
   // 7. 获取未读回复
   rpc GetUnreadReplies(GetUnreadRepliesReq) returns (RepliesListResp);
 
+  // 8. 标记评论为已读
+  rpc MarkDiscussRead(MarkDiscussRequest) returns (MarkDiscussResponse);
+
   // 点赞/取消点赞
   rpc ToggleLike(LikeToggleRequest) returns (LikeToggleResponse);
 
@@ -89,8 +92,8 @@ enum TrendType {
 // 动态可见范围
 enum VisibilityScope {
   SCOPE_UNSPECIFIED = 0;  // 未指定范围（应避免使用）
-  PRIVATE = 1;      // 仅自己可见
-  FRIENDS = 2;      // 好友圈可见（朋友圈）
+  PRIVATE = 1;      // 好友圈可见（朋友圈）
+  FRIENDS = 2;      // 仅自己可见
   ALL     = 3;      // 全部
 }
 
@@ -288,6 +291,15 @@ message GetUserTrendsRequest {
   Pagination pagination = 4;   // 分页参数（必须）
 }
 
+// 8. 标记评论为已读
+message MarkDiscussRequest {
+  uint32 user_id = 1;            // 当前用户ID
+  repeated uint64 dis_ids = 2;  // 要标记的点赞ID
+}
+
+message MarkDiscussResponse {
+}
+
 // 用户动态列表响应
 message GetUserTrendsResponse {
   repeated Trend trends = 1;  // 用户的动态列表
@@ -344,6 +356,7 @@ message GetDiscussesReq {
   uint64 trend_id = 1;      // 动态ID
   Pagination pagination = 2; // 分页参数（可选）
   bool include_children = 3; // 是否包含子评论（树形结构）
+  repeated string uids = 4; // 好友id
 }
 
 // 评论树形响应
