@@ -107,6 +107,12 @@ func (s *TrendServiceServer) GetUnreadReplies(ctx context.Context, in *trend.Get
 	return l.GetUnreadReplies(in)
 }
 
+// 8. 标记评论为已读
+func (s *TrendServiceServer) MarkDiscussRead(ctx context.Context, in *trend.MarkDiscussRequest) (*trend.MarkDiscussResponse, error) {
+	l := logic.NewMarkDiscussReadLogic(ctx, s.svcCtx)
+	return l.MarkDiscussRead(in)
+}
+
 // 点赞/取消点赞
 func (s *TrendServiceServer) ToggleLike(ctx context.Context, in *trend.LikeToggleRequest) (*trend.LikeToggleResponse, error) {
 	l := logic.NewToggleLikeLogic(ctx, s.svcCtx)

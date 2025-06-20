@@ -53,6 +53,9 @@ service TrendService {
   // 7. 获取未读回复
   rpc GetUnreadReplies(GetUnreadRepliesReq) returns (RepliesListResp);
 
+  // 8. 标记评论为已读
+  rpc MarkDiscussRead(MarkDiscussRequest) returns (MarkDiscussResponse);
+
   // 点赞/取消点赞
   rpc ToggleLike(LikeToggleRequest) returns (LikeToggleResponse);
 
@@ -286,6 +289,15 @@ message GetUserTrendsRequest {
   string target_user_id = 1;  // 要查询的用户ID（必须）
   VisibilityScope scope = 3;   // 可见范围过滤（可选）
   Pagination pagination = 4;   // 分页参数（必须）
+}
+
+// 8. 标记评论为已读
+message MarkDiscussRequest {
+  uint32 user_id = 1;            // 当前用户ID
+  repeated uint64 dis_ids = 2;  // 要标记的点赞ID
+}
+
+message MarkDiscussResponse {
 }
 
 // 用户动态列表响应

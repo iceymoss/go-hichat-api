@@ -48,6 +48,8 @@ type (
 	LikeToggleResponse            = trend.LikeToggleResponse
 	ListTrendsRequest             = trend.ListTrendsRequest
 	ListTrendsResponse            = trend.ListTrendsResponse
+	MarkDiscussRequest            = trend.MarkDiscussRequest
+	MarkDiscussResponse           = trend.MarkDiscussResponse
 	MarkLikesReadRequest          = trend.MarkLikesReadRequest
 	MarkLikesReadResponse         = trend.MarkLikesReadResponse
 	PageInfo                      = trend.PageInfo
@@ -89,6 +91,8 @@ type (
 		DeleteDiscuss(ctx context.Context, in *DeleteDiscussReq, opts ...grpc.CallOption) (*DeleteDiscussResp, error)
 		// 7. 获取未读回复
 		GetUnreadReplies(ctx context.Context, in *GetUnreadRepliesReq, opts ...grpc.CallOption) (*RepliesListResp, error)
+		// 8. 标记评论为已读
+		MarkDiscussRead(ctx context.Context, in *MarkDiscussRequest, opts ...grpc.CallOption) (*MarkDiscussResponse, error)
 		// 点赞/取消点赞
 		ToggleLike(ctx context.Context, in *LikeToggleRequest, opts ...grpc.CallOption) (*LikeToggleResponse, error)
 		// 获取动态点赞摘要 (用于动态下方展示)
@@ -196,6 +200,12 @@ func (m *defaultTrendService) DeleteDiscuss(ctx context.Context, in *DeleteDiscu
 func (m *defaultTrendService) GetUnreadReplies(ctx context.Context, in *GetUnreadRepliesReq, opts ...grpc.CallOption) (*RepliesListResp, error) {
 	client := trend.NewTrendServiceClient(m.cli.Conn())
 	return client.GetUnreadReplies(ctx, in, opts...)
+}
+
+// 8. 标记评论为已读
+func (m *defaultTrendService) MarkDiscussRead(ctx context.Context, in *MarkDiscussRequest, opts ...grpc.CallOption) (*MarkDiscussResponse, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.MarkDiscussRead(ctx, in, opts...)
 }
 
 // 点赞/取消点赞
