@@ -3,13 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/iceymoss/go-hichat-api/pkg/interceptor/rpcserver"
 
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/server"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
+	"github.com/iceymoss/go-hichat-api/pkg/interceptor/rpcserver"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
