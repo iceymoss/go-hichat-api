@@ -1,0 +1,59 @@
+// Copyright 2016 The Cockroach Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
+package crdbgorm
+
+import (
+	"context"
+	"database/sql"
+
+	"github.com/iceymoss/go-hichat-api/pkg/transaction/crdb"
+
+	"gorm.io/gorm"
+)
+
+// ExecuteTx 在事务中运行 fn 并根据需要重试
+// non-retryable failures, 事务被中止并回滚
+// success, 事务已提交.
+//
+// See crdb.ExecuteTx() for more information.
+func ExecuteTx(ctx context.Context, db *gorm.DB, opts *sql.TxOptions, fn func(tx *gorm.DB) error) error {
+	tx := db.WithContext(ctx).Begin(opts)
+	if tx.Error != nil {
+		return tx.Error
+	}
+	return crdb.ExecuteInTx(ctx, gormTxAdapter{tx}, func() error { return fn(tx) })
+}
+
+// gormTxAdapter adapts a *gorm.DB to a crdb.Tx.
+type gormTxAdapter struct {
+	db *gorm.DB
+}
+
+var _ crdb.Tx = gormTxAdapter{}
+
+// Exec is part of the crdb.Tx interface.
+func (tx gormTxAdapter) Exec(_ context.Context, q string, args ...interface{}) error {
+	return tx.db.Exec(q, args...).Error
+}
+
+// Commit is part of the crdb.Tx interface.
+func (tx gormTxAdapter) Commit(_ context.Context) error {
+	return tx.db.Commit().Error
+}
+
+// Rollback is part of the crdb.Tx interface.
+func (tx gormTxAdapter) Rollback(_ context.Context) error {
+	return tx.db.Rollback().Error
+}
