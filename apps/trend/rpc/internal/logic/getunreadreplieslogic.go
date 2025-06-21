@@ -41,13 +41,6 @@ func (l *GetUnreadRepliesLogic) GetUnreadReplies(in *trend.GetUnreadRepliesReq) 
 		idList = append(idList, v.Id)
 	}
 
-	// 更新未读状态,标记为已读
-	//err = l.svcCtx.TrendDiscuss.MarkReadById(l.ctx, idList)
-	//if err != nil {
-	//	zLog.Error("GetUnreadReplies.MarkReadById: 标记为已读失败", zap.Any("idList", idList), zap.Error(err))
-	//	return nil, err
-	//}
-
 	return &trend.RepliesListResp{
 		Replies: list,
 		Total:   uint64(len(list)),

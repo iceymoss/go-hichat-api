@@ -11,6 +11,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"go.uber.org/zap"
@@ -82,18 +83,27 @@ func (l *CreateRootDiscussLogic) CreateRootDiscuss(in *trend.CreateDiscussReq) (
 		Updatetime: now,
 	}
 
-	// 存储评论
-	id, err := l.svcCtx.TrendDiscuss.Insert(l.ctx, &discuss)
-	if err != nil {
-		zLog.Error("CreateRootDiscuss.Insert: create discuss", zap.Error(err))
-		return nil, errors.New("评论失败")
-	}
+	var id uint64
+	tx := transaction.NewManager()
+	txErr := tx.Execute(l.ctx, nil, func(ctx context.Context) error {
+		// 存储评论
+		id, err = l.svcCtx.TrendDiscuss.Insert(l.ctx, &discuss)
+		if err != nil {
+			zLog.Error("CreateRootDiscuss.Insert: create discuss", zap.Error(err))
+			return errors.New("评论失败")
+		}
 
-	// 更新动态评论数
-	err = l.svcCtx.Trend.IncAgreeOrReply(l.ctx, in.TrendId, 1, 1)
-	if err != nil {
-		zLog.Error("CreateRootDiscuss.IncAgreeOrReply: inc reply failed", zap.Error(err))
-		// 不中断处理，业务上可以接受丢失
+		// 更新动态评论数
+		err = l.svcCtx.Trend.IncAgreeOrReply(l.ctx, in.TrendId, 1, 1)
+		if err != nil {
+			return fmt.Errorf("CreateRootDiscuss.IncAgreeOrReply: inc reply failed: %s", err.Error())
+		}
+
+		return nil
+	})
+	if txErr != nil {
+		zLog.Error("CreateRootDiscuss.Execute", zap.Any("trendId", in.TrendId), zap.Error(err))
+		return nil, err
 	}
 
 	// 不是评论自己，需要通知状态作者，被评论者

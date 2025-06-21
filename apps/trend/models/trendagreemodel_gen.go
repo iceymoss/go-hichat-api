@@ -7,6 +7,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 	"gorm.io/gorm"
 	"strings"
 	"time"
@@ -70,7 +71,7 @@ func (defaultTrendAgreeModel) TableName() string {
 }
 
 func (m *defaultTrendAgreeModel) AgreeInc(ctx context.Context, userId uint64, authorId uint64, trendId uint64, incType int) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var agreeTemp TrendAgree
 	err := mysqlConn.Table(m.table).Where("trend_id = ?", trendId).Where("userid = ?", userId).First(&agreeTemp).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
@@ -118,7 +119,7 @@ func (m *defaultTrendAgreeModel) Delete(ctx context.Context, id uint64) error {
 	data.UpdateTime = time.Now()
 	data.OpTime = time.Now()
 
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Table(m.table).Where("id = ?", id).Updates(data)
 	if res.Error != nil {
 		return res.Error
@@ -132,7 +133,7 @@ func (m *defaultTrendAgreeModel) Delete(ctx context.Context, id uint64) error {
 }
 
 func (m *defaultTrendAgreeModel) FindOne(ctx context.Context, id uint64) (*TrendAgree, error) {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var agree TrendAgree
 	err := mysqlConn.Table(m.table).Where("id = ?", id).First(&agree).Error
 	switch err {
@@ -147,7 +148,7 @@ func (m *defaultTrendAgreeModel) FindOne(ctx context.Context, id uint64) (*Trend
 
 // FindOneByUseridTrendId 获取用户点赞情况
 func (m *defaultTrendAgreeModel) FindOneByUseridTrendId(ctx context.Context, userid uint64, trendId uint64, state int) (*TrendAgree, error) {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var agree TrendAgree
 	err := mysqlConn.Table(m.table).
 		Where("userid = ?", userid).
@@ -165,7 +166,7 @@ func (m *defaultTrendAgreeModel) FindOneByUseridTrendId(ctx context.Context, use
 }
 
 func (m *defaultTrendAgreeModel) Insert(ctx context.Context, data *TrendAgree) (int, error) {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Table(m.table).Create(&data)
 	if res.Error != nil {
 		return 0, res.Error
@@ -186,7 +187,7 @@ func (m *defaultTrendAgreeModel) Update(ctx context.Context, newData *TrendAgree
 	newData.UpdateTime = time.Now()
 	newData.OpTime = time.Now()
 
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Table(m.table).Where("id = ?", data.Id).Updates(newData)
 	if res.Error != nil {
 		return res.Error

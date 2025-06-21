@@ -101,7 +101,7 @@ func RemoveCartItems(ctx context.Context, userID uint, productID uint) error {
 
 func TestTransactionManager(t *testing.T) {
 	// 初始化事务管理器（实际项目中应该从依赖注入获取）
-	txManager := NewManager(db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	txManager := NewManager()
 
 	// 模拟用户ID和商品ID
 	userID := uint(1)

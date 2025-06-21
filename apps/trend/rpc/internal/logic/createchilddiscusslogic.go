@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/models"
@@ -109,35 +110,45 @@ func (l *CreateChildDiscussLogic) CreateChildDiscuss(in *trend.CreateDiscussReq)
 		Updatetime:   now,                                                        // 更新时间
 	}
 
-	// 存储评论
-	id, err := l.svcCtx.TrendDiscuss.Insert(l.ctx, &discuss)
-	if err != nil {
-		zLog.Error("CreateChildDiscuss.Insert: create child discuss failed", zap.Any("faterId", discuss.Father), zap.Any("trendId", discuss.Trendid), zap.Error(err))
-		return nil, errors.New("评论失败")
-	}
-
-	// 更新父评论的子评论计数
-	parentDiscuss.DiscussCount += 1
-	if err = l.svcCtx.TrendDiscuss.IncAgreeOrDiscuss(l.ctx, uint64(discuss.Father), 1, 1); err != nil {
-		l.Logger.Error("更新父评论计数失败", logx.Field("error", err))
-		zLog.Error("CreateChildDiscuss.IncAgreeOrDiscuss: 更新父评论计数失败", zap.Any("fatherId", discuss.Father), zap.Error(err))
-		// 不中断流程，只记录日志
-	}
-
-	if newLevel > 2 {
-		// 更新根评论的评论数
-		if err = l.svcCtx.TrendDiscuss.IncAgreeOrDiscuss(l.ctx, uint64(rootId), 1, 1); err != nil {
-			l.Logger.Error("更新根评论计数失败", logx.Field("error", err))
-			zLog.Error("CreateChildDiscuss.IncAgreeOrDiscuss: 更新根评论计数失败", zap.Any("root", discuss.Father), zap.Error(err))
-			// 不中断流程，只记录日志
+	var id uint64
+	tx := transaction.NewManager()
+	txErr := tx.Execute(l.ctx, nil, func(ctx context.Context) error {
+		// 存储评论
+		id, err = l.svcCtx.TrendDiscuss.Insert(l.ctx, &discuss)
+		if err != nil {
+			zLog.Error("CreateChildDiscuss.Insert: create child discuss failed", zap.Any("faterId", discuss.Father), zap.Any("trendId", discuss.Trendid), zap.Error(err))
+			return errors.New("评论失败")
 		}
-	}
 
-	// 更新动态总评论数
-	err = l.svcCtx.Trend.IncAgreeOrReply(l.ctx, in.TrendId, 1, 1)
-	if err != nil {
-		zLog.Error("CreateChildDiscuss.IncAgreeOrReply: inc reply failed", zap.Error(err))
-		// 不中断处理，业务上可以接受丢失
+		// 更新父评论的子评论计数
+		parentDiscuss.DiscussCount += 1
+		if err = l.svcCtx.TrendDiscuss.IncAgreeOrDiscuss(l.ctx, uint64(discuss.Father), 1, 1); err != nil {
+			l.Logger.Error("更新父评论计数失败", logx.Field("error", err))
+			zLog.Error("CreateChildDiscuss.IncAgreeOrDiscuss: 更新父评论计数失败", zap.Any("fatherId", discuss.Father), zap.Error(err))
+			return err
+		}
+
+		if newLevel > 2 {
+			// 更新根评论的评论数
+			if err = l.svcCtx.TrendDiscuss.IncAgreeOrDiscuss(l.ctx, uint64(rootId), 1, 1); err != nil {
+				l.Logger.Error("更新根评论计数失败", logx.Field("error", err))
+				zLog.Error("CreateChildDiscuss.IncAgreeOrDiscuss: 更新根评论计数失败", zap.Any("root", discuss.Father), zap.Error(err))
+				return err
+			}
+		}
+
+		// 更新动态总评论数
+		err = l.svcCtx.Trend.IncAgreeOrReply(l.ctx, in.TrendId, 1, 1)
+		if err != nil {
+			zLog.Error("CreateChildDiscuss.IncAgreeOrReply: inc reply failed", zap.Error(err))
+			return err
+		}
+
+		return nil
+	})
+	if txErr != nil {
+		zLog.Error("CreateChildDiscuss.Execute: 执行事务失败", zap.Any("root", discuss.Father), zap.Error(err))
+		return nil, txErr
 	}
 
 	// 13. 发送通知（如果被回复用户不是自己）需要通知状态作者，被评论者

@@ -3,6 +3,7 @@ package transaction
 import (
 	"context"
 	"database/sql"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
 
 	"github.com/iceymoss/go-hichat-api/pkg/transaction/crdb/crdbgorm"
 
@@ -14,10 +15,10 @@ type Manager struct {
 	db *gorm.DB
 }
 
-// NewManager 创建一个事务管理器实例
-func NewManager(db *gorm.DB) *Manager {
+// NewManager 创建一个事务管理器实例，自动重试和自动提交或者回滚事务
+func NewManager() *Manager {
 	return &Manager{
-		db: db,
+		db: db.GetMysqlConn(db.MYSQL_DB_HICHAT2),
 	}
 }
 

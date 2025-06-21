@@ -167,7 +167,7 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 		return nil, err
 	}
 
-	rdb.HSet(l.ctx, key, time.Now().Unix())
+	rdb.HSet(l.ctx, key, in.UserId, time.Now().Unix())
 
 	return &trend.CreateTrendResponse{TrendId: int64(id), Code: 1000}, nil
 }

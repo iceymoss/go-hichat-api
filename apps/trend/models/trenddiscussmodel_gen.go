@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/stores/builder"
@@ -45,7 +46,7 @@ type (
 		FindChildrenByRootId(ctx context.Context, rootId uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error)
 		FindFirstByTrendId(ctx context.Context, trendId uint64, uids []string, astId uint64, pageSize int) ([]*TrendDiscuss, error)
 		FindUnreadByUser(ctx context.Context, userId int, lastId int) ([]*TrendDiscuss, error)
-		MarkReadById(ctx context.Context, idList []uint64) error
+		MarkReadById(ctx context.Context, uid uint64, idList []uint64) error
 		DeleteByRoots(ctx context.Context, ids []uint64) error
 		FindChildrenByPath(ctx context.Context, path string) ([]uint64, int, error)
 		SetDiscuss(ctx context.Context, id uint64, count int) error
@@ -87,9 +88,9 @@ func (*TrendDiscuss) TableName() string {
 	return "trend_discuss"
 }
 
-func (m *defaultTrendDiscussModel) MarkReadById(ctx context.Context, idList []uint64) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).WithContext(ctx)
-	err := mysqlConn.Table(m.table).Where("id in ?", idList).Update("`read`", 0).Error
+func (m *defaultTrendDiscussModel) MarkReadById(ctx context.Context, uid uint64, idList []uint64) error {
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	err := mysqlConn.Table(m.table).Where("userid = ?", uid).Where("id in ?", idList).Update("`read`", 0).Error
 	if err != nil {
 		return err
 	}
@@ -98,7 +99,7 @@ func (m *defaultTrendDiscussModel) MarkReadById(ctx context.Context, idList []ui
 }
 
 func (m *defaultTrendDiscussModel) SetDiscuss(ctx context.Context, id uint64, count int) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Table(m.table).Where("id = ?", id).Update("discuss_count", count)
 	if res.Error != nil {
 		return res.Error
@@ -112,8 +113,7 @@ func (m *defaultTrendDiscussModel) SetDiscuss(ctx context.Context, id uint64, co
 }
 
 func (m *defaultTrendDiscussModel) FindChildrenByPath(ctx context.Context, path string) ([]uint64, int, error) {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
-
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	// 单次查询获取所有后代ID（包括当前评论）
 	rows, err := mysqlConn.Table(m.table).Select("id").Where("path LIKE ?", path+"%").Rows()
 	if err != nil {
@@ -165,7 +165,7 @@ func getAncestorIDs(path string) []uint64 {
 }
 
 func (m *defaultTrendDiscussModel) Deletes(ctx context.Context, ids []uint64) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Table(m.table).Where("id in ? AND state = 1", ids).Update("state", 0)
 	if res.Error != nil {
 		return res.Error
@@ -179,12 +179,12 @@ func (m *defaultTrendDiscussModel) Deletes(ctx context.Context, ids []uint64) er
 }
 
 func (m *defaultTrendDiscussModel) DeleteByRoots(ctx context.Context, ids []uint64) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).WithContext(ctx)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	return mysqlConn.Table(m.table).Where("rootid in ?", ids).Update("state", 0).Error
 }
 
 func (m *defaultTrendDiscussModel) FindUnreadByUser(ctx context.Context, userId int, lastId int) ([]*TrendDiscuss, error) {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).WithContext(ctx)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 
 	var discusses []*TrendDiscuss
 	err := mysqlConn.Table(m.table).Where("userid = ?", userId).Where("state = ?", 1).Where("`read` = ?", 1).Order("createtime DESC").Find(&discusses).Error
@@ -197,7 +197,7 @@ func (m *defaultTrendDiscussModel) FindUnreadByUser(ctx context.Context, userId 
 
 func (m *defaultTrendDiscussModel) FindFirstByTrendId(ctx context.Context, trendId uint64, uids []string, lastId uint64, pageSize int) ([]*TrendDiscuss, error) {
 	// 获取数据库连接
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).WithContext(ctx)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	query := mysqlConn.Table(m.table)
 	if lastId > 0 {
 		query = query.Where("id < ?", lastId)
@@ -221,7 +221,7 @@ func (m *defaultTrendDiscussModel) FindFirstByTrendId(ctx context.Context, trend
 // FindChildrenByRootId 根据根评论ID获取子评论
 func (m *defaultTrendDiscussModel) FindChildrenByRootId(ctx context.Context, rootId uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error) {
 	// 获取数据库连接
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).WithContext(ctx)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 
 	// 构建查询
 	query := mysqlConn.Table(m.table).
@@ -251,7 +251,7 @@ func (m *defaultTrendDiscussModel) FindChildrenByRootId(ctx context.Context, roo
 // CountByRootId 根据根评论ID统计评论数量
 func (m *defaultTrendDiscussModel) CountByRootId(ctx context.Context, rootId uint64) (int64, error) {
 	var count int64
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	err := mysqlConn.WithContext(ctx).
 		Table(m.table).
 		Where("rootid = ? AND state = 1", rootId).
@@ -262,7 +262,7 @@ func (m *defaultTrendDiscussModel) CountByRootId(ctx context.Context, rootId uin
 // FindChildrenWithKeyset 获取指定父评论的子评论（支持Keyset分页）
 func (m *defaultTrendDiscussModel) FindChildrenWithKeyset(ctx context.Context, parentID uint64, lastCursorID uint64, lastCursorTime time.Time, size int) ([]*TrendDiscuss, bool, error) {
 	// 构建查询条件
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	query := mysqlConn.WithContext(ctx).Where("father = ? AND state = 1", parentID)
 
 	// 如果有游标，添加条件
@@ -297,7 +297,7 @@ func (m *defaultTrendDiscussModel) FindChildrenWithKeyset(ctx context.Context, p
 // FindByTrendWithKeyset 根据动态ID获取评论（keyset分页）
 func (m *defaultTrendDiscussModel) FindByTrendWithKeyset(ctx context.Context, trendID uint64, level int, lastCursorID uint64, size int) ([]*TrendDiscuss, bool, error) {
 	// 构建查询条件
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	query := mysqlConn.WithContext(ctx).
 		Where("trendid = ? AND level = ? AND state = 1", trendID, level)
 
@@ -331,7 +331,7 @@ func (m *defaultTrendDiscussModel) FindByTrendWithKeyset(ctx context.Context, tr
 // FindChildrenByRootIds 保持不变
 func (m *defaultTrendDiscussModel) FindChildrenByRootIds(ctx context.Context, rootIds []uint64) ([]*TrendDiscuss, error) {
 	// 构建查询条件
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var list []*TrendDiscuss
 	err := mysqlConn.Table(m.table).Where("rootid in ?", rootIds).Find(&list).Error
 	if err != nil {
@@ -342,7 +342,7 @@ func (m *defaultTrendDiscussModel) FindChildrenByRootIds(ctx context.Context, ro
 }
 
 func (m *defaultTrendDiscussModel) IncAgreeOrDiscuss(ctx context.Context, id uint64, class int, inc int) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var trendDiscuss TrendDiscuss
 	err := mysqlConn.Table(m.table).Where("id = ?", id).First(&trendDiscuss).Error
 	if err != nil {
@@ -367,7 +367,7 @@ func (m *defaultTrendDiscussModel) IncAgreeOrDiscuss(ctx context.Context, id uin
 }
 
 func (m *defaultTrendDiscussModel) Delete(ctx context.Context, id uint64) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Table(m.table).Where("id = ?", id).Update("state", 0)
 	if res.Error != nil {
 		return res.Error
@@ -379,7 +379,7 @@ func (m *defaultTrendDiscussModel) Delete(ctx context.Context, id uint64) error 
 }
 
 func (m *defaultTrendDiscussModel) FindOne(ctx context.Context, id uint64) (*TrendDiscuss, error) {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var trendDiscuss TrendDiscuss
 	err := mysqlConn.Table(m.table).Where("id = ?", id).First(&trendDiscuss).Error
 	switch err {
@@ -393,7 +393,7 @@ func (m *defaultTrendDiscussModel) FindOne(ctx context.Context, id uint64) (*Tre
 }
 
 func (m *defaultTrendDiscussModel) Insert(ctx context.Context, data *TrendDiscuss) (uint64, error) {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Table(m.table).Create(&data)
 	if res.Error != nil {
 		return 0, res.Error
@@ -412,7 +412,7 @@ type UpdateInput struct {
 }
 
 func (m *defaultTrendDiscussModel) Update(ctx context.Context, data UpdateInput) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var trendDiscuss TrendDiscuss
 	err := mysqlConn.Table(m.table).Where("id = ?", data.Id).First(&trendDiscuss).Error
 	if err != nil {

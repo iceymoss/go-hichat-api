@@ -2,6 +2,8 @@ package logic
 
 import (
 	"context"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"go.uber.org/zap"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
@@ -23,9 +25,14 @@ func NewMarkDiscussReadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *M
 	}
 }
 
-// MarkDiscussRead 8. 标记评论为已读
+// MarkDiscussRead 标记评论为已读
 func (l *MarkDiscussReadLogic) MarkDiscussRead(in *trend.MarkDiscussRequest) (*trend.MarkDiscussResponse, error) {
-	// todo: add your logic here and delete this line
+	// 更新未读状态,标记为已读
+	err := l.svcCtx.TrendDiscuss.MarkReadById(l.ctx, uint64(in.UserId), in.DisIds)
+	if err != nil {
+		zLog.Error("GetUnreadReplies.MarkReadById: 标记为已读失败", zap.Any("idList", in.DisIds), zap.Error(err))
+		return nil, err
+	}
 
 	return &trend.MarkDiscussResponse{}, nil
 }

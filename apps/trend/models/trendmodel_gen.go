@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/stores/builder"
@@ -93,7 +94,7 @@ func newTrendModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Option) *
 }
 
 func (m *defaultTrendModel) SetTrendReplyCount(ctx context.Context, id uint64, resIncCount int) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var trend Trend
 	err := mysqlConn.Table(m.table).Where("id = ?", id).First(&trend).Error
 	if err != nil {
@@ -118,7 +119,7 @@ func (m *defaultTrendModel) SetTrendReplyCount(ctx context.Context, id uint64, r
 }
 
 func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string, lastId int, scpoe int32, filter []string) (*[]Trend, error) {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var trendList []Trend
 	query := mysqlConn.Table(m.table).Select(filter).Where("state = ?", 1).
 		Where("id > ?", lastId).
@@ -146,7 +147,7 @@ func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string
 }
 
 func (m *defaultTrendModel) List(ctx context.Context, lastId int, lastTime int64, userIds []string, filter []string, sort string, sortType int) (*[]Trend, error) {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	query := mysqlConn.Table(m.table).Select(filter)
 	var trendList []Trend
 	if lastId > 0 {
@@ -177,7 +178,7 @@ func (m *defaultTrendModel) List(ctx context.Context, lastId int, lastTime int64
 
 func (m *defaultTrendModel) SetCircleState(ctx context.Context, id uint64, ran int) error {
 	authStateCulom := "circle_state"
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Table(m.table).Where("id = ?", id).Update(authStateCulom, ran)
 	if res.Error != nil {
 		return res.Error
@@ -196,7 +197,7 @@ func (m *defaultTrendModel) OpenReply(ctx context.Context, id uint64, isOpen boo
 		open = 1
 	}
 
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Table(m.table).Where("id = ?", id).Update("open_reply", open)
 	if res.Error != nil {
 		return res.Error
@@ -212,7 +213,7 @@ func (m *defaultTrendModel) OpenReply(ctx context.Context, id uint64, isOpen boo
 
 // class: 1删除朋友圈，3删除所有
 func (m *defaultTrendModel) Delete(ctx context.Context, id uint64) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	query := mysqlConn.Table(m.table).Where("id = ?", id)
 	state := "state"
 	res := query.Update(state, 0).Update("circle_state", 0)
@@ -233,7 +234,7 @@ func (m *defaultTrendModel) SetTop(ctx context.Context, id uint64, isTop bool) e
 		top = 1
 	}
 
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Table(m.table).Where("id = ?", id).Update("is_top", top)
 	if res.Error != nil {
 		return res.Error
@@ -248,7 +249,7 @@ func (m *defaultTrendModel) SetTop(ctx context.Context, id uint64, isTop bool) e
 
 // IncAgreeOrReply 评论/点赞 +1 或者 -1 class = 1评论，class = 0点赞
 func (m *defaultTrendModel) IncAgreeOrReply(ctx context.Context, id uint64, class int, inc int) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 
 	var trend Trend
 	err := mysqlConn.Table(m.table).Select([]string{"id", "agree_count", "reply_count"}).Where("id = ?", id).First(&trend).Error
@@ -283,7 +284,7 @@ func (m *defaultTrendModel) IncAgreeOrReply(ctx context.Context, id uint64, clas
 }
 
 func (m *defaultTrendModel) FindOne(ctx context.Context, id uint64) (*Trend, error) {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var resp Trend
 	err := mysqlConn.Table(m.table).Where("id = ? and state = ?", id, 1).First(&resp).Error
 	switch err {
@@ -297,7 +298,7 @@ func (m *defaultTrendModel) FindOne(ctx context.Context, id uint64) (*Trend, err
 }
 
 func (m *defaultTrendModel) Insert(ctx context.Context, data *Trend) (uint64, error) {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Table(m.table).Create(&data)
 	if res.Error != nil {
 		return 0, res.Error
@@ -310,7 +311,7 @@ func (m *defaultTrendModel) Insert(ctx context.Context, data *Trend) (uint64, er
 }
 
 func (m *defaultTrendModel) Update(ctx context.Context, data *Trend) error {
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var trend Trend
 	err := mysqlConn.Table(m.table).Where("id = ?", data.Id).First(&trend).Error
 	if err != nil {
