@@ -39,6 +39,7 @@ type (
 		Update(ctx context.Context, data *TrendAgree) error
 		Delete(ctx context.Context, id uint64) error
 		AgreeInc(ctx context.Context, userId uint64, authorId uint64, trendId uint64, incType int) error
+		MarkRead(ctx context.Context, ids []uint64) error
 	}
 
 	defaultTrendAgreeModel struct {
@@ -68,6 +69,24 @@ func newTrendAgreeModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Opti
 
 func (defaultTrendAgreeModel) TableName() string {
 	return "trend_agree"
+}
+
+func (m *defaultTrendAgreeModel) MarkRead(ctx context.Context, ids []uint64) error {
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	res := mysqlConn.Table(m.table).
+		Where("id in ?", ids).
+		Update("is_read", 0).
+		Update("op_time", time.Now()).
+		Update("update_time", time.Now())
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("mark read failed")
+	}
+
+	return nil
 }
 
 func (m *defaultTrendAgreeModel) AgreeInc(ctx context.Context, userId uint64, authorId uint64, trendId uint64, incType int) error {
