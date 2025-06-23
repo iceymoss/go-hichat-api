@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/pkg/db"
-
+	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/stores/builder"
@@ -41,6 +41,7 @@ type (
 		Delete(ctx context.Context, id uint64) error
 		AgreeInc(ctx context.Context, userId uint64, authorId uint64, trendId uint64, incType int) error
 		MarkRead(ctx context.Context, ids []uint64) error
+		GetAgreeByTrendId(ctx context.Context, trendId uint64, field []string, limit int) ([]*TrendAgree, int64, error)
 	}
 
 	defaultTrendAgreeModel struct {
@@ -183,6 +184,27 @@ func (m *defaultTrendAgreeModel) FindOneByUseridTrendId(ctx context.Context, use
 	default:
 		return nil, err
 	}
+}
+
+func (m *defaultTrendAgreeModel) GetAgreeByTrendId(ctx context.Context, trendId uint64, field []string, limit int) ([]*TrendAgree, int64, error) {
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	var list []*TrendAgree
+	query := mysqlConn.Table(m.table).
+		Select(field).
+		Where("trend_id = ?", trendId)
+
+	var count int64
+	countQuery := query
+	countQuery.Count(&count)
+
+	err := query.Limit(limit).
+		Order("id").
+		Find(&list).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return list, count, nil
 }
 
 func (m *defaultTrendAgreeModel) Insert(ctx context.Context, data *TrendAgree) (int, error) {

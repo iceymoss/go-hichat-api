@@ -408,12 +408,8 @@ message RepliesListResp {
 message LikeInfo {
   uint64 id = 1;                 // 点赞记录ID
   uint32 user_id = 2;            // 点赞用户ID
-  string nickname = 3;           // 用户昵称 (补充字段)
-  string avatar = 4;             // 用户头像 (补充字段)
   uint32 trend_id = 5;           // 动态ID
-  google.protobuf.Timestamp create_time = 6; // 点赞创建时间
-  bool is_liked = 7;             // 当前是否点赞
-  bool is_read = 8;              // 是否已读
+  int64  create_time = 6; // 点赞创建时间
 }
 
 // 动态点赞摘要
@@ -422,7 +418,7 @@ message TrendLikeSummary {
   uint32 like_count = 2;         // 点赞总数
   bool is_liked = 3;             // 当前用户是否点赞
   repeated LikeInfo preview_likes = 4; // 预览点赞用户 (最多3个)
-  uint32 preview_count = 5;      // 预览显示的数字
+  uint32 count = 5;      // 预览显示的数字
 }
 
 // ===== 请求/响应消息 =====

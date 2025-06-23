@@ -45,7 +45,7 @@ func (l *CreateRootDiscussLogic) CreateRootDiscuss(in *trend.CreateDiscussReq) (
 	}
 
 	// 获取动态详情
-	trendDetail, err := l.svcCtx.Trend.FindOne(l.ctx, in.TrendId)
+	trendDetail, err := l.svcCtx.Trend.FindOne(l.ctx, in.TrendId, []string{})
 	if err != nil || trendDetail == nil || trendDetail.State != 1 {
 		return nil, errors.New("动态不存在或已被删除")
 	}

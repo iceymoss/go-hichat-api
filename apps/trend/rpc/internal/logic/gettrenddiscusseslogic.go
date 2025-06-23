@@ -37,7 +37,7 @@ func (l *GetTrendDiscussesLogic) GetTrendDiscusses(in *trend.GetDiscussesReq) (*
 	}
 
 	// 检查动态是否存在
-	_, err := l.svcCtx.Trend.FindOne(l.ctx, in.TrendId)
+	_, err := l.svcCtx.Trend.FindOne(l.ctx, in.TrendId, []string{})
 	if err != nil {
 		zLog.Error("GetTrendDiscusses.FindOne: get trend failed", zap.Any("trendId", in.TrendId), zap.Error(err))
 		return nil, errors.New("动态不存在")
