@@ -7,14 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.uber.org/zap"
 	"time"
+
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.uber.org/zap"
 )
 
 const Conversation_Collections = "conversations"

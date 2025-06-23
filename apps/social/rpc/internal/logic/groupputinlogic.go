@@ -4,19 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
-	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
 	"strconv"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
+	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
 )
 
 const (

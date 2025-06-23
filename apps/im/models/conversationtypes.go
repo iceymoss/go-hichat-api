@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"time"
+
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )

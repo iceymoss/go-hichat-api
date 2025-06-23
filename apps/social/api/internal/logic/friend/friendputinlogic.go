@@ -2,15 +2,15 @@ package friend
 
 import (
 	"context"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"go.uber.org/zap"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 const Identify = "hichat2.com"

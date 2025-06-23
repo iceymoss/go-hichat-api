@@ -3,6 +3,7 @@ package svc
 import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	model "github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
@@ -11,6 +12,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/bitmap"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+
 	"github.com/zeromicro/go-queue/kq"
 )
 

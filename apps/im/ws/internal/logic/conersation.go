@@ -2,6 +2,8 @@ package logic
 
 import (
 	"context"
+	"time"
+
 	"github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
@@ -9,8 +11,8 @@ import (
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/wuid"
+
 	"go.uber.org/zap"
-	"time"
 )
 
 // ChatLogSlg 会话

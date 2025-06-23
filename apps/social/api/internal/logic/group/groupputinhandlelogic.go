@@ -2,14 +2,14 @@ package group
 
 import (
 	"context"
+	"go.uber.org/zap"
+
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"go.uber.org/zap"
-
-	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
-	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

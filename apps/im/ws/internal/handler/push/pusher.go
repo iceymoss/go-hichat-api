@@ -2,12 +2,14 @@ package push
 
 import (
 	"fmt"
-	"github.com/go-viper/mapstructure/v2"
+
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/ws"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+
+	"github.com/go-viper/mapstructure/v2"
 	"go.uber.org/zap"
 )
 

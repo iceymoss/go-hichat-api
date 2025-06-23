@@ -6,6 +6,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/userclient"
+
 	"github.com/zeromicro/go-zero/zrpc"
 )
 

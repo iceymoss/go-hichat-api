@@ -2,14 +2,14 @@ package logic
 
 import (
 	"context"
-	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"go.uber.org/zap"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/types"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 type PutConversationsLogic struct {

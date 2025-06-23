@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/handler"
-	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/config"
+	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/handler"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/svc"
 	websocketServer "github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
+	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
+
 	"github.com/zeromicro/go-zero/core/conf"
 )
 

@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/handler"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/svc"
 	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
+
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
 )

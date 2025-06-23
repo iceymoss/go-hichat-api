@@ -3,9 +3,9 @@ package logic
 import (
 	"context"
 	"errors"
-	"github.com/iceymoss/go-hichat-api/apps/user/models"
 	"strconv"
 
+	"github.com/iceymoss/go-hichat-api/apps/user/models"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 

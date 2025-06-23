@@ -2,10 +2,11 @@ package websocket
 
 import (
 	"fmt"
-	"github.com/gorilla/websocket"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // Conn 对websocket连接进行一层封装，方便做功能拓展

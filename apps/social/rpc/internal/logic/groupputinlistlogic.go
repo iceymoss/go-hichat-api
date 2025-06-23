@@ -2,14 +2,15 @@ package logic
 
 import (
 	"context"
+
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
+	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 type GroupPutinListLogic struct {

@@ -2,11 +2,12 @@ package logger
 
 import (
 	"errors"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"os"
 	"strings"
 	"syscall"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var Logger = getLogger()

@@ -6,6 +6,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/logic"
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/types"
+
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 

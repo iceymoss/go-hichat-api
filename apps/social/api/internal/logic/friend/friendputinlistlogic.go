@@ -2,12 +2,12 @@ package friend
 
 import (
 	"context"
-	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"net/http"
 	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
+	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

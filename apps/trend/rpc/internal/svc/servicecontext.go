@@ -3,6 +3,7 @@ package svc
 import (
 	"github.com/iceymoss/go-hichat-api/apps/trend/models"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/config"
+
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 

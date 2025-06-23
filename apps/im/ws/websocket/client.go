@@ -3,11 +3,13 @@ package websocket
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"go.uber.org/zap"
 	"net/url"
 	"sync"
+
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+
+	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 // Client websocket 的客户端
