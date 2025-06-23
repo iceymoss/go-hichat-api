@@ -35,7 +35,7 @@ func (l *GetRootDiscussesLogic) GetRootDiscusses(in *trend.GetDiscussesReq) (*tr
 	}
 
 	// 检查动态是否存在
-	trendInfo, err := l.svcCtx.Trend.FindOne(l.ctx, in.TrendId)
+	trendInfo, err := l.svcCtx.Trend.FindOne(l.ctx, in.TrendId, []string{})
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &trend.DiscussesListResp{}, nil

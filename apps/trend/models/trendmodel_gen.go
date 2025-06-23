@@ -37,7 +37,7 @@ var (
 type (
 	trendModel interface {
 		Insert(ctx context.Context, data *Trend) (uint64, error)
-		FindOne(ctx context.Context, id uint64) (*Trend, error)
+		FindOne(ctx context.Context, id uint64, field []string) (*Trend, error)
 		Update(ctx context.Context, data *Trend) error
 		Delete(ctx context.Context, id uint64) error
 		IncAgreeOrReply(ctx context.Context, id uint64, class int, inc int) error
@@ -283,10 +283,13 @@ func (m *defaultTrendModel) IncAgreeOrReply(ctx context.Context, id uint64, clas
 	return nil
 }
 
-func (m *defaultTrendModel) FindOne(ctx context.Context, id uint64) (*Trend, error) {
+func (m *defaultTrendModel) FindOne(ctx context.Context, id uint64, field []string) (*Trend, error) {
+	if len(field) == 0 {
+		field = append(field, "*")
+	}
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var resp Trend
-	err := mysqlConn.Table(m.table).Where("id = ? and state = ?", id, 1).First(&resp).Error
+	err := mysqlConn.Table(m.table).Select(field).Where("id = ? and state = ?", id, 1).First(&resp).Error
 	switch err {
 	case nil:
 		return &resp, nil

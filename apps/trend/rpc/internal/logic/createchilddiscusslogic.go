@@ -52,7 +52,7 @@ func (l *CreateChildDiscussLogic) CreateChildDiscuss(in *trend.CreateDiscussReq)
 	}
 
 	// 获取动态详情
-	trendDetail, err := l.svcCtx.Trend.FindOne(l.ctx, uint64(parentDiscuss.Trendid))
+	trendDetail, err := l.svcCtx.Trend.FindOne(l.ctx, uint64(parentDiscuss.Trendid), []string{})
 	if err != nil || trendDetail == nil || trendDetail.State != 1 {
 		return nil, errors.New("关联动态不存在或已被删除")
 	}

@@ -25,7 +25,6 @@ func NewMarkLikesReadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Mar
 
 // MarkLikesRead 标记点赞为已读
 func (l *MarkLikesReadLogic) MarkLikesRead(in *trend.MarkLikesReadRequest) (*trend.MarkLikesReadResponse, error) {
-	// todo: add your logic here and delete this line
 	err := l.svcCtx.TrendAgree.MarkRead(l.ctx, in.LikeIds)
 	if err != nil {
 		return nil, err

@@ -27,7 +27,7 @@ func NewGetTrendDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Ge
 
 // GetTrendDetail 获取单个动态详情
 func (l *GetTrendDetailLogic) GetTrendDetail(in *trend.GetTrendDetailRequest) (*trend.GetTrendDetailResponse, error) {
-	data, err := l.svcCtx.Trend.FindOne(l.ctx, uint64(in.TrendId))
+	data, err := l.svcCtx.Trend.FindOne(l.ctx, uint64(in.TrendId), []string{})
 	if err != nil {
 
 		zLog.Error("GetTrendDetail.FindOne: get trend detail failed", zap.Any("trendId", in.TrendId), zap.Error(err))
