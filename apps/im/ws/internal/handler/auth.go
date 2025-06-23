@@ -3,11 +3,13 @@ package handler
 import (
 	"context"
 	"fmt"
-	"github.com/golang-jwt/jwt/v4"
+	"net/http"
+
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/svc"
 	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
+
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/zeromicro/go-zero/rest/token"
-	"net/http"
 )
 
 type JwtAuto struct {

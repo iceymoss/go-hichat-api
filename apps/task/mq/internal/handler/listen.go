@@ -3,6 +3,7 @@ package handler
 import (
 	msgTransfer "github.com/iceymoss/go-hichat-api/apps/task/mq/internal/handler/msg_transfer"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/svc"
+
 	"github.com/zeromicro/go-queue/kq"
 	"github.com/zeromicro/go-zero/core/service"
 )

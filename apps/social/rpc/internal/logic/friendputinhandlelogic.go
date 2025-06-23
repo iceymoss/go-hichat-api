@@ -3,17 +3,17 @@ package logic
 import (
 	"context"
 	"database/sql"
-	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
-	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
-	"github.com/pkg/errors"
-	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
+	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 var (

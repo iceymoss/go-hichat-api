@@ -5,6 +5,7 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
 )

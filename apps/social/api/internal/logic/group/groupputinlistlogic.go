@@ -2,11 +2,11 @@ package group
 
 import (
 	"context"
-	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
+	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

@@ -4,14 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/core/threading"
-	"go.uber.org/zap"
 	"net/http"
 	"sync"
 	"time"
+
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+
+	"github.com/gorilla/websocket"
+	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/threading"
+	"go.uber.org/zap"
 )
 
 type AckType int

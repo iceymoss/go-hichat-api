@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"

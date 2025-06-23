@@ -3,7 +3,9 @@ package mq_client
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
+
 	"github.com/zeromicro/go-queue/kq"
 )
 

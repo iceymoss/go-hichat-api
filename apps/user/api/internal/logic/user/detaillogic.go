@@ -3,12 +3,12 @@ package user
 import (
 	"context"
 	"fmt"
-	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
-	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/types"
+	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
+	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

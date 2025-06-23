@@ -15,7 +15,6 @@ import (
 
 	"github.com/zeromicro/go-zero/core/errorx"
 	"github.com/zeromicro/go-zero/core/logx"
-
 	"go.uber.org/zap"
 )
 

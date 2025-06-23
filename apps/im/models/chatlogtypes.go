@@ -1,9 +1,11 @@
 package model
 
 import (
-	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"time"
+
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // ChatLog 聊天记录

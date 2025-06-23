@@ -1,9 +1,9 @@
 package sensitive
 
 import (
-	"github.com/stretchr/testify/assert"
-
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewWord(t *testing.T) {

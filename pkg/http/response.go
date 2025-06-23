@@ -2,13 +2,14 @@ package http
 
 import (
 	"context"
+	"net/http"
+
+	"github.com/iceymoss/go-hichat-api/pkg/xerr"
+
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
 	zrpcErr "github.com/zeromicro/x/errors"
 	"google.golang.org/grpc/status"
-	"net/http"
-
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 )
 
 type Response struct {

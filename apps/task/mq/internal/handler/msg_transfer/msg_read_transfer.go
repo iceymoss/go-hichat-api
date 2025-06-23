@@ -5,10 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/bitmap"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+
 	"github.com/zeromicro/go-queue/kq"
 )
 

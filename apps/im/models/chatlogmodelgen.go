@@ -6,16 +6,19 @@ package model
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+
 	"github.com/pkg/errors"
+	"github.com/zer
 	"github.com/zeromicro/go-zero/core/logx"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"time"
 )
 
 const (

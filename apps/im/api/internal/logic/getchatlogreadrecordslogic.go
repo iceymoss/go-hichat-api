@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
