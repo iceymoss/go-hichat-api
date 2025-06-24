@@ -43,7 +43,7 @@ func (l *GetTrendLikeSummaryLogic) GetTrendLikeSummary(in *trend.GetTrendLikeSum
 	}
 
 	// 获取点赞数据
-	agreeList, count, err := l.svcCtx.TrendAgree.GetAgreeByTrendId(l.ctx, uint64(in.TrendId), []string{"*"}, 3)
+	agreeList, count, err := l.svcCtx.TrendAgree.GetAgreeByTrendId(l.ctx, uint64(in.TrendId), []string{"*"}, 0, 3)
 	if err != nil {
 		zLog.Error("get trend agree failed", zap.Any("trendId", in.TrendId), zap.Error(err))
 		return nil, err

@@ -23,7 +23,7 @@ func NewBatchGetTrendLikeSummaryLogic(ctx context.Context, svcCtx *svc.ServiceCo
 	}
 }
 
-// 批量获取点赞摘要 (用于动态流)
+// BatchGetTrendLikeSummary 批量获取点赞摘要 (用于动态流)
 func (l *BatchGetTrendLikeSummaryLogic) BatchGetTrendLikeSummary(in *trend.BatchTrendLikeSummaryRequest) (*trend.BatchTrendLikeSummaryResponse, error) {
 	// todo: add your logic here and delete this line
 

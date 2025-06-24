@@ -465,6 +465,7 @@ message GetLikedUsersResponse {
 // 获取未读点赞通知请求
 message GetUnreadLikesRequest {
   uint32 user_id = 1;            // 当前用户ID (作者ID)
+  uint32 last_id = 2;            // 分页id
 }
 
 // 获取未读点赞通知响应
