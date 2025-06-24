@@ -7,6 +7,8 @@ package models
 import (
 	"context"
 	"fmt"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"strings"
 	"time"
@@ -41,7 +43,8 @@ type (
 		Delete(ctx context.Context, id uint64) error
 		AgreeInc(ctx context.Context, userId uint64, authorId uint64, trendId uint64, incType int) error
 		MarkRead(ctx context.Context, ids []uint64) error
-		GetAgreeByTrendId(ctx context.Context, trendId uint64, field []string, limit int) ([]*TrendAgree, int64, error)
+		GetAgreeByTrendId(ctx context.Context, trendId uint64, field []string, lastId int, limit int) ([]*TrendAgree, int64, error)
+		GetUnReadAgree(ctx context.Context, userId int, field []string, id int, limit int) ([]*TrendAgree, int64, error)
 	}
 
 	defaultTrendAgreeModel struct {
@@ -130,6 +133,52 @@ func (m *defaultTrendAgreeModel) AgreeInc(ctx context.Context, userId uint64, au
 	return upErr
 }
 
+// GetTrendAgreeListBy 获取动态点赞信息
+func (m *defaultTrendAgreeModel) GetTrendAgreeListBy(ctx context.Context, trendIds []string, field []string, lastId int, limit int) ([]*TrendAgree, int64, error) {
+	if len(field) == 0 {
+		field = append(field, "*")
+	}
+	var list []*TrendAgree
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	err := mysqlConn.Table(m.table).Select(field).Where("trend_id in ?", trendIds).Where("id < ?", lastId).Limit(limit).Find(&list).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// TODO:
+
+	return nil, 0, nil
+
+}
+
+func (m *defaultTrendAgreeModel) GetUnReadAgree(ctx context.Context, userId int, field []string, lastId int, limit int) ([]*TrendAgree, int64, error) {
+	if len(field) == 0 {
+		field = append(field, "*")
+	}
+	var list []*TrendAgree
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+
+	var count int64
+	query := mysqlConn.Table(m.table).Select(field)
+	queryCount := query
+	queryCount.Count(&count)
+
+	if lastId != 0 {
+		query = query.Where("id < ?", lastId)
+	}
+
+	err := query.Where("userid = ?", userId).
+		Where("is_read = ?", 1).
+		Limit(limit).
+		Find(&list).Error
+	if err != nil {
+		zLog.Error("get unread agree failed", zap.Any("userId", userId), zap.Error(err))
+		return nil, 0, err
+	}
+
+	return list, count, nil
+}
+
 func (m *defaultTrendAgreeModel) Delete(ctx context.Context, id uint64) error {
 	data, err := m.FindOne(ctx, id)
 	if err != nil {
@@ -186,12 +235,16 @@ func (m *defaultTrendAgreeModel) FindOneByUseridTrendId(ctx context.Context, use
 	}
 }
 
-func (m *defaultTrendAgreeModel) GetAgreeByTrendId(ctx context.Context, trendId uint64, field []string, limit int) ([]*TrendAgree, int64, error) {
+func (m *defaultTrendAgreeModel) GetAgreeByTrendId(ctx context.Context, trendId uint64, field []string, lastId int, limit int) ([]*TrendAgree, int64, error) {
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var list []*TrendAgree
 	query := mysqlConn.Table(m.table).
 		Select(field).
 		Where("trend_id = ?", trendId)
+
+	if lastId != 0 {
+		query = query.Where("id < ?", lastId)
+	}
 
 	var count int64
 	countQuery := query

@@ -23,7 +23,7 @@ func NewGetLikedUsersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Get
 	}
 }
 
-// 获取点赞用户列表 (微信"查看全部点赞")
+// GetLikedUsers 获取点赞用户列表 (微信"查看全部点赞")
 func (l *GetLikedUsersLogic) GetLikedUsers(in *trend.GetLikedUsersRequest) (*trend.GetLikedUsersResponse, error) {
 	// todo: add your logic here and delete this line
 
