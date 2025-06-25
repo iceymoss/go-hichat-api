@@ -460,6 +460,7 @@ message GetLikedUsersResponse {
   repeated LikeInfo users = 1;   // 点赞用户列表
   uint32 next_cursor = 2;        // 下一页游标(0表示结束)
   bool has_more = 3;             // 是否有更多
+  uint32 total = 4;              // 总数
 }
 
 // 获取未读点赞通知请求
