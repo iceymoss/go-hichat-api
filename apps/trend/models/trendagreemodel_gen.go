@@ -7,13 +7,11 @@ package models
 import (
 	"context"
 	"fmt"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"go.uber.org/zap"
-	"gorm.io/gorm"
 	"strings"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/pkg/db"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 
 	"github.com/pkg/errors"
@@ -22,6 +20,8 @@ import (
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"github.com/zeromicro/go-zero/core/stringx"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 var (
@@ -45,6 +45,7 @@ type (
 		MarkRead(ctx context.Context, ids []uint64) error
 		GetAgreeByTrendId(ctx context.Context, trendId uint64, field []string, lastId int, limit int) ([]*TrendAgree, int64, error)
 		GetUnReadAgree(ctx context.Context, userId int, field []string, id int, limit int) ([]*TrendAgree, int64, error)
+		GetTrendAgree(ctx context.Context, trendIds []uint32, state int) (map[uint64][]*TrendAgree, error)
 	}
 
 	defaultTrendAgreeModel struct {
@@ -74,6 +75,30 @@ func newTrendAgreeModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Opti
 
 func (defaultTrendAgreeModel) TableName() string {
 	return "trend_agree"
+}
+
+func (m *defaultTrendAgreeModel) GetTrendAgree(ctx context.Context, trendIds []uint32, state int) (map[uint64][]*TrendAgree, error) {
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+
+	var agreeList []*TrendAgree
+	res := mysqlConn.Table(m.table).
+		Where("trend_id in ?", trendIds).
+		Where("state = ?", state).
+		Find(&agreeList)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	ans := make(map[uint64][]*TrendAgree, len(trendIds))
+	for _, agree := range agreeList {
+		if _, ok := ans[agree.TrendId]; !ok {
+			ans[agree.TrendId] = make([]*TrendAgree, 0)
+			continue
+		}
+		ans[agree.TrendId] = append(ans[agree.TrendId], agree)
+	}
+
+	return ans, nil
 }
 
 func (m *defaultTrendAgreeModel) MarkRead(ctx context.Context, ids []uint64) error {

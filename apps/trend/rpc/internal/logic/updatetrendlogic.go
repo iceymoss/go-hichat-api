@@ -23,7 +23,7 @@ func NewUpdateTrendLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Updat
 	}
 }
 
-// 更新动态
+// UpdateTrend 更新动态
 func (l *UpdateTrendLogic) UpdateTrend(in *trend.UpdateTrendRequest) (*trend.UpdateTrendResponse, error) {
 	// todo: add your logic here and delete this line
 
