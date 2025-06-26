@@ -38,7 +38,7 @@ func (l *ToggleLikeLogic) ToggleLike(in *trend.LikeToggleRequest) (*trend.LikeTo
 		}
 
 		// 动态总点赞数处理
-		incType := 0
+		incType := -1
 		if in.LikeType > 0 {
 			incType = 1
 		}
