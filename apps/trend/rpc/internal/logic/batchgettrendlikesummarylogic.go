@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
@@ -38,7 +37,6 @@ func (l *BatchGetTrendLikeSummaryLogic) BatchGetTrendLikeSummary(in *trend.Batch
 	for k, v := range agreeBindTrend {
 		if _, ok := list[uint32(k)]; !ok {
 			list[uint32(k)] = make([]*trend.LikeInfo, 0, len(v))
-			continue
 		}
 		for _, agreeItem := range v {
 			list[uint32(k)] = append(list[uint32(k)], &trend.LikeInfo{

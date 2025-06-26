@@ -55,7 +55,7 @@ func (l *GetTrendLikeSummaryLogic) GetTrendLikeSummary(in *trend.GetTrendLikeSum
 			Id:         v.Id,
 			UserId:     uint32(v.Userid),
 			TrendId:    uint32(v.TrendId),
-			CreateTime: v.CreateTime.Unix(),
+			CreateTime: v.OpTime.Unix(),
 		})
 	}
 

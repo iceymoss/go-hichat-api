@@ -27,7 +27,7 @@ func NewGetLikedUsersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Get
 
 // GetLikedUsers 获取点赞用户列表 (微信"查看全部点赞")
 func (l *GetLikedUsersLogic) GetLikedUsers(in *trend.GetLikedUsersRequest) (*trend.GetLikedUsersResponse, error) {
-	agree, count, err := l.svcCtx.TrendAgree.GetAgreeByTrendId(l.ctx, uint64(in.TrendId), []string{"id", "userid", "author_id", "op_time"}, int(in.Cursor), int(in.Limit))
+	agree, count, err := l.svcCtx.TrendAgree.GetAgreeByTrendId(l.ctx, uint64(in.TrendId), []string{"id", "userid", "author_id", "op_time", "trend_id"}, int(in.Cursor), int(in.Limit))
 	if err != nil {
 		zLog.Error("GetLikedUsers.GetAgreeByTrendId: get agree list failed", zap.Any("trendId", in.TrendId), zap.Error(err))
 		return nil, err

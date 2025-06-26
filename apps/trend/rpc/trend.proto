@@ -473,6 +473,7 @@ message GetUnreadLikesRequest {
 message GetUnreadLikesResponse {
   repeated LikeInfo likes = 1;   // 未读点赞列表
   uint32 total_unread = 2;       // 未读总数
+  uint32 last_id = 3;            // 游标
 }
 
 // 标记已读请求
