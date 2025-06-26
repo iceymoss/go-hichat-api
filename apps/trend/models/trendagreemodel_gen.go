@@ -73,7 +73,7 @@ func newTrendAgreeModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Opti
 	}
 }
 
-func (defaultTrendAgreeModel) TableName() string {
+func (TrendAgree) TableName() string {
 	return "trend_agree"
 }
 
@@ -93,7 +93,6 @@ func (m *defaultTrendAgreeModel) GetTrendAgree(ctx context.Context, trendIds []u
 	for _, agree := range agreeList {
 		if _, ok := ans[agree.TrendId]; !ok {
 			ans[agree.TrendId] = make([]*TrendAgree, 0)
-			continue
 		}
 		ans[agree.TrendId] = append(ans[agree.TrendId], agree)
 	}
@@ -106,14 +105,9 @@ func (m *defaultTrendAgreeModel) MarkRead(ctx context.Context, ids []uint64) err
 	res := mysqlConn.Table(m.table).
 		Where("id in ?", ids).
 		Update("is_read", 0).
-		Update("op_time", time.Now()).
 		Update("update_time", time.Now())
 	if res.Error != nil {
 		return res.Error
-	}
-
-	if res.RowsAffected == 0 {
-		return fmt.Errorf("mark read failed")
 	}
 
 	return nil
@@ -130,7 +124,7 @@ func (m *defaultTrendAgreeModel) AgreeInc(ctx context.Context, userId uint64, au
 	// 第一次点赞,创建记录
 	if (err == gorm.ErrRecordNotFound || agreeTemp.Id == 0) && incType > 0 {
 		//insert
-		_, inserErr := m.Insert(ctx, &TrendAgree{
+		inserErr := mysqlConn.Create(&TrendAgree{
 			Userid:     userId,
 			AuthorId:   authorId,
 			TrendId:    trendId,
@@ -139,7 +133,7 @@ func (m *defaultTrendAgreeModel) AgreeInc(ctx context.Context, userId uint64, au
 			IsRead:     1,
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
-		})
+		}).Error
 
 		return inserErr
 	}
@@ -153,7 +147,7 @@ func (m *defaultTrendAgreeModel) AgreeInc(ctx context.Context, userId uint64, au
 
 	agreeTemp.OpTime = time.Now()
 	agreeTemp.UpdateTime = time.Now()
-	upErr := m.Update(ctx, &agreeTemp)
+	upErr := mysqlConn.Table(m.table).Where("id = ?", agreeTemp.Id).Save(&agreeTemp).Error
 
 	return upErr
 }
@@ -185,15 +179,19 @@ func (m *defaultTrendAgreeModel) GetUnReadAgree(ctx context.Context, userId int,
 
 	var count int64
 	query := mysqlConn.Table(m.table).Select(field)
-	queryCount := query
-	queryCount.Count(&count)
 
 	if lastId != 0 {
 		query = query.Where("id < ?", lastId)
 	}
 
-	err := query.Where("userid = ?", userId).
-		Where("is_read = ?", 1).
+	query = query.Where("author_id = ?", userId).
+		Where("is_read = ?", 1)
+
+	queryCount := query
+	queryCount.Count(&count)
+
+	// 动态作者，被点赞
+	err := query.Order("id DESC").
 		Limit(limit).
 		Find(&list).Error
 	if err != nil {
@@ -267,16 +265,20 @@ func (m *defaultTrendAgreeModel) GetAgreeByTrendId(ctx context.Context, trendId 
 		Select(field).
 		Where("trend_id = ?", trendId)
 
-	if lastId != 0 {
-		query = query.Where("id < ?", lastId)
-	}
-
 	var count int64
 	countQuery := query
 	countQuery.Count(&count)
 
+	if lastId != 0 {
+		query = query.Where("id < ?", lastId)
+	}
+
+	if limit == 0 {
+		limit = 50
+	}
+
 	err := query.Limit(limit).
-		Order("id").
+		Order("id DESC").
 		Find(&list).Error
 	if err != nil {
 		return nil, 0, err

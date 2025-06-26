@@ -40,12 +40,18 @@ func (l *GetUnreadLikesLogic) GetUnreadLikes(in *trend.GetUnreadLikesRequest) (*
 			Id:         v.Id,
 			UserId:     uint32(v.Userid),
 			TrendId:    uint32(v.TrendId),
-			CreateTime: v.CreateTime.Unix(),
+			CreateTime: v.OpTime.Unix(),
 		})
+	}
+
+	var lastId uint32
+	if len(list) > 0 {
+		lastId = uint32(list[len(list)-1].Id)
 	}
 
 	return &trend.GetUnreadLikesResponse{
 		Likes:       list,
 		TotalUnread: uint32(count),
+		LastId:      lastId,
 	}, nil
 }
