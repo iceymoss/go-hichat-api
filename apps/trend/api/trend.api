@@ -1,0 +1,379 @@
+syntax = "v1"
+
+info (
+	title:   "动态服务API"
+	author:  "iceymoss"
+	version: "v1.0.0"
+	desc:    "正式环境动态、评论、点赞服务接口"
+)
+
+// ===== 动态核心服务 =====
+@server (
+	prefix: /v1/trend
+	group:  trend
+	jwt:    JwtAuth
+)
+service trend {
+	@doc "创建新动态"
+	@handler createTrend
+	post /trend (CreateTrendRequest) returns (CreateTrendResponse)
+
+	@doc "删除动态"
+	@handler deleteTrend
+	post /trend/delete (DeleteTrendRequest) returns (DeleteTrendResponse)
+
+	@doc "更新动态内容"
+	@handler updateTrend
+	put /trend/update (UpdateTrendRequest) returns (UpdateTrendResponse)
+
+	@doc "获取动态列表"
+	@handler listTrends
+	get /trends (ListTrendsRequest) returns (ListTrendsResponse)
+
+	@doc "获取动态详情"
+	@handler getTrendDetail
+	get /trend/detail (GetTrendDetailRequest) returns (GetTrendDetailResponse)
+
+	@doc "获取最新动态流"
+	@handler getLatestTrends
+	get /trends/latest (GetLatestTrendsRequest) returns (GetLatestTrendsResponse)
+
+	@doc "获取用户个人动态"
+	@handler getUserTrends
+	get /user/trends (GetUserTrendsRequest) returns (GetUserTrendsResponse)
+}
+
+// ===== 评论服务 =====
+@server (
+	prefix: /v1/comment
+	group:  comment
+	jwt:    JwtAuth
+)
+service trend {
+	@doc "创建新评论"
+	@handler createDiscuss
+	post /comment (CreateDiscussReq) returns (CreateDiscussResp)
+
+	@doc "获取评论树"
+	@handler getDiscussesTree
+	get /comment/tree (GetDiscussesReq) returns (DiscussesTreeResp)
+
+	@doc "获取一级评论"
+	@handler getRootDiscusses
+	get /comment/root (GetDiscussesReq) returns (DiscussesListResp)
+
+	@doc "获取子评论列表"
+	@handler getChildDiscusses
+	get /comment/children (GetChildDiscussesReq) returns (DiscussesListResp)
+
+	@doc "删除评论"
+	@handler deleteDiscuss
+	delete /comment (DeleteDiscussReq) returns (DeleteDiscussResp)
+
+	@doc "获取未读回复通知"
+	@handler getUnreadReplies
+	get /comment/unread (GetUnreadRepliesReq) returns (RepliesListResp)
+
+	@doc "标记评论为已读"
+	@handler markDiscussRead
+	put /comment/mark-read (MarkDiscussRequest) returns (MarkDiscussResponse)
+}
+
+// ===== 点赞服务 =====
+@server (
+	prefix: /v1/like
+	group:  like
+	jwt:    JwtAuth
+)
+service trend {
+	@doc "点赞/取消点赞"
+	@handler toggleLike
+	post /like (LikeToggleRequest) returns (LikeToggleResponse)
+
+	@doc "获取动态点赞摘要"
+	@handler getTrendLikeSummary
+	get /like/summary (GetTrendLikeSummaryRequest) returns (GetTrendLikeSummaryResponse)
+
+	@doc "批量获取点赞摘要"
+	@handler batchGetTrendLikeSummary
+	get /like/batch-summary (BatchTrendLikeSummaryRequest) returns (BatchTrendLikeSummaryResponse)
+
+	@doc "获取点赞用户列表"
+	@handler getLikedUsers
+	get /like/users (GetLikedUsersRequest) returns (GetLikedUsersResponse)
+
+	@doc "获取未读点赞通知"
+	@handler getUnreadLikes
+	get /like/unread (GetUnreadLikesRequest) returns (GetUnreadLikesResponse)
+
+	@doc "标记点赞为已读"
+	@handler markLikesRead
+	put /like/mark-read (MarkLikesReadRequest) returns (MarkLikesReadResponse)
+}
+
+// ===== 数据结构定义 =====
+// 创建动态请求
+type CreateTrendRequest {
+	UserID       string   `json:"user_id"`
+	TrendType    string   `json:"type"`
+	Content      string   `json:"content"`
+	Scope        string   `json:"scope"`
+	Resources    []string `json:"resources"`
+	PositionName string   `json:"position_name"`
+	Longitude    float64  `json:"longitude"`
+	Latitude     float64  `json:"latitude"`
+	Title        string   `json:"title"`
+	AtUserIDs    []string `json:"at_user_ids"`
+	OpenReply    bool     `json:"open_reply"`
+	CoverUrl     string   `json:"cover_url"`
+	ShareUrl     string   `json:"share_url"`
+	Device       string   `json:"device"`
+	IP           string   `json:"ip"`
+}
+
+// 创建动态响应
+type CreateTrendResponse {
+	TrendID string `json:"trend_id"`
+	Code    int    `json:"code"`
+}
+
+// 删除动态请求
+type DeleteTrendRequest {
+	TrendID string `json:"trend_id"`
+	UserID  string `json:"user_id"`
+}
+
+// 删除动态响应
+type DeleteTrendResponse {
+	Success bool `json:"success"`
+}
+
+// 更新动态请求
+type UpdateTrendRequest {
+	TrendID     string `json:"trend_id"`
+	UserID      string `json:"user_id"`
+	UpdateField string `json:"update_field"`
+	Content     string `json:"content"`
+	Title       string `json:"title"`
+	Scope       string `json:"scope"`
+	OpenReply   bool   `json:"open_reply"`
+	CoverUrl    string `json:"cover_url"`
+	ShareUrl    string `json:"share_url"`
+}
+
+// 更新动态响应
+type UpdateTrendResponse {
+	TrendJSON string `json:"trend_json"`
+}
+
+// 动态列表请求
+type ListTrendsRequest {
+	LastID     int      `json:"last_id"`
+	LastTime   int      `json:"last_time"`
+	Types      []string `json:"types"`
+	SortColumn string   `json:"sort_column"`
+	SortType   int      `json:"sort_type"`
+	UserIDs    []string `json:"user_ids"`
+}
+
+// 动态列表响应
+type ListTrendsResponse {
+	Trends   []string `json:"trends"`
+	LastID   int      `json:"last_id"`
+	LastTime int      `json:"last_time"`
+}
+
+// 动态详情请求
+type GetTrendDetailRequest {
+	TrendID string `json:"trend_id"`
+}
+
+// 动态详情响应
+type GetTrendDetailResponse {
+	TrendJSON string `json:"trend_json"`
+}
+
+// 最新动态请求
+type GetLatestTrendsRequest {
+	FeedType    string   `json:"feed_type"`
+	UserIDs     []string `json:"user_ids"`
+	LastTrendID string   `json:"last_trend_id"`
+	Count       int      `json:"count"`
+}
+
+// 最新动态响应
+type GetLatestTrendsResponse {
+	TrendsJSON  string `json:"trends_json"`
+	LastTrendID string `json:"last_trend_id"`
+	HasMore     bool   `json:"has_more"`
+}
+
+// 用户动态请求
+type GetUserTrendsRequest {
+	TargetUserID string `json:"target_user_id"`
+	Scope        string `json:"scope"`
+	LastID       int    `json:"last_id"`
+	LastTime     int    `json:"last_time"`
+}
+
+// 用户动态响应
+type GetUserTrendsResponse {
+	TrendsJSON string `json:"trends_json"`
+	LastID     int    `json:"last_id"`
+	LastTime   int    `json:"last_time"`
+}
+
+// 创建评论请求
+type CreateDiscussReq {
+	TrendID   string   `json:"trend_id"`
+	Father    string   `json:"father"`
+	UserID    string   `json:"user_id"`
+	Content   string   `json:"content"`
+	AtUserIDs []string `json:"at_user_ids"`
+	Replyer   string   `json:"replyer"`
+}
+
+// 创建评论响应
+type CreateDiscussResp {
+	DiscussJSON string `json:"discuss_json"`
+}
+
+// 获取评论请求
+type GetDiscussesReq {
+	TrendID         string   `json:"trend_id"`
+	LastID          int      `json:"last_id"`
+	LastTime        int      `json:"last_time"`
+	IncludeChildren bool     `json:"include_children"`
+	UIDs            []string `json:"uids"`
+}
+
+// 评论树响应
+type DiscussesTreeResp {
+	DiscussesJSON string `json:"discusses_json"`
+	LastID        int    `json:"last_id"`
+	LastTime      int    `json:"last_time"`
+}
+
+// 评论列表响应
+type DiscussesListResp {
+	DiscussesJSON string `json:"discusses_json"`
+	LastID        int    `json:"last_id"`
+	LastTime      int    `json:"last_time"`
+	Total         int    `json:"total"`
+}
+
+// 子评论请求
+type GetChildDiscussesReq {
+	RootID   string `json:"root_id"`
+	Father   string `json:"father"`
+	LastID   int    `json:"last_id"`
+	LastTime int    `json:"last_time"`
+}
+
+// 删除评论请求
+type DeleteDiscussReq {
+	ID string `json:"id"`
+}
+
+// 删除评论响应
+type DeleteDiscussResp {
+	Success bool `json:"success"`
+}
+
+// 未读回复请求
+type GetUnreadRepliesReq {
+	UserID   string `json:"user_id"`
+	LastID   int    `json:"last_id"`
+	LastTime int    `json:"last_time"`
+}
+
+// 未读回复响应
+type RepliesListResp {
+	RepliesJSON string `json:"replies_json"`
+	LastID      int    `json:"last_id"`
+	LastTime    int    `json:"last_time"`
+	Total       int    `json:"total"`
+}
+
+// 标记评论已读请求
+type MarkDiscussRequest {
+	UserID string   `json:"user_id"`
+	DisIDs []string `json:"dis_ids"`
+}
+
+// 标记评论已读响应
+type MarkDiscussResponse {}
+
+// 点赞操作请求
+type LikeToggleRequest {
+	UserID   string `json:"user_id"`
+	TrendID  string `json:"trend_id"`
+	AuthorID string `json:"author_id"`
+	LikeType int    `json:"like_type"`
+}
+
+// 点赞操作响应
+type LikeToggleResponse {
+	Success      bool   `json:"success"`
+	ErrorMessage string `json:"error_message"`
+}
+
+// 点赞摘要请求
+type GetTrendLikeSummaryRequest {
+	UserID  string `json:"user_id"`
+	TrendID string `json:"trend_id"`
+}
+
+// 点赞摘要响应
+type GetTrendLikeSummaryResponse {
+	SummaryJSON string `json:"summary_json"`
+}
+
+// 批量摘要请求
+type BatchTrendLikeSummaryRequest {
+	UserID   string   `json:"user_id"`
+	TrendIDs []string `json:"trend_ids"`
+}
+
+// 批量摘要响应
+type BatchTrendLikeSummaryResponse {
+	SummariesJSON string `json:"summaries_json"`
+}
+
+// 点赞用户列表请求
+type GetLikedUsersRequest {
+	TrendID string `json:"trend_id"`
+	Cursor  int    `json:"cursor"`
+	Limit   int    `json:"limit"`
+}
+
+// 点赞用户列表响应
+type GetLikedUsersResponse {
+	UsersJSON  string `json:"users_json"`
+	NextCursor int    `json:"next_cursor"`
+	HasMore    bool   `json:"has_more"`
+	Total      int    `json:"total"`
+}
+
+// 未读点赞请求
+type GetUnreadLikesRequest {
+	UserID string `json:"user_id"`
+	LastID int    `json:"last_id"`
+}
+
+// 未读点赞响应
+type GetUnreadLikesResponse {
+	LikesJSON   string `json:"likes_json"`
+	TotalUnread int    `json:"total_unread"`
+	LastID      int    `json:"last_id"`
+}
+
+// 标记点赞已读请求
+type MarkLikesReadRequest {
+	UserID  string   `json:"user_id"`
+	LikeIDs []string `json:"like_ids"`
+}
+
+// 标记点赞已读响应
+type MarkLikesReadResponse {}
+
