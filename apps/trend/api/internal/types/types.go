@@ -26,26 +26,25 @@ type CreateDiscussResp struct {
 }
 
 type CreateTrendRequest struct {
-	UserID       string   `json:"user_id"`
-	TrendType    string   `json:"type"`
-	Content      string   `json:"content"`
-	Scope        string   `json:"scope"`
-	Resources    []string `json:"resources"`
-	PositionName string   `json:"position_name"`
-	Longitude    float64  `json:"longitude"`
-	Latitude     float64  `json:"latitude"`
-	Title        string   `json:"title"`
-	AtUserIDs    []string `json:"at_user_ids"`
-	OpenReply    bool     `json:"open_reply"`
-	CoverUrl     string   `json:"cover_url"`
-	ShareUrl     string   `json:"share_url"`
-	Device       string   `json:"device"`
-	IP           string   `json:"ip"`
+	TrendType    int      `json:"type"`
+	Content      string   `json:"content,optional"`
+	Scope        int      `json:"scope"`
+	Resources    []string `json:"resources,optional"`
+	PositionName string   `json:"position_name,optional"`
+	Longitude    float64  `json:"longitude,optional"`
+	Latitude     float64  `json:"latitude,optional"`
+	Title        string   `json:"title,optional"`
+	AtUserIDs    []int32  `json:"at_user_ids,optional"`
+	OpenReply    bool     `json:"open_reply,optional"`
+	CoverUrl     string   `json:"cover_url,optional"`
+	ShareUrl     string   `json:"share_url,optional"`
+	Device       string   `json:"device,optional"`
+	IP           string   `json:"ip,optional"`
 }
 
 type CreateTrendResponse struct {
-	TrendID string `json:"trend_id"`
-	Code    int    `json:"code"`
+	TrendID int `json:"trend_id"`
+	Code    int `json:"code"`
 }
 
 type DeleteDiscussReq struct {
@@ -57,8 +56,7 @@ type DeleteDiscussResp struct {
 }
 
 type DeleteTrendRequest struct {
-	TrendID string `json:"trend_id"`
-	UserID  string `json:"user_id"`
+	TrendID int `json:"trend_id"`
 }
 
 type DeleteTrendResponse struct {
@@ -94,16 +92,14 @@ type GetDiscussesReq struct {
 }
 
 type GetLatestTrendsRequest struct {
-	FeedType    string   `json:"feed_type"`
-	UserIDs     []string `json:"user_ids"`
-	LastTrendID string   `json:"last_trend_id"`
-	Count       int      `json:"count"`
+	LastTrendID int `json:"last_trend_id,optional"`
+	Count       int `json:"count,optional"`
 }
 
 type GetLatestTrendsResponse struct {
-	TrendsJSON  string `json:"trends_json"`
-	LastTrendID string `json:"last_trend_id"`
-	HasMore     bool   `json:"has_more"`
+	Trends      []*Trend `json:"list"`          // 动态列表
+	LastTrendID int      `json:"last_trend_id"` // 最后一条动态ID
+	HasMore     bool     `json:"has_more"`      // 是否还有更多数据
 }
 
 type GetLikedUsersRequest struct {
@@ -120,11 +116,11 @@ type GetLikedUsersResponse struct {
 }
 
 type GetTrendDetailRequest struct {
-	TrendID string `json:"trend_id"`
+	TrendID int `json:"trend_id"`
 }
 
 type GetTrendDetailResponse struct {
-	TrendJSON string `json:"trend_json"`
+	Trend *Trend `json:"trend"`
 }
 
 type GetTrendLikeSummaryRequest struct {
@@ -154,16 +150,15 @@ type GetUnreadRepliesReq struct {
 }
 
 type GetUserTrendsRequest struct {
-	TargetUserID string `json:"target_user_id"`
-	Scope        string `json:"scope"`
-	LastID       int    `json:"last_id"`
-	LastTime     int    `json:"last_time"`
+	TargetUserID int `json:"target_user_id"`
+	LastID       int `json:"last_id,optional"`
 }
 
 type GetUserTrendsResponse struct {
-	TrendsJSON string `json:"trends_json"`
-	LastID     int    `json:"last_id"`
-	LastTime   int    `json:"last_time"`
+	Trends    []*Trend `json:"list"`
+	TopTrends []*Trend `json:"top_list"`
+	LastID    int      `json:"last_id"`
+	LastTime  int      `json:"last_time"`
 }
 
 type LikeToggleRequest struct {
@@ -216,18 +211,41 @@ type RepliesListResp struct {
 	Total       int    `json:"total"`
 }
 
+type Trend struct {
+	Id            int64     `json:"id,omitempty"`             // 动态唯一ID
+	User          *User     `json:"user_id,omitempty"`        // 发布用户ID
+	Type          int       `json:"type,omitempty"`           // 动态类型
+	Content       string    `json:"content,omitempty"`        // 文本内容
+	Scope         int       `json:"scope,omitempty"`          // 可见范围
+	CreateTime    int64     `json:"create_time,omitempty"`    // 原始创建时间
+	ReplyCount    int32     `json:"reply_count,omitempty"`    // 评论数量
+	AgreeCount    int32     `json:"agree_count,omitempty"`    // 点赞数量
+	PositionName  string    `json:"position_name,omitempty"`  // 位置信息
+	PositionPoint []float32 `json:"position_point,omitempty"` // 经纬度
+	Title         string    `json:"title,omitempty"`          // 长文标题
+	AtUserIds     []*User   `json:"at_user,omitempty"`        // @的用户ID列表
+	Resources     []string  `json:"resources,omitempty"`      // 图片/视频资源
+	CoverUrl      string    `json:"cover_url,omitempty"`      // 封面图URL
+	ShareUrl      string    `json:"share_url,omitempty"`      // 第三方分享链接
+	OpenReply     int32     `json:"open_reply,omitempty"`     // 是否允许评论
+	DeviceId      string    `json:"device_id,omitempty"`      // 发布设备ID
+	Ip            string    `json:"ip,omitempty"`             // IP信息
+	IsTop         int       `json:"is_top,omitempty"`         // 是否置顶
+}
+
 type UpdateTrendRequest struct {
-	TrendID     string `json:"trend_id"`
-	UserID      string `json:"user_id"`
-	UpdateField string `json:"update_field"`
-	Content     string `json:"content"`
-	Title       string `json:"title"`
-	Scope       string `json:"scope"`
-	OpenReply   bool   `json:"open_reply"`
-	CoverUrl    string `json:"cover_url"`
-	ShareUrl    string `json:"share_url"`
+	TrendId   uint32 `json:"trend_id"`            // 动态id
+	IsTop     int32  `json:"is_top,optional"`     // 设置置顶: 0否，1是
+	OpenReply int32  `json:"open_reply,optional"` // 是否开启评论区: 0否，1是
+	Scope     int32  `json:"scope,optional"`      // 可见范围:2不可见，1可见
 }
 
 type UpdateTrendResponse struct {
-	TrendJSON string `json:"trend_json"`
+}
+
+type User struct {
+	Id       string `json:"id"`
+	Nickname string `json:"nickname"`
+	Sex      int    `json:"sex"`
+	Avatar   string `json:"avatar"`
 }

@@ -35,7 +35,7 @@ func (s *TrendServiceServer) DeleteTrend(ctx context.Context, in *trend.DeleteTr
 	return l.DeleteTrend(in)
 }
 
-// 更新动态
+// 获取最新动态,设置置顶，设置评论区，访问范围
 func (s *TrendServiceServer) UpdateTrend(ctx context.Context, in *trend.UpdateTrendRequest) (*trend.UpdateTrendResponse, error) {
 	l := logic.NewUpdateTrendLogic(ctx, s.svcCtx)
 	return l.UpdateTrend(in)
@@ -53,7 +53,7 @@ func (s *TrendServiceServer) GetTrendDetail(ctx context.Context, in *trend.GetTr
 	return l.GetTrendDetail(in)
 }
 
-// 获取最新动态
+// 获取最新动态,设置置顶，设置评论区，访问范围
 func (s *TrendServiceServer) GetLatestTrends(ctx context.Context, in *trend.GetLatestTrendsRequest) (*trend.GetLatestTrendsResponse, error) {
 	l := logic.NewGetLatestTrendsLogic(ctx, s.svcCtx)
 	return l.GetLatestTrends(in)
@@ -63,6 +63,12 @@ func (s *TrendServiceServer) GetLatestTrends(ctx context.Context, in *trend.GetL
 func (s *TrendServiceServer) GetUserTrends(ctx context.Context, in *trend.GetUserTrendsRequest) (*trend.GetUserTrendsResponse, error) {
 	l := logic.NewGetUserTrendsLogic(ctx, s.svcCtx)
 	return l.GetUserTrends(in)
+}
+
+// 获取用户动态置顶
+func (s *TrendServiceServer) GetUserTopTrend(ctx context.Context, in *trend.GetUserTopTrendsRequest) (*trend.GetUserTrendsResponse, error) {
+	l := logic.NewGetUserTopTrendLogic(ctx, s.svcCtx)
+	return l.GetUserTopTrend(in)
 }
 
 // 评论服务定义
