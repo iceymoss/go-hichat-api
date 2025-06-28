@@ -2,11 +2,16 @@ package trend
 
 import (
 	"context"
+	"errors"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/types"
+	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	"github.com/iceymoss/go-hichat-api/apps/user/utils"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 type CreateTrendLogic struct {
@@ -15,7 +20,7 @@ type CreateTrendLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 创建新动态
+// NewCreateTrendLogic 创建新动态
 func NewCreateTrendLogic(ctx context.Context, svcCtx *svc.ServiceContext) *CreateTrendLogic {
 	return &CreateTrendLogic{
 		Logger: logx.WithContext(ctx),
@@ -25,7 +30,58 @@ func NewCreateTrendLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Creat
 }
 
 func (l *CreateTrendLogic) CreateTrend(req *types.CreateTrendRequest) (resp *types.CreateTrendResponse, err error) {
-	// todo: add your logic here and delete this line
+	// 参数校验
+	if isContain(req.TrendType) {
+		return nil, errors.New("不支持该类型的动态")
+	}
+
+	if req.TrendType == 4 && req.ShareUrl == "" {
+		return nil, errors.New("请选择你要分享的内容")
+	}
+
+	if len(req.Title) == 0 && req.CoverUrl == "" {
+		return nil, errors.New("请填写你要发表的内容或者图片")
+	}
+
+	uid := utils.GetUser(l.ctx)
+	res, err := l.svcCtx.Trend.CreateTrend(l.ctx, &trend.CreateTrendRequest{
+		UserId:       int64(uid),
+		Type:         trend.TrendType(req.TrendType),
+		Content:      req.Content,
+		Scope:        trend.VisibilityScope(req.Scope),
+		Resources:    req.Resources,
+		PositionName: req.PositionName,
+		PositionPoint: &trend.Point{
+			Longitude: req.Longitude,
+			Latitude:  req.Latitude,
+		},
+		Title:     req.Title,
+		AtUserIds: req.AtUserIDs,
+		OpenReply: req.OpenReply,
+		CoverUrl:  req.CoverUrl,
+		ShareUrl:  req.ShareUrl,
+		Device:    req.Device,
+		Ip:        req.IP,
+	})
+	if err != nil {
+		zLog.Error("创建动态失败", zap.Error(err))
+		return nil, err
+	}
+
+	resp = &types.CreateTrendResponse{
+		TrendID: int(res.TrendId),
+		Code:    int(res.Code),
+	}
 
 	return
+}
+
+func isContain(t int) bool {
+	checkList := []int{0, 6}
+	for _, v := range checkList {
+		if t == v {
+			return true
+		}
+	}
+	return false
 }

@@ -7,74 +7,6 @@ option go_package = "./trend";
 
 import "google/protobuf/timestamp.proto";  // 导入时间戳类型
 
-// 动态服务接口定义
-service TrendService {
-  // 发布动态
-  rpc CreateTrend(CreateTrendRequest) returns (CreateTrendResponse);
-
-  // 删除动态
-  rpc DeleteTrend(DeleteTrendRequest) returns (DeleteTrendResponse);
-
-  // 更新动态
-  rpc UpdateTrend(UpdateTrendRequest) returns (UpdateTrendResponse);
-
-  // 获取动态列表
-  rpc ListTrends(ListTrendsRequest) returns (ListTrendsResponse);
-
-  // 获取单个动态详情
-  rpc GetTrendDetail(GetTrendDetailRequest) returns (GetTrendDetailResponse);
-
-  // 获取最新动态
-  rpc GetLatestTrends(GetLatestTrendsRequest) returns (GetLatestTrendsResponse);
-
-  // 获取用户个人动态列表
-  rpc GetUserTrends(GetUserTrendsRequest) returns (GetUserTrendsResponse);
-
-  // 评论服务定义
-  // 动态评论相关模块
-  // 1. 发表一级评论（父评论ID=0）
-  rpc CreateRootDiscuss(CreateDiscussReq) returns (CreateDiscussResp);
-
-  // 2. 发表多级评论（二级、三级等）
-  rpc CreateChildDiscuss(CreateDiscussReq) returns (CreateDiscussResp);
-
-  // 3. 获取动态的多级评论树（树形结构）
-  rpc GetTrendDiscusses(GetDiscussesReq) returns (DiscussesTreeResp);
-
-  // 4. 获取一级评论（分页）
-  rpc GetRootDiscusses(GetDiscussesReq) returns (DiscussesListResp);
-
-  // 5. 获取子评论（指定父评论下的所有评论）
-  rpc GetChildDiscusses(GetChildDiscussesReq) returns (DiscussesListResp);
-
-  // 6. 删除评论（支持任意级别评论删除）
-  rpc DeleteDiscuss(DeleteDiscussReq) returns (DeleteDiscussResp);
-
-  // 7. 获取未读回复
-  rpc GetUnreadReplies(GetUnreadRepliesReq) returns (RepliesListResp);
-
-  // 8. 标记评论为已读
-  rpc MarkDiscussRead(MarkDiscussRequest) returns (MarkDiscussResponse);
-
-  // 点赞/取消点赞
-  rpc ToggleLike(LikeToggleRequest) returns (LikeToggleResponse);
-
-  // 获取动态点赞摘要 (用于动态下方展示)
-  rpc GetTrendLikeSummary(GetTrendLikeSummaryRequest) returns (GetTrendLikeSummaryResponse);
-
-  // 批量获取点赞摘要 (用于动态流)
-  rpc BatchGetTrendLikeSummary(BatchTrendLikeSummaryRequest) returns (BatchTrendLikeSummaryResponse);
-
-  // 获取点赞用户列表 (微信"查看全部点赞")
-  rpc GetLikedUsers(GetLikedUsersRequest) returns (GetLikedUsersResponse);
-
-  // 获取未读点赞通知
-  rpc GetUnreadLikes(GetUnreadLikesRequest) returns (GetUnreadLikesResponse);
-
-  // 标记点赞为已读
-  rpc MarkLikesRead(MarkLikesReadRequest) returns (MarkLikesReadResponse);
-}
-
 
 // ========== 枚举类型定义 ==========
 
@@ -152,6 +84,8 @@ message Trend {
   // 系统信息
   string device_id = 20;       // 发布设备ID
   string ip = 22;              // ip信息
+
+  int32 is_top = 32;          // 是否置顶0：1是，0否
 }
 
 // 分页参数
@@ -217,18 +151,10 @@ message DeleteTrendResponse {
 
 // 3. 更新动态请求
 message UpdateTrendRequest {
-  int64 trend_id = 1;  // 要更新的动态ID（必须）
-  int64 user_id = 2;    // 执行更新的用户ID（用于验证）
-
-  // 可更新的字段（每次请求只能更新一个）
-  oneof update_field {
-    string content = 3;       // 更新正文内容
-    string title = 4;          // 更新标题
-    VisibilityScope scope = 5; // 更新可见范围
-    bool open_reply = 6;       // 更新评论状态
-    string cover_url = 7;      // 更新封面图
-    string share_url = 8;      // 更新分享链接
-  }
+  uint32 trend_id = 1;         // 动态id
+  int32  is_top = 2;         // 设置置顶: 0否，1是
+  int32  open_reply = 3;     // 是否开启评论区: 0否，1是
+  int32 scope = 4;                // 可见范围:2不可见，1可见
 }
 
 // 更新动态响应
@@ -295,6 +221,11 @@ message GetUserTrendsRequest {
 message MarkDiscussRequest {
   uint32 user_id = 1;            // 当前用户ID
   repeated uint64 dis_ids = 2;  // 要标记的点赞ID
+}
+
+message GetUserTopTrendsRequest {
+  string target_user_id = 1;  // 要查询的用户ID（必须）
+  int32  last_id = 2;         // 分页id
 }
 
 message MarkDiscussResponse {
@@ -497,4 +428,75 @@ message BatchTrendLikeSummaryRequest {
 // 批量获取点赞摘要响应
 message BatchTrendLikeSummaryResponse {
   map<uint32, TrendLikeSummary> summaries = 1; // key=trend_id
+}
+
+// 动态服务接口定义
+service TrendService {
+  // 发布动态
+  rpc CreateTrend(CreateTrendRequest) returns (CreateTrendResponse);
+
+  // 删除动态
+  rpc DeleteTrend(DeleteTrendRequest) returns (DeleteTrendResponse);
+
+  // 获取最新动态,设置置顶，设置评论区，访问范围
+  rpc UpdateTrend(UpdateTrendRequest) returns (UpdateTrendResponse);
+
+  // 获取动态列表
+  rpc ListTrends(ListTrendsRequest) returns (ListTrendsResponse);
+
+  // 获取单个动态详情
+  rpc GetTrendDetail(GetTrendDetailRequest) returns (GetTrendDetailResponse);
+
+  // 获取最新动态,设置置顶，设置评论区，访问范围
+  rpc GetLatestTrends(GetLatestTrendsRequest) returns (GetLatestTrendsResponse);
+
+  // 获取用户个人动态列表
+  rpc GetUserTrends(GetUserTrendsRequest) returns (GetUserTrendsResponse);
+
+  // 获取用户动态置顶
+  rpc GetUserTopTrend(GetUserTopTrendsRequest) returns (GetUserTrendsResponse);
+
+  // 评论服务定义
+  // 动态评论相关模块
+  // 1. 发表一级评论（父评论ID=0）
+  rpc CreateRootDiscuss(CreateDiscussReq) returns (CreateDiscussResp);
+
+  // 2. 发表多级评论（二级、三级等）
+  rpc CreateChildDiscuss(CreateDiscussReq) returns (CreateDiscussResp);
+
+  // 3. 获取动态的多级评论树（树形结构）
+  rpc GetTrendDiscusses(GetDiscussesReq) returns (DiscussesTreeResp);
+
+  // 4. 获取一级评论（分页）
+  rpc GetRootDiscusses(GetDiscussesReq) returns (DiscussesListResp);
+
+  // 5. 获取子评论（指定父评论下的所有评论）
+  rpc GetChildDiscusses(GetChildDiscussesReq) returns (DiscussesListResp);
+
+  // 6. 删除评论（支持任意级别评论删除）
+  rpc DeleteDiscuss(DeleteDiscussReq) returns (DeleteDiscussResp);
+
+  // 7. 获取未读回复
+  rpc GetUnreadReplies(GetUnreadRepliesReq) returns (RepliesListResp);
+
+  // 8. 标记评论为已读
+  rpc MarkDiscussRead(MarkDiscussRequest) returns (MarkDiscussResponse);
+
+  // 点赞/取消点赞
+  rpc ToggleLike(LikeToggleRequest) returns (LikeToggleResponse);
+
+  // 获取动态点赞摘要 (用于动态下方展示)
+  rpc GetTrendLikeSummary(GetTrendLikeSummaryRequest) returns (GetTrendLikeSummaryResponse);
+
+  // 批量获取点赞摘要 (用于动态流)
+  rpc BatchGetTrendLikeSummary(BatchTrendLikeSummaryRequest) returns (BatchTrendLikeSummaryResponse);
+
+  // 获取点赞用户列表 (微信"查看全部点赞")
+  rpc GetLikedUsers(GetLikedUsersRequest) returns (GetLikedUsersResponse);
+
+  // 获取未读点赞通知
+  rpc GetUnreadLikes(GetUnreadLikesRequest) returns (GetUnreadLikesResponse);
+
+  // 标记点赞为已读
+  rpc MarkLikesRead(MarkLikesReadRequest) returns (MarkLikesReadResponse);
 }

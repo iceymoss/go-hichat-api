@@ -41,6 +41,7 @@ type (
 	GetUnreadLikesRequest         = trend.GetUnreadLikesRequest
 	GetUnreadLikesResponse        = trend.GetUnreadLikesResponse
 	GetUnreadRepliesReq           = trend.GetUnreadRepliesReq
+	GetUserTopTrendsRequest       = trend.GetUserTopTrendsRequest
 	GetUserTrendsRequest          = trend.GetUserTrendsRequest
 	GetUserTrendsResponse         = trend.GetUserTrendsResponse
 	LikeInfo                      = trend.LikeInfo
@@ -67,16 +68,18 @@ type (
 		CreateTrend(ctx context.Context, in *CreateTrendRequest, opts ...grpc.CallOption) (*CreateTrendResponse, error)
 		// 删除动态
 		DeleteTrend(ctx context.Context, in *DeleteTrendRequest, opts ...grpc.CallOption) (*DeleteTrendResponse, error)
-		// 更新动态
+		// 获取最新动态,设置置顶，设置评论区，访问范围
 		UpdateTrend(ctx context.Context, in *UpdateTrendRequest, opts ...grpc.CallOption) (*UpdateTrendResponse, error)
 		// 获取动态列表
 		ListTrends(ctx context.Context, in *ListTrendsRequest, opts ...grpc.CallOption) (*ListTrendsResponse, error)
 		// 获取单个动态详情
 		GetTrendDetail(ctx context.Context, in *GetTrendDetailRequest, opts ...grpc.CallOption) (*GetTrendDetailResponse, error)
-		// 获取最新动态
+		// 获取最新动态,设置置顶，设置评论区，访问范围
 		GetLatestTrends(ctx context.Context, in *GetLatestTrendsRequest, opts ...grpc.CallOption) (*GetLatestTrendsResponse, error)
 		// 获取用户个人动态列表
 		GetUserTrends(ctx context.Context, in *GetUserTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error)
+		// 获取用户动态置顶
+		GetUserTopTrend(ctx context.Context, in *GetUserTopTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error)
 		// 评论服务定义
 		CreateRootDiscuss(ctx context.Context, in *CreateDiscussReq, opts ...grpc.CallOption) (*CreateDiscussResp, error)
 		// 2. 发表多级评论（二级、三级等）
@@ -130,7 +133,7 @@ func (m *defaultTrendService) DeleteTrend(ctx context.Context, in *DeleteTrendRe
 	return client.DeleteTrend(ctx, in, opts...)
 }
 
-// 更新动态
+// 获取最新动态,设置置顶，设置评论区，访问范围
 func (m *defaultTrendService) UpdateTrend(ctx context.Context, in *UpdateTrendRequest, opts ...grpc.CallOption) (*UpdateTrendResponse, error) {
 	client := trend.NewTrendServiceClient(m.cli.Conn())
 	return client.UpdateTrend(ctx, in, opts...)
@@ -148,7 +151,7 @@ func (m *defaultTrendService) GetTrendDetail(ctx context.Context, in *GetTrendDe
 	return client.GetTrendDetail(ctx, in, opts...)
 }
 
-// 获取最新动态
+// 获取最新动态,设置置顶，设置评论区，访问范围
 func (m *defaultTrendService) GetLatestTrends(ctx context.Context, in *GetLatestTrendsRequest, opts ...grpc.CallOption) (*GetLatestTrendsResponse, error) {
 	client := trend.NewTrendServiceClient(m.cli.Conn())
 	return client.GetLatestTrends(ctx, in, opts...)
@@ -158,6 +161,12 @@ func (m *defaultTrendService) GetLatestTrends(ctx context.Context, in *GetLatest
 func (m *defaultTrendService) GetUserTrends(ctx context.Context, in *GetUserTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error) {
 	client := trend.NewTrendServiceClient(m.cli.Conn())
 	return client.GetUserTrends(ctx, in, opts...)
+}
+
+// 获取用户动态置顶
+func (m *defaultTrendService) GetUserTopTrend(ctx context.Context, in *GetUserTopTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.GetUserTopTrend(ctx, in, opts...)
 }
 
 // 评论服务定义

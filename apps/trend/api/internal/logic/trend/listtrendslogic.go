@@ -15,7 +15,7 @@ type ListTrendsLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 获取动态列表
+// NewListTrendsLogic 获取动态列表
 func NewListTrendsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListTrendsLogic {
 	return &ListTrendsLogic{
 		Logger: logx.WithContext(ctx),

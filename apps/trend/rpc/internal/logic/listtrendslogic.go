@@ -28,7 +28,7 @@ func NewListTrendsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListTr
 
 // ListTrends 获取动态列表
 func (l *ListTrendsLogic) ListTrends(in *trend.ListTrendsRequest) (*trend.ListTrendsResponse, error) {
-	list, err := l.svcCtx.Trend.List(l.ctx, int(in.Pagination.LastId), in.Pagination.LastTime, in.UserIds, []string{"*"}, "createtime", -1)
+	list, err := l.svcCtx.Trend.List(l.ctx, int(in.Pagination.LastId), 0, in.UserIds, []string{"*"}, "id", -1)
 	if err != nil {
 		zLog.Error("ListTrends.List: get trend list filed", zap.Any("lastId", "in.Pagination.LastId"), zap.Any("lastTime", in.Pagination.LastTime))
 		return nil, err
