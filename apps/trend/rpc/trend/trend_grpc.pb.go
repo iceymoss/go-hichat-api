@@ -26,6 +26,7 @@ const (
 	TrendService_GetTrendDetail_FullMethodName           = "/trend.TrendService/GetTrendDetail"
 	TrendService_GetLatestTrends_FullMethodName          = "/trend.TrendService/GetLatestTrends"
 	TrendService_GetUserTrends_FullMethodName            = "/trend.TrendService/GetUserTrends"
+	TrendService_GetUserTopTrend_FullMethodName          = "/trend.TrendService/GetUserTopTrend"
 	TrendService_CreateRootDiscuss_FullMethodName        = "/trend.TrendService/CreateRootDiscuss"
 	TrendService_CreateChildDiscuss_FullMethodName       = "/trend.TrendService/CreateChildDiscuss"
 	TrendService_GetTrendDiscusses_FullMethodName        = "/trend.TrendService/GetTrendDiscusses"
@@ -52,16 +53,18 @@ type TrendServiceClient interface {
 	CreateTrend(ctx context.Context, in *CreateTrendRequest, opts ...grpc.CallOption) (*CreateTrendResponse, error)
 	// 删除动态
 	DeleteTrend(ctx context.Context, in *DeleteTrendRequest, opts ...grpc.CallOption) (*DeleteTrendResponse, error)
-	// 更新动态
+	// 获取最新动态,设置置顶，设置评论区，访问范围
 	UpdateTrend(ctx context.Context, in *UpdateTrendRequest, opts ...grpc.CallOption) (*UpdateTrendResponse, error)
 	// 获取动态列表
 	ListTrends(ctx context.Context, in *ListTrendsRequest, opts ...grpc.CallOption) (*ListTrendsResponse, error)
 	// 获取单个动态详情
 	GetTrendDetail(ctx context.Context, in *GetTrendDetailRequest, opts ...grpc.CallOption) (*GetTrendDetailResponse, error)
-	// 获取最新动态
+	// 获取最新动态,设置置顶，设置评论区，访问范围
 	GetLatestTrends(ctx context.Context, in *GetLatestTrendsRequest, opts ...grpc.CallOption) (*GetLatestTrendsResponse, error)
 	// 获取用户个人动态列表
 	GetUserTrends(ctx context.Context, in *GetUserTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error)
+	// 获取用户动态置顶
+	GetUserTopTrend(ctx context.Context, in *GetUserTopTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error)
 	// 评论服务定义
 	// 动态评论相关模块
 	// 1. 发表一级评论（父评论ID=0）
@@ -166,6 +169,16 @@ func (c *trendServiceClient) GetUserTrends(ctx context.Context, in *GetUserTrend
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetUserTrendsResponse)
 	err := c.cc.Invoke(ctx, TrendService_GetUserTrends_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *trendServiceClient) GetUserTopTrend(ctx context.Context, in *GetUserTopTrendsRequest, opts ...grpc.CallOption) (*GetUserTrendsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserTrendsResponse)
+	err := c.cc.Invoke(ctx, TrendService_GetUserTopTrend_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -322,16 +335,18 @@ type TrendServiceServer interface {
 	CreateTrend(context.Context, *CreateTrendRequest) (*CreateTrendResponse, error)
 	// 删除动态
 	DeleteTrend(context.Context, *DeleteTrendRequest) (*DeleteTrendResponse, error)
-	// 更新动态
+	// 获取最新动态,设置置顶，设置评论区，访问范围
 	UpdateTrend(context.Context, *UpdateTrendRequest) (*UpdateTrendResponse, error)
 	// 获取动态列表
 	ListTrends(context.Context, *ListTrendsRequest) (*ListTrendsResponse, error)
 	// 获取单个动态详情
 	GetTrendDetail(context.Context, *GetTrendDetailRequest) (*GetTrendDetailResponse, error)
-	// 获取最新动态
+	// 获取最新动态,设置置顶，设置评论区，访问范围
 	GetLatestTrends(context.Context, *GetLatestTrendsRequest) (*GetLatestTrendsResponse, error)
 	// 获取用户个人动态列表
 	GetUserTrends(context.Context, *GetUserTrendsRequest) (*GetUserTrendsResponse, error)
+	// 获取用户动态置顶
+	GetUserTopTrend(context.Context, *GetUserTopTrendsRequest) (*GetUserTrendsResponse, error)
 	// 评论服务定义
 	// 动态评论相关模块
 	// 1. 发表一级评论（父评论ID=0）
@@ -392,6 +407,9 @@ func (UnimplementedTrendServiceServer) GetLatestTrends(context.Context, *GetLate
 }
 func (UnimplementedTrendServiceServer) GetUserTrends(context.Context, *GetUserTrendsRequest) (*GetUserTrendsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserTrends not implemented")
+}
+func (UnimplementedTrendServiceServer) GetUserTopTrend(context.Context, *GetUserTopTrendsRequest) (*GetUserTrendsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserTopTrend not implemented")
 }
 func (UnimplementedTrendServiceServer) CreateRootDiscuss(context.Context, *CreateDiscussReq) (*CreateDiscussResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateRootDiscuss not implemented")
@@ -578,6 +596,24 @@ func _TrendService_GetUserTrends_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(TrendServiceServer).GetUserTrends(ctx, req.(*GetUserTrendsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TrendService_GetUserTopTrend_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserTopTrendsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TrendServiceServer).GetUserTopTrend(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TrendService_GetUserTopTrend_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TrendServiceServer).GetUserTopTrend(ctx, req.(*GetUserTopTrendsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -868,6 +904,10 @@ var TrendService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserTrends",
 			Handler:    _TrendService_GetUserTrends_Handler,
+		},
+		{
+			MethodName: "GetUserTopTrend",
+			Handler:    _TrendService_GetUserTopTrend_Handler,
 		},
 		{
 			MethodName: "CreateRootDiscuss",

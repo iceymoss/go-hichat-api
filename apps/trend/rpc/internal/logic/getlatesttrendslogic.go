@@ -50,7 +50,7 @@ func (l *GetLatestTrendsLogic) GetLatestTrends(in *trend.GetLatestTrendsRequest)
 	// TODO: 获取评论和点赞数据
 
 	hasMore := false
-	if len(trendList) > models.Limit {
+	if len(trendList) >= models.Limit {
 		hasMore = true
 	}
 
@@ -98,5 +98,6 @@ func trendToResp(v models.Trend) *trend.Trend {
 		OpenReply:     int32(v.OpenReply),
 		DeviceId:      v.Device,
 		Ip:            v.Ip,
+		IsTop:         int32(v.IsTop),
 	}
 }

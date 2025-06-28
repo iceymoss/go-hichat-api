@@ -2,6 +2,8 @@ package logic
 
 import (
 	"context"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"go.uber.org/zap"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
@@ -25,7 +27,38 @@ func NewUpdateTrendLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Updat
 
 // UpdateTrend 更新动态
 func (l *UpdateTrendLogic) UpdateTrend(in *trend.UpdateTrendRequest) (*trend.UpdateTrendResponse, error) {
-	// todo: add your logic here and delete this line
+	// 更新置顶
+	var isTop bool
+	if in.IsTop == 1 {
+		isTop = true
+	}
+	err := l.svcCtx.Trend.SetTop(l.ctx, uint64(in.TrendId), isTop)
+	if err != nil {
+		zLog.Error("设置动态置顶失败", zap.Error(err))
+		return nil, err
+	}
+
+	// 更新评论区
+	var isOpen bool
+	if in.OpenReply == 1 {
+		isOpen = true
+	}
+	err = l.svcCtx.Trend.OpenReply(l.ctx, uint64(in.TrendId), isOpen)
+	if err != nil {
+		zLog.Error("设置动态评论区失败", zap.Error(err))
+		return nil, err
+	}
+
+	// 更新范围
+	isScope := 1
+	if in.Scope == 2 {
+		isScope = 2
+	}
+	err = l.svcCtx.Trend.SetCircleState(l.ctx, uint64(in.TrendId), isScope)
+	if err != nil {
+		zLog.Error("设置动态权限失败", zap.Error(err))
+		return nil, err
+	}
 
 	return &trend.UpdateTrendResponse{}, nil
 }

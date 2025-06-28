@@ -47,6 +47,7 @@ type (
 		List(ctx context.Context, lastId int, lastTime int64, userIds []string, filter []string, sort string, sortType int) (*[]Trend, error)
 		ListByUserIds(ctx context.Context, userList []string, lastId int, scpoe int32, filter []string) (*[]Trend, error)
 		SetTrendReplyCount(ctx context.Context, id uint64, resIncCount int) error
+		GetTopByUid(ctx context.Context, uid uint64, lastId uint64) ([]*Trend, error)
 	}
 
 	defaultTrendModel struct {
@@ -93,6 +94,22 @@ func newTrendModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Option) *
 	}
 }
 
+func (m *defaultTrendModel) GetTopByUid(ctx context.Context, uid uint64, lastId uint64) ([]*Trend, error) {
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	var trend []*Trend
+	err := mysqlConn.Table(m.table).
+		Where("userid = ?", uid).
+		Where("state = ?", 1).
+		Where("is_top = ?", 1).
+		Order("id DESC").
+		Find(&trend).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return trend, nil
+}
+
 func (m *defaultTrendModel) SetTrendReplyCount(ctx context.Context, id uint64, resIncCount int) error {
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var trend Trend
@@ -122,10 +139,12 @@ func (m *defaultTrendModel) ListByUserIds(ctx context.Context, userList []string
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var trendList []Trend
 	query := mysqlConn.Table(m.table).Select(filter).Where("state = ?", 1).
-		Where("id > ?", lastId).
 		Where("userid in ?", userList).
-		Order("createtime DESC")
+		Order("id DESC")
 
+	if lastId != 0 {
+		query = query.Where("id < ?", lastId)
+	}
 	switch scpoe {
 	case 1:
 		query = query.Where("circle_state = ?", 1)
@@ -151,11 +170,11 @@ func (m *defaultTrendModel) List(ctx context.Context, lastId int, lastTime int64
 	query := mysqlConn.Table(m.table).Select(filter)
 	var trendList []Trend
 	if lastId > 0 {
-		query = query.Where("id > ?", lastId)
+		query = query.Where("id < ?", lastId)
 	}
 
 	if lastTime > 0 {
-		query = query.Where("createtime > ?", lastTime)
+		query = query.Where("createtime < ?", lastTime)
 	}
 
 	sortTypePoint := "ACS"
@@ -184,10 +203,6 @@ func (m *defaultTrendModel) SetCircleState(ctx context.Context, id uint64, ran i
 		return res.Error
 	}
 
-	if res.RowsAffected == 0 {
-		return errors.New("set reply state failed")
-	}
-
 	return nil
 }
 
@@ -201,10 +216,6 @@ func (m *defaultTrendModel) OpenReply(ctx context.Context, id uint64, isOpen boo
 	res := mysqlConn.Table(m.table).Where("id = ?", id).Update("open_reply", open)
 	if res.Error != nil {
 		return res.Error
-	}
-
-	if res.RowsAffected == 0 {
-		return errors.New("set reply state failed")
 	}
 
 	return nil
@@ -221,10 +232,6 @@ func (m *defaultTrendModel) Delete(ctx context.Context, id uint64) error {
 		return res.Error
 	}
 
-	if res.RowsAffected == 0 {
-		return errors.New("delete trend failed")
-	}
-
 	return nil
 }
 
@@ -238,10 +245,6 @@ func (m *defaultTrendModel) SetTop(ctx context.Context, id uint64, isTop bool) e
 	res := mysqlConn.Table(m.table).Where("id = ?", id).Update("is_top", top)
 	if res.Error != nil {
 		return res.Error
-	}
-
-	if res.RowsAffected == 0 {
-		return errors.New("set top failed")
 	}
 
 	return nil
