@@ -2,7 +2,9 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"github.com/iceymoss/go-hichat-api/apps/trend/models"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
@@ -76,6 +78,7 @@ func (l *GetRootDiscussesLogic) GetRootDiscusses(in *trend.GetDiscussesReq) (*tr
 		// 7. 返回响应
 		return &trend.DiscussesListResp{
 			Discusses: respDiscusses,
+			Total:     trendInfo.ReplyCount,
 			Pagination: &trend.Pagination{
 				LastId:   int32(nextCursorID),
 				LastTime: nextCursorTime,
@@ -84,5 +87,32 @@ func (l *GetRootDiscussesLogic) GetRootDiscusses(in *trend.GetDiscussesReq) (*tr
 	}
 
 	return &trend.DiscussesListResp{}, nil
+}
 
+// 将模型转换为 protobuf 响应
+func convertToReply(discuss *models.TrendDiscuss) *trend.Discuss {
+	// 反序列化 @用户列表
+	var atUserIds []uint64
+	if discuss.Idlist != "" {
+		_ = json.Unmarshal([]byte(discuss.Idlist), &atUserIds)
+	}
+
+	return &trend.Discuss{
+		Id:           discuss.Id,
+		TrendId:      uint64(discuss.Trendid),
+		Father:       uint64(discuss.Father),
+		RootId:       discuss.Rootid,
+		Replyer:      uint64(discuss.Replyer),
+		UserId:       discuss.Userid,
+		Level:        uint32(discuss.Level),
+		Content:      discuss.Content,
+		AtUserIds:    atUserIds,
+		AgreeCount:   discuss.AgreeCount,
+		DiscussCount: uint64(discuss.DiscussCount),
+		State:        uint32(discuss.State),
+		Read:         discuss.Read != 0, // 0:未读 1:已读
+		CreateTime:   discuss.Createtime.Unix(),
+		UpdateTime:   discuss.Updatetime.Unix(),
+		Children:     []*trend.Discuss{}, // 初始化为空切片
+	}
 }

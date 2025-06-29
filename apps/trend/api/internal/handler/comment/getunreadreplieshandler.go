@@ -9,7 +9,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-// 获取未读回复通知
+// GetUnreadRepliesHandler 获取未读回复通知
 func GetUnreadRepliesHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.GetUnreadRepliesReq

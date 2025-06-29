@@ -9,10 +9,10 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-// 获取评论树
+// GetDiscussesTreeHandler 获取评论树
 func GetDiscussesTreeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.GetDiscussesReq
+		var req types.GetDiscussesListReq
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return

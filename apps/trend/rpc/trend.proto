@@ -290,6 +290,20 @@ message GetDiscussesReq {
   repeated string uids = 4; // 好友id
 }
 
+message GetDiscussesListReq {
+  repeated uint64 trend_id = 1;      // 动态ID
+  int32 last_id = 2;                 // 一级评论
+}
+
+message GetDiscussesListResp {
+  map<uint32, TrendDiscusses> Discusses = 1; // key=trend_id
+  repeated  string user_ids = 2;             // 用户id
+}
+
+message TrendDiscusses {
+  repeated Discuss list = 1;
+}
+
 // 评论树形响应
 message DiscussesTreeResp {
   repeated Discuss discusses = 1; // 树形评论列表（一级评论包含子评论）
@@ -465,7 +479,7 @@ service TrendService {
   rpc CreateChildDiscuss(CreateDiscussReq) returns (CreateDiscussResp);
 
   // 3. 获取动态的多级评论树（树形结构）
-  rpc GetTrendDiscusses(GetDiscussesReq) returns (DiscussesTreeResp);
+  rpc GetTrendDiscusses(GetDiscussesListReq) returns (GetDiscussesListResp);
 
   // 4. 获取一级评论（分页）
   rpc GetRootDiscusses(GetDiscussesReq) returns (DiscussesListResp);

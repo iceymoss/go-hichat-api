@@ -84,7 +84,7 @@ func (s *TrendServiceServer) CreateChildDiscuss(ctx context.Context, in *trend.C
 }
 
 // 3. 获取动态的多级评论树（树形结构）
-func (s *TrendServiceServer) GetTrendDiscusses(ctx context.Context, in *trend.GetDiscussesReq) (*trend.DiscussesTreeResp, error) {
+func (s *TrendServiceServer) GetTrendDiscusses(ctx context.Context, in *trend.GetDiscussesListReq) (*trend.GetDiscussesListResp, error) {
 	l := logic.NewGetTrendDiscussesLogic(ctx, s.svcCtx)
 	return l.GetTrendDiscusses(in)
 }

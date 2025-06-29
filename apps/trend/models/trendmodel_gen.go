@@ -48,6 +48,7 @@ type (
 		ListByUserIds(ctx context.Context, userList []string, lastId int, scpoe int32, filter []string) (*[]Trend, error)
 		SetTrendReplyCount(ctx context.Context, id uint64, resIncCount int) error
 		GetTopByUid(ctx context.Context, uid uint64, lastId uint64) ([]*Trend, error)
+		FindListByIds(ctx context.Context, ids []uint64, fieled []string) ([]*Trend, error)
 	}
 
 	defaultTrendModel struct {
@@ -92,6 +93,28 @@ func newTrendModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Option) *
 		CachedConn: sqlc.NewConn(conn, c, opts...),
 		table:      "`trend`",
 	}
+}
+
+func (m *defaultTrendModel) FindListByIds(ctx context.Context, ids []uint64, field []string) ([]*Trend, error) {
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	var trend []*Trend
+	query := mysqlConn.Table(m.table)
+	if len(field) == 0 {
+		field = append(field, "*")
+	}
+	err := query.
+		Where("id in ?", ids).
+		Where("state = ?", 1).
+		Order("id DESC").
+		Find(&trend).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return []*Trend{}, nil
+		}
+		return nil, err
+	}
+
+	return trend, nil
 }
 
 func (m *defaultTrendModel) GetTopByUid(ctx context.Context, uid uint64, lastId uint64) ([]*Trend, error) {

@@ -35,6 +35,16 @@ func (l *DeleteDiscussLogic) DeleteDiscuss(in *trend.DeleteDiscussReq) (*trend.D
 		return nil, findErr
 	}
 
+	var fatherDiscussCount int64
+	if discus.Father != 0 {
+		father, fatherErr := l.svcCtx.TrendDiscuss.FindOne(l.ctx, uint64(discus.Father))
+		if fatherErr != nil {
+			zLog.Error("获取父亲评论失败", zap.Any("id", in.Id), zap.Error(fatherErr))
+			return nil, fatherErr
+		}
+		fatherDiscussCount = father.DiscussCount
+	}
+
 	tx := transaction.NewManager()
 	txErr := tx.Execute(l.ctx, nil, func(ctx context.Context) error {
 		// 获取子评论
@@ -52,12 +62,12 @@ func (l *DeleteDiscussLogic) DeleteDiscuss(in *trend.DeleteDiscussReq) (*trend.D
 		}
 
 		// 扣减当前评论的父亲评论的评论数据
-		newCount := int(discus.DiscussCount) - count
 		if discus.Father != 0 {
+			newCount := int(fatherDiscussCount) - count
 			if newCount < 0 {
 				newCount = 0
 			}
-			err = l.svcCtx.TrendDiscuss.SetDiscuss(l.ctx, discus.Id, newCount)
+			err = l.svcCtx.TrendDiscuss.SetDiscuss(l.ctx, uint64(discus.Father), newCount)
 			if err != nil {
 				zLog.Error("SetDiscuss failed", zap.Error(err))
 				return err
