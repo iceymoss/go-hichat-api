@@ -70,9 +70,9 @@ service trend {
 	@handler deleteDiscuss
 	delete /comment (DeleteDiscussReq) returns (DeleteDiscussResp)
 
-	@doc "获取未读回复通知"
+	@doc "获取未读回复和点赞通知"
 	@handler getUnreadReplies
-	get /comment/unread (GetUnreadRepliesReq) returns (RepliesListResp)
+	get /unread (GetUnreadRepliesReq) returns (RepliesListResp)
 
 	@doc "标记评论为已读"
 	@handler markDiscussRead
@@ -335,23 +335,23 @@ type DeleteDiscussResp {
 
 // 未读回复请求
 type GetUnreadRepliesReq {
-	UserID   string `json:"user_id"`
-	LastID   int    `json:"last_id"`
-	LastTime int    `json:"last_time"`
+	LikeLastID   int `json:"like_last_id,optional"`
+	DiscussLasID int `json:"discuss_last_id,optional"`
+	LastTime     int `json:"last_time,optional"`
 }
 
 // 未读回复响应
 type RepliesListResp {
-	RepliesJSON string `json:"replies_json"`
-	LastID      int    `json:"last_id"`
-	LastTime    int    `json:"last_time"`
-	Total       int    `json:"total"`
+	Replies      []*Discuss `json:"replies"`
+	Likes        []*Like    `json:"likes"`
+	LikeLastID   int        `json:"like_last_id,optional"`
+	DiscussLasID int        `json:"discuss_last_id,optional"`
+	LastTime     int        `json:"last_time"`
 }
 
 // 标记评论已读请求
 type MarkDiscussRequest {
-	UserID string   `json:"user_id"`
-	DisIDs []string `json:"dis_ids"`
+	DisIDs []uint64 `json:"dis_ids"`
 }
 
 // 标记评论已读响应
@@ -363,6 +363,14 @@ type LikeToggleRequest {
 	TrendID  string `json:"trend_id"`
 	AuthorID string `json:"author_id"`
 	LikeType int    `json:"like_type"`
+}
+
+// 点赞信息 (与微信接口对齐)
+type Like {
+	id        int    `json:"id"` // 点赞记录ID
+	user      *User  `json:"user"` // 点赞用户ID
+	trend_id  uint64 `json:"trend_id"` // 动态ID
+	like_time uint64 `json:"like_time"` // 点赞时间
 }
 
 // 点赞操作响应
@@ -423,8 +431,7 @@ type GetUnreadLikesResponse {
 
 // 标记点赞已读请求
 type MarkLikesReadRequest {
-	UserID  string   `json:"user_id"`
-	LikeIDs []string `json:"like_ids"`
+	LikeIDs []uint64 `json:"like_ids"`
 }
 
 // 标记点赞已读响应

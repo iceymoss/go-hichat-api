@@ -42,8 +42,16 @@ func (l *GetUnreadRepliesLogic) GetUnreadReplies(in *trend.GetUnreadRepliesReq) 
 		idList = append(idList, v.Id)
 	}
 
+	var lastId uint64
+	if len(list) > 0 {
+		lastId = list[len(list)-1].Id
+	}
+
 	return &trend.RepliesListResp{
 		Replies: list,
 		Total:   uint64(len(list)),
+		Pagination: &trend.Pagination{
+			LastId: int32(lastId),
+		},
 	}, nil
 }

@@ -168,9 +168,9 @@ type GetUnreadLikesResponse struct {
 }
 
 type GetUnreadRepliesReq struct {
-	UserID   string `json:"user_id"`
-	LastID   int    `json:"last_id"`
-	LastTime int    `json:"last_time"`
+	LikeLastID   int `json:"like_last_id,optional"`
+	DiscussLasID int `json:"discuss_last_id,optional"`
+	LastTime     int `json:"last_time,optional"`
 }
 
 type GetUserTrendsRequest struct {
@@ -183,6 +183,13 @@ type GetUserTrendsResponse struct {
 	TopTrends []*Trend `json:"top_list"`
 	LastID    int      `json:"last_id"`
 	LastTime  int      `json:"last_time"`
+}
+
+type Like struct {
+	Id        int    `json:"id"`        // 点赞记录ID
+	User      *User  `json:"user"`      // 点赞用户ID
+	Trend_id  uint64 `json:"trend_id"`  // 动态ID
+	Like_time uint64 `json:"like_time"` // 点赞时间
 }
 
 type LikeToggleRequest struct {
@@ -213,26 +220,25 @@ type ListTrendsResponse struct {
 }
 
 type MarkDiscussRequest struct {
-	UserID string   `json:"user_id"`
-	DisIDs []string `json:"dis_ids"`
+	DisIDs []uint64 `json:"dis_ids"`
 }
 
 type MarkDiscussResponse struct {
 }
 
 type MarkLikesReadRequest struct {
-	UserID  string   `json:"user_id"`
-	LikeIDs []string `json:"like_ids"`
+	LikeIDs []uint64 `json:"like_ids"`
 }
 
 type MarkLikesReadResponse struct {
 }
 
 type RepliesListResp struct {
-	RepliesJSON string `json:"replies_json"`
-	LastID      int    `json:"last_id"`
-	LastTime    int    `json:"last_time"`
-	Total       int    `json:"total"`
+	Replies      []*Discuss `json:"replies"`
+	Likes        []*Like    `json:"likes"`
+	LikeLastID   int        `json:"like_last_id,optional"`
+	DiscussLasID int        `json:"discuss_last_id,optional"`
+	LastTime     int        `json:"last_time"`
 }
 
 type Trend struct {

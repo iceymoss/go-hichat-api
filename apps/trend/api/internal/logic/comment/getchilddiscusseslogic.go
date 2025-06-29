@@ -105,5 +105,7 @@ func discuss2Resp(child *trend.Discuss) *types.Discuss {
 		Read:         child.Read,
 		CreateTime:   child.CreateTime,
 		UpdateTime:   child.UpdateTime,
+		User:         &types.User{},
+		Replyer:      &types.User{},
 	}
 }

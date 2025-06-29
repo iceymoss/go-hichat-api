@@ -204,7 +204,12 @@ func (m *defaultTrendDiscussModel) FindUnreadByUser(ctx context.Context, userId 
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 
 	var discusses []*TrendDiscuss
-	err := mysqlConn.Table(m.table).Where("userid = ?", userId).Where("state = ?", 1).Where("`read` = ?", 1).Order("createtime DESC").Find(&discusses).Error
+
+	query := mysqlConn.Table(m.table).Where("userid = ?", userId).Where("state = ?", 1)
+	if lastId > 0 {
+		query.Where("id < ?", lastId)
+	}
+	err := query.Where("`read` = ?", 1).Order("id DESC").Find(&discusses).Error
 	if err != nil {
 		return nil, err
 	}

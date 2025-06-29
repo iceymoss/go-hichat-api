@@ -9,7 +9,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-// 标记点赞为已读
+// MarkLikesReadHandler 标记点赞为已读
 func MarkLikesReadHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.MarkLikesReadRequest
