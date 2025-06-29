@@ -45,7 +45,7 @@ service trend {
 
 // ===== 评论服务 =====
 @server (
-	prefix: /v1
+	prefix: /v1/trend
 	group:  comment
 	jwt:    JwtAuth
 )
@@ -56,7 +56,7 @@ service trend {
 
 	@doc "获取评论树"
 	@handler getDiscussesTree
-	get /comment/tree (GetDiscussesReq) returns (DiscussesTreeResp)
+	get /comment/tree (GetDiscussesListReq) returns (DiscussesTreeResp)
 
 	@doc "获取一级评论"
 	@handler getRootDiscusses
@@ -81,7 +81,7 @@ service trend {
 
 // ===== 点赞服务 =====
 @server (
-	prefix: /v1
+	prefix: /v1/trend
 	group:  like
 	jwt:    JwtAuth
 )
@@ -241,56 +241,91 @@ type GetUserTrendsResponse {
 	LastTime  int      `json:"last_time"`
 }
 
+type Discuss {
+	// 核心标识
+	Id      int64 `json:"id,omitempty"` // 评论ID
+	TrendId int64 `json:"trend_id,omitempty"` // 所属动态ID
+	RootId  int64 `json:"root_id,omitempty"` // 根评论ID
+	Father  int64 `json:"father,omitempty"` // 父评论ID（0=一级评论）
+	// 用户信息
+	Replyer *User   `json:"replyer,omitempty"` // 评论者用户ID
+	User    *User   `json:"user_id,omitempty"` // 被评论者用户ID
+	AtUser  []*User `json:"at_user_ids,omitempty"` // @的用户ID列表
+	// 内容与互动
+	Level        int    `json:"level,omitempty"` // 评论层级（1=一级,2=二级...）
+	Content      string `json:"content,omitempty"` // 评论内容
+	AgreeCount   int64  `json:"agree_count,omitempty"` // 点赞数
+	DiscussCount int64  `json:"discuss_count,omitempty"` // 子评论数量
+	// 状态与时间
+	State      int   `json:"state,omitempty"` // 状态（0=已删除,1=正常）
+	Read       bool  `json:"read,omitempty"` // 已读状态
+	CreateTime int64 `json:"create_time,omitempty"` // 创建时间(时间戳)
+	UpdateTime int64 `json:"update_time,omitempty"` // 更新时间(时间戳)
+	// 树形结构
+	Children []*Discuss `json:"children,omitempty"` // 子评论
+}
+
 // 创建评论请求
 type CreateDiscussReq {
-	TrendID   string   `json:"trend_id"`
-	Father    string   `json:"father"`
-	UserID    string   `json:"user_id"`
+	TrendID   uint64   `json:"trend_id"`
+	Father    uint64   `json:"father,optional"` //一级评论是不需要的
+	UserID    uint64   `json:"user_id"`
 	Content   string   `json:"content"`
-	AtUserIDs []string `json:"at_user_ids"`
-	Replyer   string   `json:"replyer"`
+	AtUserIDs []uint64 `json:"at_users,optional"`
 }
 
 // 创建评论响应
-type CreateDiscussResp {
-	DiscussJSON string `json:"discuss_json"`
-}
+type CreateDiscussResp {}
 
 // 获取评论请求
 type GetDiscussesReq {
-	TrendID         string   `json:"trend_id"`
-	LastID          int      `json:"last_id"`
-	LastTime        int      `json:"last_time"`
-	IncludeChildren bool     `json:"include_children"`
-	UIDs            []string `json:"uids"`
+	TrendID  uint64 `json:"trend_id"`
+	LastID   int    `json:"last_id,optional"`
+	LastTime int    `json:"last_time,optional"`
 }
 
 // 评论树响应
 type DiscussesTreeResp {
-	DiscussesJSON string `json:"discusses_json"`
-	LastID        int    `json:"last_id"`
-	LastTime      int    `json:"last_time"`
+	Discusses GetDiscussesListResp `json:"discuss"`
+	LastID    int                  `json:"last_id"`
+	LastTime  int                  `json:"last_time"`
+}
+
+// 一个趋势的所有评论集合
+type TrendDiscusses {
+	Discusses []*Discuss `json:"discusses"`
+}
+
+// 获取评论请求
+type GetDiscussesListReq {
+	TrendID  []uint64 `json:"trend_id"`
+	LastID   int      `json:"last_id,optional"`
+	LastTime int      `json:"last_time,optional"`
+}
+
+// 最终响应结构 (趋势ID => 评论集合)
+type GetDiscussesListResp {
+	DiscussesMap map[uint64]TrendDiscusses `json:"trend_discuss"`
 }
 
 // 评论列表响应
 type DiscussesListResp {
-	DiscussesJSON string `json:"discusses_json"`
-	LastID        int    `json:"last_id"`
-	LastTime      int    `json:"last_time"`
-	Total         int    `json:"total"`
+	DiscussesJSON []*Discuss `json:"list"`
+	LastID        int        `json:"last_id"`
+	LastTime      int        `json:"last_time"`
+	Total         int        `json:"total"`
 }
 
 // 子评论请求
 type GetChildDiscussesReq {
-	RootID   string `json:"root_id"`
-	Father   string `json:"father"`
-	LastID   int    `json:"last_id"`
-	LastTime int    `json:"last_time"`
+	Father   uint64 `json:"father"`
+	LastID   int    `json:"last_id,optional"`
+	LastTime uint64 `json:"last_time,optional"`
 }
 
 // 删除评论请求
 type DeleteDiscussReq {
-	ID string `json:"id"`
+	ID uint64 `json:"id"`
 }
 
 // 删除评论响应

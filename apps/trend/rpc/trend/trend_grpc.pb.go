@@ -72,7 +72,7 @@ type TrendServiceClient interface {
 	// 2. 发表多级评论（二级、三级等）
 	CreateChildDiscuss(ctx context.Context, in *CreateDiscussReq, opts ...grpc.CallOption) (*CreateDiscussResp, error)
 	// 3. 获取动态的多级评论树（树形结构）
-	GetTrendDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesTreeResp, error)
+	GetTrendDiscusses(ctx context.Context, in *GetDiscussesListReq, opts ...grpc.CallOption) (*GetDiscussesListResp, error)
 	// 4. 获取一级评论（分页）
 	GetRootDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesListResp, error)
 	// 5. 获取子评论（指定父评论下的所有评论）
@@ -205,9 +205,9 @@ func (c *trendServiceClient) CreateChildDiscuss(ctx context.Context, in *CreateD
 	return out, nil
 }
 
-func (c *trendServiceClient) GetTrendDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesTreeResp, error) {
+func (c *trendServiceClient) GetTrendDiscusses(ctx context.Context, in *GetDiscussesListReq, opts ...grpc.CallOption) (*GetDiscussesListResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DiscussesTreeResp)
+	out := new(GetDiscussesListResp)
 	err := c.cc.Invoke(ctx, TrendService_GetTrendDiscusses_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -354,7 +354,7 @@ type TrendServiceServer interface {
 	// 2. 发表多级评论（二级、三级等）
 	CreateChildDiscuss(context.Context, *CreateDiscussReq) (*CreateDiscussResp, error)
 	// 3. 获取动态的多级评论树（树形结构）
-	GetTrendDiscusses(context.Context, *GetDiscussesReq) (*DiscussesTreeResp, error)
+	GetTrendDiscusses(context.Context, *GetDiscussesListReq) (*GetDiscussesListResp, error)
 	// 4. 获取一级评论（分页）
 	GetRootDiscusses(context.Context, *GetDiscussesReq) (*DiscussesListResp, error)
 	// 5. 获取子评论（指定父评论下的所有评论）
@@ -417,7 +417,7 @@ func (UnimplementedTrendServiceServer) CreateRootDiscuss(context.Context, *Creat
 func (UnimplementedTrendServiceServer) CreateChildDiscuss(context.Context, *CreateDiscussReq) (*CreateDiscussResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateChildDiscuss not implemented")
 }
-func (UnimplementedTrendServiceServer) GetTrendDiscusses(context.Context, *GetDiscussesReq) (*DiscussesTreeResp, error) {
+func (UnimplementedTrendServiceServer) GetTrendDiscusses(context.Context, *GetDiscussesListReq) (*GetDiscussesListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTrendDiscusses not implemented")
 }
 func (UnimplementedTrendServiceServer) GetRootDiscusses(context.Context, *GetDiscussesReq) (*DiscussesListResp, error) {
@@ -655,7 +655,7 @@ func _TrendService_CreateChildDiscuss_Handler(srv interface{}, ctx context.Conte
 }
 
 func _TrendService_GetTrendDiscusses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetDiscussesReq)
+	in := new(GetDiscussesListReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -667,7 +667,7 @@ func _TrendService_GetTrendDiscusses_Handler(srv interface{}, ctx context.Contex
 		FullMethod: TrendService_GetTrendDiscusses_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TrendServiceServer).GetTrendDiscusses(ctx, req.(*GetDiscussesReq))
+		return srv.(TrendServiceServer).GetTrendDiscusses(ctx, req.(*GetDiscussesListReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -61,7 +61,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),
-		rest.WithPrefix("/v1"),
+		rest.WithPrefix("/v1/trend"),
 	)
 
 	server.AddRoutes(
@@ -104,7 +104,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),
-		rest.WithPrefix("/v1"),
+		rest.WithPrefix("/v1/trend"),
 	)
 
 	server.AddRoutes(
