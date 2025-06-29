@@ -54,14 +54,14 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: comment.GetDiscussesTreeHandler(serverCtx),
 			},
 			{
-				// 获取未读回复通知
+				// 获取未读回复和点赞通知
 				Method:  http.MethodGet,
-				Path:    "/comment/unread",
+				Path:    "/unread",
 				Handler: comment.GetUnreadRepliesHandler(serverCtx),
 			},
 		},
 		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),
-		rest.WithPrefix("/v1"),
+		rest.WithPrefix("/v1/trend"),
 	)
 
 	server.AddRoutes(
@@ -104,7 +104,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),
-		rest.WithPrefix("/v1"),
+		rest.WithPrefix("/v1/trend"),
 	)
 
 	server.AddRoutes(

@@ -9,7 +9,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-// 获取一级评论
+// GetRootDiscussesHandler 获取一级评论
 func GetRootDiscussesHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.GetDiscussesReq

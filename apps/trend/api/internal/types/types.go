@@ -13,16 +13,14 @@ type BatchTrendLikeSummaryResponse struct {
 }
 
 type CreateDiscussReq struct {
-	TrendID   string   `json:"trend_id"`
-	Father    string   `json:"father"`
-	UserID    string   `json:"user_id"`
+	TrendID   uint64   `json:"trend_id"`
+	Father    uint64   `json:"father,optional"` //一级评论是不需要的
+	UserID    uint64   `json:"user_id"`
 	Content   string   `json:"content"`
-	AtUserIDs []string `json:"at_user_ids"`
-	Replyer   string   `json:"replyer"`
+	AtUserIDs []uint64 `json:"at_users,optional"`
 }
 
 type CreateDiscussResp struct {
-	DiscussJSON string `json:"discuss_json"`
 }
 
 type CreateTrendRequest struct {
@@ -48,7 +46,7 @@ type CreateTrendResponse struct {
 }
 
 type DeleteDiscussReq struct {
-	ID string `json:"id"`
+	ID uint64 `json:"id"`
 }
 
 type DeleteDiscussResp struct {
@@ -63,32 +61,58 @@ type DeleteTrendResponse struct {
 	Success bool `json:"success"`
 }
 
+type Discuss struct {
+	Id           int64      `json:"id,omitempty"`            // 评论ID
+	TrendId      int64      `json:"trend_id,omitempty"`      // 所属动态ID
+	RootId       int64      `json:"root_id,omitempty"`       // 根评论ID
+	Father       int64      `json:"father,omitempty"`        // 父评论ID（0=一级评论）
+	Replyer      *User      `json:"replyer,omitempty"`       // 评论者用户ID
+	User         *User      `json:"user_id,omitempty"`       // 被评论者用户ID
+	AtUser       []*User    `json:"at_user_ids,omitempty"`   // @的用户ID列表
+	Level        int        `json:"level,omitempty"`         // 评论层级（1=一级,2=二级...）
+	Content      string     `json:"content,omitempty"`       // 评论内容
+	AgreeCount   int64      `json:"agree_count,omitempty"`   // 点赞数
+	DiscussCount int64      `json:"discuss_count,omitempty"` // 子评论数量
+	State        int        `json:"state,omitempty"`         // 状态（0=已删除,1=正常）
+	Read         bool       `json:"read,omitempty"`          // 已读状态
+	CreateTime   int64      `json:"create_time,omitempty"`   // 创建时间(时间戳)
+	UpdateTime   int64      `json:"update_time,omitempty"`   // 更新时间(时间戳)
+	Children     []*Discuss `json:"children,omitempty"`      // 子评论
+}
+
 type DiscussesListResp struct {
-	DiscussesJSON string `json:"discusses_json"`
-	LastID        int    `json:"last_id"`
-	LastTime      int    `json:"last_time"`
-	Total         int    `json:"total"`
+	DiscussesJSON []*Discuss `json:"list"`
+	LastID        int        `json:"last_id"`
+	LastTime      int        `json:"last_time"`
+	Total         int        `json:"total"`
 }
 
 type DiscussesTreeResp struct {
-	DiscussesJSON string `json:"discusses_json"`
-	LastID        int    `json:"last_id"`
-	LastTime      int    `json:"last_time"`
+	Discusses GetDiscussesListResp `json:"discuss"`
+	LastID    int                  `json:"last_id"`
+	LastTime  int                  `json:"last_time"`
 }
 
 type GetChildDiscussesReq struct {
-	RootID   string `json:"root_id"`
-	Father   string `json:"father"`
-	LastID   int    `json:"last_id"`
-	LastTime int    `json:"last_time"`
+	Father   uint64 `json:"father"`
+	LastID   int    `json:"last_id,optional"`
+	LastTime uint64 `json:"last_time,optional"`
+}
+
+type GetDiscussesListReq struct {
+	TrendID  []uint64 `json:"trend_id"`
+	LastID   int      `json:"last_id,optional"`
+	LastTime int      `json:"last_time,optional"`
+}
+
+type GetDiscussesListResp struct {
+	DiscussesMap map[uint64]TrendDiscusses `json:"trend_discuss"`
 }
 
 type GetDiscussesReq struct {
-	TrendID         string   `json:"trend_id"`
-	LastID          int      `json:"last_id"`
-	LastTime        int      `json:"last_time"`
-	IncludeChildren bool     `json:"include_children"`
-	UIDs            []string `json:"uids"`
+	TrendID  uint64 `json:"trend_id"`
+	LastID   int    `json:"last_id,optional"`
+	LastTime int    `json:"last_time,optional"`
 }
 
 type GetLatestTrendsRequest struct {
@@ -144,9 +168,9 @@ type GetUnreadLikesResponse struct {
 }
 
 type GetUnreadRepliesReq struct {
-	UserID   string `json:"user_id"`
-	LastID   int    `json:"last_id"`
-	LastTime int    `json:"last_time"`
+	LikeLastID   int `json:"like_last_id,optional"`
+	DiscussLasID int `json:"discuss_last_id,optional"`
+	LastTime     int `json:"last_time,optional"`
 }
 
 type GetUserTrendsRequest struct {
@@ -159,6 +183,13 @@ type GetUserTrendsResponse struct {
 	TopTrends []*Trend `json:"top_list"`
 	LastID    int      `json:"last_id"`
 	LastTime  int      `json:"last_time"`
+}
+
+type Like struct {
+	Id        int    `json:"id"`        // 点赞记录ID
+	User      *User  `json:"user"`      // 点赞用户ID
+	Trend_id  uint64 `json:"trend_id"`  // 动态ID
+	Like_time uint64 `json:"like_time"` // 点赞时间
 }
 
 type LikeToggleRequest struct {
@@ -189,26 +220,25 @@ type ListTrendsResponse struct {
 }
 
 type MarkDiscussRequest struct {
-	UserID string   `json:"user_id"`
-	DisIDs []string `json:"dis_ids"`
+	DisIDs []uint64 `json:"dis_ids"`
 }
 
 type MarkDiscussResponse struct {
 }
 
 type MarkLikesReadRequest struct {
-	UserID  string   `json:"user_id"`
-	LikeIDs []string `json:"like_ids"`
+	LikeIDs []uint64 `json:"like_ids"`
 }
 
 type MarkLikesReadResponse struct {
 }
 
 type RepliesListResp struct {
-	RepliesJSON string `json:"replies_json"`
-	LastID      int    `json:"last_id"`
-	LastTime    int    `json:"last_time"`
-	Total       int    `json:"total"`
+	Replies      []*Discuss `json:"replies"`
+	Likes        []*Like    `json:"likes"`
+	LikeLastID   int        `json:"like_last_id,optional"`
+	DiscussLasID int        `json:"discuss_last_id,optional"`
+	LastTime     int        `json:"last_time"`
 }
 
 type Trend struct {
@@ -231,6 +261,10 @@ type Trend struct {
 	DeviceId      string    `json:"device_id,omitempty"`      // 发布设备ID
 	Ip            string    `json:"ip,omitempty"`             // IP信息
 	IsTop         int       `json:"is_top,omitempty"`         // 是否置顶
+}
+
+type TrendDiscusses struct {
+	Discusses []*Discuss `json:"discusses"`
 }
 
 type UpdateTrendRequest struct {

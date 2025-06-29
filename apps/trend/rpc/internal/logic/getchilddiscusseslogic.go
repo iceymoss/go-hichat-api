@@ -34,7 +34,7 @@ func (l *GetChildDiscussesLogic) GetChildDiscusses(in *trend.GetChildDiscussesRe
 	}
 
 	// 获取一级评论的信息
-	parentDiscuss, err := l.svcCtx.TrendDiscuss.FindOne(l.ctx, in.RootId)
+	parentDiscuss, err := l.svcCtx.TrendDiscuss.FindOne(l.ctx, in.Father)
 	if err != nil || parentDiscuss == nil || parentDiscuss.State != 1 {
 		return nil, errors.New("一级评论不存在或已被删除")
 	}
@@ -43,7 +43,7 @@ func (l *GetChildDiscussesLogic) GetChildDiscusses(in *trend.GetChildDiscussesRe
 	var list []*trend.Discuss
 	allCount := parentDiscuss.DiscussCount
 	if allCount > 0 {
-		childDiscusses, err := l.svcCtx.TrendDiscuss.FindChildrenByRootId(l.ctx, in.RootId, uint64(in.Pagination.LastId), 30)
+		childDiscusses, err := l.svcCtx.TrendDiscuss.FindChildrenByFather(l.ctx, in.Father, uint64(in.Pagination.LastId), 30)
 		if err != nil {
 			zLog.Error("GetChildDiscusses.FindChildrenByRootId: 查询二级评论失败", zap.Any("rootId", in.RootId), zap.Error(err))
 			return nil, errors.New("获取评论失败")

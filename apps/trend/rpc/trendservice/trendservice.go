@@ -29,6 +29,8 @@ type (
 	DiscussesListResp             = trend.DiscussesListResp
 	DiscussesTreeResp             = trend.DiscussesTreeResp
 	GetChildDiscussesReq          = trend.GetChildDiscussesReq
+	GetDiscussesListReq           = trend.GetDiscussesListReq
+	GetDiscussesListResp          = trend.GetDiscussesListResp
 	GetDiscussesReq               = trend.GetDiscussesReq
 	GetLatestTrendsRequest        = trend.GetLatestTrendsRequest
 	GetLatestTrendsResponse       = trend.GetLatestTrendsResponse
@@ -59,6 +61,7 @@ type (
 	RepliesListResp               = trend.RepliesListResp
 	Resource                      = trend.Resource
 	Trend                         = trend.Trend
+	TrendDiscusses                = trend.TrendDiscusses
 	TrendLikeSummary              = trend.TrendLikeSummary
 	UpdateTrendRequest            = trend.UpdateTrendRequest
 	UpdateTrendResponse           = trend.UpdateTrendResponse
@@ -85,7 +88,7 @@ type (
 		// 2. 发表多级评论（二级、三级等）
 		CreateChildDiscuss(ctx context.Context, in *CreateDiscussReq, opts ...grpc.CallOption) (*CreateDiscussResp, error)
 		// 3. 获取动态的多级评论树（树形结构）
-		GetTrendDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesTreeResp, error)
+		GetTrendDiscusses(ctx context.Context, in *GetDiscussesListReq, opts ...grpc.CallOption) (*GetDiscussesListResp, error)
 		// 4. 获取一级评论（分页）
 		GetRootDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesListResp, error)
 		// 5. 获取子评论（指定父评论下的所有评论）
@@ -182,7 +185,7 @@ func (m *defaultTrendService) CreateChildDiscuss(ctx context.Context, in *Create
 }
 
 // 3. 获取动态的多级评论树（树形结构）
-func (m *defaultTrendService) GetTrendDiscusses(ctx context.Context, in *GetDiscussesReq, opts ...grpc.CallOption) (*DiscussesTreeResp, error) {
+func (m *defaultTrendService) GetTrendDiscusses(ctx context.Context, in *GetDiscussesListReq, opts ...grpc.CallOption) (*GetDiscussesListResp, error) {
 	client := trend.NewTrendServiceClient(m.cli.Conn())
 	return client.GetTrendDiscusses(ctx, in, opts...)
 }

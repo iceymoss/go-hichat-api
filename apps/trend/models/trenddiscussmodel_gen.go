@@ -43,13 +43,15 @@ type (
 		FindByTrendWithKeyset(ctx context.Context, trendID uint64, level int, lastCursorID uint64, size int) ([]*TrendDiscuss, bool, error)
 		CountByRootId(ctx context.Context, rootId uint64) (int64, error)
 		FindChildrenWithKeyset(ctx context.Context, parentID uint64, lastCursorID uint64, lastCursorTime time.Time, size int) ([]*TrendDiscuss, bool, error)
-		FindChildrenByRootId(ctx context.Context, rootId uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error)
+		FindChildrenByFather(ctx context.Context, father uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error)
 		FindFirstByTrendId(ctx context.Context, trendId uint64, uids []string, astId uint64, pageSize int) ([]*TrendDiscuss, error)
 		FindUnreadByUser(ctx context.Context, userId int, lastId int) ([]*TrendDiscuss, error)
 		MarkReadById(ctx context.Context, uid uint64, idList []uint64) error
 		DeleteByRoots(ctx context.Context, ids []uint64) error
 		FindChildrenByPath(ctx context.Context, path string) ([]uint64, int, error)
 		SetDiscuss(ctx context.Context, id uint64, count int) error
+		FindFirstByTrendIds(ctx context.Context, trendId []uint64, lastID uint64) ([]*TrendDiscuss, error)
+		FindChildrenByFathers(ctx context.Context, fathers []uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error)
 	}
 
 	defaultTrendDiscussModel struct {
@@ -88,6 +90,29 @@ func (*TrendDiscuss) TableName() string {
 	return "trend_discuss"
 }
 
+func (m *defaultTrendDiscussModel) FindFirstByTrendIds(ctx context.Context, trendId []uint64, lastId uint64) ([]*TrendDiscuss, error) {
+	// 获取数据库连接
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	query := mysqlConn.Table(m.table)
+	if lastId > 0 {
+		query = query.Where("id < ?", lastId)
+	}
+
+	var discusses []*TrendDiscuss
+	err := query.Where("trendid in ?", trendId).
+		Where("state = ?", 1).
+		Where("level = ?", 1).
+		Order("id").
+		Limit(Limit).
+		Find(&discusses).
+		Error
+	if err != nil {
+
+	}
+
+	return discusses, err
+}
+
 func (m *defaultTrendDiscussModel) MarkReadById(ctx context.Context, uid uint64, idList []uint64) error {
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	err := mysqlConn.Table(m.table).Where("userid = ?", uid).Where("id in ?", idList).Update("`read`", 0).Error
@@ -103,10 +128,6 @@ func (m *defaultTrendDiscussModel) SetDiscuss(ctx context.Context, id uint64, co
 	res := mysqlConn.Table(m.table).Where("id = ?", id).Update("discuss_count", count)
 	if res.Error != nil {
 		return res.Error
-	}
-
-	if res.RowsAffected == 0 {
-		return errors.New(fmt.Sprintf("SetDiscuss failed id: %d", id))
 	}
 
 	return nil
@@ -171,10 +192,6 @@ func (m *defaultTrendDiscussModel) Deletes(ctx context.Context, ids []uint64) er
 		return res.Error
 	}
 
-	if res.RowsAffected == 0 {
-		return errors.New(fmt.Sprintf("delete failed ids: %v", ids))
-	}
-
 	return nil
 }
 
@@ -187,7 +204,12 @@ func (m *defaultTrendDiscussModel) FindUnreadByUser(ctx context.Context, userId 
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 
 	var discusses []*TrendDiscuss
-	err := mysqlConn.Table(m.table).Where("userid = ?", userId).Where("state = ?", 1).Where("`read` = ?", 1).Order("createtime DESC").Find(&discusses).Error
+
+	query := mysqlConn.Table(m.table).Where("userid = ?", userId).Where("state = ?", 1)
+	if lastId > 0 {
+		query.Where("id < ?", lastId)
+	}
+	err := query.Where("`read` = ?", 1).Order("id DESC").Find(&discusses).Error
 	if err != nil {
 		return nil, err
 	}
@@ -200,14 +222,18 @@ func (m *defaultTrendDiscussModel) FindFirstByTrendId(ctx context.Context, trend
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	query := mysqlConn.Table(m.table)
 	if lastId > 0 {
-		query = query.Where("id < ?", lastId)
+		query = query.Where("id > ?", lastId)
+	}
+
+	if len(uids) > 0 {
+		query = query.Where("replyer in ?", uids)
 	}
 
 	var discusses []*TrendDiscuss
 	err := query.Where("trendid = ?", trendId).
 		Where("state = ?", 1).
-		Where("replyer in ?", uids).
-		Order("id DESC").
+		Where("level = ?", 1).
+		Order("id").
 		Limit(pageSize).
 		Find(&discusses).
 		Error
@@ -218,20 +244,46 @@ func (m *defaultTrendDiscussModel) FindFirstByTrendId(ctx context.Context, trend
 	return discusses, err
 }
 
-// FindChildrenByRootId 根据根评论ID获取子评论
-func (m *defaultTrendDiscussModel) FindChildrenByRootId(ctx context.Context, rootId uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error) {
+func (m *defaultTrendDiscussModel) FindChildrenByFathers(ctx context.Context, fathers []uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error) {
 	// 获取数据库连接
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 
 	// 构建查询
 	query := mysqlConn.Table(m.table).
 		Select("id", "replyer", "userid", "content", "agree_count", "level", "father", "idlist", "createtime").
-		Where("rootid = ?", rootId).
+		Where("father in ?", fathers).
 		Where("state = ?", 1) // state=1 表示正常状态
 
 	// 应用 lastId 过滤
 	if lastId > 0 {
-		query = query.Where("id < ?", lastId)
+		query = query.Where("id > ?", lastId)
+	}
+
+	// 排序和分页
+	var discusses []*TrendDiscuss
+	err := query.
+		Order("id").
+		Limit(pageSize).
+		Find(&discusses).
+		Error
+
+	return discusses, err
+}
+
+// FindChildrenByRootId 根据根评论ID获取子评论
+func (m *defaultTrendDiscussModel) FindChildrenByFather(ctx context.Context, father uint64, lastId uint64, pageSize int) ([]*TrendDiscuss, error) {
+	// 获取数据库连接
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+
+	// 构建查询
+	query := mysqlConn.Table(m.table).
+		Select("id", "replyer", "userid", "content", "agree_count", "level", "father", "idlist", "createtime").
+		Where("father = ?", father).
+		Where("state = ?", 1) // state=1 表示正常状态
+
+	// 应用 lastId 过滤
+	if lastId > 0 {
+		query = query.Where("id > ?", lastId)
 	}
 
 	// 应用屏蔽用户过滤
@@ -240,7 +292,7 @@ func (m *defaultTrendDiscussModel) FindChildrenByRootId(ctx context.Context, roo
 	// 排序和分页
 	var discusses []*TrendDiscuss
 	err := query.
-		Order("id DESC").
+		Order("id").
 		Limit(pageSize).
 		Find(&discusses).
 		Error
