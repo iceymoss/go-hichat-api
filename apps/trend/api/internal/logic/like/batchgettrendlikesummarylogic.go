@@ -15,7 +15,7 @@ type BatchGetTrendLikeSummaryLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 批量获取点赞摘要
+// NewBatchGetTrendLikeSummaryLogic 批量获取点赞摘要
 func NewBatchGetTrendLikeSummaryLogic(ctx context.Context, svcCtx *svc.ServiceContext) *BatchGetTrendLikeSummaryLogic {
 	return &BatchGetTrendLikeSummaryLogic{
 		Logger: logx.WithContext(ctx),

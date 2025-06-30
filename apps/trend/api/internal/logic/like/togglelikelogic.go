@@ -2,6 +2,10 @@ package like
 
 import (
 	"context"
+	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	"github.com/iceymoss/go-hichat-api/apps/user/utils"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"go.uber.org/zap"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/types"
@@ -15,7 +19,7 @@ type ToggleLikeLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 点赞/取消点赞
+// NewToggleLikeLogic 点赞/取消点赞
 func NewToggleLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ToggleLikeLogic {
 	return &ToggleLikeLogic{
 		Logger: logx.WithContext(ctx),
@@ -25,7 +29,19 @@ func NewToggleLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Toggle
 }
 
 func (l *ToggleLikeLogic) ToggleLike(req *types.LikeToggleRequest) (resp *types.LikeToggleResponse, err error) {
-	// todo: add your logic here and delete this line
+	uid := utils.GetUser(l.ctx)
+	_, err = l.svcCtx.Trend.ToggleLike(l.ctx, &trend.LikeToggleRequest{
+		UserId:   uint32(uid),
+		TrendId:  req.TrendID,
+		AuthorId: req.AuthorID,
+		LikeType: int32(req.LikeType),
+	})
+	if err != nil {
+		zLog.Error("点赞失败", zap.Any("uid", uid), zap.Any("req", req), zap.Error(err))
+		return nil, err
+	}
+
+	resp = &types.LikeToggleResponse{}
 
 	return
 }

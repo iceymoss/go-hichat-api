@@ -126,17 +126,27 @@ type GetLatestTrendsResponse struct {
 	HasMore     bool     `json:"has_more"`      // 是否还有更多数据
 }
 
+type GetLikeListReq struct {
+	TrendID  []uint64 `json:"trend_id"`
+	LastID   int      `json:"last_id,optional"`
+	LastTime int      `json:"last_time,optional"`
+}
+
+type GetLikeListResp struct {
+	LikeMap map[uint64][]User `json:"trend_likes"`
+}
+
 type GetLikedUsersRequest struct {
-	TrendID string `json:"trend_id"`
-	Cursor  int    `json:"cursor"`
-	Limit   int    `json:"limit"`
+	TrendID uint32 `json:"trend_id"`
+	Cursor  uint32 `json:"cursor,optional"`
+	Limit   uint32 `json:"limit,optional"`
 }
 
 type GetLikedUsersResponse struct {
-	UsersJSON  string `json:"users_json"`
-	NextCursor int    `json:"next_cursor"`
-	HasMore    bool   `json:"has_more"`
-	Total      int    `json:"total"`
+	Users      []*User `json:"users"`
+	NextCursor int     `json:"next_cursor"`
+	HasMore    bool    `json:"has_more"`
+	Total      int     `json:"total"`
 }
 
 type GetTrendDetailRequest struct {
@@ -193,15 +203,12 @@ type Like struct {
 }
 
 type LikeToggleRequest struct {
-	UserID   string `json:"user_id"`
-	TrendID  string `json:"trend_id"`
-	AuthorID string `json:"author_id"`
+	TrendID  uint32 `json:"trend_id"`
+	AuthorID uint32 `json:"author_id"`
 	LikeType int    `json:"like_type"`
 }
 
 type LikeToggleResponse struct {
-	Success      bool   `json:"success"`
-	ErrorMessage string `json:"error_message"`
 }
 
 type ListTrendsRequest struct {

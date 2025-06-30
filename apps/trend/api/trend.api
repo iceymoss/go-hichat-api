@@ -96,7 +96,7 @@ service trend {
 
 	@doc "批量获取点赞摘要"
 	@handler batchGetTrendLikeSummary
-	get /like/batch-summary (BatchTrendLikeSummaryRequest) returns (BatchTrendLikeSummaryResponse)
+	get /like/batch-summary (GetLikeListReq) returns (GetLikeListResp)
 
 	@doc "获取点赞用户列表"
 	@handler getLikedUsers
@@ -357,11 +357,22 @@ type MarkDiscussRequest {
 // 标记评论已读响应
 type MarkDiscussResponse {}
 
+// 获取评论请求
+type GetLikeListReq {
+	TrendID  []uint64 `json:"trend_id"`
+	LastID   int      `json:"last_id,optional"`
+	LastTime int      `json:"last_time,optional"`
+}
+
+// 最终响应结构 (趋势ID => 评论集合)
+type GetLikeListResp {
+	LikeMap map[uint64][]User `json:"trend_likes"`
+}
+
 // 点赞操作请求
 type LikeToggleRequest {
-	UserID   string `json:"user_id"`
-	TrendID  string `json:"trend_id"`
-	AuthorID string `json:"author_id"`
+	TrendID  uint32 `json:"trend_id"`
+	AuthorID uint32 `json:"author_id"`
 	LikeType int    `json:"like_type"`
 }
 
@@ -374,10 +385,7 @@ type Like {
 }
 
 // 点赞操作响应
-type LikeToggleResponse {
-	Success      bool   `json:"success"`
-	ErrorMessage string `json:"error_message"`
-}
+type LikeToggleResponse {}
 
 // 点赞摘要请求
 type GetTrendLikeSummaryRequest {
@@ -403,17 +411,17 @@ type BatchTrendLikeSummaryResponse {
 
 // 点赞用户列表请求
 type GetLikedUsersRequest {
-	TrendID string `json:"trend_id"`
-	Cursor  int    `json:"cursor"`
-	Limit   int    `json:"limit"`
+	TrendID uint32 `json:"trend_id"`
+	Cursor  uint32 `json:"cursor,optional"`
+	Limit   uint32 `json:"limit,optional"`
 }
 
 // 点赞用户列表响应
 type GetLikedUsersResponse {
-	UsersJSON  string `json:"users_json"`
-	NextCursor int    `json:"next_cursor"`
-	HasMore    bool   `json:"has_more"`
-	Total      int    `json:"total"`
+	Users      []*User `json:"users"`
+	NextCursor int     `json:"next_cursor"`
+	HasMore    bool    `json:"has_more"`
+	Total      int     `json:"total"`
 }
 
 // 未读点赞请求
