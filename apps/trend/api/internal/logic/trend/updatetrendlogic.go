@@ -2,14 +2,14 @@ package trend
 
 import (
 	"context"
-	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"go.uber.org/zap"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/types"
+	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 type UpdateTrendLogic struct {

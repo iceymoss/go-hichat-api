@@ -2,16 +2,16 @@ package comment
 
 import (
 	"context"
-	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
-	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"go.uber.org/zap"
 	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/types"
+	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 type GetDiscussesTreeLogic struct {
