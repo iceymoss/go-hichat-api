@@ -2,19 +2,19 @@ package trend
 
 import (
 	"context"
+	"strconv"
+
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/svc"
+	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	"github.com/iceymoss/go-hichat-api/apps/user/utils"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"strconv"
-
-	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/svc"
-	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/types"
-
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 type GetTrendDetailLogic struct {
