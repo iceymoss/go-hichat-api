@@ -3,12 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/iceymoss/go-hichat-api/pkg/http"
-	"github.com/zeromicro/go-zero/rest/httpx"
 
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/handler"
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/svc"
+	"github.com/iceymoss/go-hichat-api/pkg/http"
+	"github.com/zeromicro/go-zero/rest/httpx"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
