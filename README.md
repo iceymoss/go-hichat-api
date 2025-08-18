@@ -39,6 +39,35 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ## 需要的配置
 #### mysql
+1. 创建一个持久化目录
+   ```
+   mkdir -p /docker/mysql/data
+   ```
+2. 写入配置
+   ```
+   mkdir -p /docker/mysql/conf
+   cat > /docker/mysql/conf/my.cnf <<EOF
+   [mysqld]
+   character-set-server=utf8mb4
+   collation-server=utf8mb4_unicode_ci
+   default_authentication_plugin=mysql_native_password
+   max_connections=200
+   innodb_buffer_pool_size=512M
+   EOF
+   ```
+
+3. 启动服务
+   ```
+   docker run -d \
+   --name mysql-hichat2 \
+   -p 3306:3306 \
+   -e MYSQL_ROOT_PASSWORD=123456789 \
+   -e MYSQL_DATABASE=hichat2 \
+   -v /docker/mysql/data:/var/lib/mysql \
+   -v /docker/mysql/conf:/etc/mysql/conf.d \
+   --restart=always \
+   mysql:8.0
+   ```
 
 #### redis
 
