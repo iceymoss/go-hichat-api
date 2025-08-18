@@ -130,6 +130,48 @@ docker run -d \
 
 ```
 #### kafka
+```
+# 创建目录
+mkdir -p /docker/kafka
+
+# 创建 docker-compose.yml
+cat > /docker/kafka/docker-compose.yml <<EOF
+version: '3.8'
+
+services:
+  zookeeper:
+    image: bitnami/zookeeper:3.8
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    volumes:
+      - zookeeper_data:/bitnami/zookeeper
+
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092
+    volumes:
+      - kafka_data:/bitnami/kafka
+    depends_on:
+      - zookeeper
+
+volumes:
+  zookeeper_data:
+  kafka_data:
+EOF
+
+# 启动服务
+cd /docker/kafka
+docker compose up -d
+```
 
 #### mongo
 MongoDB：
