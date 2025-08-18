@@ -107,7 +107,28 @@ docker run -d \
 ```
 
 #### etcd
+```
+# 持久化目录
+mkdir -p /docker/etcd/data
 
+# 启动服务
+docker run -d \
+  --name etcd-hichat \
+  -p 2379:2379 \
+  -p 2380:2380 \
+  -v /docker/etcd/data:/etcd-data \
+  --restart=always \
+  quay.io/coreos/etcd:v3.5.0 \
+  /usr/local/bin/etcd \
+  --data-dir=/etcd-data \
+  --name=etcd-single \
+  --initial-advertise-peer-urls=http://127.0.0.1:2380 \
+  --listen-peer-urls=http://0.0.0.0:2380 \
+  --listen-client-urls=http://0.0.0.0:2379 \
+  --advertise-client-urls=http://127.0.0.1:2379 \
+  --initial-cluster=etcd-single=http://127.0.0.1:2380
+
+```
 #### kafka
 
 #### mongo
