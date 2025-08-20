@@ -39,14 +39,182 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ## 需要的配置
 #### mysql
+```
+# 创建一个持久化目录
+mkdir -p /docker/mysql/data
+
+# 写入配置
+mkdir -p /docker/mysql/conf
+cat > /docker/mysql/conf/my.cnf <<EOF
+[mysqld]
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
+default_authentication_plugin=mysql_native_password
+max_connections=200
+innodb_buffer_pool_size=512M
+EOF
+
+
+# 启动服务
+docker run -d \
+  --name mysql-hichat2 \
+  -p 3306:3306 \
+  -e MYSQL_ROOT_PASSWORD=123456789 \
+  -e MYSQL_DATABASE=hichat2 \
+  -v /docker/mysql/data:/var/lib/mysql \
+  -v /docker/mysql/conf:/etc/mysql/conf.d \
+  --restart=always \
+  mysql:8.0
+```
 
 #### redis
+```
+# 创建持久化目录
+mkdir -p /docker/redis/data
+
+# 添加配置
+mkdir -p /docker/redis/conf
+cat > /docker/redis/conf/redis.conf <<EOF
+# 基本配置
+bind 0.0.0.0
+port 6379
+timeout 0
+tcp-keepalive 300
+
+# 持久化配置
+save 60 1000
+appendonly yes
+appendfilename "appendonly.aof"
+appendfsync everysec
+dir /data
+
+# 内存管理
+maxmemory 1gb
+maxmemory-policy allkeys-lru
+
+# 安全设置
+# requirepass yourpassword  # 取消注释设置密码
+EOF
+
+# 启动服务
+docker run -d \
+  --name redis-hichat \
+  -p 6379:6379 \
+  -v /docker/redis/data:/data \
+  -v /docker/redis/conf:/usr/local/etc/redis \
+  --restart=always \
+  redis:7.0 redis-server /usr/local/etc/redis/redis.conf
+```
 
 #### etcd
+```
+# 持久化目录
+mkdir -p /docker/etcd/data
 
+# 启动服务
+docker run -d \
+  --name etcd-hichat \
+  -p 2379:2379 \
+  -p 2380:2380 \
+  -v /docker/etcd/data:/etcd-data \
+  --restart=always \
+  quay.io/coreos/etcd:v3.5.0 \
+  /usr/local/bin/etcd \
+  --data-dir=/etcd-data \
+  --name=etcd-single \
+  --initial-advertise-peer-urls=http://127.0.0.1:2380 \
+  --listen-peer-urls=http://0.0.0.0:2380 \
+  --listen-client-urls=http://0.0.0.0:2379 \
+  --advertise-client-urls=http://127.0.0.1:2379 \
+  --initial-cluster=etcd-single=http://127.0.0.1:2380
+
+```
 #### kafka
+```
+# 创建目录
+mkdir -p /docker/kafka
+
+# 创建 docker-compose.yml
+cat > /docker/kafka/docker-compose.yml <<EOF
+version: '3.8'
+
+services:
+  zookeeper:
+    image: bitnami/zookeeper:3.8
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    volumes:
+      - zookeeper_data:/bitnami/zookeeper
+
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092
+    volumes:
+      - kafka_data:/bitnami/kafka
+    depends_on:
+      - zookeeper
+
+volumes:
+  zookeeper_data:
+  kafka_data:
+EOF
+
+# 启动服务
+cd /docker/kafka
+docker compose up -d
+```
 
 #### mongo
+使用以下命令：
+```
+# 创建持久化
+sudo mkdir -p /docker/mongodb/data
+sudo chmod 777 /docker/mongodb/data  # 简化权限
+
+# 写配置
+sudo mkdir -p /docker/mongodb/conf
+sudo tee /docker/mongodb/conf/mongod.conf <<EOF
+storage:
+  dbPath: /data/db
+  journal:
+    enabled: true
+
+systemLog:
+  destination: file
+  logAppend: true
+  path: /var/log/mongodb/mongod.log
+
+net:
+  port: 27017
+  bindIp: 0.0.0.0
+
+security:
+  authorization: enabled
+EOF
+
+# 启动服务
+docker run -d \
+  --name mongodb-hichat \
+  -p 27017:27017 \
+  -v /docker/mongodb/data:/data/db \
+  -v /docker/mongodb/conf:/etc/mongodb \
+  -e MONGO_INITDB_ROOT_USERNAME=root \
+  -e MONGO_INITDB_ROOT_PASSWORD=hichat2 \
+  --restart=always \
+  mongo:6.0 \
+  --config /etc/mongodb/mongod.conf
+```
+
+仅做参考：
 MongoDB：
 ```shell
 docker run -d \
