@@ -72,10 +72,68 @@ message FindUserResp {
   repeated UserEntity user = 1;
 }
 
+message UpdateUserReq {
+  string id = 1;
+  string name = 2;
+  string phone = 3;
+  string avatar = 5;
+  string type = 6;
+  string email = 7;
+  int32   sex = 8;
+  string introduction= 9;
+}
+
+message UpdateUserResp {
+  string id = 1;
+}
+
+message DeleteUserReq {
+  string id = 1;
+}
+
+message DeleteUserResp {
+}
+
+message ResetPassWordReq {
+  string id = 1;
+  string password = 2;
+}
+
+message ResetPassWordResp {
+}
+
+// 发送验证邮件请求
+message SendVerificationEmailRequest {
+  string email = 1; // 用户邮箱
+}
+
+// 发送验证邮件响应
+message SendVerificationEmailResponse {
+  bool success = 1; // 是否发送成功
+  string message = 2; // 附加信息
+}
+
+// 验证邮件请求
+message VerifyEmailRequest {
+  string email = 1; // 用户邮箱
+  string code = 2; // 验证码
+}
+
+// 验证邮件响应
+message VerifyEmailResponse {
+  bool success = 1; // 是否验证成功
+  string message = 2; // 附加信息
+}
+
 service User {
-  rpc Ping(Request) returns (Response); //ping
-  rpc Login(LoginReq) returns (LoginResp); //登录
-  rpc Register(RegisterReq) returns (RegisterResp);  //注册
-  rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoResp); //获取用户信息
+  rpc Ping(Request) returns (Response); // ping
+  rpc Login(LoginReq) returns (LoginResp); // 登录
+  rpc Register(RegisterReq) returns (RegisterResp);  // 注册
+  rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoResp); // 获取用户信息
   rpc FindUser(FindUserReq) returns (FindUserResp); //查找用户
+  rpc UpdateUser(UpdateUserReq) returns (UpdateUserResp); // 更新用户信息
+  rpc DeleteUser(DeleteUserReq) returns (DeleteUserResp); // 删除用户
+  rpc ResetPassword(ResetPassWordReq) returns (ResetPassWordResp); //重置密码
+  rpc SendVerificationEmail(SendVerificationEmailRequest) returns (SendVerificationEmailResponse); // 发送验证邮件
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse); // 验证邮件
 }

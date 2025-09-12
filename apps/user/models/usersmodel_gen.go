@@ -14,11 +14,12 @@ import (
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 
+	"github.com/pkg/errors"
+	"github.com/zeromicro/go-
 	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
-	"github.com/zeromicro/go-zero/core/stringx"
 	"github.com/pkg/errors"
 )
 
@@ -44,6 +45,7 @@ type (
 		ListByName(ctx context.Context, name string) ([]*Users, error)
 		ListByIds(ctx context.Context, ids []string) ([]*Users, error)
 		Create(ctx context.Context, data *Users) error
+		UpdateByID(ctx context.Context, data *Users) error
 	}
 
 	defaultUsersModel struct {
@@ -76,19 +78,30 @@ func newUsersModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Option) *
 }
 
 func (m *defaultUsersModel) Delete(ctx context.Context, id uint64) error {
-	data, err := m.FindOne(ctx, id)
-	if err != nil {
-		return err
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	res := mysqlConn.Model(&Users{}).Where("id = ?", id).Update("status", 0)
+	if res.Error != nil {
+		return res.Error
 	}
 
-	usersEmailKey := fmt.Sprintf("%s%v", cacheUsersEmailPrefix, data.Email)
-	usersIdKey := fmt.Sprintf("%s%v", cacheUsersIdPrefix, id)
-	usersPhoneKey := fmt.Sprintf("%s%v", cacheUsersPhonePrefix, data.Phone)
-	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("delete from %s where `id` = ?", m.table)
-		return conn.ExecCtx(ctx, query, id)
-	}, usersEmailKey, usersIdKey, usersPhoneKey)
-	return err
+	if res.RowsAffected == 0 {
+		return errors.New(fmt.Sprintf("delete users failed id: %d", id))
+	}
+
+	return nil
+}
+
+func (m *defaultUsersModel) UpdateByID(ctx context.Context, data *Users) error {
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	res := mysqlConn.Model(&Users{}).Where("id = ?", data.Id).Updates(data)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New(fmt.Sprintf("update users failed id: %d", data.Id))
+	}
+
+	return nil
 }
 
 func (m *defaultUsersModel) FindOne(ctx context.Context, id uint64) (*Users, error) {

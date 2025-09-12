@@ -10,6 +10,7 @@ import (
 type CodeMsg struct {
 	Code int    // 错误码
 	Msg  string // 错误消息
+	Err  error  // 原始错误
 }
 
 // 实现 error 接口
