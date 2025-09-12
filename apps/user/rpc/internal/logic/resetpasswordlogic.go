@@ -68,7 +68,7 @@ func (l *ResetPasswordLogic) ResetPassword(in *user.ResetPassWordReq) (*user.Res
 		UpdatedAt: now,
 	}
 
-	err = l.svcCtx.UserModels.Update(l.ctx, &userObj)
+	err = l.svcCtx.UserModels.UpdateByID(l.ctx, &userObj)
 	if err != nil {
 		logger.Error("update user error", zap.Any("user", userObj), zap.Error(err))
 		return nil, libErr.New(xerr.ErrInternalServer, "更新用户信息失败")
