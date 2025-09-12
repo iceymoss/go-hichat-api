@@ -58,6 +58,7 @@ func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterResp, erro
 		Phone:     in.Phone,
 		Sex:       int(in.Sex),
 		LastLogin: time.Now(),
+		Email:     in.Email,
 		Status:    1,
 		Type:      1,
 	}
