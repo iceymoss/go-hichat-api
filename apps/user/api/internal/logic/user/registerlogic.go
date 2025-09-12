@@ -31,6 +31,7 @@ func (l *RegisterLogic) Register(req *types.RegisterReq) (resp *types.RegisterRe
 		Nickname: req.Nickname,
 		Password: req.Password,
 		Avatar:   req.Avatar,
+		Email:    req.Email,
 		Sex:      int32(req.Sex),
 	})
 	if err != nil {
