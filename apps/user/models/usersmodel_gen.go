@@ -186,8 +186,8 @@ func (m *defaultUsersModel) Insert(ctx context.Context, data *Users) (sql.Result
 }
 
 func (m *defaultUsersModel) Create(ctx context.Context, data *Users) error {
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	ret := mysqlConn.Model(&Users{}).Create(&data)
-	ret :=mysqlConn.Model(&Users{}).Create(&data)
 	if ret.Error != nil {
 		return ret.Error
 	}
