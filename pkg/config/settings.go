@@ -40,6 +40,14 @@ type ServiceConfig struct {
 	RedisDB RedisConfig `mapstructure:"redis" json:"redis"`
 	Mongo   MongoDB     `mapstructure:"mongo" json:"mongo"`
 	MQ      MQ          `mapstructure:"mq"   json:"mq"`
+	Email   Email       `mapstructure:"mailer" json:"mailer"`
+}
+
+type Email struct {
+	Host     string `mapstructure:"host" json:"host"`
+	Port     string `mapstructure:"port" json:"port"`
+	Username string `mapstructure:"username" json:"username"`
+	Password string `mapstructure:"password" json:"password"`
 }
 
 func InitConfig(dev string, serveType string, configPath string) {
