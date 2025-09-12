@@ -11,11 +11,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/transaction"
+
+	"github.com/pkg/errors"
+	"github.com/zeromicro/go-
 	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
-	"github.com/zeromicro/go-zero/core/stringx"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -39,6 +44,7 @@ type (
 		Delete(ctx context.Context, id uint64) error
 		ListByName(ctx context.Context, name string) ([]*Users, error)
 		ListByIds(ctx context.Context, ids []string) ([]*Users, error)
+		Create(ctx context.Context, data *Users) error
 	}
 
 	defaultUsersModel struct {
@@ -178,6 +184,20 @@ func (m *defaultUsersModel) Insert(ctx context.Context, data *Users) (sql.Result
 		return conn.ExecCtx(ctx, query, data.Avatar, data.Nickname, data.Phone, data.Email, data.Type, data.LastLogin, data.Password, data.Status, data.Sex, data.Introduction)
 	}, usersEmailKey, usersIdKey, usersPhoneKey)
 	return ret, err
+}
+
+func (m *defaultUsersModel) Create(ctx context.Context, data *Users) error {
+	ret := mysqlConn.Model(&Users{}).Create(&data)
+	ret :=mysqlConn.Model(&Users{}).Create(&data)
+	if ret.Error != nil {
+		return ret.Error
+	}
+
+	if ret.RowsAffected == 0 {
+		return errors.New("create users failed")
+	}
+
+	return nil
 }
 
 func (m *defaultUsersModel) Update(ctx context.Context, newData *Users) error {

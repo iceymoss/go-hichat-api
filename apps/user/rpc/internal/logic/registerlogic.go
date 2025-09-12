@@ -71,7 +71,7 @@ func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterResp, erro
 		userEntity.Password = string(genPassword)
 	}
 
-	_, err = l.svcCtx.UserModels.Insert(l.ctx, userEntity)
+	err = l.svcCtx.UserModels.Create(l.ctx, userEntity)
 	if err != nil {
 		return nil, err
 	}
