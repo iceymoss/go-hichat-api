@@ -23,6 +23,7 @@ type (
         Nickname    string `json:"nickname"`
         Sex         int   `json:"sex"`
         Avatar      string `json:"avatar"`
+        Email    string `json:"email"`
 //        LastLogin string `json:"lastLogin"`
 //        Introduction string `json "introduction"`
 //        Email    string `json:"email"`
