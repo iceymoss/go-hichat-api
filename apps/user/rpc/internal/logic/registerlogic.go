@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -40,8 +39,6 @@ func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterResp, erro
 	if err != nil && err != models.ErrNotFound {
 		return nil, err
 	}
-
-	fmt.Println("in:", in)
 
 	if userEntity != nil {
 		return nil, ErrPhoneIsRegister

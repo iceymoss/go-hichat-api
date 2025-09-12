@@ -14,4 +14,10 @@ mq:
   uri: 'amqp://admin:admin123@3.1.22.21:5672/'
 mongo:
   link: 'mongodb://root:hichat2@localhost:27017/?authSource=admin&connectTimeoutMS=3000&socketTimeoutMS=5000&maxPoolSize=120&minPoolSize=20&retryWrites=true'
+mailer:
+    host: 'smtp.163.com'
+    port: '465'
+    username: 'hichat2'
+    password: 'hichat2'
+
 

@@ -61,7 +61,10 @@ func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginResp, error) {
 	userEntity.LastLogin = time.Now()
 
 	//更新登录时间
-	l.svcCtx.UserModels.Update(l.ctx, userEntity)
+	err = l.svcCtx.UserModels.Update(l.ctx, userEntity)
+	if err != nil {
+		return nil, errors.Wrapf(xerr.NewDBErr(), "update user err %v", err)
+	}
 
 	return &user.LoginResp{
 		Token:  token,
