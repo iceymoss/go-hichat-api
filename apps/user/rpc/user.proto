@@ -66,6 +66,7 @@ message FindUserReq {
   string name = 1;
   string phone = 2;
   repeated string ids = 3;
+  string email = 4;
 }
 
 message FindUserResp {
@@ -81,6 +82,7 @@ message UpdateUserReq {
   string email = 7;
   int32   sex = 8;
   string introduction= 9;
+  string password = 10;
 }
 
 message UpdateUserResp {
@@ -125,6 +127,32 @@ message VerifyEmailResponse {
   string message = 2; // 附加信息
 }
 
+message GetUserByIdRequest {
+  string id = 1; // 用户id
+}
+
+message GetUserByIdResponse {
+  UserEntity user = 1; // 用户信息
+}
+
+message GetUserByPhoneRequest {
+  string phone = 1; // 用户手机号
+}
+
+message GetUserByPhoneResponse {
+  UserEntity user = 1; // 用户信息
+}
+
+message GetUserByEmailRequest {
+  string email = 1; // 用户邮箱
+}
+
+message GetUserByEmailResponse {
+  UserEntity user = 1; // 用户信息
+}
+
+
+
 service User {
   rpc Ping(Request) returns (Response); // ping
   rpc Login(LoginReq) returns (LoginResp); // 登录
@@ -136,4 +164,7 @@ service User {
   rpc ResetPassword(ResetPassWordReq) returns (ResetPassWordResp); //重置密码
   rpc SendVerificationEmail(SendVerificationEmailRequest) returns (SendVerificationEmailResponse); // 发送验证邮件
   rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse); // 验证邮件
+  rpc GetUserById(GetUserByIdRequest) returns (GetUserByIdResponse); // 根据id获取用户信息
+  rpc GetUserByPhone(GetUserByPhoneRequest) returns (GetUserByPhoneResponse); // 根据手机号获取用户信息
+  rpc GetUserByEmail(GetUserByEmailRequest) returns (GetUserByEmailResponse); // 根据邮箱获取用户信息
 }

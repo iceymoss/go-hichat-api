@@ -45,5 +45,7 @@ func (l *VerifyEmailLogic) VerifyEmail(in *user.VerifyEmailRequest) (*user.Verif
 		return nil, libErr.New(xerr.ErrInvalidInput, "验证码错误, 请重试")
 	}
 
-	return &user.VerifyEmailResponse{}, nil
+	return &user.VerifyEmailResponse{
+		Success: true,
+	}, nil
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/user/models"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
+	"github.com/iceymoss/go-hichat-api/pkg/encrypt"
 	libErr "github.com/iceymoss/go-hichat-api/pkg/errors"
 	"github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
@@ -76,6 +77,14 @@ func (l *UpdateUserLogic) UpdateUser(in *user.UpdateUserReq) (*user.UpdateUserRe
 
 	if in.Sex != 0 {
 		userObj.Sex = int(in.Sex)
+	}
+
+	if in.Password != "" {
+		genPassword, err := encrypt.GenPasswordHash([]byte(in.Password))
+		if err != nil {
+			return nil, err
+		}
+		userObj.Password = string(genPassword)
 	}
 
 	if in.Avatar != "" {
