@@ -18,6 +18,12 @@ type (
 	DeleteUserResp                = user.DeleteUserResp
 	FindUserReq                   = user.FindUserReq
 	FindUserResp                  = user.FindUserResp
+	GetUserByEmailRequest         = user.GetUserByEmailRequest
+	GetUserByEmailResponse        = user.GetUserByEmailResponse
+	GetUserByIdRequest            = user.GetUserByIdRequest
+	GetUserByIdResponse           = user.GetUserByIdResponse
+	GetUserByPhoneRequest         = user.GetUserByPhoneRequest
+	GetUserByPhoneResponse        = user.GetUserByPhoneResponse
 	GetUserInfoReq                = user.GetUserInfoReq
 	GetUserInfoResp               = user.GetUserInfoResp
 	LoginReq                      = user.LoginReq
@@ -47,6 +53,9 @@ type (
 		ResetPassword(ctx context.Context, in *ResetPassWordReq, opts ...grpc.CallOption) (*ResetPassWordResp, error)
 		SendVerificationEmail(ctx context.Context, in *SendVerificationEmailRequest, opts ...grpc.CallOption) (*SendVerificationEmailResponse, error)
 		VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error)
+		GetUserById(ctx context.Context, in *GetUserByIdRequest, opts ...grpc.CallOption) (*GetUserByIdResponse, error)
+		GetUserByPhone(ctx context.Context, in *GetUserByPhoneRequest, opts ...grpc.CallOption) (*GetUserByPhoneResponse, error)
+		GetUserByEmail(ctx context.Context, in *GetUserByEmailRequest, opts ...grpc.CallOption) (*GetUserByEmailResponse, error)
 	}
 
 	defaultUser struct {
@@ -108,4 +117,19 @@ func (m *defaultUser) SendVerificationEmail(ctx context.Context, in *SendVerific
 func (m *defaultUser) VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error) {
 	client := user.NewUserClient(m.cli.Conn())
 	return client.VerifyEmail(ctx, in, opts...)
+}
+
+func (m *defaultUser) GetUserById(ctx context.Context, in *GetUserByIdRequest, opts ...grpc.CallOption) (*GetUserByIdResponse, error) {
+	client := user.NewUserClient(m.cli.Conn())
+	return client.GetUserById(ctx, in, opts...)
+}
+
+func (m *defaultUser) GetUserByPhone(ctx context.Context, in *GetUserByPhoneRequest, opts ...grpc.CallOption) (*GetUserByPhoneResponse, error) {
+	client := user.NewUserClient(m.cli.Conn())
+	return client.GetUserByPhone(ctx, in, opts...)
+}
+
+func (m *defaultUser) GetUserByEmail(ctx context.Context, in *GetUserByEmailRequest, opts ...grpc.CallOption) (*GetUserByEmailResponse, error) {
+	client := user.NewUserClient(m.cli.Conn())
+	return client.GetUserByEmail(ctx, in, opts...)
 }
