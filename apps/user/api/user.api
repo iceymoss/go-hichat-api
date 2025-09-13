@@ -34,7 +34,7 @@ service user {
 
 	@doc "重置密码"
 	@handler resetPwd
-	put /user/reset_pwd (ResetPassWordReq) returns (ResetPassWordResp)
+	put /reset_pwd (ResetPassWordReq) returns (ResetPassWordResp)
 }
 
 //need login
@@ -46,11 +46,11 @@ service user {
 service user {
 	@doc "获取用户信息"
 	@handler detail
-	get /user (UserInfoReq) returns (UserInfoResp)
+	get /detail (UserInfoReq) returns (UserInfoResp)
 
 	@doc "修改用户信息"
 	@handler update
-	put /user (UpdateUserReq) returns (UpdateUserResp)
+	put /update (UpdateUserReq) returns (UpdateUserResp)
 
 	@doc "注销账号"
 	@handler logout
