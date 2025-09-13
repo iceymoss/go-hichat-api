@@ -61,7 +61,7 @@ type (
         Email    string `json:"email,optional"`
         Sex      int   `json:"sex,optional"`
         Introduction string `json "introduction,optional"`
-        password string `json:"password",optional`
+        password string `json:"password,optional"`
     }
     UpdateUserResp {
     }

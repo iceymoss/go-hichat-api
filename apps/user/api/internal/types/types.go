@@ -57,7 +57,7 @@ type UpdateUserReq struct {
 	Email        string `json:"email,optional"`
 	Sex          int    `json:"sex,optional"`
 	Introduction string `json "introduction,optional"`
-	Password     string `json:"password",optional`
+	Password     string `json:"password,optional"`
 }
 
 type UpdateUserResp struct {
