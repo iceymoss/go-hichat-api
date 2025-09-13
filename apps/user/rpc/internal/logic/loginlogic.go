@@ -10,6 +10,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 	"github.com/iceymoss/go-hichat-api/pkg/encrypt"
+	libErr "github.com/iceymoss/go-hichat-api/pkg/errors"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/pkg/errors"
@@ -43,6 +44,10 @@ func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginResp, error) {
 			return nil, errors.WithStack(ErrPhoneNotRegister)
 		}
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find user by phone err %v , req %v", err, in.Phone)
+	}
+
+	if userEntity.Status != 1 {
+		return nil, libErr.New(xerr.ErrNotFound, "用户已注销")
 	}
 
 	// 密码验证
