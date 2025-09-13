@@ -42,7 +42,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				// 重置密码
 				Method:  http.MethodPut,
-				Path:    "/user/reset_pwd",
+				Path:    "/reset_pwd",
 				Handler: user.ResetPwdHandler(serverCtx),
 			},
 		},
@@ -52,21 +52,21 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 获取用户信息
+				Method:  http.MethodGet,
+				Path:    "/detail",
+				Handler: user.DetailHandler(serverCtx),
+			},
+			{
 				// 注销账号
 				Method:  http.MethodDelete,
 				Path:    "/logout",
 				Handler: user.LogoutHandler(serverCtx),
 			},
 			{
-				// 获取用户信息
-				Method:  http.MethodGet,
-				Path:    "/user",
-				Handler: user.DetailHandler(serverCtx),
-			},
-			{
 				// 修改用户信息
 				Method:  http.MethodPut,
-				Path:    "/user",
+				Path:    "/update",
 				Handler: user.UpdateHandler(serverCtx),
 			},
 		},
