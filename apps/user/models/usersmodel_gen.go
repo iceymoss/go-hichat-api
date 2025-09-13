@@ -167,23 +167,14 @@ func (m *defaultUsersModel) FindOneByEmail(ctx context.Context, email sql.NullSt
 }
 
 func (m *defaultUsersModel) FindOneByPhone(ctx context.Context, phone string) (*Users, error) {
-	usersPhoneKey := fmt.Sprintf("%s%v", cacheUsersPhonePrefix, phone)
 	var resp Users
-	err := m.QueryRowIndexCtx(ctx, &resp, usersPhoneKey, m.formatPrimary, func(ctx context.Context, conn sqlx.SqlConn, v any) (i any, e error) {
-		query := fmt.Sprintf("select %s from %s where `phone` = ? limit 1", usersRows, m.table)
-		if err := conn.QueryRowCtx(ctx, &resp, query, phone); err != nil {
-			return nil, err
-		}
-		return resp.Id, nil
-	}, m.queryPrimary)
-	switch err {
-	case nil:
-		return &resp, nil
-	case sqlc.ErrNotFound:
-		return nil, ErrNotFound
-	default:
-		return nil, err
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	res := mysqlConn.Model(&Users{}).Where("phone = ?", phone).First(&resp)
+	if res.Error != nil {
+		return nil, res.Error
 	}
+
+	return &resp, nil
 }
 
 func (m *defaultUsersModel) Insert(ctx context.Context, data *Users) (sql.Result, error) {
