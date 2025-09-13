@@ -23,6 +23,18 @@ service user {
 	@doc "用户登入"
 	@handler login
 	post /login (LoginReq) returns (LoginResp)
+
+	@doc "发送邮件验证码"
+	@handler sendEmailCode
+	post /email/code (SendVerificationEmailReq) returns (SendVerificationEmailResp)
+
+	@doc "验证邮箱"
+	@handler verifyEmail
+	post /email/verify (VerifyEmailReq) returns (VerifyEmailResp)
+
+	@doc "重置密码"
+	@handler resetPwd
+	put /reset_pwd (ResetPassWordReq) returns (ResetPassWordResp)
 }
 
 //need login
@@ -34,6 +46,14 @@ service user {
 service user {
 	@doc "获取用户信息"
 	@handler detail
-	get /user (UserInfoReq) returns (UserInfoResp)
+	get /detail (UserInfoReq) returns (UserInfoResp)
+
+	@doc "修改用户信息"
+	@handler update
+	put /update (UpdateUserReq) returns (UpdateUserResp)
+
+	@doc "注销账号"
+	@handler logout
+	delete /logout (LogoutReq) returns (LogoutResp)
 }
 

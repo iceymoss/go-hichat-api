@@ -10,6 +10,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 	"github.com/iceymoss/go-hichat-api/pkg/encrypt"
+	libErr "github.com/iceymoss/go-hichat-api/pkg/errors"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/pkg/errors"
@@ -45,6 +46,10 @@ func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginResp, error) {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find user by phone err %v , req %v", err, in.Phone)
 	}
 
+	if userEntity.Status != 1 {
+		return nil, libErr.New(xerr.ErrNotFound, "用户已注销")
+	}
+
 	// 密码验证
 	if !encrypt.ValidatePasswordHash(in.Password, userEntity.Password) {
 		return nil, errors.WithStack(ErrUserPwdError)
@@ -61,7 +66,10 @@ func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginResp, error) {
 	userEntity.LastLogin = time.Now()
 
 	//更新登录时间
-	l.svcCtx.UserModels.Update(l.ctx, userEntity)
+	err = l.svcCtx.UserModels.Update(l.ctx, userEntity)
+	if err != nil {
+		return nil, errors.Wrapf(xerr.NewDBErr(), "update user err %v", err)
+	}
 
 	return &user.LoginResp{
 		Token:  token,
