@@ -72,3 +72,18 @@ func (s *UserServer) VerifyEmail(ctx context.Context, in *user.VerifyEmailReques
 	l := logic.NewVerifyEmailLogic(ctx, s.svcCtx)
 	return l.VerifyEmail(in)
 }
+
+func (s *UserServer) GetUserById(ctx context.Context, in *user.GetUserByIdRequest) (*user.GetUserByIdResponse, error) {
+	l := logic.NewGetUserByIdLogic(ctx, s.svcCtx)
+	return l.GetUserById(in)
+}
+
+func (s *UserServer) GetUserByPhone(ctx context.Context, in *user.GetUserByPhoneRequest) (*user.GetUserByPhoneResponse, error) {
+	l := logic.NewGetUserByPhoneLogic(ctx, s.svcCtx)
+	return l.GetUserByPhone(in)
+}
+
+func (s *UserServer) GetUserByEmail(ctx context.Context, in *user.GetUserByEmailRequest) (*user.GetUserByEmailResponse, error) {
+	l := logic.NewGetUserByEmailLogic(ctx, s.svcCtx)
+	return l.GetUserByEmail(in)
+}

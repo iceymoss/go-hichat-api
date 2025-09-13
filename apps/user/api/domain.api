@@ -51,3 +51,56 @@ type (
         Info User `json:"info"`
     }
 )
+
+type (
+    UpdateUserReq {
+        Name     string `json:"name"`
+        Phone    string `json:"phone"`
+        Avatar   string `json:"avatar"`
+        Type     string `json:"type"`
+        Email    string `json:"email"`
+        Sex      int   `json:"sex"`
+        Introduction string `json "introduction"`
+        password string `json:"password"`
+    }
+    UpdateUserResp {
+    }
+)
+
+type (
+    ResetPassWordReq {
+        Password string `json:"password"`
+        email string `json:"email"`
+        code string `json:"code"`
+    }
+    ResetPassWordResp {
+    }
+)
+
+type (
+    SendVerificationEmailReq {
+        Email string `json:"email"`
+    }
+    SendVerificationEmailResp {
+    }
+)
+
+type (
+    VerifyEmailReq {
+        Email string `json:"email"`
+        Code string `json:"code"`
+    }
+    VerifyEmailResp {
+    }
+)
+
+type (
+    LogoutReq {
+
+    }
+    LogoutResp {
+    }
+)
+
+
+

@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/iceymoss/go-hichat-api/apps/user/models"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/svc"
@@ -33,6 +34,14 @@ func (l *FindUserLogic) FindUser(in *user.FindUserReq) (*user.FindUserResp, erro
 	if in.Phone != "" {
 		userEntity, err := l.svcCtx.UserModels.FindOneByPhone(l.ctx, in.Phone)
 		if err == nil {
+			userEntitys = append(userEntitys, userEntity)
+		}
+	} else if in.Email != "" {
+		userEntity, emailErr := l.svcCtx.UserModels.FindOneByEmail(l.ctx, sql.NullString{
+			String: in.Email,
+			Valid:  true,
+		})
+		if emailErr == nil {
 			userEntitys = append(userEntitys, userEntity)
 		}
 	} else if in.Name != "" {

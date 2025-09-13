@@ -13,6 +13,12 @@ type LoginResp struct {
 	Expire int64  `json:"expire"`
 }
 
+type LogoutReq struct {
+}
+
+type LogoutResp struct {
+}
+
 type RegisterReq struct {
 	Phone    string `json:"phone"`
 	Password string `json:"password"`
@@ -25,6 +31,36 @@ type RegisterReq struct {
 type RegisterResp struct {
 	Token  string `json:"token"`
 	Expire int64  `json:"expire"`
+}
+
+type ResetPassWordReq struct {
+	Password string `json:"password"`
+	Email    string `json:"email"`
+	Code     string `json:"code"`
+}
+
+type ResetPassWordResp struct {
+}
+
+type SendVerificationEmailReq struct {
+	Email string `json:"email"`
+}
+
+type SendVerificationEmailResp struct {
+}
+
+type UpdateUserReq struct {
+	Name         string `json:"name"`
+	Phone        string `json:"phone"`
+	Avatar       string `json:"avatar"`
+	Type         string `json:"type"`
+	Email        string `json:"email"`
+	Sex          int    `json:"sex"`
+	Introduction string `json "introduction"`
+	Password     string `json:"password"`
+}
+
+type UpdateUserResp struct {
 }
 
 type User struct {
@@ -43,4 +79,12 @@ type UserInfoReq struct {
 
 type UserInfoResp struct {
 	Info User `json:"info"`
+}
+
+type VerifyEmailReq struct {
+	Email string `json:"email"`
+	Code  string `json:"code"`
+}
+
+type VerifyEmailResp struct {
 }

@@ -2,7 +2,6 @@ package user
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/svc"
@@ -30,7 +29,6 @@ func NewDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *DetailLogi
 
 func (l *DetailLogic) Detail(req *types.UserInfoReq) (resp *types.UserInfoResp, err error) {
 	uid := ctxdata.GetUId(l.ctx)
-	fmt.Println("用户id:", uid, "ctx:", l.ctx)
 
 	rpcUserInfoResp, err := l.svcCtx.User.GetUserInfo(l.ctx, &user.GetUserInfoReq{
 		Id: uid,
