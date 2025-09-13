@@ -50,14 +50,14 @@ type SendVerificationEmailResp struct {
 }
 
 type UpdateUserReq struct {
-	Name         string `json:"name"`
-	Phone        string `json:"phone"`
-	Avatar       string `json:"avatar"`
-	Type         string `json:"type"`
-	Email        string `json:"email"`
-	Sex          int    `json:"sex"`
-	Introduction string `json "introduction"`
-	Password     string `json:"password"`
+	Name         string `json:"name,optional"`
+	Phone        string `json:"phone,optional"`
+	Avatar       string `json:"avatar,optional"`
+	Type         string `json:"type,optional"`
+	Email        string `json:"email,optional"`
+	Sex          int    `json:"sex,optional"`
+	Introduction string `json "introduction,optional"`
+	Password     string `json:"password",optional`
 }
 
 type UpdateUserResp struct {
