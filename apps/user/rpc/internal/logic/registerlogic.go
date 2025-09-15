@@ -11,8 +11,13 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 	"github.com/iceymoss/go-hichat-api/pkg/encrypt"
+	libErr "github.com/iceymoss/go-hichat-api/pkg/errors"
+	"github.com/iceymoss/go-hichat-api/pkg/logger"
+	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 var (
@@ -36,8 +41,9 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterResp, error) {
 	// 1. 验证用户是否注册，根据手机号码验证
 	userEntity, err := l.svcCtx.UserModels.FindOneByPhone(l.ctx, in.Phone)
-	if err != nil {
-		return nil, err
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.Error("获取用户失败", zap.Any("phone", in.Phone), zap.Error(err))
+		return nil, libErr.New(xerr.ErrInternalServer, "获取用户失败")
 	}
 
 	if userEntity != nil {
