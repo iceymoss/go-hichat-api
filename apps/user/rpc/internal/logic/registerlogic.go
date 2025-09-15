@@ -36,7 +36,7 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterResp, error) {
 	// 1. 验证用户是否注册，根据手机号码验证
 	userEntity, err := l.svcCtx.UserModels.FindOneByPhone(l.ctx, in.Phone)
-	if err != nil && err != models.ErrNotFound {
+	if err != nil {
 		return nil, err
 	}
 
