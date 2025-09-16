@@ -233,4 +233,17 @@ docker run -d \
 ./hichat2.sh
 ```
 
+## docker镜像部署
+这里以user-rpc服务为例
+
+构建镜像
+```
+ docker build -t hichat2/user-rpc:v1.0 -f deploy/dockerfile/user-rpc.Dockerfile .
+```
+
+启动镜像
+```
+docker run -d   --name user-rpc   --network host   -e ENV_MODE=production   hichat2/user-rpc:v1.0
+```
+
 
