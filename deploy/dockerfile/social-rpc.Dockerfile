@@ -50,7 +50,7 @@ ENV APP_NAME="social-rpc" \
     SERVICE_PORT=10000
 
 # 暴露服务端口
-EXPOSE 10001
+EXPOSE 8889
 
 # 工作目录
 WORKDIR /app
