@@ -1,6 +1,5 @@
 package svc
 
-import "C"
 import (
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/imclient"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/config"

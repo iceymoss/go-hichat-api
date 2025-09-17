@@ -238,7 +238,7 @@ docker run -d \
 
 构建镜像
 ```
- docker build -t hichat2/user-rpc:v1.0 -f deploy/dockerfile/user-rpc.Dockerfile .
+docker build -t hichat2/user-rpc:v1.0 -f deploy/dockerfile/user-rpc.Dockerfile .
 ```
 
 启动镜像
