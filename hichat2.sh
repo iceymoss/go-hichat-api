@@ -24,9 +24,11 @@ start_service() {
       ;;
     im)
       go run "apps/$app_dir/ws/im.go" -f "apps/$app_dir/ws/etc/${app_dir}-local.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
+      echo go run "apps/$app_dir/ws/im.go" -f "apps/$app_dir/ws/etc/${app_dir}-local.yaml"
       ;;
     task)
       go run "apps/$app_dir/mq/mq.go" -f "apps/$app_dir/mq/etc/mq-local.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
+      echo go run "apps/$app_dir/mq/mq.go" -f "apps/$app_dir/mq/etc/mq-local.yaml"
   esac
 
   PIDS+=($!)
@@ -51,6 +53,8 @@ SERVICES=(
 for service in "${SERVICES[@]}"; do
   IFS=' ' read -r type dir <<< "$service"
   start_service "$type" "$dir"
+
+  sleep 2
 done
 
 echo "所有服务已启动，按 Ctrl+C 停止"
