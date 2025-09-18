@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"go.uber.org/zap"
 
 	model "github.com/iceymoss/go-hichat-api/apps/im/models"
@@ -14,6 +13,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/bitmap"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/zeromicro/go-queue/kq"
 )
