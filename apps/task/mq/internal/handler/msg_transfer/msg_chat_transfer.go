@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"go.uber.org/zap"
 
 	model "github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
@@ -67,11 +69,19 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data mq.MsgChatTransfe
 
 	// 记录聊天记录
 	_, err := m.svcCtx.ChatLogModel.Insert(ctx, &chatLog)
+	if err != nil {
+		zLog.Error("添加聊天记录失败", zap.Any("chatLog", chatLog), zap.Error(err))
+		return err
+	}
 
 	// 更新会话的最后一次聊天记录
 	err = m.svcCtx.ConversationModel.UpdateMsg(ctx, &chatLog)
+	if err != nil {
+		zLog.Error("更新会话失败", zap.Any("chatLog", chatLog), zap.Error(err))
+		return err
+	}
 
-	return err
+	return nil
 }
 
 func (m *MsgChatTransfer) single(ctx context.Context, data *mq.MsgChatTransfer) error {
