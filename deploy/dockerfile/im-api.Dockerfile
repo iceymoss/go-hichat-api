@@ -14,9 +14,9 @@ RUN go mod download
 # 拷贝整个项目
 COPY . .
 
-# 编译social-api二进制文件
-RUN cd apps/social/api && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags='-w -s' -o /app/social-api
+# 编译im-api二进制文件
+RUN cd apps/im/api && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags='-w -s' -o /app/im-api
 
 # 运行阶段 - 使用极简镜像
 FROM alpine:3.18
@@ -36,25 +36,25 @@ RUN apk add --no-cache ca-certificates tzdata curl && \
 USER appuser
 
 # 从构建阶段复制编译好的二进制文件
-COPY --from=builder --chown=appuser /app/social-api /app/social-api
+COPY --from=builder --chown=appuser /app/im-api /app/im-api
 
 # 从构建阶段复制配置文件
 COPY --from=builder --chown=appuser /app/config /app/config
-COPY --from=builder --chown=appuser /app/apps/social/api/etc /app/apps/social/api/etc
+COPY --from=builder --chown=appuser /app/apps/im/api/etc /app/apps/im/api/etc
 
 # 设置环境变量
-ENV APP_NAME="social-api" \
+ENV APP_NAME="im-api" \
     CONFIG_DIR="/app/config" \
-    CONFIG_PATH="apps/social/api/etc/social-local" \
+    CONFIG_PATH="apps/im/api/etc/im-local" \
     LOG_DIR="/app/logs" \
     SERVICE_PORT=10000
 
 # 暴露服务端口
-EXPOSE 8889
+EXPOSE 8890
 
 # 工作目录
 WORKDIR /app
 
-#apps/social/api/etc/user-local
+#apps/im/api/etc/user-local
 # 启动应用 (使用环境变量确定配置)
-ENTRYPOINT ["/app/social-api", "-f", "apps/social/api/etc/social-local.yaml"]
+ENTRYPOINT ["/app/im-api", "-f", "apps/im/api/etc/im-local.yaml"]
