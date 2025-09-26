@@ -16,6 +16,27 @@ go-hichat-api是HiChat的2.0版本，其模块拆分，使用微服务架构，�
 * 添加好友在线状态
 * 添加动态空间模块，点赞，评论，屏蔽动态等
 
+
+## GO-ZERO框架配置搭建
+```sql
+# 安装 Go-Zero 核心工具
+go install github.com/zeromicro/go-zero/tools/goctl@latest
+
+# 安装 protoc 编译器 (macOS)
+brew install protobuf
+
+# 安装 protoc 编译器 (Ubuntu)
+sudo apt install -y protobuf-compiler
+
+# 安装 Go 插件
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# 验证安装
+goctl -v
+protoc --version
+```
+
 ## 如何快速进行模块开发
 生成代码模块rpc/api/model(user为例)
 
