@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC 视频通话示例</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .video-container {
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    video {
+      width: 100%;
+      max-width: 400px;
+      height: 300px;
+      background: #000;
+      border-radius: 4px;
+    }
+
+    .controls {
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    button:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 4px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+    }
+
+    .log {
+      margin-top: 20px;
+      padding: 10px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>WebRTC 视频通话示例</h1>
+
+  <div class="controls">
+    <input type="text" id="roomId" placeholder="房间ID" value="room_123">
+    <input type="text" id="userId" placeholder="用户ID" value="user_456">
+    <button id="joinBtn">加入房间</button>
+    <button id="leaveBtn" disabled>离开房间</button>
+    <button id="muteBtn" disabled>静音</button>
+    <button id="videoBtn" disabled>关闭视频</button>
+  </div>
+
+  <div class="status" id="status">未连接</div>
+
+  <div class="container">
+    <div class="video-container">
+      <h3>本地视频</h3>
+      <video id="localVideo" autoplay muted></video>
+    </div>
+    <div class="video-container">
+      <h3>远程视频</h3>
+      <video id="remoteVideo" autoplay></video>
+    </div>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <script>
+    class WebRTCClient {
+      constructor() {
+        this.ws = null;
+        this.pc = null;
+        this.localStream = null;
+        this.roomId = '';
+        this.userId = '';
+        this.isMuted = false;
+        this.isVideoOff = false;
+
+        this.initializeElements();
+        this.setupEventListeners();
+      }
+
+      initializeElements() {
+        this.roomIdInput = document.getElementById('roomId');
+        this.userIdInput = document.getElementById('userId');
+        this.joinBtn = document.getElementById('joinBtn');
+        this.leaveBtn = document.getElementById('leaveBtn');
+        this.muteBtn = document.getElementById('muteBtn');
+        this.videoBtn = document.getElementById('videoBtn');
+        this.statusDiv = document.getElementById('status');
+        this.localVideo = document.getElementById('localVideo');
+        this.remoteVideo = document.getElementById('remoteVideo');
+        this.logDiv = document.getElementById('log');
+      }
+
+      setupEventListeners() {
+        this.joinBtn.addEventListener('click', () => this.joinRoom());
+        this.leaveBtn.addEventListener('click', () => this.leaveRoom());
+        this.muteBtn.addEventListener('click', () => this.toggleMute());
+        this.videoBtn.addEventListener('click', () => this.toggleVideo());
+      }
+
+      log(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        this.logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+        this.logDiv.scrollTop = this.logDiv.scrollHeight;
+        console.log(message);
+      }
+
+      updateStatus(status) {
+        this.statusDiv.textContent = status;
+      }
+
+      async joinRoom() {
+        this.roomId = this.roomIdInput.value;
+        this.userId = this.userIdInput.value;
+
+        if (!this.roomId || !this.userId) {
+          alert('请输入房间ID和用户ID');
+          return;
+        }
+
+        try {
+          // 获取本地媒体流
+          this.localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+          });
+
+          this.localVideo.srcObject = this.localStream;
+
+          // 创建WebRTC连接
+          this.pc = new RTCPeerConnection({
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+          });
+
+          // 添加本地流到PeerConnection
+          this.localStream.getTracks().forEach(track => {
+            this.pc.addTrack(track, this.localStream);
+          });
+
+          // 设置远程流处理
+          this.pc.ontrack = (event) => {
+            this.remoteVideo.srcObject = event.streams[0];
+            this.log('收到远程媒体流');
+          };
+
+          // 设置ICE候选处理
+          this.pc.onicecandidate = (event) => {
+            if (event.candidate) {
+              this.sendSignalingMessage({
+                type: 'ice_candidate',
+                room_id: this.roomId,
+                user_id: this.userId,
+                data: {
+                  candidate: event.candidate.candidate,
+                  sdpMLineIndex: event.candidate.sdpMLineIndex,
+                  sdpMid: event.candidate.sdpMid
+                },
+                timestamp: new Date().toISOString()
+              });
+            }
+          };
+
+          // 连接WebSocket
+          this.connectWebSocket();
+
+        } catch (error) {
+          this.log(`加入房间失败: ${error.message}`);
+          alert('无法访问摄像头和麦克风，请检查权限设置');
+        }
+      }
+
+      connectWebSocket() {
+        this.ws = new WebSocket('ws://localhost:10093/ws');
+
+        this.ws.onopen = () => {
+          this.log('WebSocket连接已建立');
+          this.updateStatus('已连接');
+
+          // 发送加入房间消息
+          this.sendSignalingMessage({
+            type: 'join_room',
+            room_id: this.roomId,
+            user_id: this.userId,
+            timestamp: new Date().toISOString()
+          });
+        };
+
+        this.ws.onmessage = (event) => {
+          const message = JSON.parse(event.data);
+          this.handleSignalingMessage(message);
+        };
+
+        this.ws.onclose = () => {
+          this.log('WebSocket连接已关闭');
+          this.updateStatus('连接断开');
+        };
+
+        this.ws.onerror = (error) => {
+          this.log(`WebSocket错误: ${error}`);
+          this.updateStatus('连接错误');
+        };
+      }
+
+      sendSignalingMessage(message) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify(message));
+          this.log(`发送消息: ${message.type}`);
+        }
+      }
+
+      async handleSignalingMessage(message) {
+        this.log(`收到消息: ${message.type}`);
+
+        switch (message.type) {
+          case 'room_info':
+            this.log(`房间信息: ${JSON.stringify(message.data)}`);
+            this.joinBtn.disabled = true;
+            this.leaveBtn.disabled = false;
+            this.muteBtn.disabled = false;
+            this.videoBtn.disabled = false;
+            break;
+
+          case 'user_joined':
+            this.log(`用户加入: ${message.user_id}`);
+            // 创建Offer
+            const offer = await this.pc.createOffer();
+            await this.pc.setLocalDescription(offer);
+
+            this.sendSignalingMessage({
+              type: 'offer',
+              room_id: this.roomId,
+              user_id: this.userId,
+              data: {
+                sdp: offer.sdp,
+                type: 'offer'
+              },
+              timestamp: new Date().toISOString()
+            });
+            break;
+
+          case 'offer':
+            await this.pc.setRemoteDescription(new RTCSessionDescription(message.data));
+            const answer = await this.pc.createAnswer();
+            await this.pc.setLocalDescription(answer);
+
+            this.sendSignalingMessage({
+              type: 'answer',
+              room_id: this.roomId,
+              user_id: this.userId,
+              data: {
+                sdp: answer.sdp,
+                type: 'answer'
+              },
+              timestamp: new Date().toISOString()
+            });
+            break;
+
+          case 'answer':
+            await this.pc.setRemoteDescription(new RTCSessionDescription(message.data));
+            break;
+
+          case 'ice_candidate':
+            await this.pc.addIceCandidate(new RTCIceCandidate(message.data));
+            break;
+
+          case 'user_left':
+            this.log(`用户离开: ${message.user_id}`);
+            break;
+
+          case 'error':
+            this.log(`错误: ${message.data.error}`);
+            break;
+        }
+      }
+
+      leaveRoom() {
+        if (this.ws) {
+          this.sendSignalingMessage({
+            type: 'leave_room',
+            room_id: this.roomId,
+            user_id: this.userId,
+            timestamp: new Date().toISOString()
+          });
+          this.ws.close();
+        }
+
+        if (this.pc) {
+          this.pc.close();
+        }
+
+        if (this.localStream) {
+          this.localStream.getTracks().forEach(track => track.stop());
+        }
+
+        this.joinBtn.disabled = false;
+        this.leaveBtn.disabled = true;
+        this.muteBtn.disabled = true;
+        this.videoBtn.disabled = true;
+
+        this.updateStatus('已离开');
+        this.log('已离开房间');
+      }
+
+      toggleMute() {
+        if (this.localStream) {
+          const audioTrack = this.localStream.getAudioTracks()[0];
+          if (audioTrack) {
+            audioTrack.enabled = !audioTrack.enabled;
+            this.isMuted = !audioTrack.enabled;
+            this.muteBtn.textContent = this.isMuted ? '取消静音' : '静音';
+            this.log(`音频${this.isMuted ? '已静音' : '已开启'}`);
+          }
+        }
+      }
+
+      toggleVideo() {
+        if (this.localStream) {
+          const videoTrack = this.localStream.getVideoTracks()[0];
+          if (videoTrack) {
+            videoTrack.enabled = !videoTrack.enabled;
+            this.isVideoOff = !videoTrack.enabled;
+            this.videoBtn.textContent = this.isVideoOff ? '开启视频' : '关闭视频';
+            this.log(`视频${this.isVideoOff ? '已关闭' : '已开启'}`);
+          }
+        }
+      }
+    }
+
+    // 初始化客户端
+    const client = new WebRTCClient();
+  </script>
+</body>
+
+</html>
