@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>流媒体服务快速测试</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+    }
+
+    .warning {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    button:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+
+    .log {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 10px;
+      height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+    }
+
+    .test-section h3 {
+      margin-top: 0;
+      color: #495057;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🚀 流媒体服务快速测试</h1>
+    <p>这个页面用于测试流媒体服务的WebSocket连接和信令功能。</p>
+
+    <div id="status" class="status info">
+      📋 准备就绪，点击"开始测试"按钮开始验证
+    </div>
+
+    <div class="test-section">
+      <h3>🔌 连接测试</h3>
+      <button id="connectBtn" onclick="testConnection()">连接WebSocket</button>
+      <button id="disconnectBtn" onclick="disconnect()" disabled>断开连接</button>
+      <div id="connectionStatus" class="status info">未连接</div>
+    </div>
+
+    <div class="test-section">
+      <h3>📡 信令消息测试</h3>
+      <button onclick="testJoinRoom()" disabled id="joinRoomBtn">加入房间</button>
+      <button onclick="testCallInvite()" disabled id="callInviteBtn">一对一通话</button>
+      <button onclick="testMeetingCreate()" disabled id="meetingCreateBtn">创建会议</button>
+      <button onclick="testScreenShare()" disabled id="screenShareBtn">开始录屏</button>
+      <button onclick="testLiveStream()" disabled id="liveStreamBtn">开始直播</button>
+    </div>
+
+    <div class="test-section">
+      <h3>📊 测试结果</h3>
+      <div id="log" class="log"></div>
+      <button onclick="clearLog()">清空日志</button>
+    </div>
+  </div>
+
+  <script>
+    let ws = null;
+    let isConnected = false;
+
+    // 日志函数
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = document.createElement('div');
+      logEntry.innerHTML = `[${timestamp}] ${message}`;
+      logEntry.style.color = type === 'error' ? '#721c24' :
+        type === 'success' ? '#155724' :
+          type === 'warning' ? '#856404' : '#0c5460';
+      logDiv.appendChild(logEntry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    // 更新状态
+    function updateStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type}`;
+    }
+
+    // 更新按钮状态
+    function updateButtons(connected) {
+      const buttons = ['joinRoomBtn', 'callInviteBtn', 'meetingCreateBtn', 'screenShareBtn', 'liveStreamBtn'];
+      buttons.forEach(id => {
+        document.getElementById(id).disabled = !connected;
+      });
+      document.getElementById('connectBtn').disabled = connected;
+      document.getElementById('disconnectBtn').disabled = !connected;
+    }
+
+    // 测试WebSocket连接
+    function testConnection() {
+      log('🔌 开始连接WebSocket...', 'info');
+      updateStatus('🔌 正在连接WebSocket...', 'info');
+
+      try {
+        ws = new WebSocket('ws://localhost:10093/ws');
+
+        ws.onopen = function () {
+          isConnected = true;
+          log('✅ WebSocket连接成功！', 'success');
+          updateStatus('✅ WebSocket连接成功', 'success');
+          updateButtons(true);
+        };
+
+        ws.onmessage = function (event) {
+          try {
+            const data = JSON.parse(event.data);
+            log(`📥 收到消息: ${JSON.stringify(data, null, 2)}`, 'success');
+          } catch (e) {
+            log(`📥 收到原始消息: ${event.data}`, 'info');
+          }
+        };
+
+        ws.onerror = function (error) {
+          log(`❌ WebSocket错误: ${error}`, 'error');
+          updateStatus('❌ WebSocket连接失败', 'error');
+        };
+
+        ws.onclose = function () {
+          isConnected = false;
+          log('🔌 WebSocket连接关闭', 'warning');
+          updateStatus('🔌 WebSocket连接关闭', 'warning');
+          updateButtons(false);
+        };
+
+      } catch (error) {
+        log(`❌ 连接失败: ${error.message}`, 'error');
+        updateStatus('❌ 连接失败', 'error');
+      }
+    }
+
+    // 断开连接
+    function disconnect() {
+      if (ws) {
+        ws.close();
+        ws = null;
+        isConnected = false;
+        log('🔌 主动断开连接', 'info');
+        updateStatus('🔌 连接已断开', 'info');
+        updateButtons(false);
+      }
+    }
+
+    // 发送消息
+    function sendMessage(message) {
+      if (!isConnected || !ws) {
+        log('❌ 请先连接WebSocket', 'error');
+        return;
+      }
+
+      try {
+        ws.send(JSON.stringify(message));
+        log(`📤 发送消息: ${JSON.stringify(message, null, 2)}`, 'info');
+      } catch (error) {
+        log(`❌ 发送消息失败: ${error.message}`, 'error');
+      }
+    }
+
+    // 测试加入房间
+    function testJoinRoom() {
+      const message = {
+        type: 'join_room',
+        user_id: 'test_user_' + Date.now(),
+        room_id: 'test_room_' + Date.now(),
+        timestamp: new Date().toISOString()
+      };
+      sendMessage(message);
+    }
+
+    // 测试一对一通话邀请
+    function testCallInvite() {
+      const message = {
+        type: 'call_invite',
+        user_id: 'caller_' + Date.now(),
+        data: {
+          callee_id: 'callee_' + Date.now()
+        },
+        timestamp: new Date().toISOString()
+      };
+      sendMessage(message);
+    }
+
+    // 测试会议创建
+    function testMeetingCreate() {
+      const message = {
+        type: 'meeting_create',
+        user_id: 'host_' + Date.now(),
+        data: {
+          title: '测试会议',
+          description: '这是一个测试会议',
+          settings: {
+            max_participants: 10,
+            allow_screen_share: true,
+            allow_recording: true,
+            mute_on_join: false,
+            video_on_join: true,
+            waiting_room: false
+          }
+        },
+        timestamp: new Date().toISOString()
+      };
+      sendMessage(message);
+    }
+
+    // 测试录屏开始
+    function testScreenShare() {
+      const message = {
+        type: 'screen_share_start',
+        user_id: 'user_' + Date.now(),
+        data: {
+          room_id: 'room_' + Date.now(),
+          quality: 'medium'
+        },
+        timestamp: new Date().toISOString()
+      };
+      sendMessage(message);
+    }
+
+    // 测试直播开始
+    function testLiveStream() {
+      const message = {
+        type: 'live_start',
+        user_id: 'streamer_' + Date.now(),
+        data: {
+          title: '测试直播',
+          description: '这是一个测试直播'
+        },
+        timestamp: new Date().toISOString()
+      };
+      sendMessage(message);
+    }
+
+    // 清空日志
+    function clearLog() {
+      document.getElementById('log').innerHTML = '';
+    }
+
+    // 页面加载完成后的初始化
+    window.onload = function () {
+      log('🚀 流媒体服务测试页面已加载', 'info');
+      log('💡 请确保流媒体服务已启动在 localhost:10093', 'info');
+      log('📋 点击"连接WebSocket"按钮开始测试', 'info');
+    };
+
+    // 页面关闭时断开连接
+    window.onbeforeunload = function () {
+      if (ws) {
+        ws.close();
+      }
+    };
+  </script>
+</body>
+
+</html>
