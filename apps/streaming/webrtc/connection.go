@@ -67,13 +67,24 @@ func NewWebRTCConnection(userID string, wsConn types.WebSocketConnection, config
 	// 设置ICE候选处理
 	peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
 		if candidate != nil {
+			candidateJSON := candidate.ToJSON()
+			var sdpMLineIndex *uint16
+			var sdpMid *string
+
+			if candidateJSON.SDPMLineIndex != nil {
+				sdpMLineIndex = candidateJSON.SDPMLineIndex
+			}
+			if candidateJSON.SDPMid != nil {
+				sdpMid = candidateJSON.SDPMid
+			}
+
 			iceMsg := &types.SignalingMessage{
 				Type:   types.MessageTypeIceCandidate,
 				UserID: userID,
 				Data: types.ICECandidateMessage{
-					Candidate:     candidate.ToJSON().Candidate,
-					SDPMLineIndex: candidate.ToJSON().SDPMLineIndex,
-					SDPMid:        candidate.ToJSON().SDPMid,
+					Candidate:     candidateJSON.Candidate,
+					SDPMLineIndex: sdpMLineIndex,
+					SDPMid:        sdpMid,
 				},
 				Timestamp: time.Now(),
 			}

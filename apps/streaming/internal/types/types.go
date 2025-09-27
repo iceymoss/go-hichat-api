@@ -1,56 +1,87 @@
+// Package types 定义了流媒体服务的所有类型和接口
+// 包括信令消息、房间管理、用户管理、通话管理等核心数据结构
 package types
 
 import (
-	"context"
 	"time"
 
 	"github.com/pion/webrtc/v3"
 )
 
-// 信令消息类型
+// SignalingMessageType 信令消息类型枚举
+// 定义了所有可能的WebSocket信令消息类型
 type SignalingMessageType string
 
 const (
-	// 加入房间
-	MessageTypeJoinRoom SignalingMessageType = "join_room"
-	// 离开房间
-	MessageTypeLeaveRoom SignalingMessageType = "leave_room"
-	// 发送Offer
-	MessageTypeOffer SignalingMessageType = "offer"
-	// 发送Answer
-	MessageTypeAnswer SignalingMessageType = "answer"
-	// 发送ICE候选
+	// 基础通话
+	MessageTypeJoinRoom     SignalingMessageType = "join_room"
+	MessageTypeLeaveRoom    SignalingMessageType = "leave_room"
+	MessageTypeOffer        SignalingMessageType = "offer"
+	MessageTypeAnswer       SignalingMessageType = "answer"
 	MessageTypeIceCandidate SignalingMessageType = "ice_candidate"
-	// 房间信息
-	MessageTypeRoomInfo SignalingMessageType = "room_info"
-	// 用户加入
-	MessageTypeUserJoined SignalingMessageType = "user_joined"
-	// 用户离开
-	MessageTypeUserLeft SignalingMessageType = "user_left"
-	// 错误消息
-	MessageTypeError SignalingMessageType = "error"
+	MessageTypeRoomInfo     SignalingMessageType = "room_info"
+	MessageTypeUserJoined   SignalingMessageType = "user_joined"
+	MessageTypeUserLeft     SignalingMessageType = "user_left"
+	MessageTypeError        SignalingMessageType = "error"
+
+	// 一对一通话
+	MessageTypeCallInvite SignalingMessageType = "call_invite"
+	MessageTypeCallAccept SignalingMessageType = "call_accept"
+	MessageTypeCallReject SignalingMessageType = "call_reject"
+	MessageTypeCallEnd    SignalingMessageType = "call_end"
+
+	// 群组通话
+	MessageTypeGroupInvite SignalingMessageType = "group_invite"
+	MessageTypeGroupJoin   SignalingMessageType = "group_join"
+	MessageTypeGroupLeave  SignalingMessageType = "group_leave"
+
+	// 会议功能
+	MessageTypeMeetingCreate  SignalingMessageType = "meeting_create"
+	MessageTypeMeetingJoin    SignalingMessageType = "meeting_join"
+	MessageTypeMeetingLeave   SignalingMessageType = "meeting_leave"
+	MessageTypeMeetingControl SignalingMessageType = "meeting_control"
+
+	// 录屏功能
+	MessageTypeScreenShareStart   SignalingMessageType = "screen_share_start"
+	MessageTypeScreenShareStop    SignalingMessageType = "screen_share_stop"
+	MessageTypeScreenShareRequest SignalingMessageType = "screen_share_request"
+
+	// 直播功能
+	MessageTypeLiveStart SignalingMessageType = "live_start"
+	MessageTypeLiveStop  SignalingMessageType = "live_stop"
+	MessageTypeLiveJoin  SignalingMessageType = "live_join"
+	MessageTypeLiveLeave SignalingMessageType = "live_leave"
+
+	// 媒体控制
+	MessageTypeMute     SignalingMessageType = "mute"
+	MessageTypeUnmute   SignalingMessageType = "unmute"
+	MessageTypeVideoOn  SignalingMessageType = "video_on"
+	MessageTypeVideoOff SignalingMessageType = "video_off"
 )
 
-// 信令消息
+// SignalingMessage 信令消息结构体
+// 用于WebSocket通信的核心消息格式
 type SignalingMessage struct {
-	Type      SignalingMessageType `json:"type"`
-	RoomID    string               `json:"room_id,omitempty"`
-	UserID    string               `json:"user_id,omitempty"`
-	Data      interface{}          `json:"data,omitempty"`
-	Timestamp time.Time            `json:"timestamp"`
+	Type      SignalingMessageType `json:"type"`              // 消息类型
+	RoomID    string               `json:"room_id,omitempty"` // 房间ID，可选
+	UserID    string               `json:"user_id,omitempty"` // 用户ID，可选
+	Data      interface{}          `json:"data,omitempty"`    // 消息数据，根据类型不同而变化
+	Timestamp time.Time            `json:"timestamp"`         // 消息时间戳
 }
 
-// WebRTC Offer/Answer 消息
+// WebRTCMessage WebRTC Offer/Answer 消息结构体
+// 用于WebRTC连接协商的SDP消息
 type WebRTCMessage struct {
-	SDP  string `json:"sdp"`
-	Type string `json:"type"` // "offer" or "answer"
+	SDP  string `json:"sdp"`  // SDP描述信息
+	Type string `json:"type"` // SDP类型："offer" 或 "answer"
 }
 
-// ICE 候选消息
+// ICECandidateMessage ICE候选消息结构体
+// 用于WebRTC ICE候选交换，建立P2P连接
 type ICECandidateMessage struct {
-	Candidate     string `json:"candidate"`
-	SDPMLineIndex int    `json:"sdpMLineIndex"`
-	SDPMid        string `json:"sdpMid"`
+	Candidate     string  `json:"candidate"`     // ICE候选字符串
+	SDPMLineIndex *uint16 `json:"sdpMLineIndex"` // SDP媒体行索引，指针类型允许为nil
+	SDPMid        *string `json:"sdpMid"`        // SDP媒体ID，指针类型允许为nil
 }
 
 // 房间信息
@@ -70,6 +101,96 @@ type User struct {
 	JoinedAt  time.Time `json:"joined_at"`
 	IsMuted   bool      `json:"is_muted"`
 	IsVideoOn bool      `json:"is_video_on"`
+	// 扩展字段
+	Role   string `json:"role,omitempty"`   // 角色：host, participant, viewer
+	Status string `json:"status,omitempty"` // 状态：online, offline, busy
+	Device string `json:"device,omitempty"` // 设备类型：web, mobile, desktop
+}
+
+// 通话类型
+type CallType string
+
+const (
+	CallTypeOneToOne CallType = "one_to_one"
+	CallTypeGroup    CallType = "group"
+	CallTypeMeeting  CallType = "meeting"
+	CallTypeLive     CallType = "live"
+)
+
+// 通话状态
+type CallStatus string
+
+const (
+	CallStatusIdle      CallStatus = "idle"
+	CallStatusInviting  CallStatus = "inviting"
+	CallStatusRinging   CallStatus = "ringing"
+	CallStatusConnected CallStatus = "connected"
+	CallStatusEnded     CallStatus = "ended"
+	CallStatusFailed    CallStatus = "failed"
+)
+
+// 通话信息
+type Call struct {
+	ID           string     `json:"id"`
+	Type         CallType   `json:"type"`
+	Status       CallStatus `json:"status"`
+	CallerID     string     `json:"caller_id"`
+	Participants []string   `json:"participants"`
+	RoomID       string     `json:"room_id"`
+	CreatedAt    time.Time  `json:"created_at"`
+	StartedAt    *time.Time `json:"started_at,omitempty"`
+	EndedAt      *time.Time `json:"ended_at,omitempty"`
+	Duration     int64      `json:"duration,omitempty"` // 秒
+}
+
+// 会议信息
+type Meeting struct {
+	ID           string           `json:"id"`
+	Title        string           `json:"title"`
+	Description  string           `json:"description,omitempty"`
+	HostID       string           `json:"host_id"`
+	Participants []*User          `json:"participants"`
+	Status       string           `json:"status"` // scheduled, ongoing, ended
+	ScheduledAt  time.Time        `json:"scheduled_at"`
+	StartedAt    *time.Time       `json:"started_at,omitempty"`
+	EndedAt      *time.Time       `json:"ended_at,omitempty"`
+	Settings     *MeetingSettings `json:"settings,omitempty"`
+}
+
+// 会议设置
+type MeetingSettings struct {
+	MaxParticipants  int  `json:"max_participants"`
+	AllowScreenShare bool `json:"allow_screen_share"`
+	AllowRecording   bool `json:"allow_recording"`
+	MuteOnJoin       bool `json:"mute_on_join"`
+	VideoOnJoin      bool `json:"video_on_join"`
+	WaitingRoom      bool `json:"waiting_room"`
+}
+
+// 录屏信息
+type ScreenShare struct {
+	ID        string     `json:"id"`
+	UserID    string     `json:"user_id"`
+	RoomID    string     `json:"room_id"`
+	Status    string     `json:"status"` // active, paused, stopped
+	StartedAt time.Time  `json:"started_at"`
+	StoppedAt *time.Time `json:"stopped_at,omitempty"`
+	Duration  int64      `json:"duration,omitempty"`
+	Quality   string     `json:"quality,omitempty"` // high, medium, low
+}
+
+// 直播信息
+type LiveStream struct {
+	ID          string     `json:"id"`
+	StreamerID  string     `json:"streamer_id"`
+	Title       string     `json:"title"`
+	Description string     `json:"description,omitempty"`
+	Status      string     `json:"status"` // active, paused, ended
+	ViewerCount int        `json:"viewer_count"`
+	StartedAt   time.Time  `json:"started_at"`
+	EndedAt     *time.Time `json:"ended_at,omitempty"`
+	StreamURL   string     `json:"stream_url,omitempty"`
+	CDNURL      string     `json:"cdn_url,omitempty"`
 }
 
 // 房间管理器接口

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>流媒体服务完整功能测试</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .status {
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    .warning {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 8px;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    button:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+
+    .test-section {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      background-color: #f8f9fa;
+    }
+
+    .test-section h3 {
+      margin-top: 0;
+      color: #495057;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 10px;
+    }
+
+    .log {
+      background-color: #2d3748;
+      color: #e2e8f0;
+      border: 1px solid #4a5568;
+      border-radius: 8px;
+      padding: 15px;
+      height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .stat-card h4 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .stat-card .number {
+      font-size: 24px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🚀 流媒体服务完整功能测试</h1>
+
+    <div id="status" class="status info">
+      📋 准备就绪，点击"开始完整测试"按钮
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <h4>连接状态</h4>
+        <div class="number" id="connectionStatus">未连接</div>
+      </div>
+      <div class="stat-card">
+        <h4>消息发送</h4>
+        <div class="number" id="messagesSent">0</div>
+      </div>
+      <div class="stat-card">
+        <h4>消息接收</h4>
+        <div class="number" id="messagesReceived">0</div>
+      </div>
+      <div class="stat-card">
+        <h4>测试进度</h4>
+        <div class="number" id="testProgress">0%</div>
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h3>🔌 连接测试</h3>
+      <button onclick="startTest()" id="startBtn">开始完整测试</button>
+      <button onclick="stopTest()" id="stopBtn" disabled>停止测试</button>
+      <button onclick="clearLog()">清空日志</button>
+    </div>
+
+    <div class="test-section">
+      <h3>📊 测试日志</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    let ws = null;
+    let testRunning = false;
+    let messagesSent = 0;
+    let messagesReceived = 0;
+    let totalTests = 0;
+    let completedTests = 0;
+
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = document.createElement('div');
+      logEntry.innerHTML = `[${timestamp}] ${message}`;
+
+      // 设置颜色
+      switch (type) {
+        case 'error': logEntry.style.color = '#ff6b6b'; break;
+        case 'success': logEntry.style.color = '#51cf66'; break;
+        case 'warning': logEntry.style.color = '#ffd43b'; break;
+        case 'info': logEntry.style.color = '#74c0fc'; break;
+        default: logEntry.style.color = '#e2e8f0';
+      }
+
+      logDiv.appendChild(logEntry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function updateStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type}`;
+    }
+
+    function updateStats() {
+      document.getElementById('messagesSent').textContent = messagesSent;
+      document.getElementById('messagesReceived').textContent = messagesReceived;
+      document.getElementById('connectionStatus').textContent = ws && ws.readyState === WebSocket.OPEN ? '已连接' : '未连接';
+
+      if (totalTests > 0) {
+        const progress = Math.round((completedTests / totalTests) * 100);
+        document.getElementById('testProgress').textContent = progress + '%';
+      }
+    }
+
+    function startTest() {
+      if (testRunning) return;
+
+      testRunning = true;
+      messagesSent = 0;
+      messagesReceived = 0;
+      completedTests = 0;
+      totalTests = 7; // 总共7个测试
+
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+
+      log('🚀 开始完整功能测试...', 'info');
+      updateStatus('🚀 开始完整功能测试...', 'info');
+
+      connectAndTest();
+    }
+
+    function stopTest() {
+      testRunning = false;
+      if (ws) {
+        ws.close();
+      }
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+      updateStatus('⏹️ 测试已停止', 'warning');
+      log('⏹️ 测试已停止', 'warning');
+    }
+
+    function connectAndTest() {
+      log('🔌 连接WebSocket...', 'info');
+      updateStatus('🔌 正在连接...', 'info');
+
+      ws = new WebSocket('ws://localhost:10093/ws');
+
+      ws.onopen = function () {
+        log('✅ WebSocket连接成功！', 'success');
+        updateStatus('✅ 连接成功，开始测试...', 'success');
+        updateStats();
+
+        // 开始测试序列
+        runTestSequence();
+      };
+
+      ws.onmessage = function (event) {
+        messagesReceived++;
+        log('📥 收到消息: ' + event.data, 'success');
+        updateStats();
+
+        try {
+          const data = JSON.parse(event.data);
+          log('📋 解析数据: ' + JSON.stringify(data, null, 2), 'info');
+        } catch (e) {
+          log('📄 原始消息: ' + event.data, 'info');
+        }
+      };
+
+      ws.onerror = function (error) {
+        log('❌ WebSocket错误: ' + error, 'error');
+        updateStatus('❌ 连接失败', 'error');
+        testRunning = false;
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+      };
+
+      ws.onclose = function () {
+        log('🔌 WebSocket连接关闭', 'warning');
+        updateStatus('🔌 连接已关闭', 'warning');
+        updateStats();
+        testRunning = false;
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+      };
+    }
+
+    function runTestSequence() {
+      const tests = [
+        {
+          name: '加入房间',
+          message: {
+            type: 'join_room',
+            user_id: 'test_user_' + Date.now(),
+            room_id: 'test_room_' + Date.now(),
+            timestamp: new Date().toISOString()
+          },
+          delay: 1000
+        },
+        {
+          name: '一对一通话邀请',
+          message: {
+            type: 'call_invite',
+            user_id: 'caller_' + Date.now(),
+            data: {
+              callee_id: 'callee_' + Date.now()
+            },
+            timestamp: new Date().toISOString()
+          },
+          delay: 2000
+        },
+        {
+          name: '创建会议',
+          message: {
+            type: 'meeting_create',
+            user_id: 'host_' + Date.now(),
+            data: {
+              title: '测试会议',
+              description: '这是一个测试会议',
+              settings: {
+                max_participants: 10,
+                allow_screen_share: true,
+                allow_recording: true,
+                mute_on_join: false,
+                video_on_join: true,
+                waiting_room: false
+              }
+            },
+            timestamp: new Date().toISOString()
+          },
+          delay: 3000
+        },
+        {
+          name: '开始录屏',
+          message: {
+            type: 'screen_share_start',
+            user_id: 'user_' + Date.now(),
+            data: {
+              room_id: 'room_' + Date.now(),
+              quality: 'medium'
+            },
+            timestamp: new Date().toISOString()
+          },
+          delay: 4000
+        },
+        {
+          name: '开始直播',
+          message: {
+            type: 'live_start',
+            user_id: 'streamer_' + Date.now(),
+            data: {
+              title: '测试直播',
+              description: '这是一个测试直播'
+            },
+            timestamp: new Date().toISOString()
+          },
+          delay: 5000
+        },
+        {
+          name: '媒体控制 - 静音',
+          message: {
+            type: 'mute',
+            user_id: 'user_' + Date.now(),
+            data: {
+              muted: true
+            },
+            timestamp: new Date().toISOString()
+          },
+          delay: 6000
+        },
+        {
+          name: '离开房间',
+          message: {
+            type: 'leave_room',
+            user_id: 'test_user_' + Date.now(),
+            room_id: 'test_room_' + Date.now(),
+            timestamp: new Date().toISOString()
+          },
+          delay: 7000
+        }
+      ];
+
+      tests.forEach((test, index) => {
+        setTimeout(() => {
+          if (!testRunning) return;
+
+          log(`🧪 测试 ${index + 1}/${tests.length}: ${test.name}`, 'info');
+          log('📤 发送消息: ' + JSON.stringify(test.message, null, 2), 'info');
+
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(test.message));
+            messagesSent++;
+            completedTests++;
+            updateStats();
+          } else {
+            log('❌ WebSocket未连接，跳过测试', 'error');
+          }
+        }, test.delay);
+      });
+
+      // 测试完成后关闭连接
+      setTimeout(() => {
+        if (testRunning) {
+          log('✅ 所有测试完成！', 'success');
+          updateStatus('✅ 测试完成！', 'success');
+          setTimeout(() => {
+            if (ws) {
+              ws.close();
+            }
+          }, 2000);
+        }
+      }, 8000);
+    }
+
+    function clearLog() {
+      document.getElementById('log').innerHTML = '';
+    }
+
+    // 页面加载完成
+    window.onload = function () {
+      log('🚀 完整功能测试页面已加载', 'info');
+      log('💡 请确保流媒体服务已启动在 localhost:10093', 'info');
+      log('📋 点击"开始完整测试"按钮开始测试所有功能', 'info');
+      updateStats();
+    };
+
+    // 页面关闭时清理
+    window.onbeforeunload = function () {
+      if (ws) {
+        ws.close();
+      }
+    };
+  </script>
+</body>
+
+</html>

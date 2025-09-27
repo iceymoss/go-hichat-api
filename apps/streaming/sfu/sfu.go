@@ -167,12 +167,10 @@ func (s *SFU) StopForwarding(roomID, userID string) error {
 	if exists {
 		// 停止所有轨道
 		user.mu.Lock()
-		for trackID, track := range user.tracks {
-			if err := track.Close(); err != nil {
-				zLog.Error("Failed to close track",
-					zap.String("track_id", trackID),
-					zap.Error(err))
-			}
+		for trackID := range user.tracks {
+			// TrackLocalStaticRTP 没有 Close 方法，直接删除引用
+			zLog.Info("Removing track",
+				zap.String("track_id", trackID))
 		}
 		user.tracks = make(map[string]*webrtc.TrackLocalStaticRTP)
 		user.mu.Unlock()
@@ -285,12 +283,10 @@ func (s *SFU) RemoveUserFromRoom(roomID, userID string) error {
 	if exists {
 		// 停止所有轨道
 		user.mu.Lock()
-		for trackID, track := range user.tracks {
-			if err := track.Close(); err != nil {
-				zLog.Error("Failed to close track",
-					zap.String("track_id", trackID),
-					zap.Error(err))
-			}
+		for trackID := range user.tracks {
+			// TrackLocalStaticRTP 没有 Close 方法，直接删除引用
+			zLog.Info("Removing track",
+				zap.String("track_id", trackID))
 		}
 		user.mu.Unlock()
 
@@ -392,14 +388,12 @@ func (s *SFU) Close() error {
 		for userID, user := range room.users {
 			// 关闭所有轨道
 			user.mu.Lock()
-			for trackID, track := range user.tracks {
-				if err := track.Close(); err != nil {
-					zLog.Error("Failed to close track",
-						zap.String("room_id", roomID),
-						zap.String("user_id", userID),
-						zap.String("track_id", trackID),
-						zap.Error(err))
-				}
+			for trackID := range user.tracks {
+				// TrackLocalStaticRTP 没有 Close 方法，直接删除引用
+				zLog.Info("Removing track",
+					zap.String("room_id", roomID),
+					zap.String("user_id", userID),
+					zap.String("track_id", trackID))
 			}
 			user.mu.Unlock()
 

@@ -3,11 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/config"
+	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/handler"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/svc"
 	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
 
@@ -33,6 +35,12 @@ func main() {
 	// 初始化服务上下文
 	svcCtx := svc.NewServiceContext(c)
 
+	// 初始化信令服务器
+	signalingServer := handler.NewSignalingServer(svcCtx)
+
+	// 设置HTTP路由
+	http.HandleFunc("/ws", signalingServer.HandleWebSocket)
+
 	// 启动服务
 	if err := svcCtx.Start(); err != nil {
 		panic(err)
@@ -50,6 +58,10 @@ func main() {
 	fmt.Println("Shutting down streaming service...")
 
 	// 停止服务
+	if err := signalingServer.Close(); err != nil {
+		fmt.Printf("Error stopping signaling server: %v\n", err)
+	}
+
 	if err := svcCtx.Stop(); err != nil {
 		fmt.Printf("Error stopping service: %v\n", err)
 	}
