@@ -768,17 +768,25 @@ func (s *SignalingServer) handleCallReject(conn *websocket.Conn, msg *types.Sign
 		return
 	}
 
-	// 拒绝通话
-	err := s.callManager.RejectCall(callID, userID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to reject call: %v", err))
-		return
-	}
-
 	// 获取通话信息
 	call, err := s.callManager.GetCall(callID)
 	if err != nil {
 		s.sendError(conn, userID, fmt.Sprintf("failed to get call: %v", err))
+		return
+	}
+
+	// 更新通话状态
+	call.Status = types.CallStatusEnded
+	now := time.Now()
+	call.EndedAt = &now
+	if call.StartedAt != nil {
+		call.Duration = int64(now.Sub(*call.StartedAt).Seconds())
+	}
+
+	// 拒绝通话
+	err = s.callManager.RejectCall(callID, userID)
+	if err != nil {
+		s.sendError(conn, userID, fmt.Sprintf("failed to reject call: %v", err))
 		return
 	}
 
