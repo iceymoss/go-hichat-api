@@ -244,12 +244,12 @@ func (cm *CallManager) endCall(callID string) {
 	}
 
 	// 更新通话状态
-	call.Status = types.CallStatusEnded
-	now := time.Now()
-	call.EndedAt = &now
-	if call.StartedAt != nil {
-		call.Duration = int64(now.Sub(*call.StartedAt).Seconds())
-	}
+	//call.Status = types.CallStatusEnded
+	//now := time.Now()
+	//call.EndedAt = &now
+	//if call.StartedAt != nil {
+	//	call.Duration = int64(now.Sub(*call.StartedAt).Seconds())
+	//}
 
 	// 清理用户映射
 	for _, participantID := range call.Participants {
