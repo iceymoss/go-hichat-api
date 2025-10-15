@@ -601,3 +601,4 @@ func (s *SignalingServer) handleOffer(conn *websocket.Conn, msg *types.Signaling
 ---
 
 现在清楚了吗？关键是理解：**即使是一对一，也是双星架构（两个用户都连接到服务器），而不是P2P直连**。🌟
+
