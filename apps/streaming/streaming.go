@@ -32,6 +32,9 @@ func main() {
 		panic(err)
 	}
 
+	fmt.Printf("✅ ListenOn: %s\n", c.ListenOn)
+	fmt.Printf("WebRTC.IceServers 数量: %d\n", len(c.WebRTC.IceServers))
+
 	// 初始化服务上下文
 	svcCtx := svc.NewServiceContext(c)
 

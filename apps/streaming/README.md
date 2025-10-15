@@ -768,7 +768,7 @@ sequenceDiagram
 }
 ```
 
-详细API文档请参考 [API_EXAMPLES.md](./API_EXAMPLES.md)
+详细API文档请参考 [API_EXAMPLES.md](docs/API_EXAMPLES.md)
 
 ## 🧪 测试验证
 
@@ -905,9 +905,9 @@ Failed to upgrade websocket connection
 
 ## 📚 更多文档
 
-- [架构设计](./ARCHITECTURE.md) - 详细的架构说明
-- [技术分析](./TECHNICAL_ANALYSIS.md) - 技术选型和实现细节
-- [API 示例](./API_EXAMPLES.md) - 完整的 API 使用示例
+- [架构设计](docs/ARCHITECTURE.md) - 详细的架构说明
+- [技术分析](docs/TECHNICAL_ANALYSIS.md) - 技术选型和实现细节
+- [API 示例](docs/API_EXAMPLES.md) - 完整的 API 使用示例
 
 ## 🤝 贡献指南
 

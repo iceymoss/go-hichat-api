@@ -230,7 +230,7 @@ func (s *SignalingServer) handleJoinRoom(conn *websocket.Conn, msg *types.Signal
 	userID := msg.UserID
 	roomID := msg.RoomID
 
-	zLog.Info("处理加入房间请求",
+	zLog.Info("🔵 [Step 1] 处理加入房间请求",
 		zap.String("user_id", userID),
 		zap.String("room_id", roomID))
 
@@ -241,6 +241,8 @@ func (s *SignalingServer) handleJoinRoom(conn *websocket.Conn, msg *types.Signal
 		s.sendError(conn, userID, "user_id and room_id are required")
 		return
 	}
+
+	zLog.Info("🔵 [Step 2] 开始创建/获取房间")
 
 	// 创建或获取房间
 	room, err := s.roomManager.GetRoom(roomID)
@@ -256,12 +258,14 @@ func (s *SignalingServer) handleJoinRoom(conn *websocket.Conn, msg *types.Signal
 			s.sendError(conn, userID, fmt.Sprintf("failed to create room: %v", err))
 			return
 		}
-		zLog.Info("房间创建成功",
+		zLog.Info("✅ 房间创建成功",
 			zap.String("room_id", roomID))
 	} else {
-		zLog.Info("获取到现有房间",
+		zLog.Info("✅ 获取到现有房间",
 			zap.String("room_id", roomID))
 	}
+
+	zLog.Info("🔵 [Step 3] 创建用户对象")
 
 	// 创建用户
 	user := &types.User{
@@ -272,30 +276,73 @@ func (s *SignalingServer) handleJoinRoom(conn *websocket.Conn, msg *types.Signal
 		IsVideoOn: true,
 	}
 
+	zLog.Info("🔵 [Step 4] 添加用户到房间")
+
 	// 添加用户到房间
 	if err := room.AddUser(user); err != nil {
 		s.sendError(conn, userID, fmt.Sprintf("failed to join room: %v", err))
 		return
 	}
 
+	zLog.Info("✅ 用户已添加到房间")
+
+	zLog.Info("🔵 [Step 5] 创建WebRTC连接")
+
 	// 创建WebRTC连接
 	webrtcConfig := s.getWebRTCConfig()
 	webrtcConn, err := webrtc.NewWebRTCConnection(userID, &WebSocketConnection{conn: conn}, webrtcConfig)
 	if err != nil {
+		zLog.Error("❌ 创建WebRTC连接失败", zap.Error(err))
 		s.sendError(conn, userID, fmt.Sprintf("failed to create WebRTC connection: %v", err))
 		return
 	}
+
+	zLog.Info("✅ WebRTC连接创建成功")
+
+	zLog.Info("🔵 [Step 6] 设置媒体流回调")
+
+	// 🔥 设置媒体流接收回调 - 当收到用户的媒体流时转发给房间内其他用户
+	webrtcConn.SetOnTrackHandler(func(track *libRTC.TrackLocalStaticRTP) {
+		zLog.Info("收到用户媒体流，开始转发",
+			zap.String("from_user", userID),
+			zap.String("room_id", roomID),
+			zap.String("track_id", track.ID()),
+			zap.String("kind", track.Kind().String()))
+
+		// 转发给房间内的其他用户
+		s.forwardTrackToRoom(roomID, userID, track)
+	})
+
+	zLog.Info("✅ 媒体流回调设置完成")
+
+	zLog.Info("🔵 [Step 7] 保存连接")
 
 	// 保存连接
 	s.mu.Lock()
 	s.connections[userID] = webrtcConn
 	s.mu.Unlock()
 
+	zLog.Info("✅ 连接已保存")
+
+	zLog.Info("🔵 [Step 8] 添加用户到SFU")
+
 	// 添加用户到SFU
 	if err := s.sfu.AddUserToRoom(roomID, userID, webrtcConn.GetPeerConnection()); err != nil {
+		zLog.Error("❌ 添加用户到SFU失败", zap.Error(err))
 		s.sendError(conn, userID, fmt.Sprintf("failed to add user to SFU: %v", err))
 		return
 	}
+
+	zLog.Info("✅ 用户已添加到SFU")
+
+	zLog.Info("🔵 [Step 9] 同步已有媒体流")
+
+	// 🔥 将房间内已有用户的媒体流添加到新用户
+	s.addExistingTracksToNewUser(roomID, userID, webrtcConn)
+
+	zLog.Info("✅ 已有媒体流同步完成")
+
+	zLog.Info("🔵 [Step 10] 发送房间信息")
 
 	// 发送房间信息
 	roomInfo := room.GetRoomInfo()
@@ -307,6 +354,10 @@ func (s *SignalingServer) handleJoinRoom(conn *websocket.Conn, msg *types.Signal
 		Timestamp: time.Now(),
 	})
 
+	zLog.Info("✅ 房间信息已发送")
+
+	zLog.Info("🔵 [Step 11] 通知其他用户")
+
 	// 通知房间内其他用户
 	s.broadcastToRoom(roomID, userID, &types.SignalingMessage{
 		Type:      types.MessageTypeUserJoined,
@@ -316,7 +367,7 @@ func (s *SignalingServer) handleJoinRoom(conn *websocket.Conn, msg *types.Signal
 		Timestamp: time.Now(),
 	})
 
-	zLog.Info("User joined room",
+	zLog.Info("✅✅✅ User joined room successfully",
 		zap.String("user_id", userID),
 		zap.String("room_id", roomID),
 		zap.Int("room_user_count", room.GetUserCount()))
@@ -520,12 +571,20 @@ func (s *SignalingServer) handleIceCandidate(conn *websocket.Conn, msg *types.Si
 		SDPMid:        &sdpMid,
 	}
 
+	// 🔍 详细日志：收到客户端的ICE候选
+	zLog.Info("🧊 收到客户端ICE候选",
+		zap.String("user_id", userID),
+		zap.String("candidate", candidate))
+
 	if err := webrtcConn.AddICECandidate(iceCandidate); err != nil {
+		zLog.Error("❌ 添加ICE候选失败",
+			zap.String("user_id", userID),
+			zap.Error(err))
 		s.sendError(conn, userID, fmt.Sprintf("failed to add ICE candidate: %v", err))
 		return
 	}
 
-	zLog.Debug("ICE candidate handled",
+	zLog.Info("✅ ICE候选已添加",
 		zap.String("user_id", userID),
 		zap.String("room_id", roomID))
 }
@@ -595,6 +654,14 @@ func (s *SignalingServer) getWebRTCConfig() *libRTC.Configuration {
 		config.ICEServers = append(config.ICEServers, server)
 	}
 
+	// 🔥 关键：配置 ICE 传输策略
+	// 在 localhost 测试时使用 all 策略，允许所有类型的候选
+	config.ICETransportPolicy = libRTC.ICETransportPolicyAll
+
+	zLog.Info("WebRTC 配置",
+		zap.Int("ice_servers", len(config.ICEServers)),
+		zap.String("ice_policy", string(config.ICETransportPolicy)))
+
 	return config
 }
 
@@ -623,9 +690,12 @@ func (s *SignalingServer) Close() error {
 type WebSocketConnection struct {
 	conn   *websocket.Conn
 	userID string
+	mu     sync.Mutex // 🔥 添加写锁，防止并发写入
 }
 
 func (w *WebSocketConnection) SendMessage(message *types.SignalingMessage) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	return w.conn.WriteJSON(message)
 }
 
@@ -1660,4 +1730,157 @@ func (s *SignalingServer) sendMessageToUser(userID string, msg *types.SignalingM
 		webrtcConn.SendMessage(msg)
 	}
 	s.mu.RUnlock()
+}
+
+// 🔥 核心方法：转发媒体轨道到房间内其他用户
+func (s *SignalingServer) forwardTrackToRoom(roomID, fromUserID string, track *libRTC.TrackLocalStaticRTP) {
+	// 获取房间信息
+	room, err := s.roomManager.GetRoom(roomID)
+	if err != nil {
+		zLog.Error("Failed to get room for forwarding track",
+			zap.String("room_id", roomID),
+			zap.Error(err))
+		return
+	}
+
+	// 获取房间内的所有用户
+	users := room.GetUsers()
+
+	zLog.Info("开始转发媒体流",
+		zap.String("from_user", fromUserID),
+		zap.String("room_id", roomID),
+		zap.String("track_id", track.ID()),
+		zap.Int("target_users", len(users)-1))
+
+	// 遍历房间内的其他用户
+	for _, user := range users {
+		if user.UserID == fromUserID {
+			continue // 不转发给自己
+		}
+
+		// 获取目标用户的WebRTC连接
+		s.mu.RLock()
+		targetConn, exists := s.connections[user.UserID]
+		s.mu.RUnlock()
+
+		if !exists {
+			zLog.Warn("目标用户连接不存在",
+				zap.String("target_user", user.UserID))
+			continue
+		}
+
+		// 🎯 关键：将track添加到目标用户的PeerConnection
+		sender, err := targetConn.AddTrack(track)
+		if err != nil {
+			zLog.Error("Failed to add track to target user",
+				zap.String("from_user", fromUserID),
+				zap.String("to_user", user.UserID),
+				zap.String("track_id", track.ID()),
+				zap.Error(err))
+			continue
+		}
+
+		zLog.Info("媒体流转发成功",
+			zap.String("from_user", fromUserID),
+			zap.String("to_user", user.UserID),
+			zap.String("track_id", track.ID()),
+			zap.String("kind", track.Kind().String()))
+
+		// 🔄 重新协商：添加track后需要创建新的offer
+		go s.renegotiateConnection(targetConn, user.UserID, sender)
+	}
+}
+
+// 🔄 重新协商连接（添加track后）
+func (s *SignalingServer) renegotiateConnection(conn *webrtc.WebRTCConnection, userID string, sender *libRTC.RTPSender) {
+	// 创建新的Offer
+	offer, err := conn.CreateOffer()
+	if err != nil {
+		zLog.Error("Failed to create offer for renegotiation",
+			zap.String("user_id", userID),
+			zap.Error(err))
+		return
+	}
+
+	// 发送新的Offer给用户
+	s.mu.RLock()
+	if webrtcConn, exists := s.connections[userID]; exists {
+		err := webrtcConn.SendMessage(&types.SignalingMessage{
+			Type:   types.MessageTypeOffer,
+			UserID: userID,
+			Data: types.WebRTCMessage{
+				SDP:  offer.SDP,
+				Type: "offer",
+			},
+			Timestamp: time.Now(),
+		})
+		if err != nil {
+			zLog.Error("Failed to send renegotiation offer",
+				zap.String("user_id", userID),
+				zap.Error(err))
+		} else {
+			zLog.Info("发送重新协商Offer",
+				zap.String("user_id", userID))
+		}
+	}
+	s.mu.RUnlock()
+}
+
+// 🔥 将房间内已有用户的媒体流添加到新加入的用户
+func (s *SignalingServer) addExistingTracksToNewUser(roomID, newUserID string, newUserConn *webrtc.WebRTCConnection) {
+	// 获取房间信息
+	room, err := s.roomManager.GetRoom(roomID)
+	if err != nil {
+		return
+	}
+
+	// 获取房间内的所有用户
+	users := room.GetUsers()
+
+	zLog.Info("为新用户添加已有媒体流",
+		zap.String("new_user", newUserID),
+		zap.String("room_id", roomID),
+		zap.Int("existing_users", len(users)-1))
+
+	// 遍历房间内的其他用户
+	for _, user := range users {
+		if user.UserID == newUserID {
+			continue // 跳过自己
+		}
+
+		// 获取已有用户的WebRTC连接
+		s.mu.RLock()
+		existingConn, exists := s.connections[user.UserID]
+		s.mu.RUnlock()
+
+		if !exists {
+			continue
+		}
+
+		// 获取已有用户的所有本地轨道
+		tracks := existingConn.GetLocalTracks()
+
+		// 将每个轨道添加到新用户
+		for _, track := range tracks {
+			_, err := newUserConn.AddTrack(track)
+			if err != nil {
+				zLog.Error("Failed to add existing track to new user",
+					zap.String("existing_user", user.UserID),
+					zap.String("new_user", newUserID),
+					zap.String("track_id", track.ID()),
+					zap.Error(err))
+				continue
+			}
+
+			zLog.Info("已有媒体流添加成功",
+				zap.String("from_user", user.UserID),
+				zap.String("to_new_user", newUserID),
+				zap.String("track_id", track.ID()))
+		}
+	}
+
+	// 如果添加了track，需要重新协商
+	if len(users) > 1 {
+		go s.renegotiateConnection(newUserConn, newUserID, nil)
+	}
 }
