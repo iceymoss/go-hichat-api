@@ -3,15 +3,17 @@
     <h2>{{ title }}</h2>
     
     <form @submit.prevent="submitForm">
-      <!-- 用户名输入 -->
+      <!-- 手机号输入 -->
       <div class="form-group">
-        <label for="username">用户名</label>
+        <label for="phone">手机号</label>
         <input 
-          type="text" 
-          id="username" 
-          v-model="formData.username" 
-          placeholder="请输入用户名" 
+          type="tel" 
+          id="phone" 
+          v-model="formData.phone" 
+          placeholder="请输入手机号" 
           required
+          pattern="[0-9]{11}"
+          maxlength="11"
         />
       </div>
       
@@ -24,20 +26,52 @@
           v-model="formData.password" 
           placeholder="请输入密码" 
           required
+          minlength="6"
         />
       </div>
       
       <!-- 注册页面才显示额外字段 -->
-      <div v-if="mode === 'register'" class="form-group">
-        <label for="nickname">昵称</label>
-        <input 
-          type="text" 
-          id="nickname" 
-          v-model="formData.nickname" 
-          placeholder="设置您的昵称" 
-          required
-        />
-      </div>
+      <template v-if="mode === 'register'">
+        <div class="form-group">
+          <label for="nickname">昵称</label>
+          <input 
+            type="text" 
+            id="nickname" 
+            v-model="formData.nickname" 
+            placeholder="设置您的昵称" 
+            required
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="email">邮箱（可选）</label>
+          <input 
+            type="email" 
+            id="email" 
+            v-model="formData.email" 
+            placeholder="请输入邮箱地址" 
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="avatar">头像URL（可选）</label>
+          <input 
+            type="url" 
+            id="avatar" 
+            v-model="formData.avatar" 
+            placeholder="头像图片链接" 
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="sex">性别</label>
+          <select id="sex" v-model="formData.sex" class="select-input">
+            <option :value="0">未知</option>
+            <option :value="1">男</option>
+            <option :value="2">女</option>
+          </select>
+        </div>
+      </template>
       
       <!-- 验证码 -->
       <div v-if="mode === 'login'" class="form-group">
@@ -106,9 +140,12 @@ const router = useRouter()
 
 // 表单数据
 const formData = ref({
-  username: '',
+  phone: '',
   password: '',
   nickname: '',
+  email: '',
+  avatar: '',
+  sex: 0,
   captcha: ''
 })
 
@@ -144,20 +181,43 @@ const submitForm = async () => {
   
   try {
     if (props.mode === 'login') {
+      // 验证手机号格式
+      if (!/^1[3-9]\d{9}$/.test(formData.value.phone)) {
+        error.value = '请输入正确的手机号'
+        return
+      }
+      
       await authStore.login(
-        formData.value.username, 
+        formData.value.phone, 
         formData.value.password
       )
       // 登录成功后跳转到主界面
       router.push('/app')
     } else {
+      // 验证必填字段
+      if (!/^1[3-9]\d{9}$/.test(formData.value.phone)) {
+        error.value = '请输入正确的手机号'
+        return
+      }
+      if (!formData.value.nickname || formData.value.nickname.trim() === '') {
+        error.value = '请输入昵称'
+        return
+      }
+      if (formData.value.password.length < 6) {
+        error.value = '密码长度至少6位'
+        return
+      }
+      
       await authStore.register({
-        username: formData.value.username,
+        phone: formData.value.phone,
         password: formData.value.password,
-        nickname: formData.value.nickname
+        nickname: formData.value.nickname,
+        email: formData.value.email,
+        avatar: formData.value.avatar,
+        sex: formData.value.sex
       })
-      // 注册成功后跳转到登录页
-      router.push({ name: 'Login', query: { registered: true } })
+      // 注册成功后自动登录，跳转到主界面
+      router.push('/app')
     }
   } catch (err) {
     error.value = err.message || '请求失败，请稍后重试'
@@ -213,6 +273,23 @@ input {
 }
 
 input:focus {
+  border-color: #4a8cff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(74, 140, 255, 0.2);
+}
+
+.select-input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 16px;
+  background-color: white;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.select-input:focus {
   border-color: #4a8cff;
   outline: none;
   box-shadow: 0 0 0 2px rgba(74, 140, 255, 0.2);

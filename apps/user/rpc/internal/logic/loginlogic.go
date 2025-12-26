@@ -2,10 +2,10 @@ package logic
 
 import (
 	"context"
+	"gorm.io/gorm"
 	"strconv"
 	"time"
 
-	"github.com/iceymoss/go-hichat-api/apps/user/models"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
@@ -39,14 +39,15 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginResp, error) {
 	// 1. 验证用户是否注册，根据手机号码验证
 	userEntity, err := l.svcCtx.UserModels.FindOneByPhone(l.ctx, in.Phone)
-	if err != nil {
-		if err == models.ErrNotFound {
-			return nil, errors.WithStack(ErrPhoneNotRegister)
-		}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find user by phone err %v , req %v", err, in.Phone)
 	}
 
-	if userEntity.Status != 1 {
+	if userEntity == nil || userEntity.Id == 0 {
+		return nil, errors.WithStack(ErrPhoneNotRegister)
+	}
+
+	if userEntity != nil && userEntity.Id != 0 && userEntity.Status != 1 {
 		return nil, libErr.New(xerr.ErrNotFound, "用户已注销")
 	}
 

@@ -124,18 +124,18 @@ const authStore = useAuthStore()
 
 const editing = ref(false)
 const currentUser = ref({
-  id: 1000,
-  name: '演示用户',
-  account: 'user_demo',
-  avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=demo',
-  signature: '前端小白，后端大神',
+  id: '',
+  name: '',
+  account: '',
+  avatar: '',
+  signature: '',
   gender: 'male',
-  region: '北京市',
-  occupation: 'Go工程师',
-  email: 'demo@example.com',
-  phone: '138****1234',
-  tags: ['Go开发', 'Vue3学习', '后端架构'],
-  isFriend: true
+  region: '',
+  occupation: '',
+  email: '',
+  phone: '',
+  tags: [],
+  isFriend: false
 })
 
 // 编辑字段
@@ -150,10 +150,49 @@ const editTags = ref([])
 const newTag = ref('')
 
 const isMyProfile = computed(() => {
-  return route.params.userId === authStore.user?.id.toString()
+  const userId = route.params.userId
+  if (!userId || userId === 'current') {
+    return true
+  }
+  return userId === authStore.user?.id?.toString()
 })
 
-onMounted(() => {
+onMounted(async () => {
+  // 如果是查看自己的资料，使用 authStore 中的用户信息
+  if (isMyProfile.value && authStore.user) {
+    const user = authStore.user
+    currentUser.value = {
+      id: user.id,
+      name: user.nickname || user.name || '未设置',
+      account: user.id,
+      avatar: user.avatar || 'https://api.dicebear.com/7.x/personas/svg?seed=' + user.id,
+      signature: user.introduction || '这个人很懒，什么都没写',
+      gender: user.sex === 1 ? 'male' : user.sex === 2 ? 'female' : 'unknown',
+      region: '',
+      occupation: '',
+      email: user.email || '',
+      phone: user.phone || '',
+      tags: [],
+      isFriend: false
+    }
+  } else {
+    // 查看其他用户资料（暂时使用模拟数据，后续可以对接用户详情API）
+    currentUser.value = {
+      id: route.params.userId || '1000',
+      name: '演示用户',
+      account: 'user_demo',
+      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=demo',
+      signature: '前端小白，后端大神',
+      gender: 'male',
+      region: '北京市',
+      occupation: 'Go工程师',
+      email: 'demo@example.com',
+      phone: '138****1234',
+      tags: ['Go开发', 'Vue3学习', '后端架构'],
+      isFriend: true
+    }
+  }
+  
   // 初始化编辑字段
   editName.value = currentUser.value.name
   editSignature.value = currentUser.value.signature
@@ -185,21 +224,35 @@ const resetEditFields = () => {
   editTags.value = [...currentUser.value.tags]
 }
 
-const saveProfile = () => {
-  // 模拟保存
-  currentUser.value = {
-    ...currentUser.value,
-    name: editName.value,
-    signature: editSignature.value,
-    gender: editGender.value,
-    region: editRegion.value,
-    occupation: editOccupation.value,
-    email: editEmail.value,
-    phone: editPhone.value,
-    tags: [...editTags.value]
+const saveProfile = async () => {
+  try {
+    // 调用更新用户信息API
+    await authStore.updateUser({
+      name: editName.value,
+      introduction: editSignature.value,
+      sex: editGender.value === 'male' ? 1 : editGender.value === 'female' ? 2 : 0,
+      email: editEmail.value,
+      phone: editPhone.value
+    })
+    
+    // 更新本地显示
+    currentUser.value = {
+      ...currentUser.value,
+      name: editName.value,
+      signature: editSignature.value,
+      gender: editGender.value,
+      region: editRegion.value,
+      occupation: editOccupation.value,
+      email: editEmail.value,
+      phone: editPhone.value,
+      tags: [...editTags.value]
+    }
+    
+    editing.value = false
+  } catch (error) {
+    console.error('保存用户信息失败:', error)
+    alert('保存失败：' + error.message)
   }
-  
-  editing.value = false
 }
 
 const addTag = () => {

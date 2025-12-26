@@ -46,7 +46,7 @@ func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterResp, erro
 		return nil, libErr.New(xerr.ErrInternalServer, "获取用户失败")
 	}
 
-	if userEntity != nil {
+	if userEntity != nil && userEntity.Id != 0 {
 		return nil, ErrPhoneIsRegister
 	}
 
