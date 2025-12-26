@@ -20,6 +20,7 @@ ImRpc:
       - 127.0.0.1:2379
     Key: im.rpc
 
+
 JwtAuth:
   AccessSecret: iceymoss.hichat.hichat2.com
   AccessExpire: 8640000
