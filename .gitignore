@@ -8,4 +8,12 @@
 
 /logs
 
+/config/*.yaml
+/**/**/**/etc/
+
 /.Identifier
+
+# YAML configuration files
+#*.yaml
+#*.yml
+
