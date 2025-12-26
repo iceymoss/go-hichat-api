@@ -14,3 +14,9 @@
 *-local.yaml
 *-local.yml
 
+# bun node_modules
+node_modules
+/dist
+
+# ignore debug log
+npm-debug.log
