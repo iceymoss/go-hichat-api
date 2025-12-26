@@ -1,0 +1,44 @@
+Name: cron.task
+ListenOn: 0.0.0.0:10092
+
+Mysql:
+  DataSource: root:123456789@tcp(127.0.0.1:3306)/hichat2?charset=utf8mb4&parseTime=true
+
+Cache:
+  - Host: 127.0.0.1:6379
+    Type: node
+    Pass: easy-chat
+
+# 定时任务配置
+Cron:
+  # 是否启用秒级精度
+  WithSeconds: true
+  # 任务并发限制
+  MaxConcurrency: 10
+  # 任务超时时间(秒)
+  TaskTimeout: 300
+
+# 各个微服务的RPC配置
+SocialRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: social.rpc
+
+UserRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: user.rpc
+
+ImRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: im.rpc
+
+TrendRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: trend.rpc

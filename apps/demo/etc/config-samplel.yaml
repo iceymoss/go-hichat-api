@@ -1,0 +1,14 @@
+Name: demo-api
+Host: 0.0.0.0
+Port: 8899
+
+Log:
+  ServiceName: demo-api
+  Mode: console
+  Level: info
+
+# STUN 服务器配置
+StunServers:
+  - stun:stun.l.google.com:19302
+  - stun:stun1.l.google.com:19302
+

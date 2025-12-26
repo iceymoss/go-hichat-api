@@ -15,20 +15,20 @@ start_service() {
 
   case $service_type in
     rpc)
-      go run "apps/$app_dir/rpc/$app_dir.go" -f "apps/$app_dir/rpc/etc/${app_dir}-local.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
-      echo go run "apps/$app_dir/rpc/$app_dir.go" -f "apps/$app_dir/rpc/etc/${app_dir}-local.yaml"
+      go run "apps/$app_dir/rpc/$app_dir.go" -f "apps/$app_dir/rpc/etc/${app_dir}-sample.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
+      echo go run "apps/$app_dir/rpc/$app_dir.go" -f "apps/$app_dir/rpc/etc/${app_dir}-sample.yaml"
       ;;
     api)
-      go run "apps/$app_dir/api/$app_dir.go" -f "apps/$app_dir/api/etc/${app_dir}-local.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
-      echo go run "apps/$app_dir/api/$app_dir.go" -f "apps/$app_dir/api/etc/${app_dir}-local.yaml"
+      go run "apps/$app_dir/api/$app_dir.go" -f "apps/$app_dir/api/etc/${app_dir}-sample.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
+      echo go run "apps/$app_dir/api/$app_dir.go" -f "apps/$app_dir/api/etc/${app_dir}-sample.yaml"
       ;;
     im)
-      go run "apps/$app_dir/ws/im.go" -f "apps/$app_dir/ws/etc/${app_dir}-local.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
-      echo go run "apps/$app_dir/ws/im.go" -f "apps/$app_dir/ws/etc/${app_dir}-local.yaml"
+      go run "apps/$app_dir/ws/im.go" -f "apps/$app_dir/ws/etc/${app_dir}-sample.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
+      echo go run "apps/$app_dir/ws/im.go" -f "apps/$app_dir/ws/etc/${app_dir}-sample.yaml"
       ;;
     task)
-      go run "apps/$app_dir/mq/mq.go" -f "apps/$app_dir/mq/etc/mq-local.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
-      echo go run "apps/$app_dir/mq/mq.go" -f "apps/$app_dir/mq/etc/mq-local.yaml"
+      go run "apps/$app_dir/mq/mq.go" -f "apps/$app_dir/mq/etc/mq-sample.yaml" >> "$LOG_DIR/$name/$name.log" 2>&1 &
+      echo go run "apps/$app_dir/mq/mq.go" -f "apps/$app_dir/mq/etc/mq-sample.yaml"
   esac
 
   PIDS+=($!)

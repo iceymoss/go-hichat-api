@@ -8,12 +8,9 @@
 
 /logs
 
-/config/*.yaml
-/**/**/**/etc/
-
 /.Identifier
 
-# YAML configuration files
-#*.yaml
-#*.yml
+# Local YAML configuration files (ignore local configs but keep sample files)
+*-local.yaml
+*-local.yml
 
