@@ -26,10 +26,11 @@ api.interceptors.request.use(
 // 响应拦截器 - 处理错误和 token 过期
 api.interceptors.response.use(
   (response) => {
-    // 如果响应数据有 code 字段，检查是否成功
+    // 如果响应数据有 code 字段，检查是否成功（go-zero 标准格式）
     if (response.data && response.data.code !== undefined) {
       if (response.data.code === 0 || response.data.code === 200) {
-        return response.data
+        // 返回 data 字段的内容，而不是整个响应对象
+        return response.data.data !== undefined ? response.data.data : response.data
       } else {
         return Promise.reject(new Error(response.data.msg || response.data.message || '请求失败'))
       }
