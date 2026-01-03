@@ -14,8 +14,9 @@
           <input 
             type="text" 
             v-model="searchKeyword" 
-            placeholder="输入用户账号或昵称" 
+            placeholder="输入用户昵称、手机号或邮箱" 
             @input="handleSearch"
+            @keyup.enter="handleSearch"
           >
           <button v-if="searching" class="btn-loading">
             <i class="icon icon-spinner"></i>
@@ -39,17 +40,28 @@
           </div>
         </div>
         
-        <div v-else-if="searchKeyword && !searching" class="no-results">
+        <div v-else-if="hasSearched && !searching" class="no-results">
           <p>没有找到用户</p>
-          <p class="tip">请检查用户名拼写是否正确</p>
+          <p class="tip">请检查搜索条件是否正确</p>
+          <div class="search-tips">
+            <p class="tips-title">搜索提示：</p>
+            <ul>
+              <li>昵称支持模糊匹配</li>
+              <li>手机号和邮箱需要完整输入</li>
+            </ul>
+          </div>
         </div>
         
         <div v-else class="instruction">
-          <p>请输入用户账号或昵称进行搜索</p>
+          <p>请输入用户昵称、手机号或邮箱进行搜索</p>
           <div class="tips">
             <div class="tip-item">
               <i class="icon icon-tip"></i>
-              <span>支持搜索用户名、账号或ID</span>
+              <span>昵称支持模糊匹配</span>
+            </div>
+            <div class="tip-item">
+              <i class="icon icon-tip"></i>
+              <span>手机号和邮箱需要完整输入</span>
             </div>
             <div class="tip-item">
               <i class="icon icon-tip"></i>
@@ -63,30 +75,85 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { userApi } from '../utils/api'
 
-const props = defineProps(['searchUser'])
 const emit = defineEmits(['close', 'search', 'send-request'])
 
 const searchKeyword = ref('')
 const searchResults = ref([])
 const searching = ref(false)
+const hasSearched = ref(false)
+
+// 判断搜索关键词类型
+const getSearchParams = (keyword) => {
+  const trimmed = keyword.trim()
+  
+  // 判断是否是手机号（11位数字，以1开头）
+  if (/^1[3-9]\d{9}$/.test(trimmed)) {
+    return { phone: trimmed }
+  }
+  
+  // 判断是否是邮箱（包含@符号）
+  if (trimmed.includes('@') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return { email: trimmed }
+  }
+  
+  // 否则作为昵称搜索
+  return { name: trimmed }
+}
 
 const close = () => {
   emit('close')
 }
 
-const handleSearch = () => {
+// 执行搜索
+const handleSearch = async () => {
   if (!searchKeyword.value.trim()) {
     searchResults.value = []
+    hasSearched.value = false
     return
   }
   
   searching.value = true
-  props.searchUser(searchKeyword.value).then(results => {
-    searchResults.value = results
+  hasSearched.value = true
+  
+  try {
+    const params = getSearchParams(searchKeyword.value)
+    const response = await userApi.searchUser(params)
+    
+    if (response && response.users) {
+      // 转换数据格式以匹配组件期望的格式
+      searchResults.value = response.users.map(user => ({
+        id: user.id,
+        name: user.nickname || user.name || '未设置昵称',
+        account: user.id,
+        avatar: user.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${user.id}`,
+        tags: parseTags(user.tags),
+        mobile: user.mobile,
+        email: user.email
+      }))
+    } else {
+      searchResults.value = []
+    }
+  } catch (err) {
+    console.error('搜索用户失败:', err)
+    searchResults.value = []
+  } finally {
     searching.value = false
-  })
+  }
+}
+
+// 解析标签（可能是JSON字符串或数组）
+const parseTags = (tags) => {
+  if (!tags) return []
+  if (Array.isArray(tags)) return tags
+  try {
+    const parsed = JSON.parse(tags)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
 }
 
 const sendRequest = (user) => {
@@ -260,6 +327,32 @@ const sendRequest = (user) => {
   font-size: 13px;
 }
 
+.search-tips {
+  margin-top: 16px;
+  text-align: left;
+  background: #f9f9f9;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.tips-title {
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.search-tips ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #999;
+  font-size: 12px;
+}
+
+.search-tips li {
+  margin-bottom: 4px;
+}
+
 .tips {
   margin-top: 20px;
   text-align: left;
@@ -269,6 +362,7 @@ const sendRequest = (user) => {
   display: flex;
   align-items: center;
   margin-bottom: 10px;
+  font-size: 13px;
 }
 
 .tip-item i {
