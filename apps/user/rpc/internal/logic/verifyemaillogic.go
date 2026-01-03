@@ -5,10 +5,9 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
-	"github.com/iceymoss/go-hichat-api/pkg/config"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	libErr "github.com/iceymoss/go-hichat-api/pkg/errors"
-	mailer "github.com/iceymoss/go-hichat-api/pkg/message/email"
+	"github.com/iceymoss/go-hichat-api/pkg/message/verification"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -33,10 +32,19 @@ func (l *VerifyEmailLogic) VerifyEmail(in *user.VerifyEmailRequest) (*user.Verif
 		return nil, libErr.New(xerr.ErrBadRequest, "邮箱不能为空")
 	}
 
-	cfg := config.ServiceConf.Email
-	mailerManager := mailer.NewMailer(cfg.Host, cfg.Port, cfg.Username, cfg.Password)
+	if in.Code == "" {
+		return nil, libErr.New(xerr.ErrBadRequest, "验证码不能为空")
+	}
+
+	// 使用工厂模式获取验证码发送器
+	codeSender, err := verification.GetCodeSender(verification.CodeTypeEmail)
+	if err != nil {
+		return nil, libErr.New(xerr.ErrInternalServer, "获取验证码发送器失败")
+	}
+	
 	rdb := db.GetRedisConn()
-	pass, err := mailerManager.VerifyCode(l.ctx, rdb, in.Email, in.Code)
+	key := verification.GetRedisKey(verification.CodeTypeEmail, in.Email)
+	pass, err := codeSender.VerifyCode(l.ctx, rdb, key, in.Code)
 	if err != nil {
 		return nil, libErr.New(xerr.ErrInternalServer, "验证码验证失败")
 	}

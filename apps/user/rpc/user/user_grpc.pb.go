@@ -29,6 +29,8 @@ const (
 	User_ResetPassword_FullMethodName         = "/user.User/ResetPassword"
 	User_SendVerificationEmail_FullMethodName = "/user.User/SendVerificationEmail"
 	User_VerifyEmail_FullMethodName           = "/user.User/VerifyEmail"
+	User_SendPhoneCode_FullMethodName         = "/user.User/SendPhoneCode"
+	User_VerifyPhoneCode_FullMethodName       = "/user.User/VerifyPhoneCode"
 	User_GetUserById_FullMethodName           = "/user.User/GetUserById"
 	User_GetUserByPhone_FullMethodName        = "/user.User/GetUserByPhone"
 	User_GetUserByEmail_FullMethodName        = "/user.User/GetUserByEmail"
@@ -48,6 +50,8 @@ type UserClient interface {
 	ResetPassword(ctx context.Context, in *ResetPassWordReq, opts ...grpc.CallOption) (*ResetPassWordResp, error)
 	SendVerificationEmail(ctx context.Context, in *SendVerificationEmailRequest, opts ...grpc.CallOption) (*SendVerificationEmailResponse, error)
 	VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error)
+	SendPhoneCode(ctx context.Context, in *SendPhoneCodeRequest, opts ...grpc.CallOption) (*SendPhoneCodeResponse, error)
+	VerifyPhoneCode(ctx context.Context, in *VerifyPhoneCodeRequest, opts ...grpc.CallOption) (*VerifyPhoneCodeResponse, error)
 	GetUserById(ctx context.Context, in *GetUserByIdRequest, opts ...grpc.CallOption) (*GetUserByIdResponse, error)
 	GetUserByPhone(ctx context.Context, in *GetUserByPhoneRequest, opts ...grpc.CallOption) (*GetUserByPhoneResponse, error)
 	GetUserByEmail(ctx context.Context, in *GetUserByEmailRequest, opts ...grpc.CallOption) (*GetUserByEmailResponse, error)
@@ -161,6 +165,26 @@ func (c *userClient) VerifyEmail(ctx context.Context, in *VerifyEmailRequest, op
 	return out, nil
 }
 
+func (c *userClient) SendPhoneCode(ctx context.Context, in *SendPhoneCodeRequest, opts ...grpc.CallOption) (*SendPhoneCodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SendPhoneCodeResponse)
+	err := c.cc.Invoke(ctx, User_SendPhoneCode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) VerifyPhoneCode(ctx context.Context, in *VerifyPhoneCodeRequest, opts ...grpc.CallOption) (*VerifyPhoneCodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VerifyPhoneCodeResponse)
+	err := c.cc.Invoke(ctx, User_VerifyPhoneCode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *userClient) GetUserById(ctx context.Context, in *GetUserByIdRequest, opts ...grpc.CallOption) (*GetUserByIdResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetUserByIdResponse)
@@ -205,6 +229,8 @@ type UserServer interface {
 	ResetPassword(context.Context, *ResetPassWordReq) (*ResetPassWordResp, error)
 	SendVerificationEmail(context.Context, *SendVerificationEmailRequest) (*SendVerificationEmailResponse, error)
 	VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error)
+	SendPhoneCode(context.Context, *SendPhoneCodeRequest) (*SendPhoneCodeResponse, error)
+	VerifyPhoneCode(context.Context, *VerifyPhoneCodeRequest) (*VerifyPhoneCodeResponse, error)
 	GetUserById(context.Context, *GetUserByIdRequest) (*GetUserByIdResponse, error)
 	GetUserByPhone(context.Context, *GetUserByPhoneRequest) (*GetUserByPhoneResponse, error)
 	GetUserByEmail(context.Context, *GetUserByEmailRequest) (*GetUserByEmailResponse, error)
@@ -247,6 +273,12 @@ func (UnimplementedUserServer) SendVerificationEmail(context.Context, *SendVerif
 }
 func (UnimplementedUserServer) VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VerifyEmail not implemented")
+}
+func (UnimplementedUserServer) SendPhoneCode(context.Context, *SendPhoneCodeRequest) (*SendPhoneCodeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendPhoneCode not implemented")
+}
+func (UnimplementedUserServer) VerifyPhoneCode(context.Context, *VerifyPhoneCodeRequest) (*VerifyPhoneCodeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VerifyPhoneCode not implemented")
 }
 func (UnimplementedUserServer) GetUserById(context.Context, *GetUserByIdRequest) (*GetUserByIdResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserById not implemented")
@@ -458,6 +490,42 @@ func _User_VerifyEmail_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_SendPhoneCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendPhoneCodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).SendPhoneCode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_SendPhoneCode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).SendPhoneCode(ctx, req.(*SendPhoneCodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_VerifyPhoneCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyPhoneCodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).VerifyPhoneCode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_VerifyPhoneCode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).VerifyPhoneCode(ctx, req.(*VerifyPhoneCodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _User_GetUserById_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetUserByIdRequest)
 	if err := dec(in); err != nil {
@@ -558,6 +626,14 @@ var User_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VerifyEmail",
 			Handler:    _User_VerifyEmail_Handler,
+		},
+		{
+			MethodName: "SendPhoneCode",
+			Handler:    _User_SendPhoneCode_Handler,
+		},
+		{
+			MethodName: "VerifyPhoneCode",
+			Handler:    _User_VerifyPhoneCode_Handler,
 		},
 		{
 			MethodName: "GetUserById",

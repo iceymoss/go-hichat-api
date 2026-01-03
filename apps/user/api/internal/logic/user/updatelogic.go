@@ -2,11 +2,11 @@ package user
 
 import (
 	"context"
-	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
-	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/types"
+	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
+	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -28,16 +28,22 @@ func NewUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UpdateLogi
 
 func (l *UpdateLogic) Update(req *types.UpdateUserReq) (resp *types.UpdateUserResp, err error) {
 	uid := ctxdata.GetUId(l.ctx)
+
+	// 调用 RPC 更新用户信息
+	// 注意：Phone 和 Email 不能通过此 API 更新
+	// Phone 不可修改，Email 使用独立的绑定 API
 	_, err = l.svcCtx.User.UpdateUser(l.ctx, &user.UpdateUserReq{
 		Id:           uid,
 		Name:         req.Name,
-		Phone:        req.Phone,
 		Avatar:       req.Avatar,
 		Type:         req.Type,
-		Email:        req.Email,
 		Sex:          int32(req.Sex),
 		Introduction: req.Introduction,
 		Password:     req.Password,
+		Region:       req.Region,
+		Occupation:   req.Occupation,
+		Tags:         req.Tags,
+		// Phone 和 Email 不传递，不允许通过此 API 更新
 	})
 	if err != nil {
 		return nil, err

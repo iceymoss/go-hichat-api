@@ -5,8 +5,6 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/types"
-	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
-	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,12 +25,10 @@ func NewLogoutLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LogoutLogi
 }
 
 func (l *LogoutLogic) Logout(req *types.LogoutReq) (resp *types.LogoutResp, err error) {
-	uid := ctxdata.GetUId(l.ctx)
+	// 登出操作：只需要返回成功即可
+	// 前端会清除本地存储的token和用户信息
+	// 如果后端有token缓存（如Redis），可以在这里清除，但目前没有实现token缓存
+	// 所以只需要返回成功即可
 
-	_, err = l.svcCtx.User.DeleteUser(l.ctx, &user.DeleteUserReq{Id: uid})
-	if err != nil {
-		return nil, err
-	}
-
-	return
+	return &types.LogoutResp{}, nil
 }

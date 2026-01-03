@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strconv"
 
@@ -40,42 +41,45 @@ func (l *GetUserInfoLogic) GetUserInfo(in *user.GetUserInfoReq) (*user.GetUserIn
 		}
 		return nil, err
 	}
-	resp := user.UserEntity{
-		Id:           strconv.Itoa(int(userEntiy.Id)),
-		Avatar:       userEntiy.Avatar,
-		Nickname:     userEntiy.Nickname,
-		Phone:        userEntiy.Phone,
-		Email:        userEntiy.Email,
-		Status:       int32(userEntiy.Status),
-		LastLogin:    userEntiy.LastLogin.Unix(),
-		Sex:          int32(userEntiy.Sex),
-		Introduction: "",
-		Type:         int32(userEntiy.Type),
-		State:        1,
-	}
+	resp := ToUserEntity(userEntiy)
 
 	return &user.GetUserInfoResp{
-		User: &resp,
+		User: resp,
 	}, nil
 }
 
 func Copier(userEntiyList []*models.Users) []*user.UserEntity {
 	list := make([]*user.UserEntity, 0, len(userEntiyList))
 	for _, v := range userEntiyList {
-		userEntiy := v
-		list = append(list, &user.UserEntity{
-			Id:           strconv.Itoa(int(userEntiy.Id)),
-			Avatar:       userEntiy.Avatar,
-			Nickname:     userEntiy.Nickname,
-			Phone:        userEntiy.Phone,
-			Email:        userEntiy.Email,
-			Status:       int32(userEntiy.Status),
-			LastLogin:    userEntiy.LastLogin.Unix(),
-			Sex:          int32(userEntiy.Sex),
-			Introduction: "",
-			Type:         int32(userEntiy.Type),
-			State:        1,
-		})
+		list = append(list, ToUserEntity(v))
 	}
 	return list
+}
+
+// getStringValue 从 sql.NullString 获取字符串值
+func getStringValue(ns sql.NullString) string {
+	if ns.Valid {
+		return ns.String
+	}
+	return ""
+}
+
+// ToUserEntity 将 models.Users 转换为 user.UserEntity（统一转换函数，导出供其他包使用）
+func ToUserEntity(userEntiy *models.Users) *user.UserEntity {
+	return &user.UserEntity{
+		Id:           strconv.Itoa(int(userEntiy.Id)),
+		Avatar:       userEntiy.Avatar,
+		Nickname:     userEntiy.Nickname,
+		Phone:        userEntiy.Phone,
+		Email:        getStringValue(userEntiy.Email), // 使用 getStringValue 处理 sql.NullString
+		Status:       int32(userEntiy.Status),
+		LastLogin:    userEntiy.LastLogin.Unix(),
+		Sex:          int32(userEntiy.Sex),
+		Introduction: userEntiy.Introduction,
+		Type:         int32(userEntiy.Type),
+		State:        1,
+		Region:       getStringValue(userEntiy.Region),
+		Occupation:   getStringValue(userEntiy.Occupation),
+		Tags:         getStringValue(userEntiy.Tags),
+	}
 }
