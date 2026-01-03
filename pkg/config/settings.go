@@ -36,11 +36,13 @@ type MQ struct {
 }
 
 type ServiceConfig struct {
-	DB      MysqlConfig `mapstructure:"mysql" json:"mysql"`
-	RedisDB RedisConfig `mapstructure:"redis" json:"redis"`
-	Mongo   MongoDB     `mapstructure:"mongo" json:"mongo"`
-	MQ      MQ          `mapstructure:"mq"   json:"mq"`
-	Email   Email       `mapstructure:"mailer" json:"mailer"`
+	DB           MysqlConfig           `mapstructure:"mysql" json:"mysql"`
+	RedisDB      RedisConfig           `mapstructure:"redis" json:"redis"`
+	Mongo        MongoDB               `mapstructure:"mongo" json:"mongo"`
+	MQ           MQ                    `mapstructure:"mq"   json:"mq"`
+	Email        Email                 `mapstructure:"mailer" json:"mailer"`
+	Upload       Upload                `mapstructure:"upload" json:"upload"`
+	Verification *VerificationConfig   `mapstructure:"verification" json:"verification"`
 }
 
 type Email struct {
@@ -48,6 +50,29 @@ type Email struct {
 	Port     string `mapstructure:"port" json:"port"`
 	Username string `mapstructure:"username" json:"username"`
 	Password string `mapstructure:"password" json:"password"`
+}
+
+type Upload struct {
+	BasePath string `mapstructure:"basePath" json:"basePath"` // 本地存储路径，如 ./temp
+	BaseURL  string `mapstructure:"baseURL" json:"baseURL"`   // 访问URL，如 http://localhost:8887/static
+}
+
+// VerificationConfig 验证码服务配置
+type VerificationConfig struct {
+	SMS   SMSVerificationConfig   `mapstructure:"sms" json:"sms"`
+	Email EmailVerificationConfig  `mapstructure:"email" json:"email"`
+}
+
+// SMSVerificationConfig 短信验证码配置
+type SMSVerificationConfig struct {
+	Provider string            `mapstructure:"provider" json:"provider"` // 服务商：console/aliyun/tencent
+	Config   map[string]string `mapstructure:"config" json:"config"`     // 服务商特定配置
+}
+
+// EmailVerificationConfig 邮件验证码配置
+type EmailVerificationConfig struct {
+	Provider string            `mapstructure:"provider" json:"provider"` // 服务商：smtp/sendgrid
+	Config   map[string]string `mapstructure:"config" json:"config"`     // 服务商特定配置
 }
 
 func InitConfig(dev string, serveType string, configPath string) {
@@ -87,5 +112,4 @@ func InitConfig(dev string, serveType string, configPath string) {
 	if err := v.Unmarshal(&ServiceConf); err != nil {
 		panic(err)
 	}
-	fmt.Println("data:", ServiceConf)
 }

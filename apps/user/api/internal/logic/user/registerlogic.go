@@ -27,12 +27,15 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 
 func (l *RegisterLogic) Register(req *types.RegisterReq) (resp *types.RegisterResp, err error) {
 	rpcRegisterResp, err := l.svcCtx.User.Register(l.ctx, &user.RegisterReq{
-		Phone:    req.Phone,
-		Nickname: req.Nickname,
-		Password: req.Password,
-		Avatar:   req.Avatar,
-		Email:    req.Email,
-		Sex:      int32(req.Sex),
+		Phone:     req.Phone,
+		Nickname:  req.Nickname,
+		Password:  req.Password,
+		PhoneCode: req.PhoneCode,
+		// Avatar、Sex 和 Email 不再从注册请求中获取，使用默认值
+		// Email 需要在个人资料中绑定，并需要验证码验证
+		Avatar:    "",
+		Sex:       0,
+		Email:     "",
 	})
 	if err != nil {
 		return nil, err

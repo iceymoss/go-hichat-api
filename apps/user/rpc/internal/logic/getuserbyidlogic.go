@@ -49,21 +49,10 @@ func (l *GetUserByIdLogic) GetUserById(in *user.GetUserByIdRequest) (*user.GetUs
 		return nil, errors.New(xerr.ErrNotFound, "用户不存在")
 	}
 
-	resp := user.UserEntity{
-		Id:           strconv.Itoa(int(userEntiy.Id)),
-		Avatar:       userEntiy.Avatar,
-		Nickname:     userEntiy.Nickname,
-		Phone:        userEntiy.Phone,
-		Email:        userEntiy.Email,
-		Status:       int32(userEntiy.Status),
-		LastLogin:    userEntiy.LastLogin.Unix(),
-		Sex:          int32(userEntiy.Sex),
-		Introduction: userEntiy.Introduction,
-		Type:         int32(userEntiy.Type),
-		State:        int32(userEntiy.Status),
-	}
+	// 使用统一的转换函数
+	resp := ToUserEntity(userEntiy)
 
 	return &user.GetUserByIdResponse{
-		User: &resp,
+		User: resp,
 	}, nil
 }

@@ -34,6 +34,8 @@ type (
 	ResetPassWordReq              = user.ResetPassWordReq
 	ResetPassWordResp             = user.ResetPassWordResp
 	Response                      = user.Response
+	SendPhoneCodeRequest          = user.SendPhoneCodeRequest
+	SendPhoneCodeResponse         = user.SendPhoneCodeResponse
 	SendVerificationEmailRequest  = user.SendVerificationEmailRequest
 	SendVerificationEmailResponse = user.SendVerificationEmailResponse
 	UpdateUserReq                 = user.UpdateUserReq
@@ -41,6 +43,8 @@ type (
 	UserEntity                    = user.UserEntity
 	VerifyEmailRequest            = user.VerifyEmailRequest
 	VerifyEmailResponse           = user.VerifyEmailResponse
+	VerifyPhoneCodeRequest        = user.VerifyPhoneCodeRequest
+	VerifyPhoneCodeResponse       = user.VerifyPhoneCodeResponse
 
 	User interface {
 		Ping(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
@@ -53,6 +57,8 @@ type (
 		ResetPassword(ctx context.Context, in *ResetPassWordReq, opts ...grpc.CallOption) (*ResetPassWordResp, error)
 		SendVerificationEmail(ctx context.Context, in *SendVerificationEmailRequest, opts ...grpc.CallOption) (*SendVerificationEmailResponse, error)
 		VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error)
+		SendPhoneCode(ctx context.Context, in *SendPhoneCodeRequest, opts ...grpc.CallOption) (*SendPhoneCodeResponse, error)
+		VerifyPhoneCode(ctx context.Context, in *VerifyPhoneCodeRequest, opts ...grpc.CallOption) (*VerifyPhoneCodeResponse, error)
 		GetUserById(ctx context.Context, in *GetUserByIdRequest, opts ...grpc.CallOption) (*GetUserByIdResponse, error)
 		GetUserByPhone(ctx context.Context, in *GetUserByPhoneRequest, opts ...grpc.CallOption) (*GetUserByPhoneResponse, error)
 		GetUserByEmail(ctx context.Context, in *GetUserByEmailRequest, opts ...grpc.CallOption) (*GetUserByEmailResponse, error)
@@ -117,6 +123,16 @@ func (m *defaultUser) SendVerificationEmail(ctx context.Context, in *SendVerific
 func (m *defaultUser) VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error) {
 	client := user.NewUserClient(m.cli.Conn())
 	return client.VerifyEmail(ctx, in, opts...)
+}
+
+func (m *defaultUser) SendPhoneCode(ctx context.Context, in *SendPhoneCodeRequest, opts ...grpc.CallOption) (*SendPhoneCodeResponse, error) {
+	client := user.NewUserClient(m.cli.Conn())
+	return client.SendPhoneCode(ctx, in, opts...)
+}
+
+func (m *defaultUser) VerifyPhoneCode(ctx context.Context, in *VerifyPhoneCodeRequest, opts ...grpc.CallOption) (*VerifyPhoneCodeResponse, error) {
+	client := user.NewUserClient(m.cli.Conn())
+	return client.VerifyPhoneCode(ctx, in, opts...)
 }
 
 func (m *defaultUser) GetUserById(ctx context.Context, in *GetUserByIdRequest, opts ...grpc.CallOption) (*GetUserByIdResponse, error) {

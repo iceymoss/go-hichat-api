@@ -53,19 +53,22 @@ type (
 	}
 
 	Users struct {
-		Id           uint64    `db:"id"`           // 用户ID（自增主键）
-		Avatar       string    `db:"avatar"`       // 头像URL
-		Nickname     string    `db:"nickname"`     // 昵称
-		Phone        string    `db:"phone"`        // 手机号（唯一）
-		Email        string    `db:"email"`        // 邮箱（唯一）
-		Type         uint64    `db:"type"`         // 用户类型（0-普通用户 1-管理员）
-		LastLogin    time.Time `db:"last_login"`   // 最后登录时间
-		Password     string    `db:"password"`     // 密码哈希
-		Status       uint64    `db:"status"`       // 状态（0-禁用 1-正常）
-		Sex          int       `db:"sex"`          // 性别（0-未知 1-男 2-女）
-		Introduction string    `db:"introduction"` // 个性签名
-		CreatedAt    time.Time `db:"created_at"`   // 创建时间
-		UpdatedAt    time.Time `db:"updated_at"`   // 更新时间
+		Id           uint64         `db:"id"`           // 用户ID（自增主键）
+		Avatar       string         `db:"avatar"`       // 头像URL
+		Nickname     string         `db:"nickname"`     // 昵称
+		Phone        string         `db:"phone"`        // 手机号（唯一）
+		Email        sql.NullString `db:"email"`        // 邮箱（唯一，可为NULL）
+		Type         uint64         `db:"type"`         // 用户类型（0-普通用户 1-管理员）
+		LastLogin    time.Time      `db:"last_login"`   // 最后登录时间
+		Password     string         `db:"password"`     // 密码哈希
+		Status       uint64         `db:"status"`       // 状态（0-禁用 1-正常）
+		Sex          int            `db:"sex"`          // 性别（0-未知 1-男 2-女）
+		Introduction string         `db:"introduction"` // 个性签名
+		Region       sql.NullString `db:"region"`       // 地区
+		Occupation   sql.NullString `db:"occupation"`   // 职业
+		Tags         sql.NullString `db:"tags"`         // 个人标签（JSON数组）
+		CreatedAt    time.Time      `db:"created_at"`   // 创建时间
+		UpdatedAt    time.Time      `db:"updated_at"`   // 更新时间
 	}
 )
 
@@ -91,6 +94,12 @@ func (m *defaultUsersModel) Delete(ctx context.Context, id uint64) error {
 }
 
 func (m *defaultUsersModel) UpdateByID(ctx context.Context, data *Users) error {
+	// 先查询用户，获取旧的 email 和 phone，用于清除相关缓存
+	oldUser, err := m.FindOne(ctx, data.Id)
+	if err != nil && err != ErrNotFound {
+		return err
+	}
+
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	res := mysqlConn.Model(&Users{}).Where("id = ?", data.Id).Updates(data)
 	if res.Error != nil {
@@ -98,6 +107,33 @@ func (m *defaultUsersModel) UpdateByID(ctx context.Context, data *Users) error {
 	}
 	if res.RowsAffected == 0 {
 		return errors.New(fmt.Sprintf("update users failed id: %d", data.Id))
+	}
+
+	// 清除相关缓存
+	// 清除ID缓存
+	usersIdKey := fmt.Sprintf("%s%v", cacheUsersIdPrefix, data.Id)
+	m.DelCache(usersIdKey)
+
+	// 如果有旧用户数据，清除旧的 email 和 phone 缓存
+	if oldUser != nil {
+		if oldUser.Email.String != "" {
+			usersEmailKey := fmt.Sprintf("%s%v", cacheUsersEmailPrefix, oldUser.Email)
+			m.DelCache(usersEmailKey)
+		}
+		if oldUser.Phone != "" {
+			usersPhoneKey := fmt.Sprintf("%s%v", cacheUsersPhonePrefix, oldUser.Phone)
+			m.DelCache(usersPhoneKey)
+		}
+	}
+
+	// 如果更新了 email 或 phone，也需要清除新的缓存（如果存在）
+	if data.Email.String != "" && (oldUser == nil || oldUser.Email != data.Email) {
+		usersEmailKey := fmt.Sprintf("%s%v", cacheUsersEmailPrefix, data.Email)
+		m.DelCache(usersEmailKey)
+	}
+	if data.Phone != "" && (oldUser == nil || oldUser.Phone != data.Phone) {
+		usersPhoneKey := fmt.Sprintf("%s%v", cacheUsersPhonePrefix, data.Phone)
+		m.DelCache(usersPhoneKey)
 	}
 
 	return nil
@@ -182,8 +218,8 @@ func (m *defaultUsersModel) Insert(ctx context.Context, data *Users) (sql.Result
 	usersIdKey := fmt.Sprintf("%s%v", cacheUsersIdPrefix, data.Id)
 	usersPhoneKey := fmt.Sprintf("%s%v", cacheUsersPhonePrefix, data.Phone)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, usersRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Avatar, data.Nickname, data.Phone, data.Email, data.Type, data.LastLogin, data.Password, data.Status, data.Sex, data.Introduction)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, usersRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.Avatar, data.Nickname, data.Phone, data.Email, data.Type, data.LastLogin, data.Password, data.Status, data.Sex, data.Introduction, data.Region, data.Occupation, data.Tags)
 	}, usersEmailKey, usersIdKey, usersPhoneKey)
 	return ret, err
 }
@@ -213,7 +249,7 @@ func (m *defaultUsersModel) Update(ctx context.Context, newData *Users) error {
 	usersPhoneKey := fmt.Sprintf("%s%v", cacheUsersPhonePrefix, data.Phone)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, usersRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.Avatar, newData.Nickname, newData.Phone, newData.Email, newData.Type, newData.LastLogin, newData.Password, newData.Status, newData.Sex, newData.Introduction, newData.Id)
+		return conn.ExecCtx(ctx, query, newData.Avatar, newData.Nickname, newData.Phone, newData.Email, newData.Type, newData.LastLogin, newData.Password, newData.Status, newData.Sex, newData.Introduction, newData.Region, newData.Occupation, newData.Tags, newData.Id)
 	}, usersEmailKey, usersIdKey, usersPhoneKey)
 	return err
 }

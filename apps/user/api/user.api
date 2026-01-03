@@ -32,6 +32,14 @@ service user {
 	@handler verifyEmail
 	post /email/verify (VerifyEmailReq) returns (VerifyEmailResp)
 
+	@doc "发送手机验证码"
+	@handler sendPhoneCode
+	post /phone/code (SendPhoneCodeReq) returns (SendPhoneCodeResp)
+
+	@doc "验证手机验证码"
+	@handler verifyPhoneCode
+	post /phone/verify (VerifyPhoneCodeReq) returns (VerifyPhoneCodeResp)
+
 	@doc "重置密码"
 	@handler resetPwd
 	put /reset_pwd (ResetPassWordReq) returns (ResetPassWordResp)
@@ -51,6 +59,18 @@ service user {
 	@doc "修改用户信息"
 	@handler update
 	put /update (UpdateUserReq) returns (UpdateUserResp)
+
+	@doc "上传头像"
+	@handler uploadAvatar
+	post /avatar/upload (UploadAvatarReq) returns (UploadAvatarResp)
+
+	@doc "绑定/更新邮箱"
+	@handler bindEmail
+	post /email/bind (BindEmailReq) returns (BindEmailResp)
+
+	@doc "搜索用户（支持名称模糊匹配，手机号和邮箱精准匹配）"
+	@handler searchUser
+	get /search (SearchUserReq) returns (SearchUserResp)
 
 	@doc "注销账号"
 	@handler logout

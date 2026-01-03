@@ -73,6 +73,16 @@ func (s *UserServer) VerifyEmail(ctx context.Context, in *user.VerifyEmailReques
 	return l.VerifyEmail(in)
 }
 
+func (s *UserServer) SendPhoneCode(ctx context.Context, in *user.SendPhoneCodeRequest) (*user.SendPhoneCodeResponse, error) {
+	l := logic.NewSendPhoneCodeLogic(ctx, s.svcCtx)
+	return l.SendPhoneCode(in)
+}
+
+func (s *UserServer) VerifyPhoneCode(ctx context.Context, in *user.VerifyPhoneCodeRequest) (*user.VerifyPhoneCodeResponse, error) {
+	l := logic.NewVerifyPhoneCodeLogic(ctx, s.svcCtx)
+	return l.VerifyPhoneCode(in)
+}
+
 func (s *UserServer) GetUserById(ctx context.Context, in *user.GetUserByIdRequest) (*user.GetUserByIdResponse, error) {
 	l := logic.NewGetUserByIdLogic(ctx, s.svcCtx)
 	return l.GetUserById(in)
