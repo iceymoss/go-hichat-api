@@ -43,11 +43,22 @@ type RegisterResp struct {
 
 type ResetPassWordReq struct {
 	Password string `json:"password"`
-	Email    string `json:"email"`
-	Code     string `json:"code"`
+	Phone    string `json:"phone,optional"` // 手机号（与邮箱二选一）
+	Email    string `json:"email,optional"` // 邮箱（与手机号二选一）
+	Code     string `json:"code"`           // 验证码
 }
 
 type ResetPassWordResp struct {
+}
+
+type SearchUserReq struct {
+	Name  string `form:"name,optional"`  // 用户昵称（模糊匹配）
+	Phone string `form:"phone,optional"` // 手机号（精准匹配）
+	Email string `form:"email,optional"` // 邮箱（精准匹配）
+}
+
+type SearchUserResp struct {
+	Users []User `json:"users"` // 用户列表
 }
 
 type SendPhoneCodeReq struct {

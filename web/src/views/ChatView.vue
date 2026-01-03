@@ -5,10 +5,10 @@
       <div class="sidebar-header">
         <h2 class="sidebar-title">消息</h2>
         <div class="sidebar-actions">
-          <button class="btn-new-chat" @click="startNewChat" title="新建会话">
+          <button class="btn-new-chat" @click="showSearchUserModal = true" title="搜索用户">
             <i class="icon icon-plus"></i>
           </button>
-          <button class="btn-search" @click="toggleSearch" title="搜索">
+          <button class="btn-search" @click="toggleSearch" title="搜索会话">
             <i class="icon icon-search"></i>
           </button>
         </div>
@@ -49,6 +49,13 @@
         @send-message="handleSendMessage"
       />
     </div>
+    
+    <!-- 搜索用户模态框 -->
+    <SearchUserModal 
+      v-if="showSearchUserModal"
+      @close="showSearchUserModal = false"
+      @start-chat="handleStartChatFromSearch"
+    />
   </div>
 </template>
 
@@ -58,6 +65,7 @@ import { useConversationStore } from '../stores/conversation'
 import ConversationList from '../components/ConversationList.vue'
 import ChatPanel from '../components/ChatPanel.vue'
 import ChatEmptyState from '../components/ChatEmptyState.vue'
+import SearchUserModal from '../components/SearchUserModal.vue'
 
 const conversationStore = useConversationStore()
 
@@ -65,6 +73,7 @@ const conversationStore = useConversationStore()
 const showSearch = ref(false)
 const searchText = ref('')
 const activeConversationId = ref(null)
+const showSearchUserModal = ref(false)
 
 // 计算属性
 const activeConversation = computed(() => {
@@ -92,9 +101,11 @@ function closeChat() {
   conversationStore.setActiveConversation(null)
 }
 
-function startNewChat() {
-  // TODO: 实现新建会话功能
-  console.log('开始新会话')
+function handleStartChatFromSearch(userId) {
+  // 从搜索结果开始聊天
+  showSearchUserModal.value = false
+  const conversation = conversationStore.getOrCreateConversation(userId)
+  selectConversation(conversation.id)
 }
 
 function handleStartChat(userId) {

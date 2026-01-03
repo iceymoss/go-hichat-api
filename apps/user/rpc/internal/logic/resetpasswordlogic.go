@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"time"
 
@@ -33,11 +34,11 @@ func NewResetPasswordLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Res
 
 func (l *ResetPasswordLogic) ResetPassword(in *user.ResetPassWordReq) (*user.ResetPassWordResp, error) {
 	if in.Id == "" {
-		return nil, xerr.New(xerr.ErrBadRequest, "用户id不能为空")
+		return nil, libErr.New(xerr.ErrBadRequest, "用户id不能为空")
 	}
 
 	if in.Password == "" {
-		return nil, xerr.New(xerr.ErrBadRequest, "密码不能为空")
+		return nil, libErr.New(xerr.ErrBadRequest, "密码不能为空")
 	}
 
 	userId, err := strconv.Atoi(in.Id)
@@ -48,7 +49,11 @@ func (l *ResetPasswordLogic) ResetPassword(in *user.ResetPassWordReq) (*user.Res
 	// get user
 	userEntity, err := l.svcCtx.UserModels.FindOne(l.ctx, uint64(userId))
 	if err != nil {
-		return nil, libErr.New(10004, "用户不存在")
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, libErr.New(xerr.ErrNotFound, "用户不存在")
+		}
+		logger.Error("find user error", zap.Any("userId", userId), zap.Error(err))
+		return nil, libErr.New(xerr.ErrInternalServer, "查询用户失败")
 	}
 
 	if userEntity.Status != 1 {

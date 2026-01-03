@@ -116,9 +116,10 @@ export const userApi = {
     return api.post('/api/v1/user/phone/verify', { phone, code })
   },
   
-  // 重置密码
-  resetPassword: (email, code, password) => {
-    return api.put('/api/v1/user/reset_pwd', { email, code, password })
+  // 重置密码（支持手机号或邮箱）
+  resetPassword: (params) => {
+    // params 可以是 { phone, code, password } 或 { email, code, password }
+    return api.put('/api/v1/user/reset_pwd', params)
   },
   
   // 上传头像
@@ -130,6 +131,15 @@ export const userApi = {
         'Content-Type': 'multipart/form-data'
       }
     })
+  },
+  
+  // 搜索用户（支持名称模糊匹配，手机号和邮箱精准匹配）
+  searchUser: (params) => {
+    // params 可以是字符串（名称）或对象 {name, phone, email}
+    const queryParams = typeof params === 'string' 
+      ? { name: params } 
+      : params
+    return api.get('/api/v1/user/search', { params: queryParams })
   }
 }
 

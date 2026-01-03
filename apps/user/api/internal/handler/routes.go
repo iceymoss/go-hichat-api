@@ -88,6 +88,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: user.LogoutHandler(serverCtx),
 			},
 			{
+				// 搜索用户（支持名称模糊匹配，手机号和邮箱精准匹配）
+				Method:  http.MethodGet,
+				Path:    "/search",
+				Handler: user.SearchUserHandler(serverCtx),
+			},
+			{
 				// 修改用户信息
 				Method:  http.MethodPut,
 				Path:    "/update",
