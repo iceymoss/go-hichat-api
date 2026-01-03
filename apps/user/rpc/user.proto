@@ -17,6 +17,9 @@ message UserEntity {
   string  introduction = 9;
   int32   type = 10;             // 用户类别
   int32   state = 11;            // 用户状态
+  string  region = 12;           // 地区
+  string  occupation = 13;       // 职业
+  string  tags = 14;             // 个人标签（JSON数组）
 }
 
 // req 与 respo
@@ -47,6 +50,7 @@ message RegisterReq{
   string  type = 5;
   string  email = 6;
   int32   sex = 7;
+  string  phoneCode = 8;  // 手机验证码（6位数）
 }
 
 message RegisterResp {
@@ -83,6 +87,10 @@ message UpdateUserReq {
   int32   sex = 8;
   string introduction= 9;
   string password = 10;
+  string region = 11;            // 地区
+  string occupation = 12;        // 职业
+  string tags = 13;              // 个人标签（JSON数组）
+  string emailCode = 14;         // 邮箱验证码（绑定或修改邮箱时需要）
 }
 
 message UpdateUserResp {
@@ -127,6 +135,29 @@ message VerifyEmailResponse {
   string message = 2; // 附加信息
 }
 
+// 发送手机验证码请求
+message SendPhoneCodeRequest {
+  string phone = 1; // 用户手机号
+}
+
+// 发送手机验证码响应
+message SendPhoneCodeResponse {
+  bool success = 1; // 是否发送成功
+  string message = 2; // 附加信息
+}
+
+// 验证手机验证码请求
+message VerifyPhoneCodeRequest {
+  string phone = 1; // 用户手机号
+  string code = 2; // 验证码
+}
+
+// 验证手机验证码响应
+message VerifyPhoneCodeResponse {
+  bool success = 1; // 是否验证成功
+  string message = 2; // 附加信息
+}
+
 message GetUserByIdRequest {
   string id = 1; // 用户id
 }
@@ -164,6 +195,8 @@ service User {
   rpc ResetPassword(ResetPassWordReq) returns (ResetPassWordResp); //重置密码
   rpc SendVerificationEmail(SendVerificationEmailRequest) returns (SendVerificationEmailResponse); // 发送验证邮件
   rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse); // 验证邮件
+  rpc SendPhoneCode(SendPhoneCodeRequest) returns (SendPhoneCodeResponse); // 发送手机验证码
+  rpc VerifyPhoneCode(VerifyPhoneCodeRequest) returns (VerifyPhoneCodeResponse); // 验证手机验证码
   rpc GetUserById(GetUserByIdRequest) returns (GetUserByIdResponse); // 根据id获取用户信息
   rpc GetUserByPhone(GetUserByPhoneRequest) returns (GetUserByPhoneResponse); // 根据手机号获取用户信息
   rpc GetUserByEmail(GetUserByEmailRequest) returns (GetUserByEmailResponse); // 根据邮箱获取用户信息

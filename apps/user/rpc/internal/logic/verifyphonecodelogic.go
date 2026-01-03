@@ -13,23 +13,23 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type VerifyEmailLogic struct {
+type VerifyPhoneCodeLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 	logx.Logger
 }
 
-func NewVerifyEmailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *VerifyEmailLogic {
-	return &VerifyEmailLogic{
+func NewVerifyPhoneCodeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *VerifyPhoneCodeLogic {
+	return &VerifyPhoneCodeLogic{
 		ctx:    ctx,
 		svcCtx: svcCtx,
 		Logger: logx.WithContext(ctx),
 	}
 }
 
-func (l *VerifyEmailLogic) VerifyEmail(in *user.VerifyEmailRequest) (*user.VerifyEmailResponse, error) {
-	if in.Email == "" {
-		return nil, libErr.New(xerr.ErrBadRequest, "邮箱不能为空")
+func (l *VerifyPhoneCodeLogic) VerifyPhoneCode(in *user.VerifyPhoneCodeRequest) (*user.VerifyPhoneCodeResponse, error) {
+	if in.Phone == "" {
+		return nil, libErr.New(xerr.ErrBadRequest, "手机号不能为空")
 	}
 
 	if in.Code == "" {
@@ -37,23 +37,26 @@ func (l *VerifyEmailLogic) VerifyEmail(in *user.VerifyEmailRequest) (*user.Verif
 	}
 
 	// 使用工厂模式获取验证码发送器
-	codeSender, err := verification.GetCodeSender(verification.CodeTypeEmail)
+	codeSender, err := verification.GetCodeSender(verification.CodeTypeSMS)
 	if err != nil {
 		return nil, libErr.New(xerr.ErrInternalServer, "获取验证码发送器失败")
 	}
 	
 	rdb := db.GetRedisConn()
-	key := verification.GetRedisKey(verification.CodeTypeEmail, in.Email)
+	key := verification.GetRedisKey(verification.CodeTypeSMS, in.Phone)
+	
 	pass, err := codeSender.VerifyCode(l.ctx, rdb, key, in.Code)
 	if err != nil {
 		return nil, libErr.New(xerr.ErrInternalServer, "验证码验证失败")
 	}
 
 	if !pass {
-		return nil, libErr.New(xerr.ErrInvalidInput, "验证码错误, 请重试")
+		return nil, libErr.New(xerr.ErrInvalidInput, "验证码错误或已过期")
 	}
 
-	return &user.VerifyEmailResponse{
+	return &user.VerifyPhoneCodeResponse{
 		Success: true,
+		Message: "验证成功",
 	}, nil
 }
+

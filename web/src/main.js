@@ -14,9 +14,11 @@ app.use(pinia)
 // 使用路由
 app.use(router)
 
-// 初始化认证状态
-const authStore = useAuthStore()
-authStore.init()
-
 // 挂载应用
 app.mount('#app')
+
+// 初始化认证状态（在应用挂载后，避免阻塞）
+const authStore = useAuthStore()
+authStore.init().catch(err => {
+  console.error('初始化认证状态失败:', err)
+})

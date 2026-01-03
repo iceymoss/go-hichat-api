@@ -3,6 +3,14 @@
 
 package types
 
+type BindEmailReq struct {
+	Email string `json:"email"` // 邮箱地址
+	Code  string `json:"code"`  // 邮箱验证码
+}
+
+type BindEmailResp struct {
+}
+
 type LoginReq struct {
 	Phone    string `json:"phone"`
 	Password string `json:"password"`
@@ -20,12 +28,12 @@ type LogoutResp struct {
 }
 
 type RegisterReq struct {
-	Phone    string `json:"phone"`
-	Password string `json:"password"`
-	Nickname string `json:"nickname"`
-	Sex      int    `json:"sex"`
-	Avatar   string `json:"avatar"`
-	Email    string `json:"email"`
+	Phone     string `json:"phone"`
+	Password  string `json:"password"`
+	Nickname  string `json:"nickname"`
+	Sex       int    `json:"sex,optional"`    // 可选，注册时不设置，后续可在个人主页编辑
+	Avatar    string `json:"avatar,optional"` // 可选，注册时不设置，后续可在个人主页编辑
+	PhoneCode string `json:"phoneCode"`       // 手机验证码（6位数），必填
 }
 
 type RegisterResp struct {
@@ -42,6 +50,13 @@ type ResetPassWordReq struct {
 type ResetPassWordResp struct {
 }
 
+type SendPhoneCodeReq struct {
+	Phone string `json:"phone"`
+}
+
+type SendPhoneCodeResp struct {
+}
+
 type SendVerificationEmailReq struct {
 	Email string `json:"email"`
 }
@@ -54,13 +69,22 @@ type UpdateUserReq struct {
 	Phone        string `json:"phone,optional"`
 	Avatar       string `json:"avatar,optional"`
 	Type         string `json:"type,optional"`
-	Email        string `json:"email,optional"`
 	Sex          int    `json:"sex,optional"`
 	Introduction string `json:"introduction,optional"`
 	Password     string `json:"password,optional"`
+	Region       string `json:"region,optional"`
+	Occupation   string `json:"occupation,optional"`
+	Tags         string `json:"tags,optional"`
 }
 
 type UpdateUserResp struct {
+}
+
+type UploadAvatarReq struct {
+}
+
+type UploadAvatarResp struct {
+	Url string `json:"url"`
 }
 
 type User struct {
@@ -70,8 +94,11 @@ type User struct {
 	Sex          int    `json:"sex"`
 	Avatar       string `json:"avatar"`
 	LastLogin    string `json:"lastLogin"`
-	Introduction string `json "introduction"`
+	Introduction string `json:"introduction"`
 	Email        string `json:"email"`
+	Region       string `json:"region"`
+	Occupation   string `json:"occupation"`
+	Tags         string `json:"tags"`
 }
 
 type UserInfoReq struct {
@@ -87,4 +114,12 @@ type VerifyEmailReq struct {
 }
 
 type VerifyEmailResp struct {
+}
+
+type VerifyPhoneCodeReq struct {
+	Phone string `json:"phone"`
+	Code  string `json:"code"`
+}
+
+type VerifyPhoneCodeResp struct {
 }

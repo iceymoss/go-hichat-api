@@ -101,9 +101,35 @@ export const userApi = {
     return api.post('/api/v1/user/email/verify', { email, code })
   },
   
+  // 绑定/更新邮箱
+  bindEmail: (email, code) => {
+    return api.post('/api/v1/user/email/bind', { email, code })
+  },
+  
+  // 发送手机验证码
+  sendPhoneCode: (phone) => {
+    return api.post('/api/v1/user/phone/code', { phone })
+  },
+  
+  // 验证手机验证码
+  verifyPhoneCode: (phone, code) => {
+    return api.post('/api/v1/user/phone/verify', { phone, code })
+  },
+  
   // 重置密码
   resetPassword: (email, code, password) => {
     return api.put('/api/v1/user/reset_pwd', { email, code, password })
+  },
+  
+  // 上传头像
+  uploadAvatar: (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/api/v1/user/avatar/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
   }
 }
 

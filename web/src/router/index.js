@@ -73,8 +73,24 @@ const router = createRouter({
 })
 
 // 添加路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+  
+  // 如果还没有初始化且有 token，先初始化认证状态
+  if (!authStore.isInitialized && authStore.token) {
+    try {
+      await authStore.init()
+    } catch (error) {
+      console.error('初始化认证状态失败:', error)
+    }
+  }
+  
+  // 等待初始化完成（最多等待1秒，避免无限等待）
+  let waitCount = 0
+  while (!authStore.isInitialized && authStore.token && waitCount < 10) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+    waitCount++
+  }
   
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')

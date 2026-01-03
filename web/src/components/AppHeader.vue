@@ -18,19 +18,72 @@
       <button class="btn-notification">
         <i class="icon icon-bell"></i>
       </button>
-      <button class="btn-user">
-        <img :src="user.avatar" alt="头像" class="avatar">
-      </button>
+      <div class="user-menu-container">
+        <button class="btn-user" @click="toggleUserMenu">
+          <img :src="user.avatar" alt="头像" class="avatar">
+        </button>
+        <div v-if="showUserMenu" class="user-menu">
+          <div class="user-menu-item" @click="goToProfile">
+            <i class="icon icon-user"></i>
+            <span>个人资料</span>
+          </div>
+          <div class="user-menu-divider"></div>
+          <div class="user-menu-item logout-item" @click="handleLogout">
+            <i class="icon icon-logout"></i>
+            <span>退出登录</span>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
+const router = useRouter()
 const user = computed(() => authStore.user || { avatar: '' })
+const showUserMenu = ref(false)
+
+const toggleUserMenu = () => {
+  showUserMenu.value = !showUserMenu.value
+}
+
+const goToProfile = () => {
+  showUserMenu.value = false
+  router.push('/app/profile')
+}
+
+const handleLogout = async () => {
+  showUserMenu.value = false
+  try {
+    await authStore.logout()
+    router.push('/login')
+  } catch (error) {
+    console.error('登出失败:', error)
+    // 即使后端登出失败，也清除本地数据并跳转
+    router.push('/login')
+  }
+}
+
+// 点击外部关闭菜单
+const handleClickOutside = (event) => {
+  const menuContainer = event.target.closest('.user-menu-container')
+  if (!menuContainer) {
+    showUserMenu.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <style scoped>
@@ -112,5 +165,54 @@ const user = computed(() => authStore.user || { avatar: '' })
   height: 36px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.user-menu-container {
+  position: relative;
+}
+
+.user-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 160px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: #333;
+  font-size: 14px;
+}
+
+.user-menu-item:hover {
+  background-color: #f5f5f5;
+}
+
+.user-menu-item i {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.logout-item {
+  color: #ff4d4f;
+}
+
+.logout-item:hover {
+  background-color: #fff1f0;
+}
+
+.user-menu-divider {
+  height: 1px;
+  background-color: #e8e8e8;
+  margin: 4px 0;
 }
 </style>

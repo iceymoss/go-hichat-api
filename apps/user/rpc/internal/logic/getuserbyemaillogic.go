@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"database/sql"
-	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
@@ -43,21 +42,10 @@ func (l *GetUserByEmailLogic) GetUserByEmail(in *user.GetUserByEmailRequest) (*u
 		return nil, errors.New(xerr.ErrNotFound, "用户不存在")
 	}
 
-	resp := user.UserEntity{
-		Id:           strconv.Itoa(int(userEntiy.Id)),
-		Avatar:       userEntiy.Avatar,
-		Nickname:     userEntiy.Nickname,
-		Phone:        userEntiy.Phone,
-		Email:        userEntiy.Email,
-		Status:       int32(userEntiy.Status),
-		LastLogin:    userEntiy.LastLogin.Unix(),
-		Sex:          int32(userEntiy.Sex),
-		Introduction: userEntiy.Introduction,
-		Type:         int32(userEntiy.Type),
-		State:        int32(userEntiy.Status),
-	}
+	// 使用统一的转换函数
+	resp := ToUserEntity(userEntiy)
 
 	return &user.GetUserByEmailResponse{
-		User: &resp,
+		User: resp,
 	}, nil
 }

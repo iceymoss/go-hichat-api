@@ -46,6 +46,9 @@ func (l *DetailLogic) Detail(req *types.UserInfoReq) (resp *types.UserInfoResp, 
 		LastLogin:    strconv.Itoa(int(rpcUserInfoResp.User.LastLogin)),
 		Introduction: rpcUserInfoResp.User.Introduction,
 		Email:        rpcUserInfoResp.User.Email,
+		Region:       rpcUserInfoResp.User.Region,
+		Occupation:   rpcUserInfoResp.User.Occupation,
+		Tags:         rpcUserInfoResp.User.Tags,
 	}
 
 	return &types.UserInfoResp{Info: res}, nil

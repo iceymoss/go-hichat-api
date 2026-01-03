@@ -34,6 +34,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: user.LoginHandler(serverCtx),
 			},
 			{
+				// 发送手机验证码
+				Method:  http.MethodPost,
+				Path:    "/phone/code",
+				Handler: user.SendPhoneCodeHandler(serverCtx),
+			},
+			{
+				// 验证手机验证码
+				Method:  http.MethodPost,
+				Path:    "/phone/verify",
+				Handler: user.VerifyPhoneCodeHandler(serverCtx),
+			},
+			{
 				// 用户注册
 				Method:  http.MethodPost,
 				Path:    "/register",
@@ -52,10 +64,22 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 上传头像
+				Method:  http.MethodPost,
+				Path:    "/avatar/upload",
+				Handler: user.UploadAvatarHandler(serverCtx),
+			},
+			{
 				// 获取用户信息
 				Method:  http.MethodGet,
 				Path:    "/detail",
 				Handler: user.DetailHandler(serverCtx),
+			},
+			{
+				// 绑定/更新邮箱
+				Method:  http.MethodPost,
+				Path:    "/email/bind",
+				Handler: user.BindEmailHandler(serverCtx),
 			},
 			{
 				// 注销账号

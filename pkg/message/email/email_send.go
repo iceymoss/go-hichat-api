@@ -12,13 +12,16 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-// Mailer 邮件发送器
+// Mailer 邮件发送器（实现 EmailSender 接口）
 type Mailer struct {
 	Host     string
 	Port     string
 	Username string
 	Password string
 }
+
+// 确保 Mailer 实现了 EmailSender 接口
+var _ EmailSender = (*Mailer)(nil)
 
 // NewMailer 创建邮件发送器
 func NewMailer(host, port, username, password string) *Mailer {

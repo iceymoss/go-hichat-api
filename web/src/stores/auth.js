@@ -22,7 +22,9 @@ export const useAuthStore = defineStore('auth', () => {
         return false
       }
     }
-    return !!token.value && !!user.value
+    // 如果有 token，即使 user 还没加载完成，也认为已认证（会在路由守卫中等待加载）
+    // 这样可以避免刷新页面时被重定向到登录页
+    return !!token.value
   })
   
   // 清除认证信息
@@ -30,6 +32,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     tokenExpire.value = null
     user.value = null
+    isInitialized.value = false
     localStorage.removeItem('token')
     localStorage.removeItem('tokenExpire')
     localStorage.removeItem('user')
@@ -52,6 +55,9 @@ export const useAuthStore = defineStore('auth', () => {
       // 获取用户信息
       await fetchUserInfo()
       
+      // 标记为已初始化
+      isInitialized.value = true
+      
       return response
     } catch (error) {
       throw error
@@ -65,9 +71,7 @@ export const useAuthStore = defineStore('auth', () => {
         phone: userData.phone,
         password: userData.password,
         nickname: userData.nickname || userData.phone,
-        email: userData.email || '',
-        avatar: userData.avatar || '',
-        sex: userData.sex || 0
+        phoneCode: userData.phoneCode || ''
       })
       
       // 注册成功后自动登录
@@ -82,6 +86,9 @@ export const useAuthStore = defineStore('auth', () => {
         
         // 获取用户信息
         await fetchUserInfo()
+        
+        // 标记为已初始化
+        isInitialized.value = true
       }
       
       return response
@@ -104,7 +111,10 @@ export const useAuthStore = defineStore('auth', () => {
           sex: response.info.sex,
           email: response.info.email,
           introduction: response.info.introduction,
-          lastLogin: response.info.lastLogin
+          lastLogin: response.info.lastLogin,
+          region: response.info.region || '',
+          occupation: response.info.occupation || '',
+          tags: response.info.tags || ''
         }
         localStorage.setItem('user', JSON.stringify(user.value))
       }
@@ -141,20 +151,42 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
   
+  // 初始化状态标志
+  const isInitialized = ref(false)
+  
   // 初始化：如果本地有 token，尝试获取用户信息
   const init = async () => {
-    if (token.value && !user.value) {
-      await fetchUserInfo()
-    } else if (token.value && user.value) {
-      // 从 localStorage 恢复用户信息
-      const savedUser = localStorage.getItem('user')
-      if (savedUser) {
-        try {
-          user.value = JSON.parse(savedUser)
-        } catch (e) {
-          // 如果解析失败，重新获取
-          await fetchUserInfo()
+    if (!token.value) {
+      isInitialized.value = true
+      return
+    }
+    
+    // 先尝试从 localStorage 恢复用户信息（快速恢复，同步操作）
+    const savedUser = localStorage.getItem('user')
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser)
+        user.value = parsedUser
+      } catch (e) {
+        console.warn('解析保存的用户信息失败:', e)
+      }
+    }
+    
+    // 标记为已初始化（即使后续获取失败，也允许用户访问）
+    isInitialized.value = true
+    
+    // 然后从服务器获取最新用户信息（异步，不阻塞）
+    if (token.value) {
+      try {
+        await fetchUserInfo()
+      } catch (error) {
+        console.error('获取用户信息失败:', error)
+        // 如果获取失败且是401错误，清除认证信息
+        if (error.message && (error.message.includes('401') || error.message.includes('未授权'))) {
+          clearAuth()
+          isInitialized.value = false
         }
+        // 其他错误（如网络错误）不影响已恢复的用户信息
       }
     }
   }
@@ -164,6 +196,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     tokenExpire,
     isAuthenticated,
+    isInitialized,
     login,
     register,
     logout,
