@@ -18,6 +18,7 @@ message FriendRequests { //好友请求
   string userId = 2; //用户id
   string reqUid = 3; //请求用户id
   string reqMsg = 4; //请求消息
+  int32  status = 7; //消息状态（0:已删除 1:正常显示 2:忽略不显示）
   int64  reqTime = 5; //请求时间
   int32  handleResult = 6; // 处理结果
 }
@@ -83,6 +84,14 @@ message FriendPutInListReq{
 
 message FriendPutInListResp{
   repeated FriendRequests list = 1;
+}
+
+message FriendPutInMessageCountReq{
+  string userId = 1;
+}
+
+message FriendPutInMessageCountResp{
+  int32 count = 1; // 消息数量
 }
 
 message FriendListReq{
@@ -169,6 +178,7 @@ service social {
   rpc FriendPutIn(FriendPutInReq) returns(FriendPutInResp);
   rpc FriendPutInHandle(FriendPutInHandleReq) returns(FriendPutInHandleResp);
   rpc FriendPutInList(FriendPutInListReq) returns(FriendPutInListResp);
+  rpc FriendPutInMessageCount(FriendPutInMessageCountReq) returns(FriendPutInMessageCountResp);
   rpc FriendList(FriendListReq) returns (FriendListResp);
 
   // 群业务：创建群，修改群，群公告，申请群，用户群列表，群成员，申请群，群退出..

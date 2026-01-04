@@ -6,6 +6,7 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/handler"
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/middleware"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/conf"
@@ -22,6 +23,9 @@ func main() {
 
 	server := rest.MustNewServer(c.RestConf, rest.WithCors("*"))
 	defer server.Stop()
+
+	// 使用自定义 CORS 中间件（更完善的跨域支持）
+	server.Use(middleware.CORSMiddleware())
 
 	ctx := svc.NewServiceContext(c)
 	handler.RegisterHandlers(server, ctx)

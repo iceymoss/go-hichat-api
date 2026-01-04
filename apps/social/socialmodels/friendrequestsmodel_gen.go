@@ -53,8 +53,9 @@ type (
 		UserId       uint64    `db:"user_id"`       // 申请人用户ID
 		ReqUid       uint64    `db:"req_uid"`       // 被申请人用户ID
 		ReqMsg       string    `db:"req_msg"`       // 好友申请留言
+		Status       int       `db:"status"`        // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
 		ReqTime      time.Time `db:"req_time"`      // 申请发起时间
-		HandleResult int       `db:"handle_result"` // 处理结果（0:待处理 1:同意 2:拒绝）
+		HandleResult int       `db:"handle_result"` // 处理结果（0:待处理 1:同意 2:拒绝 3:忽略）
 		HandleMsg    string    `db:"handle_msg"`    // 处理结果备注
 		HandledAt    time.Time `db:"handled_at"`    // 处理操作时间
 	}
@@ -91,6 +92,8 @@ func (m *defaultFriendRequestsModel) ListFilterHandler(ctx context.Context, user
 	var reqList []*FriendRequests
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	query := mysqlConn.Table(m.table)
+	// 过滤掉已删除的记录（status = 0）
+	query = query.Where("status != ?", 0)
 	if typeTag != 0 {
 		query.Where("handle_result = ?", typeTag)
 	}
@@ -164,7 +167,7 @@ func (m *defaultFriendRequestsModel) Update(ctx context.Context, session sqlx.Se
 	friendRequestsIdKey := fmt.Sprintf("%s%v", cacheFriendRequestsIdPrefix, data.Id)
 	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, friendRequestsRowsWithPlaceHolder)
-		return session.ExecCtx(ctx, query, data.UserId, data.ReqUid, data.ReqMsg, data.ReqTime, data.HandleResult, data.HandleMsg, data.HandledAt, data.Id)
+		return session.ExecCtx(ctx, query, data.UserId, data.ReqUid, data.ReqMsg, data.Status, data.ReqTime, data.HandleResult, data.HandleMsg, data.HandledAt, data.Id)
 	}, friendRequestsIdKey)
 	return err
 }
@@ -172,8 +175,8 @@ func (m *defaultFriendRequestsModel) Update(ctx context.Context, session sqlx.Se
 func (m *defaultFriendRequestsModel) Insert(ctx context.Context, data *FriendRequests) (sql.Result, error) {
 	friendRequestsIdKey := fmt.Sprintf("%s%v", cacheFriendRequestsIdPrefix, data.Id)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?)", m.table, friendRequestsRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.UserId, data.ReqUid, data.ReqMsg, data.ReqTime, data.HandleResult, data.HandleMsg, data.HandledAt)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?)", m.table, friendRequestsRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.UserId, data.ReqUid, data.ReqMsg, data.Status, data.ReqTime, data.HandleResult, data.HandleMsg, data.HandledAt)
 	}, friendRequestsIdKey)
 	return ret, err
 }

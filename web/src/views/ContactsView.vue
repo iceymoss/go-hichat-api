@@ -16,12 +16,16 @@
         <GroupDetail :group="selectedGroup" />
       </div>
     </div>
-    <AddFriendModal v-if="showAddFriendModal" @close="showAddFriendModal = false" />
+    <AddFriendModal 
+      v-if="showAddFriendModal" 
+      @close="showAddFriendModal = false" 
+      @send-request="handleSendRequest" 
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useContactsStore } from '../stores/contacts'
 import FriendList from '../components/FriendList.vue'
 import FriendDetail from '../components/FriendDetail.vue'
@@ -37,8 +41,25 @@ const showAddFriendModal = ref(false)
 const contactsStore = useContactsStore()
 
 const selectedFriend = computed(() => {
-  return contactsStore.friends.find(f => f.id === selectedFriendId.value) || null
+  return contactsStore.friends.find(f => (f.id === selectedFriendId.value || f.friend_uid === selectedFriendId.value)) || null
 })
+
+// 组件挂载时加载数据
+onMounted(async () => {
+  await contactsStore.fetchFriends()
+  await contactsStore.fetchFriendRequests(0, '1') // 获取待处理的我收到的申请
+})
+
+// 处理添加好友请求（用于刷新列表）
+const handleSendRequest = async (userId) => {
+  // AddFriendModal 已经自己处理了发送逻辑
+  // 这里只需要刷新好友申请列表（可选）
+  try {
+    await contactsStore.fetchFriendRequests(0, '0') // 刷新我发起的申请列表
+  } catch (error) {
+    console.error('刷新申请列表失败:', error)
+  }
+}
 
 // mock更多群聊
 const groups = ref([

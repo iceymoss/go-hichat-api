@@ -1,12 +1,19 @@
 <template>
   <div class="profile-view">
-    <!-- 背景图 -->
-    <div class="profile-banner">
-      <img src="https://picsum.photos/800/200?random=1" alt="背景" class="banner-image">
+    <!-- 加载状态 -->
+    <div v-if="loadingUserInfo && !isMyProfile" class="loading-container">
+      <div class="loading-spinner-large"></div>
+      <p>加载用户信息中...</p>
     </div>
     
-    <!-- 个人资料卡 -->
-    <div class="profile-card">
+    <template v-else>
+      <!-- 背景图 -->
+      <div class="profile-banner">
+        <img src="https://picsum.photos/800/200?random=1" alt="背景" class="banner-image">
+      </div>
+      
+      <!-- 个人资料卡 -->
+      <div class="profile-card">
       <div class="profile-header">
         <div class="avatar-container">
           <img :src="currentUser.avatar" alt="头像" class="avatar">
@@ -140,18 +147,38 @@
           </div>
         </template>
         <template v-else>
-          <button 
-            class="btn-chat" 
-            :class="{ 'btn-gray': currentUser.isFriend }"
-            @click="startChat"
-          >
-            <i class="icon icon-chat"></i>
-            {{ currentUser.isFriend ? '发消息' : '添加好友' }}
-          </button>
+          <div class="profile-actions-buttons">
+            <button 
+              v-if="currentUser.isFriend"
+              class="btn-chat" 
+              @click="startChat"
+            >
+              <i class="icon icon-chat"></i>
+              发消息
+            </button>
+            <button 
+              v-else-if="!friendRequestSent"
+              class="btn-add-friend" 
+              @click="showAddFriendDialog = true"
+              :disabled="sendingFriendRequest"
+            >
+              <i v-if="sendingFriendRequest" class="icon icon-spinner"></i>
+              <i v-else class="icon icon-add"></i>
+              {{ sendingFriendRequest ? '发送中...' : '添加好友' }}
+            </button>
+            <button 
+              v-else
+              class="btn-request-sent" 
+              disabled
+            >
+              <i class="icon icon-check"></i>
+              已发送申请
+            </button>
+          </div>
         </template>
       </div>
     </div>
-  </div>
+    </template>
 
   <!-- 邮箱绑定模态框 -->
   <div v-if="showEmailModal" class="modal-overlay" @click.self="closeEmailModal">
@@ -245,17 +272,67 @@
       </div>
     </div>
   </div>
+
+  <!-- 申请好友对话框 -->
+  <div v-if="showAddFriendDialog" class="modal-overlay" @click.self="showAddFriendDialog = false">
+    <div class="modal-container add-friend-modal">
+      <div class="modal-header">
+        <h3>发送好友申请</h3>
+        <button type="button" class="modal-close" @click="showAddFriendDialog = false">×</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="user-preview">
+          <img :src="currentUser.avatar" alt="头像" class="avatar" />
+          <div class="user-name">{{ currentUser.name }}</div>
+        </div>
+        <div class="message-input">
+          <label>申请消息（可选）</label>
+          <textarea 
+            v-model="requestMessage" 
+            placeholder="请输入申请消息..."
+            rows="3"
+            maxlength="100"
+          ></textarea>
+          <div class="char-count">{{ requestMessage.length }}/100</div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel-modal" @click="showAddFriendDialog = false">取消</button>
+        <button 
+          type="button"
+          class="btn-confirm-bind"
+          @click="sendFriendRequest"
+          :disabled="sendingFriendRequest"
+        >
+          <span v-if="sendingFriendRequest" class="loading-spinner"></span>
+          <span v-else>发送</span>
+        </button>
+      </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { userApi } from '../utils/api'
+import { useContactsStore } from '../stores/contacts'
+import { userApi, socialApi } from '../utils/api'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const contactsStore = useContactsStore()
+
+// 申请好友相关状态
+const showAddFriendDialog = ref(false)
+const requestMessage = ref('')
+const sendingFriendRequest = ref(false)
+const friendRequestSent = ref(false)
+const loadingUserInfo = ref(false)
 
 const editing = ref(false)
 const currentUser = ref({
@@ -340,21 +417,8 @@ onMounted(async () => {
       isFriend: false
     }
   } else {
-    // 查看其他用户资料（暂时使用模拟数据，后续可以对接用户详情API）
-    currentUser.value = {
-      id: route.params.userId || '1000',
-      name: '演示用户',
-      account: 'user_demo',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=demo',
-      signature: '前端小白，后端大神',
-      gender: 'male',
-      region: '北京市',
-      occupation: 'Go工程师',
-      email: 'demo@example.com',
-      phone: '138****1234',
-      tags: ['Go开发', 'Vue3学习', '后端架构'],
-      isFriend: true
-    }
+    // 查看其他用户资料，通过搜索 API 获取用户信息
+    await loadOtherUserInfo()
   }
   
   // 初始化编辑字段
@@ -367,6 +431,13 @@ onMounted(async () => {
   editPhone.value = currentUser.value.phone
   editTags.value = [...currentUser.value.tags]
 })
+
+// 监听路由参数变化，重新加载用户信息
+watch(() => route.params.userId, async (newUserId, oldUserId) => {
+  if (newUserId && newUserId !== oldUserId && !isMyProfile.value) {
+    await loadOtherUserInfo()
+  }
+}, { immediate: false })
 
 const startEdit = () => {
   editing.value = true
@@ -601,8 +672,148 @@ const removeTag = (index) => {
   editTags.value.splice(index, 1)
 }
 
+// 加载其他用户信息
+const loadOtherUserInfo = async () => {
+  const userId = route.params.userId
+  if (!userId) return
+  
+  loadingUserInfo.value = true
+  
+  try {
+    // 使用 getUserById 方法通过用户ID获取用户信息
+    const user = await userApi.getUserById(userId)
+      
+      if (!user) {
+      // 用户不存在
+        currentUser.value = {
+          id: userId,
+        name: '用户不存在',
+          account: userId,
+          avatar: `https://api.dicebear.com/7.x/personas/svg?seed=${userId}`,
+        signature: '用户不存在',
+          gender: 'unknown',
+          region: '',
+          occupation: '',
+          email: '',
+          phone: '',
+          tags: [],
+          isFriend: false
+        }
+        return
+      }
+      
+      // 解析标签
+      let tags = []
+      if (user.tags) {
+        try {
+          tags = typeof user.tags === 'string' ? JSON.parse(user.tags) : user.tags
+        } catch (e) {
+          tags = []
+        }
+      }
+      
+      currentUser.value = {
+        id: user.id,
+        name: user.nickname || user.name || '未设置昵称',
+        account: user.id,
+        avatar: user.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${user.id}`,
+        signature: user.introduction || '这个人很懒，什么都没写',
+        gender: user.sex === 1 ? 'male' : user.sex === 2 ? 'female' : 'unknown',
+        region: user.region || '',
+        occupation: user.occupation || '',
+        email: user.email || '',
+        phone: user.mobile || '',
+        tags: tags,
+        isFriend: false // 稍后检查好友关系
+      }
+      
+      // 检查是否是好友
+      await checkFriendStatus(userId)
+      
+      // 检查是否已发送好友申请
+      await checkFriendRequestStatus(userId)
+  } catch (error) {
+    console.error('加载用户信息失败:', error)
+    // 使用默认数据
+    currentUser.value = {
+      id: userId,
+      name: error.message?.includes('不存在') ? '用户不存在' : '加载失败',
+      account: userId,
+      avatar: `https://api.dicebear.com/7.x/personas/svg?seed=${userId}`,
+      signature: error.message?.includes('不存在') ? '用户不存在' : '加载用户信息失败',
+      gender: 'unknown',
+      region: '',
+      occupation: '',
+      email: '',
+      phone: '',
+      tags: [],
+      isFriend: false
+    }
+  } finally {
+    loadingUserInfo.value = false
+  }
+}
+
+// 检查好友关系
+const checkFriendStatus = async (userId) => {
+  try {
+    // 获取好友列表
+    await contactsStore.fetchFriends()
+    
+    // 检查当前用户是否在好友列表中
+    const isFriend = contactsStore.friends.some(
+      friend => friend.friend_uid === userId || friend.id === userId || friend.friend_uid === currentUser.value.id || friend.id === currentUser.value.id
+    )
+    
+    currentUser.value.isFriend = isFriend
+  } catch (error) {
+    console.error('检查好友关系失败:', error)
+  }
+}
+
+// 检查好友申请状态
+const checkFriendRequestStatus = async (userId) => {
+  try {
+    // 获取我发起的申请列表
+    const sentRequests = await contactsStore.fetchFriendRequests(0, '0')
+    
+    // 检查是否已发送申请给该用户
+    const hasSentRequest = sentRequests.some(
+      req => req.req_uid === userId || req.user_id === userId
+    )
+    
+    friendRequestSent.value = hasSentRequest
+  } catch (error) {
+    console.error('检查申请状态失败:', error)
+  }
+}
+
+// 发送好友申请
+const sendFriendRequest = async () => {
+  if (!currentUser.value.id || sendingFriendRequest.value) return
+  
+  sendingFriendRequest.value = true
+  
+  try {
+    await socialApi.friendPutIn(currentUser.value.id, requestMessage.value.trim())
+    
+    friendRequestSent.value = true
+    showAddFriendDialog.value = false
+    requestMessage.value = ''
+    
+    // 显示成功提示
+    alert('好友申请已发送')
+  } catch (error) {
+    console.error('发送好友申请失败:', error)
+    alert(error.message || '发送失败，请稍后重试')
+  } finally {
+    sendingFriendRequest.value = false
+  }
+}
+
 const startChat = () => {
   // 跳转到聊天
+  router.push(`/app/chat?userId=${currentUser.value.id}`)
 }
 
 const handleLogout = async () => {
@@ -1348,6 +1559,111 @@ const handleLogout = async () => {
   align-items: center;
 }
 
+.profile-actions-buttons {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-add-friend,
+.btn-request-sent {
+  padding: 10px 30px;
+  background: linear-gradient(to right, #4a8cff, #8a69ff);
+  color: white;
+  border: none;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.btn-add-friend:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+}
+
+.btn-add-friend:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-request-sent {
+  background: #d4edda;
+  color: #155724;
+  cursor: default;
+}
+
+.btn-request-sent .icon {
+  color: #28a745;
+}
+
+.add-friend-modal {
+  max-width: 400px;
+}
+
+.add-friend-modal .user-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.add-friend-modal .user-preview .avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+}
+
+.add-friend-modal .user-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.add-friend-modal .message-input {
+  margin-top: 16px;
+}
+
+.add-friend-modal .message-input label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.add-friend-modal .message-input textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.add-friend-modal .message-input textarea:focus {
+  border-color: #4a8cff;
+}
+
+.add-friend-modal .char-count {
+  text-align: right;
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
 .btn-logout {
   padding: 10px 30px;
   background: transparent;
@@ -1372,5 +1688,30 @@ const handleLogout = async () => {
 
 .btn-logout i {
   font-size: 16px;
+}
+
+/* 加载状态 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 16px;
+  color: #666;
+}
+
+.loading-spinner-large {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #f0f0f0;
+  border-top-color: #4a8cff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-container p {
+  margin: 0;
+  font-size: 14px;
 }
 </style>

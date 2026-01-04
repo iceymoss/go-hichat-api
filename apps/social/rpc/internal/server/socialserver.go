@@ -39,6 +39,11 @@ func (s *SocialServer) FriendPutInList(ctx context.Context, in *social.FriendPut
 	return l.FriendPutInList(in)
 }
 
+func (s *SocialServer) FriendPutInMessageCount(ctx context.Context, in *social.FriendPutInMessageCountReq) (*social.FriendPutInMessageCountResp, error) {
+	l := logic.NewFriendPutInMessageCountLogic(ctx, s.svcCtx)
+	return l.FriendPutInMessageCount(in)
+}
+
 func (s *SocialServer) FriendList(ctx context.Context, in *social.FriendListReq) (*social.FriendListResp, error) {
 	l := logic.NewFriendListLogic(ctx, s.svcCtx)
 	return l.FriendList(in)

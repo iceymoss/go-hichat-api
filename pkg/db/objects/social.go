@@ -28,6 +28,7 @@ type FriendRequest struct {
 	HandleResult *int       `gorm:"column:handle_result;type:TINYINT;comment:处理结果（0:待处理 1:同意 2:拒绝）"`
 	HandleMsg    string     `gorm:"column:handle_msg;type:VARCHAR(255);comment:处理结果备注"`
 	HandledAt    *time.Time `gorm:"column:handled_at;type:TIMESTAMP;comment:处理操作时间"`
+	Status       *int       `gorm:"column:status;type:INT;comment:消息状态（0:已删除 1:正常显示 2:忽略不显示）"`
 }
 
 func (FriendRequest) TableName() string {

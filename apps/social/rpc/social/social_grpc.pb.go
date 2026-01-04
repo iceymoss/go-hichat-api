@@ -19,17 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Social_FriendPutIn_FullMethodName       = "/social.social/FriendPutIn"
-	Social_FriendPutInHandle_FullMethodName = "/social.social/FriendPutInHandle"
-	Social_FriendPutInList_FullMethodName   = "/social.social/FriendPutInList"
-	Social_FriendList_FullMethodName        = "/social.social/FriendList"
-	Social_GroupCreate_FullMethodName       = "/social.social/GroupCreate"
-	Social_GroupPutin_FullMethodName        = "/social.social/GroupPutin"
-	Social_GroupPutinList_FullMethodName    = "/social.social/GroupPutinList"
-	Social_GroupPutInHandle_FullMethodName  = "/social.social/GroupPutInHandle"
-	Social_GroupList_FullMethodName         = "/social.social/GroupList"
-	Social_GroupUsers_FullMethodName        = "/social.social/GroupUsers"
-	Social_FindGroupList_FullMethodName     = "/social.social/FindGroupList"
+	Social_FriendPutIn_FullMethodName             = "/social.social/FriendPutIn"
+	Social_FriendPutInHandle_FullMethodName       = "/social.social/FriendPutInHandle"
+	Social_FriendPutInList_FullMethodName         = "/social.social/FriendPutInList"
+	Social_FriendPutInMessageCount_FullMethodName = "/social.social/FriendPutInMessageCount"
+	Social_FriendList_FullMethodName              = "/social.social/FriendList"
+	Social_GroupCreate_FullMethodName             = "/social.social/GroupCreate"
+	Social_GroupPutin_FullMethodName              = "/social.social/GroupPutin"
+	Social_GroupPutinList_FullMethodName          = "/social.social/GroupPutinList"
+	Social_GroupPutInHandle_FullMethodName        = "/social.social/GroupPutInHandle"
+	Social_GroupList_FullMethodName               = "/social.social/GroupList"
+	Social_GroupUsers_FullMethodName              = "/social.social/GroupUsers"
+	Social_FindGroupList_FullMethodName           = "/social.social/FindGroupList"
 )
 
 // SocialClient is the client API for Social service.
@@ -42,6 +43,7 @@ type SocialClient interface {
 	FriendPutIn(ctx context.Context, in *FriendPutInReq, opts ...grpc.CallOption) (*FriendPutInResp, error)
 	FriendPutInHandle(ctx context.Context, in *FriendPutInHandleReq, opts ...grpc.CallOption) (*FriendPutInHandleResp, error)
 	FriendPutInList(ctx context.Context, in *FriendPutInListReq, opts ...grpc.CallOption) (*FriendPutInListResp, error)
+	FriendPutInMessageCount(ctx context.Context, in *FriendPutInMessageCountReq, opts ...grpc.CallOption) (*FriendPutInMessageCountResp, error)
 	FriendList(ctx context.Context, in *FriendListReq, opts ...grpc.CallOption) (*FriendListResp, error)
 	// 群业务：创建群，修改群，群公告，申请群，用户群列表，群成员，申请群，群退出..
 	// 群要求
@@ -86,6 +88,16 @@ func (c *socialClient) FriendPutInList(ctx context.Context, in *FriendPutInListR
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FriendPutInListResp)
 	err := c.cc.Invoke(ctx, Social_FriendPutInList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) FriendPutInMessageCount(ctx context.Context, in *FriendPutInMessageCountReq, opts ...grpc.CallOption) (*FriendPutInMessageCountResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FriendPutInMessageCountResp)
+	err := c.cc.Invoke(ctx, Social_FriendPutInMessageCount_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -182,6 +194,7 @@ type SocialServer interface {
 	FriendPutIn(context.Context, *FriendPutInReq) (*FriendPutInResp, error)
 	FriendPutInHandle(context.Context, *FriendPutInHandleReq) (*FriendPutInHandleResp, error)
 	FriendPutInList(context.Context, *FriendPutInListReq) (*FriendPutInListResp, error)
+	FriendPutInMessageCount(context.Context, *FriendPutInMessageCountReq) (*FriendPutInMessageCountResp, error)
 	FriendList(context.Context, *FriendListReq) (*FriendListResp, error)
 	// 群业务：创建群，修改群，群公告，申请群，用户群列表，群成员，申请群，群退出..
 	// 群要求
@@ -210,6 +223,9 @@ func (UnimplementedSocialServer) FriendPutInHandle(context.Context, *FriendPutIn
 }
 func (UnimplementedSocialServer) FriendPutInList(context.Context, *FriendPutInListReq) (*FriendPutInListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FriendPutInList not implemented")
+}
+func (UnimplementedSocialServer) FriendPutInMessageCount(context.Context, *FriendPutInMessageCountReq) (*FriendPutInMessageCountResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FriendPutInMessageCount not implemented")
 }
 func (UnimplementedSocialServer) FriendList(context.Context, *FriendListReq) (*FriendListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FriendList not implemented")
@@ -306,6 +322,24 @@ func _Social_FriendPutInList_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SocialServer).FriendPutInList(ctx, req.(*FriendPutInListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_FriendPutInMessageCount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FriendPutInMessageCountReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).FriendPutInMessageCount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_FriendPutInMessageCount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).FriendPutInMessageCount(ctx, req.(*FriendPutInMessageCountReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -472,6 +506,10 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FriendPutInList",
 			Handler:    _Social_FriendPutInList_Handler,
+		},
+		{
+			MethodName: "FriendPutInMessageCount",
+			Handler:    _Social_FriendPutInMessageCount_Handler,
 		},
 		{
 			MethodName: "FriendList",

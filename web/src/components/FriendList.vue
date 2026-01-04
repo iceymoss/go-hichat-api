@@ -1,5 +1,14 @@
 <template>
   <div class="friend-list-container">
+    <!-- 好友申请按钮 -->
+    <div class="friend-requests-section">
+      <button class="btn-friend-requests" @click="showFriendRequestsModal = true">
+        <i class="icon icon-user-plus"></i>
+        <span>好友申请</span>
+        <span v-if="pendingRequestsCount > 0" class="badge-count">{{ pendingRequestsCount }}</span>
+      </button>
+    </div>
+
     <!-- 搜索框 -->
     <div class="search-section">
       <div class="search-container">
@@ -18,31 +27,6 @@
 
     <!-- 好友列表 -->
     <div class="friends-content">
-      <div v-if="!searchMode" class="friends-section">
-        <div class="section-header">
-          <h3>好友请求</h3>
-          <span v-if="friendRequests.length > 0" class="badge">{{ friendRequests.length }}</span>
-        </div>
-        
-        <div v-if="friendRequests.length > 0" class="request-list">
-          <div v-for="request in friendRequests" :key="request.id" class="request-item">
-            <img :src="request.avatar" alt="头像" class="avatar">
-            <div class="request-info">
-              <div class="name">{{ request.name }}</div>
-              <div class="message">{{ request.message }}</div>
-              <div class="time">{{ request.time }}</div>
-            </div>
-            <div class="request-actions">
-              <button class="btn-accept" @click="handleRequest(request.id, true)">接受</button>
-              <button class="btn-reject" @click="handleRequest(request.id, false)">拒绝</button>
-            </div>
-          </div>
-        </div>
-        <div v-else class="no-requests">
-          暂无好友请求
-        </div>
-      </div>
-
       <!-- 按字母排序的好友列表 -->
       <div class="friends-section">
         <div class="section-header">
@@ -91,13 +75,21 @@
         </div>
       </div>
     </div>
+    
+    <!-- 好友申请弹窗 -->
+    <FriendRequestsModal 
+      v-if="showFriendRequestsModal"
+      @close="showFriendRequestsModal = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useContactsStore } from '../stores/contacts'
 import { sortFriendsByPinyin, groupFriendsByPinyin } from '../utils/sortUtils'
+import { socialApi } from '../utils/api'
+import FriendRequestsModal from './FriendRequestsModal.vue'
 
 const props = defineProps({
   selectedFriendId: {
@@ -110,10 +102,67 @@ const emit = defineEmits(['select-friend', 'add-friend'])
 
 const contactsStore = useContactsStore()
 const searchKeyword = ref('')
+const showFriendRequestsModal = ref(false)
+const messageCount = ref(0) // 消息数量
+let pollTimer = null // 轮询定时器
 
 // 计算属性
 const searchMode = computed(() => searchKeyword.value.trim() !== '')
 const friendRequests = computed(() => contactsStore.friendRequests)
+
+// 待处理的好友申请消息数量（使用API返回的数量）
+const pendingRequestsCount = computed(() => {
+  return messageCount.value
+})
+
+// 获取消息数量
+const fetchMessageCount = async () => {
+  try {
+    const response = await socialApi.friendPutInMessageCount()
+    if (response && response.count !== undefined) {
+      messageCount.value = response.count
+    }
+  } catch (error) {
+    console.error('获取消息数量失败:', error)
+  }
+}
+
+// 启动轮询（每20秒）
+const startPolling = () => {
+  // 立即执行一次
+  fetchMessageCount()
+  
+  // 每20秒轮询一次
+  pollTimer = setInterval(() => {
+    fetchMessageCount()
+  }, 20000) // 20秒 = 20000毫秒
+}
+
+// 停止轮询
+const stopPolling = () => {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+// 组件挂载时启动轮询
+onMounted(() => {
+  startPolling()
+})
+
+// 组件卸载时停止轮询
+onUnmounted(() => {
+  stopPolling()
+})
+
+// 监听好友申请处理，更新消息数量
+watch(() => showFriendRequestsModal.value, (newVal) => {
+  if (!newVal) {
+    // 关闭弹窗时刷新消息数量
+    fetchMessageCount()
+  }
+})
 
 // 按字母排序的好友列表
 const sortedFriends = computed(() => {
@@ -151,8 +200,14 @@ const selectFriend = (friend) => {
   emit('select-friend', friend)
 }
 
-const handleRequest = (requestId, accept) => {
-  contactsStore.handleFriendRequest(requestId, accept)
+const handleRequest = async (requestId, accept) => {
+  try {
+    await contactsStore.handleFriendRequest(requestId, accept)
+    // 可以显示成功提示
+  } catch (error) {
+    console.error('处理好友请求失败:', error)
+    // 可以显示错误提示
+  }
 }
 </script>
 
@@ -507,5 +562,57 @@ const handleRequest = (requestId, accept) => {
 .btn-add-friend:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+}
+
+.friend-requests-section {
+  padding: 12px 20px;
+  border-bottom: 1px solid #f0f2f5;
+  background: #fff;
+  order: -1; /* 确保在最上面 */
+}
+
+.btn-friend-requests {
+  width: 100%;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #4a8cff, #8a69ff);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.btn-friend-requests:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+}
+
+.btn-friend-requests .icon {
+  font-size: 16px;
+}
+
+.badge-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #dc3545;
+  color: white;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
 }
 </style> 
