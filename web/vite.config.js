@@ -11,6 +11,11 @@ export default defineConfig({
         target: 'http://localhost:8887',
         changeOrigin: true,
         secure: false
+      },
+      '/v1/social': {
+        target: 'http://localhost:8889',
+        changeOrigin: true,
+        secure: false
       }
     }
   }

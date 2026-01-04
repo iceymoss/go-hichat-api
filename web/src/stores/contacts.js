@@ -1,353 +1,25 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { socialApi } from '../utils/api'
 
 export const useContactsStore = defineStore('contacts', () => {
   // 好友列表
-  const friends = ref([
-    {
-      id: 1001,
-      name: '小李',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Lily',
-      remark: '前端开发',
-      status: 'online',
-      tags: ['同事', '前端'],
-      lastActive: '刚刚',
-      gender: 'female',
-      email: 'xiaoli@example.com',
-      phone: '13800000001',
-      signature: '热爱前端，喜欢React和Vue'
-    },
-    {
-      id: 1002,
-      name: '王经理',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Wang',
-      remark: '产品经理',
-      status: 'away',
-      tags: ['领导'],
-      lastActive: '1小时前',
-      gender: 'male',
-      email: 'wang@example.com',
-      phone: '13800000002',
-      signature: '产品为王，体验至上'
-    },
-    {
-      id: 1003,
-      name: '张工程师',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Zhang',
-      remark: '后端开发',
-      status: 'online',
-      tags: ['同事', 'Go'],
-      lastActive: '刚刚',
-      gender: 'male',
-      email: 'zhang@example.com',
-      phone: '13800000003',
-      signature: '专注Go开发，热爱技术分享'
-    },
-    {
-      id: 1004,
-      name: '小陈',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Chen',
-      remark: 'UI设计师',
-      status: 'offline',
-      tags: ['设计'],
-      lastActive: '2天前',
-      gender: 'female',
-      email: 'chen@example.com',
-      phone: '13800000004',
-      signature: '设计让生活更美好'
-    },
-    {
-      id: 101,
-      name: '小明',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Ming',
-      remark: '后端开发',
-      tags: ['Go', '后端'],
-      status: 'online',
-      lastActive: '1分钟前',
-      gender: 'male',
-      email: 'xiaoming@example.com',
-      phone: '13800000005',
-      signature: '代码改变世界'
-    },
-    {
-      id: 102,
-      name: '小红',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Hong',
-      remark: '产品经理',
-      tags: ['产品'],
-      status: 'away',
-      lastActive: '5分钟前',
-      gender: 'female',
-      email: 'xiaohong@example.com',
-      phone: '13800000006',
-      signature: '用心做产品'
-    },
-    {
-      id: 103,
-      name: '小刚',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Gang',
-      remark: '测试工程师',
-      tags: ['测试'],
-      status: 'offline',
-      lastActive: '10分钟前',
-      gender: 'male',
-      email: 'gang@example.com',
-      phone: '13800000007',
-      signature: '测试让产品更可靠'
-    },
-    {
-      id: 104,
-      name: '小美',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Mei',
-      remark: 'UI设计',
-      tags: ['设计'],
-      status: 'online',
-      lastActive: '2分钟前',
-      gender: 'female',
-      email: 'mei@example.com',
-      phone: '13800000008',
-      signature: '美是设计的灵魂'
-    },
-    {
-      id: 105,
-      name: '小强',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Qiang',
-      remark: '前端开发',
-      tags: ['Vue', '前端'],
-      status: 'away',
-      lastActive: '8分钟前',
-      gender: 'male',
-      email: 'qiang@example.com',
-      phone: '13800000009',
-      signature: '前端路上，一起成长'
-    },
-    {
-      id: 106,
-      name: '小芳',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Fang',
-      remark: '运营',
-      tags: ['运营'],
-      status: 'offline',
-      lastActive: '20分钟前',
-      gender: 'female',
-      email: 'fang@example.com',
-      phone: '13800000010',
-      signature: '用心服务每一位用户'
-    },
-    {
-      id: 107,
-      name: '小军',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Jun',
-      remark: '后端开发',
-      tags: ['Go'],
-      status: 'online',
-      lastActive: '3分钟前',
-      gender: 'male',
-      email: 'jun@example.com',
-      phone: '13800000011',
-      signature: '后端技术爱好者'
-    },
-    {
-      id: 108,
-      name: '小雪',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Xue',
-      remark: '产品助理',
-      tags: ['产品'],
-      status: 'away',
-      lastActive: '12分钟前',
-      gender: 'female',
-      email: 'xue@example.com',
-      phone: '13800000012',
-      signature: '助理也有大梦想'
-    },
-    {
-      id: 109,
-      name: '小林',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Lin',
-      remark: '测试',
-      tags: ['测试'],
-      status: 'offline',
-      lastActive: '30分钟前',
-      gender: 'male',
-      email: 'lin@example.com',
-      phone: '13800000013',
-      signature: '细致入微，追求极致'
-    },
-    {
-      id: 110,
-      name: '小天',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Tian',
-      remark: '前端开发',
-      tags: ['Vue'],
-      status: 'online',
-      lastActive: '刚刚',
-      gender: 'male',
-      email: 'tian@example.com',
-      phone: '13800000014',
-      signature: '热爱前端，乐于分享'
-    },
-    {
-      id: 111,
-      name: '阿丽',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Ali',
-      remark: '',
-      tags: ['朋友'],
-      status: 'online',
-      lastActive: '刚刚',
-      gender: 'female',
-      email: 'ali@example.com',
-      phone: '13800000015',
-      signature: '生活美好'
-    },
-    {
-      id: 112,
-      name: '安安',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Anan',
-      remark: '',
-      tags: ['朋友'],
-      status: 'away',
-      lastActive: '5分钟前',
-      gender: 'female',
-      email: 'anan@example.com',
-      phone: '13800000016',
-      signature: '平安喜乐'
-    },
-    {
-      id: 113,
-      name: '安南',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Annan',
-      remark: '',
-      tags: ['朋友'],
-      status: 'offline',
-      lastActive: '1小时前',
-      gender: 'male',
-      email: 'annan@example.com',
-      phone: '13800000017',
-      signature: '南方人'
-    },
-    {
-      id: 114,
-      name: '兵哥',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Bingge',
-      remark: '',
-      tags: ['朋友'],
-      status: 'online',
-      lastActive: '刚刚',
-      gender: 'male',
-      email: 'bingge@example.com',
-      phone: '13800000018',
-      signature: '军人作风'
-    },
-    {
-      id: 115,
-      name: '鲍姐',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Baojie',
-      remark: '',
-      tags: ['朋友'],
-      status: 'away',
-      lastActive: '10分钟前',
-      gender: 'female',
-      email: 'baojie@example.com',
-      phone: '13800000019',
-      signature: '大姐大'
-    },
-    {
-      id: 116,
-      name: '八爷',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Bayi',
-      remark: '',
-      tags: ['朋友'],
-      status: 'offline',
-      lastActive: '2小时前',
-      gender: 'male',
-      email: 'bayi@example.com',
-      phone: '13800000020',
-      signature: '老八'
-    },
-    {
-      id: 117,
-      name: '张三',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=ZhangSan',
-      remark: '',
-      tags: ['朋友'],
-      status: 'online',
-      lastActive: '刚刚',
-      gender: 'male',
-      email: 'zhangsan@example.com',
-      phone: '13800000021',
-      signature: '张三李四'
-    },
-    {
-      id: 118,
-      name: '赵高',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=ZhaoGao',
-      remark: '',
-      tags: ['朋友'],
-      status: 'away',
-      lastActive: '15分钟前',
-      gender: 'male',
-      email: 'zhaogao@example.com',
-      phone: '13800000022',
-      signature: '高个子'
-    },
-    {
-      id: 119,
-      name: 'Alice',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Alice',
-      remark: '',
-      tags: ['朋友'],
-      status: 'online',
-      lastActive: '刚刚',
-      gender: 'female',
-      email: 'alice@example.com',
-      phone: '13800000023',
-      signature: 'Hello World'
-    },
-    {
-      id: 120,
-      name: 'Bob',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Bob',
-      remark: '',
-      tags: ['朋友'],
-      status: 'away',
-      lastActive: '8分钟前',
-      gender: 'male',
-      email: 'bob@example.com',
-      phone: '13800000024',
-      signature: 'Bob the Builder'
-    },
-    {
-      id: 121,
-      name: 'Charlie',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Charlie',
-      remark: '',
-      tags: ['朋友'],
-      status: 'offline',
-      lastActive: '1小时前',
-      gender: 'male',
-      email: 'charlie@example.com',
-      phone: '13800000025',
-      signature: 'Charlie Brown'
-    }
-  ])
+  const friends = ref([])
   
   // 好友请求列表
-  const friendRequests = ref([
-    {
-      id: 2001,
-      name: '刘同学',
-      avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Liu',
-      remark: '求职者',
-      message: '您好，我对Go开发很感兴趣',
-      status: 'pending',
-      time: '10分钟前'
-    }
-  ])
+  const friendRequests = ref([])
+  
+  // 在线状态映射
+  const onlineStatus = ref({})
+  
+  // 加载状态
+  const loading = ref(false)
+  const requestsLoading = ref(false)
   
   // 搜索关键词
   const searchKeyword = ref('')
   
-  // 分组好友列表
+  // 分组好友列表（按在线状态）
   const groupedFriends = computed(() => {
     const groups = {
       online: [],
@@ -356,9 +28,17 @@ export const useContactsStore = defineStore('contacts', () => {
     }
     
     friends.value.forEach(friend => {
+      const isOnline = onlineStatus.value[friend.friend_uid || friend.id]
+      if (isOnline === true) {
+        groups.online.push(friend)
+      } else if (isOnline === false) {
+        groups.offline.push(friend)
+      } else {
+        // 如果没有在线状态信息，根据 friend.status 判断
       if (friend.status === 'online') groups.online.push(friend)
       else if (friend.status === 'away') groups.away.push(friend)
       else groups.offline.push(friend)
+      }
     })
     
     return groups
@@ -369,63 +49,199 @@ export const useContactsStore = defineStore('contacts', () => {
     if (!searchKeyword.value.trim()) return []
     
     const keyword = searchKeyword.value.toLowerCase()
-    return friends.value.filter(friend => 
-      friend.name.toLowerCase().includes(keyword) || 
-      friend.remark.toLowerCase().includes(keyword) ||
-      friend.tags.some(tag => tag.toLowerCase().includes(keyword))
-    )
+    return friends.value.filter(friend => {
+      const name = (friend.nickname || friend.name || '').toLowerCase()
+      const remark = (friend.remark || '').toLowerCase()
+      return name.includes(keyword) || remark.includes(keyword)
+    })
   })
   
-  // 添加好友请求
+  // 获取好友列表
+  const fetchFriends = async () => {
+    try {
+      loading.value = true
+      const response = await socialApi.friendList()
+      
+      if (response && response.list) {
+        // 转换数据格式以匹配前端组件期望的格式
+        friends.value = response.list.map(friend => ({
+          id: friend.id || friend.friend_uid,
+          friend_uid: friend.friend_uid,
+          name: friend.nickname || '未设置昵称',
+          nickname: friend.nickname,
+          avatar: friend.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${friend.friend_uid}`,
+          remark: friend.remark || friend.nickname || '',
+          status: 'offline', // 默认离线，后续通过在线状态 API 更新
+          tags: [],
+          lastActive: '未知'
+        }))
+        
+        // 获取在线状态
+        await fetchFriendsOnline()
+      } else {
+        friends.value = []
+      }
+    } catch (error) {
+      console.error('获取好友列表失败:', error)
+      friends.value = []
+    } finally {
+      loading.value = false
+    }
+  }
+  
+  // 获取好友在线状态
+  const fetchFriendsOnline = async () => {
+    try {
+      const response = await socialApi.friendsOnline()
+      if (response && response.onLineList) {
+        onlineStatus.value = response.onLineList
+        
+        // 更新好友列表中的在线状态
+        friends.value = friends.value.map(friend => {
+          const uid = friend.friend_uid || friend.id
+          const isOnline = response.onLineList[uid]
+          return {
+            ...friend,
+            status: isOnline ? 'online' : 'offline',
+            lastActive: isOnline ? '在线' : '离线'
+          }
+        })
+      }
+    } catch (error) {
+      console.error('获取好友在线状态失败:', error)
+    }
+  }
+  
+  // 获取好友申请列表
+  const fetchFriendRequests = async (type = 0, classType = '1') => {
+    // type: 0-待处理, 1-已通过, 2-已拒绝
+    // class: 0-我发起的申请, 1-我收到的申请
+    try {
+      requestsLoading.value = true
+      const response = await socialApi.friendPutInList(type, classType)
+      
+      if (response && response.list) {
+        // 转换数据格式（返回原始数据，时间格式化在组件中处理）
+        const formattedList = response.list.map(req => ({
+          id: req.id,
+          friend_req_id: req.id,
+          user_id: req.user_id,
+          req_uid: req.req_uid,
+          req_msg: req.req_msg,
+          req_time: req.req_time, // 保留原始时间戳（中国时区）
+          handleResult: req.handle_result !== undefined && req.handle_result !== null ? req.handle_result : 0, // 处理结果，确保有默认值
+          handle_result: req.handle_result !== undefined && req.handle_result !== null ? req.handle_result : 0, // 兼容字段
+          handle_msg: req.handle_msg,
+          // 直接使用后端返回的状态字段（后端已返回 status 和 status_text）
+          status: req.status || (req.handle_result === 0 ? 'pending' : req.handle_result === 1 ? 'accepted' : req.handle_result === 2 ? 'rejected' : req.handle_result === 3 ? 'ignored' : 'pending'),
+          statusText: req.status_text || (req.handle_result === 0 ? '待处理' : req.handle_result === 1 ? '已同意' : req.handle_result === 2 ? '已拒绝' : req.handle_result === 3 ? '已忽略' : '待处理'),
+          status_text: req.status_text || (req.handle_result === 0 ? '待处理' : req.handle_result === 1 ? '已同意' : '已拒绝'), // 兼容字段
+          message_status: req.message_status !== undefined && req.message_status !== null ? req.message_status : 1, // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
+          // 这些字段会在组件中通过用户信息填充
+          name: req.req_uid, // 临时使用，组件中会替换
+          avatar: `https://api.dicebear.com/7.x/personas/svg?seed=${req.req_uid}`, // 临时使用
+          message: req.req_msg || '申请添加你为好友'
+        }))
+        
+        // 如果是"我收到的申请"，更新 friendRequests
+        if (classType === '1') {
+          friendRequests.value = formattedList
+        }
+        
+        // 返回格式化后的列表
+        return formattedList
+      } else {
+        if (classType === '1') {
+          friendRequests.value = []
+        }
+        return []
+      }
+    } catch (error) {
+      console.error('获取好友申请列表失败:', error)
+      if (classType === '1') {
+        friendRequests.value = []
+      }
+      return []
+    } finally {
+      requestsLoading.value = false
+    }
+  }
+  
+  // 发送好友申请
+  const sendFriendRequest = async (userUid, reqMsg = '') => {
+    try {
+      await socialApi.friendPutIn(userUid, reqMsg)
+      return {
+          success: true,
+          message: '好友请求已发送'
+      }
+    } catch (error) {
+      console.error('发送好友请求失败:', error)
+      throw error
+    }
+  }
+  
+  // 处理好友申请
+  const handleFriendRequest = async (friendReqId, accept) => {
+    try {
+      // handleResult: 1-同意, 2-拒绝
+      const handleResult = accept ? 1 : 2
+      await socialApi.friendPutInHandle(friendReqId, handleResult)
+      
+      // 如果同意，刷新好友列表
+      if (accept) {
+        await fetchFriends()
+      }
+      
+      // 刷新申请列表
+      await fetchFriendRequests(0, '1')
+      
+      return {
+        success: true,
+        message: accept ? '已同意好友申请' : '已拒绝好友申请'
+      }
+    } catch (error) {
+      console.error('处理好友申请失败:', error)
+      throw error
+    }
+      }
+      
+  // 添加好友请求（用于本地添加，通常不需要）
   const addFriendRequest = (request) => {
     friendRequests.value.unshift(request)
   }
   
-  // 处理好友请求
-  const handleFriendRequest = (requestId, accept) => {
-    const requestIndex = friendRequests.value.findIndex(r => r.id === requestId)
+  // 格式化时间戳
+  const formatTime = (timestamp) => {
+    if (!timestamp) return '未知'
     
-    if (requestIndex !== -1) {
-      const request = friendRequests.value[requestIndex]
-      
-      if (accept) {
-        // 添加到好友列表
-        friends.value.unshift({
-          id: Date.now(),
-          name: request.name,
-          avatar: request.avatar,
-          remark: request.remark || request.name,
-          status: 'online',
-          tags: ['新好友'],
-          lastActive: '刚刚'
-        })
-      }
-      
-      // 移除请求
-      friendRequests.value.splice(requestIndex, 1)
-    }
-  }
-  
-  // 发送好友请求
-  const sendFriendRequest = (userId) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          message: '好友请求已发送'
-        })
-      }, 1000)
-    })
+    const now = Date.now()
+    const time = timestamp * 1000 // 后端返回的是秒级时间戳
+    const diff = now - time
+    
+    if (diff < 60000) return '刚刚'
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
+    
+    const date = new Date(time)
+    return `${date.getMonth() + 1}月${date.getDate()}日`
   }
   
   return {
     friends,
     friendRequests,
+    onlineStatus,
+    loading,
+    requestsLoading,
     searchKeyword,
     groupedFriends,
     searchResults,
-    addFriendRequest,
+    fetchFriends,
+    fetchFriendsOnline,
+    fetchFriendRequests,
+    sendFriendRequest,
     handleFriendRequest,
-    sendFriendRequest
+    addFriendRequest
   }
 })

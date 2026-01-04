@@ -46,8 +46,8 @@ func (l *GroupPutInListLogic) GroupPutInList(req *types.GroupPutInListRep) (resp
 	uid := l.ctx.Value(Identify).(string)
 	res, err := l.svcCtx.Social.GroupPutinList(l.ctx, &social.GroupPutinListReq{
 		GroupId: req.GroupId,
-		Type:    req.Type,
-		Class:   int32(req.Class),
+		Type:    req.Type,  // []int32
+		Class:   req.Class, // int32
 		UserId:  uid,
 	})
 	if err != nil {
@@ -57,7 +57,7 @@ func (l *GroupPutInListLogic) GroupPutInList(req *types.GroupPutInListRep) (resp
 	userList, groupList := make([]string, 0, len(res.List)), make([]string, 0, len(res.List))
 	userBindUid, groupBindGid := make(map[string]user.UserEntity), make(map[string]social.Groups)
 	for _, v := range res.List {
-		userList = append(userList, v.ReqId)
+		userList = append(userList, v.ReqId) // ReqId 是发起请求的用户ID
 		groupList = append(groupList, v.GroupId)
 	}
 
@@ -85,12 +85,14 @@ func (l *GroupPutInListLogic) GroupPutInList(req *types.GroupPutInListRep) (resp
 
 	list := make([]*types.GroupRequests, 0, len(res.List))
 	for _, v := range res.List {
+		// 获取请求用户信息（ReqId 是发起请求的用户ID）
+		reqUser := userBindUid[v.ReqId]
 		user := types.User{
-			Id:           userBindUid[v.HandleUid].Id,
-			Nickname:     userBindUid[v.HandleUid].Nickname,
-			Sex:          int(userBindUid[v.HandleUid].Sex),
-			Avatar:       userBindUid[v.HandleUid].Avatar,
-			Introduction: userBindUid[v.HandleUid].Introduction,
+			Id:           reqUser.Id,
+			Nickname:     reqUser.Nickname,
+			Sex:          int(reqUser.Sex),
+			Avatar:       reqUser.Avatar,
+			Introduction: reqUser.Introduction,
 		}
 
 		group := types.Groups{
@@ -102,6 +104,8 @@ func (l *GroupPutInListLogic) GroupPutInList(req *types.GroupPutInListRep) (resp
 		}
 		list = append(list, &types.GroupRequests{
 			Id:            int64(v.Id),
+			UserId:        v.ReqId, // 请求用户ID
+			GroupId:       v.GroupId,
 			User:          user,
 			Group:         group,
 			ReqMsg:        v.ReqMsg,

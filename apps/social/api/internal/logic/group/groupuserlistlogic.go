@@ -58,15 +58,19 @@ func (l *GroupUserListLogic) GroupUserList(req *types.GroupUserListReq) (resp *t
 		if m.UserId == uid {
 			IsCurrentUser = 1
 		}
+		userInfo := userBindUid[m.UserId]
 		list = append(list, &types.GroupMembers{
-			Id:      int64(m.Id),
-			GroupId: m.GroupId,
+			Id:            int64(m.Id),
+			GroupId:       m.GroupId,
+			UserId:        m.UserId,
+			Nickname:      userInfo.Nickname,
+			UserAvatarUrl: userInfo.Avatar,
 			User: types.User{
-				Id:            userBindUid[m.UserId].Id,
-				Nickname:      userBindUid[m.UserId].Nickname,
-				Sex:           int(userBindUid[m.UserId].Sex),
-				Avatar:        userBindUid[m.UserId].Avatar,
-				Introduction:  userBindUid[m.UserId].Introduction,
+				Id:            userInfo.Id,
+				Nickname:      userInfo.Nickname,
+				Sex:           int(userInfo.Sex),
+				Avatar:        userInfo.Avatar,
+				Introduction:  userInfo.Introduction,
 				IsCurrentUser: IsCurrentUser,
 			},
 			RoleLevel:  int(m.RoleLevel),

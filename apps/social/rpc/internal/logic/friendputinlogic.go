@@ -8,10 +8,12 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/pkg/utils"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 type FriendPutInLogic struct {
@@ -44,9 +46,6 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 	if err != nil && err != socialmodels.ErrNotFound {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find friendsRequest by rid and uid err %v req %v ", err, in)
 	}
-	if friendReqs != nil {
-		return &social.FriendPutInResp{}, err
-	}
 
 	uidInt, err := strconv.Atoi(in.UserId)
 	if err != nil {
@@ -58,14 +57,38 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 		return &social.FriendPutInResp{}, err
 	}
 
-	// 创建申请记录
+	// 创建申请记录，使用中国时区
+	chinaNow := utils.NowInChina()
+	reqTime := time.Unix(in.ReqTime, 0).In(utils.ChinaLocation)
+
+	// 如果已存在申请记录，更新记录让消息重新生效
+	if friendReqs != nil {
+		// 无论当前status是什么值，都更新为 status = 1（正常显示），让消息重新生效
+		friendReqs.Status = 1 // 设置为正常显示，让消息重新生效
+		friendReqs.ReqMsg = in.ReqMsg
+		friendReqs.ReqTime = reqTime
+		friendReqs.HandleResult = 0 // 重置为待处理
+		friendReqs.HandledAt = chinaNow
+
+		// 使用事务更新记录
+		err = l.svcCtx.FriendRequestsModel.Trans(l.ctx, func(ctx context.Context, session sqlx.Session) error {
+			return l.svcCtx.FriendRequestsModel.Update(ctx, session, friendReqs)
+		})
+		if err != nil {
+			return nil, errors.Wrapf(xerr.NewDBErr(), "update friendRequest err %v req %v ", err, in)
+		}
+		return &social.FriendPutInResp{}, nil
+	}
+
+	// 创建新申请记录
 	_, err = l.svcCtx.FriendRequestsModel.Insert(l.ctx, &socialmodels.FriendRequests{
 		UserId:       uint64(uidInt),
 		ReqUid:       uint64(reqUidInt),
 		ReqMsg:       in.ReqMsg,
-		ReqTime:      time.Unix(in.ReqTime, 0),
-		HandleResult: 0,
-		HandledAt:    time.Now(),
+		Status:       1, // 1-正常显示
+		ReqTime:      reqTime,
+		HandleResult: 0, // 0-待处理
+		HandledAt:    chinaNow,
 	})
 
 	if err != nil {

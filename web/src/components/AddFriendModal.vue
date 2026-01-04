@@ -24,9 +24,14 @@
         </div>
         
         <div v-if="searchResults.length > 0" class="search-results">
-          <div class="result-item" v-for="user in searchResults" :key="user.id">
+          <div 
+            class="result-item" 
+            v-for="user in searchResults" 
+            :key="user.id"
+            @click="viewUserProfile(user)"
+          >
             <img :src="user.avatar" alt="头像" class="avatar">
-            <div class="user-info">
+            <div class="user-info" @click.stop>
               <div class="name">{{ user.name }} 
                 <span class="account">@{{ user.account }}</span>
               </div>
@@ -34,10 +39,77 @@
                 <span v-for="tag in user.tags" :key="tag" class="tag">{{ tag }}</span>
               </div>
             </div>
-            <button class="btn-add" @click="sendRequest(user)">
+            <div class="user-actions" @click.stop>
+              <button 
+                v-if="!user.requestSent && !user.sending"
+                class="btn-add" 
+                @click="showRequestDialog(user)"
+                :disabled="sendingRequest"
+              >
               <i class="icon icon-add"></i>
-            </button>
+                <span>添加</span>
+              </button>
+              <button 
+                v-else-if="user.sending"
+                class="btn-sending" 
+                disabled
+              >
+                <i class="icon icon-spinner"></i>
+                <span>发送中</span>
+              </button>
+              <span v-else class="btn-sent">
+                <i class="icon icon-check"></i> 已发送
+              </span>
+            </div>
           </div>
+        </div>
+        
+        <!-- 申请消息对话框 -->
+        <div v-if="showRequestMessageDialog" class="request-message-dialog">
+          <div class="dialog-overlay" @click="showRequestMessageDialog = false"></div>
+          <div class="dialog-content">
+            <div class="dialog-header">
+              <h4>发送好友申请</h4>
+              <button class="btn-close" @click="showRequestMessageDialog = false">
+                <i class="icon icon-close"></i>
+              </button>
+            </div>
+            <div class="dialog-body">
+              <div class="user-preview">
+                <img :src="selectedUser?.avatar" alt="头像" class="avatar">
+                <div class="user-name">{{ selectedUser?.name }}</div>
+              </div>
+              <div class="message-input">
+                <label>申请消息（可选）</label>
+                <textarea 
+                  v-model="requestMessage" 
+                  placeholder="请输入申请消息..."
+                  rows="3"
+                  maxlength="100"
+                ></textarea>
+                <div class="char-count">{{ requestMessage.length }}/100</div>
+              </div>
+            </div>
+            <div class="dialog-footer">
+              <button class="btn-cancel" @click="showRequestMessageDialog = false">取消</button>
+              <button 
+                class="btn-confirm" 
+                @click="confirmSendRequest"
+                :disabled="sendingRequest"
+              >
+                <span v-if="sendingRequest">
+                  <i class="icon icon-spinner"></i> 发送中...
+                </span>
+                <span v-else>发送</span>
+            </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 提示消息 -->
+        <div v-if="message" :class="['message-toast', messageType]">
+          <i :class="messageType === 'success' ? 'icon icon-check' : 'icon icon-error'"></i>
+          <span>{{ message }}</span>
         </div>
         
         <div v-else-if="hasSearched && !searching" class="no-results">
@@ -71,19 +143,45 @@
         </div>
       </div>
     </div>
+    
+    <!-- 用户资料卡片弹窗 -->
+    <UserProfileCard 
+      v-if="showUserProfileCard"
+      :userId="selectedUserId"
+      @close="showUserProfileCard = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { userApi } from '../utils/api'
+import { useRouter } from 'vue-router'
+import { userApi, socialApi } from '../utils/api'
+import { useContactsStore } from '../stores/contacts'
+import UserProfileCard from './UserProfileCard.vue'
 
 const emit = defineEmits(['close', 'search', 'send-request'])
+
+const router = useRouter()
+const contactsStore = useContactsStore()
+
+const showUserProfileCard = ref(false)
+const selectedUserId = ref(null)
 
 const searchKeyword = ref('')
 const searchResults = ref([])
 const searching = ref(false)
 const hasSearched = ref(false)
+
+// 申请消息对话框
+const showRequestMessageDialog = ref(false)
+const selectedUser = ref(null)
+const requestMessage = ref('')
+const sendingRequest = ref(false)
+
+// 提示消息
+const message = ref('')
+const messageType = ref('success') // 'success' | 'error'
 
 // 判断搜索关键词类型
 const getSearchParams = (keyword) => {
@@ -156,8 +254,75 @@ const parseTags = (tags) => {
   }
 }
 
-const sendRequest = (user) => {
-  emit('send-request', user.id)
+// 显示申请消息对话框
+const showRequestDialog = (user) => {
+  selectedUser.value = user
+  requestMessage.value = ''
+  showRequestMessageDialog.value = true
+}
+
+// 确认发送申请
+const confirmSendRequest = async () => {
+  if (!selectedUser.value) return
+  
+  sendingRequest.value = true
+  
+  try {
+    // 调用 API 发送好友申请
+    await socialApi.friendPutIn(selectedUser.value.id, requestMessage.value.trim())
+    
+    // 更新用户状态
+    const userIndex = searchResults.value.findIndex(u => u.id === selectedUser.value.id)
+    if (userIndex !== -1) {
+      searchResults.value[userIndex].requestSent = true
+      searchResults.value[userIndex].sending = false
+    }
+    
+    // 显示成功提示
+    showMessage('好友申请已发送', 'success')
+    
+    // 关闭对话框
+    showRequestMessageDialog.value = false
+    
+    // 可选：触发父组件事件（用于刷新好友申请列表）
+    emit('send-request', selectedUser.value.id)
+    
+    // 3秒后自动关闭提示
+    setTimeout(() => {
+      message.value = ''
+    }, 3000)
+  } catch (error) {
+    console.error('发送好友申请失败:', error)
+    
+    // 更新用户状态
+    const userIndex = searchResults.value.findIndex(u => u.id === selectedUser.value.id)
+    if (userIndex !== -1) {
+      searchResults.value[userIndex].sending = false
+    }
+    
+    // 显示错误提示
+    const errorMsg = error.message || '发送失败，请稍后重试'
+    showMessage(errorMsg, 'error')
+    
+    // 5秒后自动关闭错误提示
+    setTimeout(() => {
+      message.value = ''
+    }, 5000)
+  } finally {
+    sendingRequest.value = false
+  }
+}
+
+// 显示提示消息
+const showMessage = (msg, type = 'success') => {
+  message.value = msg
+  messageType.value = type
+}
+
+// 查看用户信息主页
+const viewUserProfile = (user) => {
+  selectedUserId.value = user.id
+  showUserProfileCard.value = true
 }
 </script>
 
@@ -260,6 +425,12 @@ const sendRequest = (user) => {
   align-items: center;
   padding: 12px;
   border-bottom: 1px solid #f0f2f5;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.result-item:hover {
+  background-color: #f8f9fa;
 }
 
 .result-item .avatar {
@@ -298,22 +469,35 @@ const sendRequest = (user) => {
 }
 
 .btn-add {
-  background: none;
+  background: #4a8cff;
   border: none;
-  color: #4a8cff;
-  font-size: 20px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
 
-.btn-add:hover {
-  background-color: #eef5ff;
+.btn-add:hover:not(:disabled) {
+  background: #357abd;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(74, 140, 255, 0.3);
+}
+
+.btn-add:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-add .icon {
+  font-size: 16px;
 }
 
 .no-results, .instruction {
@@ -368,5 +552,232 @@ const sendRequest = (user) => {
 .tip-item i {
   margin-right: 8px;
   color: #4a8cff;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+}
+
+.btn-sending {
+  background: #e9ecef;
+  border: none;
+  color: #666;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: not-allowed;
+  white-space: nowrap;
+}
+
+.btn-sending .icon {
+  font-size: 16px;
+}
+
+.btn-sent {
+  color: #28a745;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-sent .icon {
+  font-size: 16px;
+}
+
+/* 申请消息对话框 */
+.request-message-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+}
+
+.dialog-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.dialog-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.dialog-header h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.dialog-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.user-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.user-preview .avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+}
+
+.user-name {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.message-input {
+  margin-top: 16px;
+}
+
+.message-input label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.message-input textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.message-input textarea:focus {
+  border-color: #4a8cff;
+}
+
+.char-count {
+  text-align: right;
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f2f5;
+}
+
+.btn-cancel,
+.btn-confirm {
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-cancel {
+  background: #f0f2f5;
+  color: #666;
+}
+
+.btn-cancel:hover {
+  background: #e0e0e0;
+}
+
+.btn-confirm {
+  background: #4a8cff;
+  color: white;
+}
+
+.btn-confirm:hover:not(:disabled) {
+  background: #357abd;
+}
+
+.btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 提示消息 */
+.message-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  z-index: 3000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideDown 0.3s ease-out;
+}
+
+.message-toast.success {
+  background: #28a745;
+  color: white;
+}
+
+.message-toast.error {
+  background: #dc3545;
+  color: white;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 </style>

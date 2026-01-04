@@ -29,6 +29,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: friend.FriendPutInHandleHandler(serverCtx),
 			},
 			{
+				// 删除好友申请
+				Method:  http.MethodPost,
+				Path:    "/friend/putIn/delete",
+				Handler: friend.FriendPutInDeleteHandler(serverCtx),
+			},
+			{
+				// 获取好友申请消息数量
+				Method:  http.MethodGet,
+				Path:    "/friend/putIn/messageCount",
+				Handler: friend.FriendPutInMessageCountHandler(serverCtx),
+			},
+			{
 				// 好友申请列表
 				Method:  http.MethodGet,
 				Path:    "/friend/putIns",
@@ -90,7 +102,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: group.GroupUserOnlineHandler(serverCtx),
 			},
 			{
-				// 用户群列表
+				// 用户申群列表
 				Method:  http.MethodGet,
 				Path:    "/groups",
 				Handler: group.GroupListHandler(serverCtx),

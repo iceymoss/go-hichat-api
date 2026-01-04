@@ -14,39 +14,42 @@ import (
 )
 
 type (
-	FindGroupListReq      = social.FindGroupListReq
-	FindGroupListResp     = social.FindGroupListResp
-	FriendListReq         = social.FriendListReq
-	FriendListResp        = social.FriendListResp
-	FriendPutInHandleReq  = social.FriendPutInHandleReq
-	FriendPutInHandleResp = social.FriendPutInHandleResp
-	FriendPutInListReq    = social.FriendPutInListReq
-	FriendPutInListResp   = social.FriendPutInListResp
-	FriendPutInReq        = social.FriendPutInReq
-	FriendPutInResp       = social.FriendPutInResp
-	FriendRequests        = social.FriendRequests
-	Friends               = social.Friends
-	GroupCreateReq        = social.GroupCreateReq
-	GroupCreateResp       = social.GroupCreateResp
-	GroupListReq          = social.GroupListReq
-	GroupListResp         = social.GroupListResp
-	GroupMembers          = social.GroupMembers
-	GroupPutInHandleReq   = social.GroupPutInHandleReq
-	GroupPutInHandleResp  = social.GroupPutInHandleResp
-	GroupPutinListReq     = social.GroupPutinListReq
-	GroupPutinListResp    = social.GroupPutinListResp
-	GroupPutinReq         = social.GroupPutinReq
-	GroupPutinResp        = social.GroupPutinResp
-	GroupRequests         = social.GroupRequests
-	GroupUsersReq         = social.GroupUsersReq
-	GroupUsersResp        = social.GroupUsersResp
-	Groups                = social.Groups
+	FindGroupListReq            = social.FindGroupListReq
+	FindGroupListResp           = social.FindGroupListResp
+	FriendListReq               = social.FriendListReq
+	FriendListResp              = social.FriendListResp
+	FriendPutInHandleReq        = social.FriendPutInHandleReq
+	FriendPutInHandleResp       = social.FriendPutInHandleResp
+	FriendPutInListReq          = social.FriendPutInListReq
+	FriendPutInListResp         = social.FriendPutInListResp
+	FriendPutInMessageCountReq  = social.FriendPutInMessageCountReq
+	FriendPutInMessageCountResp = social.FriendPutInMessageCountResp
+	FriendPutInReq              = social.FriendPutInReq
+	FriendPutInResp             = social.FriendPutInResp
+	FriendRequests              = social.FriendRequests
+	Friends                     = social.Friends
+	GroupCreateReq              = social.GroupCreateReq
+	GroupCreateResp             = social.GroupCreateResp
+	GroupListReq                = social.GroupListReq
+	GroupListResp               = social.GroupListResp
+	GroupMembers                = social.GroupMembers
+	GroupPutInHandleReq         = social.GroupPutInHandleReq
+	GroupPutInHandleResp        = social.GroupPutInHandleResp
+	GroupPutinListReq           = social.GroupPutinListReq
+	GroupPutinListResp          = social.GroupPutinListResp
+	GroupPutinReq               = social.GroupPutinReq
+	GroupPutinResp              = social.GroupPutinResp
+	GroupRequests               = social.GroupRequests
+	GroupUsersReq               = social.GroupUsersReq
+	GroupUsersResp              = social.GroupUsersResp
+	Groups                      = social.Groups
 
 	Social interface {
 		// 好友业务：请求好友、通过或拒绝申请、好友列表
 		FriendPutIn(ctx context.Context, in *FriendPutInReq, opts ...grpc.CallOption) (*FriendPutInResp, error)
 		FriendPutInHandle(ctx context.Context, in *FriendPutInHandleReq, opts ...grpc.CallOption) (*FriendPutInHandleResp, error)
 		FriendPutInList(ctx context.Context, in *FriendPutInListReq, opts ...grpc.CallOption) (*FriendPutInListResp, error)
+		FriendPutInMessageCount(ctx context.Context, in *FriendPutInMessageCountReq, opts ...grpc.CallOption) (*FriendPutInMessageCountResp, error)
 		FriendList(ctx context.Context, in *FriendListReq, opts ...grpc.CallOption) (*FriendListResp, error)
 		// 群业务：创建群，修改群，群公告，申请群，用户群列表，群成员，申请群，群退出..
 		GroupCreate(ctx context.Context, in *GroupCreateReq, opts ...grpc.CallOption) (*GroupCreateResp, error)
@@ -83,6 +86,11 @@ func (m *defaultSocial) FriendPutInHandle(ctx context.Context, in *FriendPutInHa
 func (m *defaultSocial) FriendPutInList(ctx context.Context, in *FriendPutInListReq, opts ...grpc.CallOption) (*FriendPutInListResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.FriendPutInList(ctx, in, opts...)
+}
+
+func (m *defaultSocial) FriendPutInMessageCount(ctx context.Context, in *FriendPutInMessageCountReq, opts ...grpc.CallOption) (*FriendPutInMessageCountResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.FriendPutInMessageCount(ctx, in, opts...)
 }
 
 func (m *defaultSocial) FriendList(ctx context.Context, in *FriendListReq, opts ...grpc.CallOption) (*FriendListResp, error) {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/pkg/utils"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/pkg/errors"
@@ -35,13 +36,23 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 
 	resp := make([]*social.FriendRequests, 0, len(friendReqList))
 	for _, v := range friendReqList {
+		// 将时间转换为中国时区的Unix时间戳
+		reqTimeUnix := utils.TimeToChinaUnix(v.ReqTime)
+
+		// 根据 status 控制消息显示：status=2（忽略）时不返回消息
+		reqMsg := v.ReqMsg
+		if v.Status == 2 {
+			reqMsg = "" // status=2 时不显示消息
+		}
+
 		resp = append(resp, &social.FriendRequests{
 			Id:           int32(v.Id),
 			UserId:       strconv.Itoa(int(v.UserId)),
 			ReqUid:       strconv.Itoa(int(v.ReqUid)),
-			ReqMsg:       v.ReqMsg,
-			ReqTime:      v.ReqTime.Unix(),
-			HandleResult: int32(v.HandleResult),
+			ReqMsg:       reqMsg,
+			Status:       int32(v.Status), // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
+			ReqTime:      reqTimeUnix,
+			HandleResult: int32(v.HandleResult), // 0-待处理, 1-已同意, 2-已拒绝
 		})
 	}
 
