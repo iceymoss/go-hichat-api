@@ -64,17 +64,42 @@ export const useContactsStore = defineStore('contacts', () => {
       
       if (response && response.list) {
         // 转换数据格式以匹配前端组件期望的格式
-        friends.value = response.list.map(friend => ({
-          id: friend.id || friend.friend_uid,
-          friend_uid: friend.friend_uid,
-          name: friend.nickname || '未设置昵称',
-          nickname: friend.nickname,
-          avatar: friend.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${friend.friend_uid}`,
-          remark: friend.remark || friend.nickname || '',
-          status: 'offline', // 默认离线，后续通过在线状态 API 更新
-          tags: [],
-          lastActive: '未知'
-        }))
+        friends.value = response.list.map(friend => {
+          // 解析tags（如果是JSON字符串）
+          let tags = []
+          if (friend.tags) {
+            try {
+              tags = typeof friend.tags === 'string' ? JSON.parse(friend.tags) : friend.tags
+            } catch (e) {
+              tags = []
+            }
+          }
+          
+          return {
+            id: friend.id || friend.friend_uid, // 用户ID
+            friend_uid: friend.friend_uid || friend.id, // 好友用户ID
+            name: friend.nickname || '未设置昵称',
+            nickname: friend.nickname,
+            avatar: friend.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${friend.friend_uid || friend.id}`,
+            // 注意：备注应保持“真实值”，不要用昵称兜底，否则前端无法判断是否真的设置了备注
+            remark: friend.remark || '',
+            status: 'offline', // 默认离线，后续通过在线状态 API 更新
+            tags: tags, // 个人标签数组
+            sex: friend.sex, // 性别（0-未知 1-男 2-女）
+            email: friend.email, // 邮箱
+            phone: friend.phone, // 手机号
+            signature: friend.introduction, // 个性签名
+            introduction: friend.introduction, // 个性签名（兼容字段）
+            location: friend.region, // 地区
+            region: friend.region, // 地区（兼容字段）
+            occupation: friend.occupation, // 职业
+            gender: friend.sex === 1 ? 'male' : friend.sex === 2 ? 'female' : 'other', // 性别文本
+            lastActive: '未知',
+            last_login: friend.last_login, // 最后登录时间戳
+            status_code: friend.status, // 用户状态（0-禁用 1-正常）
+            type: friend.type // 用户类型（0-普通用户 1-管理员）
+          }
+        })
         
         // 获取在线状态
         await fetchFriendsOnline()

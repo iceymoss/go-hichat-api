@@ -20,8 +20,21 @@ export function getPinyin(str) {
  */
 export function getPinyinFirstLetter(str) {
   if (!str) return '#'
-  const pinyinResult = pinyin(str.charAt(0), { style: pinyin.STYLE_FIRST_LETTER })
-  return pinyinResult[0]?.[0]?.toUpperCase() || str.charAt(0).toUpperCase()
+  const char = str.charAt(0)
+  // 如果是英文字母，直接返回大写
+  if (/[a-zA-Z]/.test(char)) {
+    return char.toUpperCase()
+  }
+  
+  const pinyinResult = pinyin(char, { style: pinyin.STYLE_FIRST_LETTER })
+  const first = pinyinResult[0]?.[0]?.toUpperCase()
+  
+  // 检查是否为 A-Z
+  if (first && /[A-Z]/.test(first)) {
+    return first
+  }
+  
+  return '#'
 }
 
 /**
