@@ -187,6 +187,45 @@ export const userApi = {
 export const socialApi = {
   // ========== 好友相关 ==========
   
+  // 更新好友备注
+  friendUpdateRemark: (friendUid, remark) => {
+    return socialApiInstance.put('/v1/social/friend/remark', {
+      friend_uid: friendUid,
+      remark
+    })
+  },
+
+  // 删除好友
+  friendDelete: (friendUid) => {
+    return socialApiInstance.post('/v1/social/friend/delete', {
+      friend_uid: friendUid
+    })
+  },
+
+  // 拉黑/取消拉黑好友
+  friendBlock: (friendUid, block = true) => {
+    return socialApiInstance.post('/v1/social/friend/block', {
+      friend_uid: friendUid,
+      block
+    })
+  },
+
+  // 朋友圈权限设置
+  friendMomentsPermission: (friendUid, permission) => {
+    return socialApiInstance.post('/v1/social/friend/moments/permission', {
+      friend_uid: friendUid,
+      permission
+    })
+  },
+
+  // 分享好友（预留接口）
+  friendShare: (friendUid, targetUid) => {
+    return socialApiInstance.post('/v1/social/friend/share', {
+      friend_uid: friendUid,
+      target_uid: targetUid
+    })
+  },
+
   // 好友申请
   friendPutIn: (userUid, reqMsg) => {
     return socialApiInstance.post('/v1/social/friend/putIn', {

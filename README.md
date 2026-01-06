@@ -267,4 +267,67 @@ docker build -t hichat2/user-rpc:v1.0 -f deploy/dockerfile/user-rpc.Dockerfile .
 docker run -d   --name user-rpc   --network host   -e ENV_MODE=production   hichat2/user-rpc:v1.0
 ```
 
+你的理解：
+当前好友设置的接口（备注、删除、拉黑、朋友圈权限、通知、置顶、静音、标签、举报等）在 API 层直接用了 db.GetMysqlConn，这是不符合“API 仅调用 RPC，不直接访问 DB”的规范，需要改为调用 social-rpc。当前 social.proto 里没有这些 RPC，必须先扩展 proto，再 goctl 生成，再调整 API 逻辑。
+建议调整方案（待你确认后执行）：
+在 social.proto 新增 RPC：
+FriendUpdateRemark (friend_uid, remark)
+FriendDelete (friend_uid) —— 双向删除
+FriendBlock (friend_uid, block)
+FriendMomentsPermission (friend_uid, permission)
+FriendNotification (friend_uid, enabled)
+FriendPin (friend_uid, pinned)
+FriendMute (friend_uid, muted)
+FriendTags (friend_uid, tags[])
+FriendReport (friend_uid, reason)
+FriendShare (friend_uid, target_uid)（预留）
+RPC 返回简单 ack（空 resp），由 RPC 内部访问 MySQL。
+social-rpc 内实现上述逻辑，使用 socialmodels 操作 DB。
+social-api 的 handler/logic 改为调用对应 RPC，移除所有 db.GetMysqlConn。
+需要你确认：
+1) 是否按上面这些 RPC 名称/参数扩展 social.proto？有无增减字段要求？
+2) 允许我在确认后运行 goctl 生成（请告知命令规范，如 goctl rpc protoc social.proto --go_out=./ --go-grpc_out=./ --zrpc_out=./apps/social/rpc）？
+3) 是否保留分享/举报为预留成功返回（无存储/推送），还是需要存表/触发消息？
+   确认后我会：
+   更新 social.proto
+   goctl 生成（在你同意的命令下）
+   实现 social-rpc 逻辑
+   更新 social-api 调用新 RPC，彻底去掉 DB 直连
+   快速自检编译 through go run social-api.
 
+我的回复：OK的，你请继续：需要注意的是，涉及到goctl命令时，你应该停止思考让我来执行命令，我执行成功后，会同步给你，然后让你进行开发，
+并且我已经执行了：goctl rpc protoc apps/social/rpc/social.proto --go_out=./apps/social/rpc --go-grpc_out=./apps/social/rpc --zrpc_out=./apps/social/rpc --style=goZero
+
+
+
+
+你是一个高级全栈开发工程师，你需要了解当前项目，并且重点了解user和social模块的前后端功能，然后这个是之前我们为完成的工作，你需要继续完成我们的工作：你的理解：
+当前好友设置的接口（备注、删除、拉黑、朋友圈权限、通知、置顶、静音、标签、举报等）在 API 层直接用了 db.GetMysqlConn，这是不符合“API 仅调用 RPC，不直接访问 DB”的规范，需要改为调用 social-rpc。当前 social.proto 里没有这些 RPC，必须先扩展 proto，再 goctl 生成，再调整 API 逻辑。
+建议调整方案（待你确认后执行）：
+在 social.proto 新增 RPC：
+FriendUpdateRemark (friend_uid, remark)
+FriendDelete (friend_uid) —— 双向删除
+FriendBlock (friend_uid, block)
+FriendMomentsPermission (friend_uid, permission)
+FriendNotification (friend_uid, enabled)
+FriendPin (friend_uid, pinned)
+FriendMute (friend_uid, muted)
+FriendTags (friend_uid, tags[])
+FriendReport (friend_uid, reason)
+FriendShare (friend_uid, target_uid)（预留）
+RPC 返回简单 ack（空 resp），由 RPC 内部访问 MySQL。
+social-rpc 内实现上述逻辑，使用 socialmodels 操作 DB。
+social-api 的 handler/logic 改为调用对应 RPC，移除所有 db.GetMysqlConn。
+需要你确认：
+1) 是否按上面这些 RPC 名称/参数扩展 social.proto？有无增减字段要求？
+2) 允许我在确认后运行 goctl 生成（请告知命令规范，如 goctl rpc protoc social.proto --go_out=./ --go-grpc_out=./ --zrpc_out=./apps/social/rpc）？
+3) 是否保留分享/举报为预留成功返回（无存储/推送），还是需要存表/触发消息？
+   确认后我会：
+   更新 social.proto
+   goctl 生成（在你同意的命令下）
+   实现 social-rpc 逻辑
+   更新 social-api 调用新 RPC，彻底去掉 DB 直连
+   快速自检编译 through go run social-api.
+
+我的回复：OK的，你请继续：需要注意的是，涉及到goctl命令时，你应该停止思考让我来执行命令，我执行成功后，会同步给你，然后让你进行开发，
+并且我已经执行了：goctl rpc protoc apps/social/rpc/social.proto --go_out=./apps/social/rpc --go-grpc_out=./apps/social/rpc --zrpc_out=./apps/social/rpc --style=goZero

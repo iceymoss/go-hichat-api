@@ -1,11 +1,19 @@
 <template>
   <div class="friend-list-container">
-    <!-- 好友申请按钮 -->
+    <!-- 顶部操作区 -->
     <div class="friend-requests-section">
       <button class="btn-friend-requests" @click="showFriendRequestsModal = true">
-        <i class="icon icon-user-plus"></i>
-        <span>好友申请</span>
+        <div class="icon-wrapper">
+          <i class="icon icon-user-plus"></i>
+        </div>
+        <span class="text">新的朋友</span>
         <span v-if="pendingRequestsCount > 0" class="badge-count">{{ pendingRequestsCount }}</span>
+      </button>
+      <button class="btn-friend-requests" @click="emit('add-friend')">
+        <div class="icon-wrapper add">
+          <i class="icon icon-plus"></i>
+        </div>
+        <span class="text">添加朋友</span>
       </button>
     </div>
 
@@ -16,7 +24,7 @@
         <input 
           type="text" 
           v-model="searchKeyword" 
-          placeholder="搜索好友昵称、备注或标签" 
+          placeholder="搜索" 
           @input="handleSearch"
         >
         <button v-if="searchKeyword" class="btn-clear" @click="clearSearch">
@@ -27,13 +35,17 @@
 
     <!-- 好友列表 -->
     <div class="friends-content">
-      <!-- 按字母排序的好友列表 -->
       <div class="friends-section">
-        <div class="section-header">
-          <h3>我的好友 <span class="count">({{ sortedFriends.length }})</span></h3>
+        <!-- 无搜索结果/无好友时 -->
+        <div v-if="sortedFriends.length === 0" class="no-friends">
+          <div class="empty-state">
+            <p v-if="searchKeyword">无搜索结果</p>
+            <p v-else>暂无好友</p>
+          </div>
         </div>
-        
-        <div v-if="sortedFriends.length > 0" class="friends-list">
+
+        <!-- 好友列表 -->
+        <div v-else class="friends-list">
           <div 
             v-for="group in groupedFriends" 
             :key="group.letter" 
@@ -44,33 +56,18 @@
               v-for="friend in group.friends" 
               :key="friend.id" 
               class="friend-item"
-              :class="{ active: selectedFriendId === friend.id }"
+              :class="{ active: selectedFriendId === friend.id || selectedFriendId === friend.friend_uid }"
               @click="selectFriend(friend)"
             >
               <div class="friend-avatar">
-                <img :src="friend.avatar" alt="头像" class="avatar">
-                <span class="status-badge" :class="friend.status"></span>
+                <img :src="friend.avatar" alt="头像" class="avatar" :data-friend-uid="friend.friend_uid || friend.id" @error="handleAvatarError">
               </div>
               <div class="friend-info">
-                <div class="name">{{ friend.remark || friend.name }}</div>
-                <div class="status">
-                  <span v-if="friend.status === 'online'" class="status-text online">在线</span>
-                  <span v-else-if="friend.status === 'away'" class="status-text away">离开</span>
-                  <span v-else class="status-text offline">{{ friend.lastActive }}</span>
+                <div class="name">
+                  {{ (friend.remark && friend.remark.trim()) ? friend.remark : (friend.nickname || '未知用户') }}
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-        
-        <div v-else class="no-friends">
-          <div class="empty-state">
-            <i class="icon icon-users"></i>
-            <p>暂无好友</p>
-            <button class="btn-add-friend" @click="$emit('add-friend')">
-              <i class="icon icon-plus"></i>
-              添加好友
-            </button>
           </div>
         </div>
       </div>
@@ -106,11 +103,16 @@ const showFriendRequestsModal = ref(false)
 const messageCount = ref(0) // 消息数量
 let pollTimer = null // 轮询定时器
 
+// 处理头像加载错误
+const handleAvatarError = (event) => {
+  const friendUid = event.target.getAttribute('data-friend-uid')
+  event.target.src = `https://api.dicebear.com/7.x/personas/svg?seed=${friendUid || 'default'}`
+}
+
 // 计算属性
-const searchMode = computed(() => searchKeyword.value.trim() !== '')
 const friendRequests = computed(() => contactsStore.friendRequests)
 
-// 待处理的好友申请消息数量（使用API返回的数量）
+// 待处理的好友申请消息数量
 const pendingRequestsCount = computed(() => {
   return messageCount.value
 })
@@ -127,15 +129,12 @@ const fetchMessageCount = async () => {
   }
 }
 
-// 启动轮询（每20秒）
+// 启动轮询
 const startPolling = () => {
-  // 立即执行一次
   fetchMessageCount()
-  
-  // 每20秒轮询一次
   pollTimer = setInterval(() => {
     fetchMessageCount()
-  }, 20000) // 20秒 = 20000毫秒
+  }, 20000)
 }
 
 // 停止轮询
@@ -146,20 +145,16 @@ const stopPolling = () => {
   }
 }
 
-// 组件挂载时启动轮询
 onMounted(() => {
   startPolling()
 })
 
-// 组件卸载时停止轮询
 onUnmounted(() => {
   stopPolling()
 })
 
-// 监听好友申请处理，更新消息数量
 watch(() => showFriendRequestsModal.value, (newVal) => {
   if (!newVal) {
-    // 关闭弹窗时刷新消息数量
     fetchMessageCount()
   }
 })
@@ -168,29 +163,23 @@ watch(() => showFriendRequestsModal.value, (newVal) => {
 const sortedFriends = computed(() => {
   let friends = contactsStore.friends
   
-  // 如果有搜索关键词，过滤好友
   if (searchKeyword.value.trim()) {
     const keyword = searchKeyword.value.toLowerCase()
     friends = friends.filter(friend => 
-      friend.name.toLowerCase().includes(keyword) || 
-      friend.remark.toLowerCase().includes(keyword) ||
-      friend.tags.some(tag => tag.toLowerCase().includes(keyword))
+      (friend.nickname && friend.nickname.toLowerCase().includes(keyword)) || 
+      (friend.remark && friend.remark.toLowerCase().includes(keyword)) ||
+      (friend.tags && friend.tags.some(tag => tag.toLowerCase().includes(keyword)))
     )
   }
   
-  // 按备注或名称拼音排序
   return sortFriendsByPinyin(friends)
 })
 
-// 按字母分组的好友
 const groupedFriends = computed(() => {
   return groupFriendsByPinyin(sortedFriends.value)
 })
 
-// 方法
-const handleSearch = () => {
-  // 搜索逻辑已在computed中处理
-}
+const handleSearch = () => {}
 
 const clearSearch = () => {
   searchKeyword.value = ''
@@ -199,16 +188,6 @@ const clearSearch = () => {
 const selectFriend = (friend) => {
   emit('select-friend', friend)
 }
-
-const handleRequest = async (requestId, accept) => {
-  try {
-    await contactsStore.handleFriendRequest(requestId, accept)
-    // 可以显示成功提示
-  } catch (error) {
-    console.error('处理好友请求失败:', error)
-    // 可以显示错误提示
-  }
-}
 </script>
 
 <style scoped>
@@ -216,64 +195,110 @@ const handleRequest = async (requestId, accept) => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: #f7f7f7; /* 微信风格底色 */
+  border-right: 1px solid #e7e7e7;
 }
 
+/* 搜索框区域 */
 .search-section {
-  padding: 16px 20px;
-  border-bottom: 1px solid #f0f2f5;
+  padding: 12px 12px;
+  background: #f7f7f7;
 }
 
 .search-container {
   position: relative;
   display: flex;
   align-items: center;
-  background-color: #f8f9fa;
-  border-radius: 20px;
-  padding: 8px 15px;
-  border: 1px solid #e9ecef;
+  background-color: #e2e2e2;
+  border-radius: 6px;
+  padding: 4px 8px;
+  height: 28px;
+  transition: all 0.2s;
+}
+
+.search-container:focus-within {
+  background-color: #fff;
+  border: 1px solid #d1d1d1;
 }
 
 .search-container .icon {
-  color: #6c757d;
-  font-size: 16px;
-  margin-right: 8px;
+  color: #999;
+  font-size: 14px;
+  margin-right: 6px;
 }
 
 .search-container input {
   flex: 1;
   border: none;
   background: none;
-  font-size: 14px;
+  font-size: 12px;
+  color: #333;
   outline: none;
-  color: #495057;
-}
-
-.search-container input::placeholder {
-  color: #adb5bd;
+  padding: 0;
 }
 
 .btn-clear {
   background: none;
   border: none;
-  padding: 4px;
+  padding: 2px;
   cursor: pointer;
-  color: #6c757d;
-  border-radius: 50%;
+  color: #999;
+  display: flex;
+  align-items: center;
+}
+
+/* 顶部功能入口 */
+.friend-requests-section {
+  padding: 0;
+  background: #f7f7f7;
+}
+
+.btn-friend-requests {
+  width: 100%;
+  padding: 12px 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background-color 0.2s;
+  border-bottom: 1px solid #e7e7e7;
+}
+
+.btn-friend-requests:hover {
+  background-color: #e2e2e2;
+}
+
+.icon-wrapper {
+  width: 36px;
+  height: 36px;
+  background-color: #fa9d3b; /* 橙色背景 */
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.btn-clear:hover {
-  background-color: #e9ecef;
+.icon-wrapper.add {
+  background-color: #07c160; /* 微信绿 */
 }
 
+.icon-wrapper .icon {
+  color: white;
+  font-size: 20px;
+}
+
+.btn-friend-requests .text {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+/* 列表内容区 */
 .friends-content {
   flex: 1;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #4a8cff #e9ecef;
 }
 
 .friends-content::-webkit-scrollbar {
@@ -281,207 +306,52 @@ const handleRequest = async (requestId, accept) => {
 }
 
 .friends-content::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
+  background-color: #c1c1c1;
   border-radius: 3px;
 }
 
-.friends-content::-webkit-scrollbar-track {
-  background: #f8f9fa;
-}
-
-.friends-section {
-  margin-bottom: 20px;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  padding: 16px 20px 12px 20px;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.section-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #495057;
-}
-
-.badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background-color: #dc3545;
-  color: white;
-  font-size: 12px;
-  margin-left: 8px;
-  font-weight: 600;
-}
-
-.count {
-  color: #6c757d;
-  font-weight: normal;
-  font-size: 14px;
-}
-
-.request-list {
-  padding: 8px 0;
-}
-
-.request-item {
-  display: flex;
-  align-items: center;
-  padding: 12px 20px;
-  border-bottom: 1px solid #f8f9fa;
-}
-
-.request-item:last-child {
-  border-bottom: none;
-}
-
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  object-fit: cover;
-  margin-right: 12px;
-}
-
-.request-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.name {
-  font-size: 15px;
-  font-weight: 500;
-  color: #495057;
-  margin-bottom: 2px;
-}
-
-.message {
-  font-size: 13px;
-  color: #6c757d;
-  margin-bottom: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.time {
-  font-size: 12px;
-  color: #adb5bd;
-}
-
-.request-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-accept, .btn-reject {
-  padding: 6px 12px;
-  font-size: 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.btn-accept {
-  background-color: #28a745;
-  color: white;
-}
-
-.btn-accept:hover {
-  background-color: #218838;
-}
-
-.btn-reject {
-  background-color: #f8f9fa;
-  color: #6c757d;
-  border: 1px solid #dee2e6;
-}
-
-.btn-reject:hover {
-  background-color: #e9ecef;
-}
-
-.no-requests {
-  padding: 20px;
-  text-align: center;
-  color: #6c757d;
-  font-size: 14px;
-}
-
 .friends-list {
-  padding: 0;
-}
-
-.friend-group {
-  margin-bottom: 8px;
+  padding-bottom: 20px;
 }
 
 .group-header {
-  padding: 8px 20px;
-  background-color: #f8f9fa;
-  font-size: 14px;
-  font-weight: 600;
-  color: #495057;
-  border-bottom: 1px solid #e9ecef;
+  padding: 4px 18px;
+  font-size: 12px;
+  color: #999;
+  background-color: #f7f7f7;
+  font-weight: normal;
 }
 
 .friend-item {
   display: flex;
   align-items: center;
-  padding: 12px 20px;
+  padding: 10px 18px;
   cursor: pointer;
-  transition: all 0.2s;
-  border-bottom: 1px solid #f8f9fa;
-}
-
-.friend-item:hover {
-  background-color: #f8f9fa;
-}
-
-.friend-item.active {
-  background-color: #e3f2fd;
-  border-left: 3px solid #4a8cff;
+  transition: background-color 0.2s;
+  border-bottom: 1px solid #e7e7e7;
 }
 
 .friend-item:last-child {
   border-bottom: none;
 }
 
+.friend-item:hover {
+  background-color: #e2e2e2;
+}
+
+.friend-item.active {
+  background-color: #c6c6c6; /* 微信选中态 */
+}
+
 .friend-avatar {
-  position: relative;
   margin-right: 12px;
 }
 
-.status-badge {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid white;
-}
-
-.status-badge.online {
-  background-color: #28a745;
-}
-
-.status-badge.away {
-  background-color: #ffc107;
-}
-
-.status-badge.offline {
-  background-color: #6c757d;
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px; /* 微信风格是小圆角 */
+  object-fit: cover;
 }
 
 .friend-info {
@@ -490,129 +360,34 @@ const handleRequest = async (requestId, accept) => {
 }
 
 .name {
-  font-size: 15px;
-  font-weight: 500;
-  color: #495057;
-  margin-bottom: 2px;
+  font-size: 14px;
+  color: #333;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.status {
-  display: flex;
-  align-items: center;
-}
-
-.status-text {
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-text.online {
-  color: #28a745;
-}
-
-.status-text.away {
-  color: #ffc107;
-}
-
-.status-text.offline {
-  color: #6c757d;
-}
-
+/* 空状态 */
 .no-friends {
-  padding: 40px 20px;
+  padding: 40px 0;
   text-align: center;
+  color: #999;
+  font-size: 13px;
 }
 
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.empty-state .icon {
-  font-size: 48px;
-  color: #adb5bd;
-}
-
-.empty-state p {
-  color: #6c757d;
-  font-size: 16px;
-  margin: 0;
-}
-
-.btn-add-friend {
-  padding: 10px 20px;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  color: white;
-  border: none;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.2s;
-}
-
-.btn-add-friend:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
-}
-
-.friend-requests-section {
-  padding: 12px 20px;
-  border-bottom: 1px solid #f0f2f5;
-  background: #fff;
-  order: -1; /* 确保在最上面 */
-}
-
-.btn-friend-requests {
-  width: 100%;
-  padding: 10px 16px;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.btn-friend-requests:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
-}
-
-.btn-friend-requests .icon {
-  font-size: 16px;
-}
-
+/* 徽标 */
 .badge-count {
-  position: absolute;
-  top: -6px;
-  right: -6px;
+  margin-left: auto;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  background: #dc3545;
+  background: #fa5151;
   color: white;
   border-radius: 9px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid white;
 }
-</style> 
+</style>

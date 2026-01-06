@@ -30,7 +30,7 @@
             :key="user.id"
             @click="viewUserProfile(user)"
           >
-            <img :src="user.avatar" alt="头像" class="avatar">
+            <img :src="user.avatar" alt="头像" class="avatar" @click.stop="viewUserProfile(user)">
             <div class="user-info" @click.stop>
               <div class="name">{{ user.name }} 
                 <span class="account">@{{ user.account }}</span>
@@ -41,7 +41,22 @@
             </div>
             <div class="user-actions" @click.stop>
               <button 
-                v-if="!user.requestSent && !user.sending"
+                v-if="user.isSelf"
+                class="btn-sending"
+                disabled
+              >
+                <span>自己</span>
+              </button>
+              <button
+                v-else-if="user.isFriend"
+                class="btn-add"
+                @click="startChat(user)"
+              >
+                <i class="icon icon-chat"></i>
+                <span>发消息</span>
+              </button>
+              <button 
+                v-else
                 class="btn-add" 
                 @click="showRequestDialog(user)"
                 :disabled="sendingRequest"
@@ -49,17 +64,6 @@
               <i class="icon icon-add"></i>
                 <span>添加</span>
               </button>
-              <button 
-                v-else-if="user.sending"
-                class="btn-sending" 
-                disabled
-              >
-                <i class="icon icon-spinner"></i>
-                <span>发送中</span>
-              </button>
-              <span v-else class="btn-sent">
-                <i class="icon icon-check"></i> 已发送
-              </span>
             </div>
           </div>
         </div>
@@ -158,12 +162,14 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { userApi, socialApi } from '../utils/api'
 import { useContactsStore } from '../stores/contacts'
+import { useAuthStore } from '../stores/auth'
 import UserProfileCard from './UserProfileCard.vue'
 
 const emit = defineEmits(['close', 'search', 'send-request'])
 
 const router = useRouter()
 const contactsStore = useContactsStore()
+const authStore = useAuthStore()
 
 const showUserProfileCard = ref(false)
 const selectedUserId = ref(null)
@@ -191,6 +197,11 @@ const getSearchParams = (keyword) => {
   if (/^1[3-9]\d{9}$/.test(trimmed)) {
     return { phone: trimmed }
   }
+
+  // 纯数字（非手机号格式）：按用户ID精准匹配
+  if (/^\d+$/.test(trimmed)) {
+    return { ids: [trimmed] }
+  }
   
   // 判断是否是邮箱（包含@符号）
   if (trimmed.includes('@') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
@@ -205,6 +216,25 @@ const close = () => {
   emit('close')
 }
 
+const currentUserId = computed(() => {
+  if (authStore.user?.id) return String(authStore.user.id)
+  try {
+    const saved = localStorage.getItem('user')
+    if (saved) return String(JSON.parse(saved)?.id || '')
+  } catch {}
+  return ''
+})
+
+const isFriendById = (uid) => {
+  const id = String(uid)
+  return contactsStore.friends.some(f => String(f.friend_uid) === id || String(f.id) === id)
+}
+
+const startChat = (user) => {
+  router.push(`/app/chat?userId=${user.id}`)
+  close()
+}
+
 // 执行搜索
 const handleSearch = async () => {
   if (!searchKeyword.value.trim()) {
@@ -217,6 +247,9 @@ const handleSearch = async () => {
   hasSearched.value = true
   
   try {
+    // 用于判断按钮状态：自己 / 已是好友
+    await contactsStore.fetchFriends()
+
     const params = getSearchParams(searchKeyword.value)
     const response = await userApi.searchUser(params)
     
@@ -229,7 +262,9 @@ const handleSearch = async () => {
         avatar: user.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${user.id}`,
         tags: parseTags(user.tags),
         mobile: user.mobile,
-        email: user.email
+        email: user.email,
+        isSelf: currentUserId.value && String(user.id) === String(currentUserId.value),
+        isFriend: isFriendById(user.id)
       }))
     } else {
       searchResults.value = []
@@ -256,6 +291,14 @@ const parseTags = (tags) => {
 
 // 显示申请消息对话框
 const showRequestDialog = (user) => {
+  if (user.isSelf) {
+    showMessage('不能添加自己', 'error')
+    return
+  }
+  if (user.isFriend) {
+    startChat(user)
+    return
+  }
   selectedUser.value = user
   requestMessage.value = ''
   showRequestMessageDialog.value = true
@@ -268,15 +311,17 @@ const confirmSendRequest = async () => {
   sendingRequest.value = true
   
   try {
+    if (selectedUser.value.isSelf) {
+      showMessage('不能添加自己', 'error')
+      return
+    }
+    if (selectedUser.value.isFriend) {
+      showMessage('你们已经是好友了', 'success')
+      showRequestMessageDialog.value = false
+      return
+    }
     // 调用 API 发送好友申请
     await socialApi.friendPutIn(selectedUser.value.id, requestMessage.value.trim())
-    
-    // 更新用户状态
-    const userIndex = searchResults.value.findIndex(u => u.id === selectedUser.value.id)
-    if (userIndex !== -1) {
-      searchResults.value[userIndex].requestSent = true
-      searchResults.value[userIndex].sending = false
-    }
     
     // 显示成功提示
     showMessage('好友申请已发送', 'success')
