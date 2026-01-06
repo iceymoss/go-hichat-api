@@ -90,6 +90,59 @@ type (
 	FriendPutInResp  {}
 )
 
+// 好友管理：备注/删除/拉黑/朋友圈权限/分享/通知/置顶/静音/标签/举报
+type (
+	FriendRemarkReq {
+		FriendUid string `json:"friend_uid"`
+		Remark    string `json:"remark"`
+	}
+	FriendRemarkResp  {}
+	FriendDeleteReq {
+		FriendUid string `json:"friend_uid"`
+	}
+	FriendDeleteResp  {}
+	FriendBlockReq {
+		FriendUid string `json:"friend_uid"`
+		Block     bool   `json:"block"`
+	}
+	FriendBlockResp  {}
+	FriendMomentsPermissionReq {
+		FriendUid  string `json:"friend_uid"`
+		Permission int32  `json:"permission"` // 0允许 1仅聊天 2屏蔽朋友圈
+	}
+	FriendMomentsPermissionResp  {}
+	FriendShareReq {
+		FriendUid string `json:"friend_uid"`
+		TargetUid string `json:"target_uid,optional"`
+	}
+	FriendShareResp  {}
+	FriendNotificationReq {
+		FriendUid string `json:"friend_uid"`
+		Enabled   bool   `json:"enabled"`
+	}
+	FriendNotificationResp  {}
+	FriendPinReq {
+		FriendUid string `json:"friend_uid"`
+		Pinned    bool   `json:"pinned"`
+	}
+	FriendPinResp  {}
+	FriendMuteReq {
+		FriendUid string `json:"friend_uid"`
+		Muted     bool   `json:"muted"`
+	}
+	FriendMuteResp  {}
+	FriendTagsReq {
+		FriendUid string   `json:"friend_uid"`
+		Tags      []string `json:"tags"`
+	}
+	FriendTagsResp  {}
+	FriendReportReq {
+		FriendUid string `json:"friend_uid"`
+		Reason    string `json:"reason,optional"`
+	}
+	FriendReportResp  {}
+)
+
 type (
 	FriendPutInHandleReq {
 		FriendReqId  int32 `json:"friend_req_id,omitempty"`
@@ -205,6 +258,46 @@ service social {
 	@doc "好友申请"
 	@handler friendPutIn
 	post /friend/putIn (FriendPutInReq) returns (FriendPutInResp)
+
+	@doc "更新好友备注"
+	@handler friendRemark
+	post /friend/remark (FriendRemarkReq) returns (FriendRemarkResp)
+
+	@doc "删除好友（双向）"
+	@handler friendDelete
+	post /friend/delete (FriendDeleteReq) returns (FriendDeleteResp)
+
+	@doc "拉黑/取消拉黑"
+	@handler friendBlock
+	post /friend/block (FriendBlockReq) returns (FriendBlockResp)
+
+	@doc "朋友圈权限"
+	@handler friendMomentsPermission
+	post /friend/momentsPermission (FriendMomentsPermissionReq) returns (FriendMomentsPermissionResp)
+
+	@doc "消息通知开关"
+	@handler friendNotification
+	post /friend/notification (FriendNotificationReq) returns (FriendNotificationResp)
+
+	@doc "置顶开关"
+	@handler friendPin
+	post /friend/pin (FriendPinReq) returns (FriendPinResp)
+
+	@doc "静音开关"
+	@handler friendMute
+	post /friend/mute (FriendMuteReq) returns (FriendMuteResp)
+
+	@doc "好友标签设置"
+	@handler friendTags
+	post /friend/tags (FriendTagsReq) returns (FriendTagsResp)
+
+	@doc "好友举报"
+	@handler friendReport
+	post /friend/report (FriendReportReq) returns (FriendReportResp)
+
+	@doc "好友分享（预留）"
+	@handler friendShare
+	post /friend/share (FriendShareReq) returns (FriendShareResp)
 
 	@doc "好友申请处理"
 	@handler friendPutInHandle

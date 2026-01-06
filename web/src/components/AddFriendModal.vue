@@ -56,7 +56,7 @@
                 <span>发消息</span>
               </button>
               <button 
-                v-else-if="!user.requestSent && !user.sending"
+                v-else
                 class="btn-add" 
                 @click="showRequestDialog(user)"
                 :disabled="sendingRequest"
@@ -64,17 +64,6 @@
               <i class="icon icon-add"></i>
                 <span>添加</span>
               </button>
-              <button 
-                v-else-if="user.sending"
-                class="btn-sending" 
-                disabled
-              >
-                <i class="icon icon-spinner"></i>
-                <span>发送中</span>
-              </button>
-              <span v-else class="btn-sent">
-                <i class="icon icon-check"></i> 已发送
-              </span>
             </div>
           </div>
         </div>
@@ -258,10 +247,8 @@ const handleSearch = async () => {
   hasSearched.value = true
   
   try {
-    // 用于判断按钮状态：自己 / 已是好友 / 已发送申请
+    // 用于判断按钮状态：自己 / 已是好友
     await contactsStore.fetchFriends()
-    const sentRequests = await contactsStore.fetchFriendRequests(0, '0') // 我发起的待处理申请
-    const sentSet = new Set((sentRequests || []).map(r => String(r.user_id || r.req_uid || '')))
 
     const params = getSearchParams(searchKeyword.value)
     const response = await userApi.searchUser(params)
@@ -277,8 +264,7 @@ const handleSearch = async () => {
         mobile: user.mobile,
         email: user.email,
         isSelf: currentUserId.value && String(user.id) === String(currentUserId.value),
-        isFriend: isFriendById(user.id),
-        requestSent: sentSet.has(String(user.id))
+        isFriend: isFriendById(user.id)
       }))
     } else {
       searchResults.value = []
@@ -336,13 +322,6 @@ const confirmSendRequest = async () => {
     }
     // 调用 API 发送好友申请
     await socialApi.friendPutIn(selectedUser.value.id, requestMessage.value.trim())
-    
-    // 更新用户状态
-    const userIndex = searchResults.value.findIndex(u => u.id === selectedUser.value.id)
-    if (userIndex !== -1) {
-      searchResults.value[userIndex].requestSent = true
-      searchResults.value[userIndex].sending = false
-    }
     
     // 显示成功提示
     showMessage('好友申请已发送', 'success')

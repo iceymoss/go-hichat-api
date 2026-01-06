@@ -137,6 +137,70 @@ export const useContactsStore = defineStore('contacts', () => {
     }
   }
   
+  // 更新好友备注（同时更新本地 store）
+  const updateFriendRemark = async (friendUid, remark) => {
+    try {
+      await socialApi.friendUpdateRemark(friendUid, remark)
+    } catch (error) {
+      console.error('更新好友备注失败:', error)
+    } finally {
+      patchFriendLocal(friendUid, { remark })
+    }
+  }
+
+  // 删除好友
+  const deleteFriend = async (friendUid) => {
+    try {
+      await socialApi.friendDelete(friendUid)
+    } catch (error) {
+      console.error('删除好友失败:', error)
+    } finally {
+      friends.value = friends.value.filter(friend => (friend.friend_uid || friend.id) !== friendUid)
+    }
+  }
+
+  // 拉黑 / 取消拉黑好友
+  const blockFriend = async (friendUid, blocked = true) => {
+    try {
+      await socialApi.friendBlock(friendUid, blocked)
+    } catch (error) {
+      console.error('更新拉黑状态失败:', error)
+    } finally {
+      patchFriendLocal(friendUid, { blacklisted: blocked })
+    }
+  }
+
+  // 更新朋友圈权限
+  const updateMomentsPermission = async (friendUid, permission) => {
+    try {
+      await socialApi.friendMomentsPermission(friendUid, permission)
+    } catch (error) {
+      console.error('更新朋友圈权限失败:', error)
+    } finally {
+      patchFriendLocal(friendUid, { momentsPermission: permission })
+    }
+  }
+
+  // 分享好友（预留，若需要可补 targetUid）
+  const shareFriend = async (friendUid, targetUid) => {
+    try {
+      await socialApi.friendShare(friendUid, targetUid)
+    } catch (error) {
+      console.error('分享好友接口调用失败:', error)
+    }
+  }
+
+  // 本地更新好友数据
+  const patchFriendLocal = (friendUid, payload) => {
+    friends.value = friends.value.map(friend => {
+      const uid = friend.friend_uid || friend.id
+      if (uid === friendUid) {
+        return { ...friend, ...payload }
+      }
+      return friend
+    })
+  }
+
   // 获取好友申请列表
   const fetchFriendRequests = async (type = 0, classType = '1') => {
     // type: 0-待处理, 1-已通过, 2-已拒绝
@@ -267,6 +331,12 @@ export const useContactsStore = defineStore('contacts', () => {
     fetchFriendRequests,
     sendFriendRequest,
     handleFriendRequest,
-    addFriendRequest
+    addFriendRequest,
+    updateFriendRemark,
+    deleteFriend,
+    blockFriend,
+    updateMomentsPermission,
+    shareFriend,
+    patchFriendLocal
   }
 })

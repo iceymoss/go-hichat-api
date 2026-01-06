@@ -20,20 +20,24 @@
           </div>
           <div class="info-section">
             <div class="name-row">
-              <h2 class="display-name">{{ friend.remark || friend.nickname || '未知用户' }}</h2>
+              <h2 class="display-name">{{ displayName }}</h2>
               <div class="gender-icon" v-if="friend.sex">
                 <i class="icon" :class="friend.sex === 1 ? 'icon-male' : friend.sex === 2 ? 'icon-female' : ''"></i>
               </div>
             </div>
-            <p class="sub-name" v-if="friend.remark && friend.remark !== friend.nickname">昵称: {{ friend.nickname }}</p>
             <p class="account-id">微信号: {{ friend.friend_uid || friend.id }}</p>
             <p class="location" v-if="friend.location">地区: {{ friend.location }}</p>
           </div>
         </div>
-        <!-- 设置备注按钮 -->
-        <button class="btn-icon" @click="handleSetRemark" title="设置备注">
-          <i class="icon icon-edit-3"></i>
-        </button>
+        <div class="header-actions">
+          <button class="btn-icon" @click="handleSetRemark" title="设置备注">
+            <i class="icon icon-edit-3"></i>
+          </button>
+          <button class="btn-settings" @click="showSettings = true" title="好友管理">
+            <i class="icon icon-settings"></i>
+            <span>设置</span>
+          </button>
+        </div>
       </div>
 
       <!-- 分隔线 -->
@@ -41,6 +45,10 @@
 
       <!-- 详细信息列表 -->
       <div class="info-list">
+        <div class="info-item">
+          <span class="label">备注</span>
+          <span class="value">{{ (friend.remark && friend.remark.trim()) ? friend.remark : (friend.nickname || '未知用户') }}</span>
+        </div>
         <div class="info-item" v-if="friend.phone">
           <span class="label">电话</span>
           <span class="value">{{ friend.phone }}</span>
@@ -100,14 +108,18 @@
       v-if="showSettings" 
       :friend="friend"
       @close="showSettings = false"
-      @update-friend="updateFriend"
-      @delete-friend="deleteFriend"
+      @update-friend="handleUpdateFriend"
+      @delete-friend="handleDeleteFriend"
+      @update-permission="handlePermissionChange"
+      @update-block="handleBlockChange"
+      @share-friend="handleShareFriend"
     />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useContactsStore } from '../stores/contacts'
 import FriendSettings from './FriendSettings.vue'
 
 const props = defineProps({
@@ -119,6 +131,12 @@ const props = defineProps({
 
 const emit = defineEmits(['send-message', 'audio-call', 'video-call', 'view-moments', 'update-remark'])
 const showSettings = ref(false)
+const contactsStore = useContactsStore()
+const currentUid = computed(() => props.friend ? (props.friend.friend_uid || props.friend.id) : null)
+const displayName = computed(() => {
+  if (!props.friend) return ''
+  return (props.friend.remark && props.friend.remark.trim()) ? props.friend.remark : (props.friend.nickname || '未知用户')
+})
 
 // 模拟朋友圈数据
 const friendMoments = computed(() => {
@@ -136,13 +154,11 @@ const handleAvatarError = (event) => {
 }
 
 const handleSetRemark = () => {
+  if (!props.friend || !currentUid.value) return
   const currentRemark = props.friend.remark || props.friend.nickname
   const newRemark = prompt('设置备注名', currentRemark)
   if (newRemark !== null && newRemark !== currentRemark) {
-    // 这里应该调用 API 更新备注
-    console.log('更新备注为:', newRemark)
-    // 模拟更新
-    // emit('update-remark', { ...props.friend, remark: newRemark })
+    contactsStore.updateFriendRemark(currentUid.value, newRemark)
   }
 }
 
@@ -150,8 +166,42 @@ const sendMessage = () => { emit('send-message', props.friend) }
 const audioCall = () => { emit('audio-call', props.friend) }
 const videoCall = () => { emit('video-call', props.friend) }
 const viewMoments = () => { emit('view-moments', props.friend) }
-const updateFriend = (updatedFriend) => { /* 可补充更新逻辑 */ }
-const deleteFriend = (friendId) => { showSettings.value = false }
+const handleUpdateFriend = async (updatedFriend) => {
+  if (!props.friend || !currentUid.value || !updatedFriend) return
+  if (updatedFriend.remark !== undefined && updatedFriend.remark !== props.friend.remark) {
+    await contactsStore.updateFriendRemark(currentUid.value, updatedFriend.remark)
+  }
+  if (updatedFriend.tags) {
+    contactsStore.patchFriendLocal(currentUid.value, { tags: updatedFriend.tags })
+  }
+}
+const handleDeleteFriend = async (friendId) => {
+  const uid = friendId || currentUid.value
+  if (!uid) return
+  await contactsStore.deleteFriend(uid)
+  showSettings.value = false
+}
+const handlePermissionChange = async (permission) => {
+  if (!currentUid.value) return
+  await contactsStore.updateMomentsPermission(currentUid.value, permission)
+}
+const handleBlockChange = async (blocked) => {
+  if (!currentUid.value) return
+  await contactsStore.blockFriend(currentUid.value, blocked)
+}
+const handleShareFriend = async (friendToShare) => {
+  const uid = friendToShare?.friend_uid || friendToShare?.id || currentUid.value
+  if (!uid) return
+  await contactsStore.shareFriend(uid)
+  const shareText = `推荐好友：${displayName.value} (ID: ${uid})`
+  if (navigator?.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(shareText)
+    } catch (error) {
+      console.warn('复制分享信息失败', error)
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -159,8 +209,9 @@ const deleteFriend = (friendId) => { showSettings.value = false }
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: #f3f5fb;
   overflow: hidden;
+  padding: 48px 0;
 }
 
 .empty-state {
@@ -181,11 +232,15 @@ const deleteFriend = (friendId) => { showSettings.value = false }
 
 .friend-detail {
   flex: 1;
-  padding: 60px 80px;
+  padding: 64px 96px;
   overflow-y: auto;
-  max-width: 800px;
+  max-width: 1280px;
+  width: 88%;
   margin: 0 auto;
-  width: 100%;
+  background: #fff;
+  border: 1px solid #e8ecf4;
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
 }
 
 .detail-header {
@@ -193,6 +248,7 @@ const deleteFriend = (friendId) => { showSettings.value = false }
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 40px;
+  gap: 16px;
 }
 
 .header-content {
@@ -279,6 +335,32 @@ const deleteFriend = (friendId) => { showSettings.value = false }
 
 .btn-icon .icon {
   font-size: 20px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #d8e0f0;
+  background: linear-gradient(135deg, #4a8cff, #7c4dff);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(74, 140, 255, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.btn-settings:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(74, 140, 255, 0.22);
 }
 
 .divider {

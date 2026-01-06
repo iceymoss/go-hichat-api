@@ -79,11 +79,12 @@ func (l *FriendListLogic) FriendList(req *types.FriendListReq) (resp *types.Frie
 			// 将用户ID作为id返回（而不是关系表的id）
 			// 同时返回完整的用户信息
 			item := &types.Friends{
-				Id:           strconv.Itoa(int(v.Id)),
-				FriendUid:    user.Id, // 好友用户ID
-				Nickname:     user.Nickname,
-				Avatar:       user.Avatar,
-				Remark:       v.Remark,
+				Id:        strconv.Itoa(int(v.Id)),
+				FriendUid: user.Id, // 好友用户ID
+				Nickname:  user.Nickname,
+				Avatar:    user.Avatar,
+				Remark:    v.Remark,
+				// TODO: 待 social RPC 返回扩展字段后填充
 				Sex:          user.Sex,
 				Email:        user.Email,
 				Phone:        user.Phone,

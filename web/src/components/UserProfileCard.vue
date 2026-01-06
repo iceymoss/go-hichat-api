@@ -66,7 +66,7 @@
             发消息
           </button>
           <button 
-            v-else-if="!friendRequestSent"
+            v-else
             class="btn-add-friend" 
             @click="showAddFriendDialog = true"
             :disabled="sendingFriendRequest"
@@ -74,14 +74,6 @@
             <i v-if="sendingFriendRequest" class="icon icon-spinner"></i>
             <i v-else class="icon icon-add"></i>
             {{ sendingFriendRequest ? '发送中...' : '添加好友' }}
-          </button>
-          <button 
-            v-else
-            class="btn-request-sent" 
-            disabled
-          >
-            <i class="icon icon-check"></i>
-            已发送申请
           </button>
         </div>
       </div>
@@ -161,7 +153,6 @@ const user = ref(null)
 const showAddFriendDialog = ref(false)
 const requestMessage = ref('')
 const sendingFriendRequest = ref(false)
-const friendRequestSent = ref(false)
 
 // 加载用户信息
 const loadUserInfo = async () => {
@@ -202,8 +193,7 @@ const loadUserInfo = async () => {
     // 检查是否是好友
     await checkFriendStatus()
     
-    // 检查是否已发送好友申请
-    await checkFriendRequestStatus()
+    // 允许重复发送好友申请（不检查是否已发送）
   } catch (error) {
     console.error('加载用户信息失败:', error)
     user.value = null
@@ -227,19 +217,6 @@ const checkFriendStatus = async () => {
   }
 }
 
-// 检查好友申请状态
-const checkFriendRequestStatus = async () => {
-  try {
-    const sentRequests = await contactsStore.fetchFriendRequests(0, '0')
-    const hasSentRequest = sentRequests.some(
-      req => req.req_uid === props.userId || req.user_id === props.userId
-    )
-    friendRequestSent.value = hasSentRequest
-  } catch (error) {
-    console.error('检查申请状态失败:', error)
-  }
-}
-
 // 发送好友申请
 const sendFriendRequest = async () => {
   if (!user.value || sendingFriendRequest.value) return
@@ -249,7 +226,6 @@ const sendFriendRequest = async () => {
   try {
     await contactsStore.sendFriendRequest(props.userId, requestMessage.value.trim())
     
-    friendRequestSent.value = true
     showAddFriendDialog.value = false
     requestMessage.value = ''
     

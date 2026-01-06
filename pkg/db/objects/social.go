@@ -6,12 +6,18 @@ import (
 
 // Friend 好友关系表
 type Friend struct {
-	ID        uint64     `gorm:"primaryKey;column:id;type:INT UNSIGNED;autoIncrement;comment:自增主键"`
-	UserID    uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;index:idx_user;comment:用户ID"`
-	FriendUID uint64     `gorm:"column:friend_uid;type:INT UNSIGNED;not null;comment:好友的用户ID"`
-	Remark    string     `gorm:"column:remark;type:VARCHAR(255);comment:好友备注名（用户自定义）"`
-	AddSource *int       `gorm:"column:add_source;type:TINYINT;comment:添加来源（0:未知 1:搜索 2:群组 3:二维码...）"`
-	CreatedAt *time.Time `gorm:"column:created_at;type:TIMESTAMP;comment:好友关系建立时间"`
+	ID                uint64     `gorm:"primaryKey;column:id;type:INT UNSIGNED;autoIncrement;comment:自增主键"`
+	UserID            uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;index:idx_user;comment:用户ID"`
+	FriendUID         uint64     `gorm:"column:friend_uid;type:INT UNSIGNED;not null;comment:好友的用户ID"`
+	Remark            string     `gorm:"column:remark;type:VARCHAR(255);comment:好友备注名（用户自定义）"`
+	AddSource         *int       `gorm:"column:add_source;type:TINYINT;comment:添加来源（0:未知 1:搜索 2:群组 3:二维码...）"`
+	Blacklisted       bool       `gorm:"column:blacklisted;type:TINYINT(1);default:0;not null;comment:是否拉黑 0否 1是"`
+	MomentsPermission int        `gorm:"column:moments_permission;type:TINYINT;default:0;not null;comment:朋友圈权限 0允许 1仅聊天 2屏蔽朋友圈"`
+	NotifyEnabled     bool       `gorm:"column:notify_enabled;type:TINYINT(1);default:1;not null;comment:消息通知 1开 0关"`
+	Pinned            bool       `gorm:"column:pinned;type:TINYINT(1);default:0;not null;comment:置顶聊天 0否 1是"`
+	Muted             bool       `gorm:"column:muted;type:TINYINT(1);default:0;not null;comment:静音 0否 1是"`
+	FriendTags        string     `gorm:"column:friend_tags;type:TEXT;comment:好友标签(JSON数组)"`
+	CreatedAt         *time.Time `gorm:"column:created_at;type:TIMESTAMP;comment:好友关系建立时间"`
 }
 
 func (Friend) TableName() string {

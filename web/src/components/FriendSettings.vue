@@ -45,7 +45,7 @@
           </div>
           <div class="setting-content">
             <div class="tags-display">
-              <span v-for="tag in friend.tags" :key="tag" class="tag">
+            <span v-for="tag in displayTags" :key="tag" class="tag">
                 {{ tag }}
                 <button class="tag-remove" @click="removeTag(tag)">
                   <i class="icon icon-x"></i>
@@ -108,6 +108,21 @@
             </label>
           </div>
         </div>
+
+      <!-- 朋友圈权限 -->
+      <div class="setting-item">
+        <div class="setting-label">
+          <i class="icon icon-eye"></i>
+          <span>朋友圈权限</span>
+        </div>
+        <div class="setting-content">
+          <select v-model="momentsPermission" class="select" @change="updatePermission">
+            <option value="all">允许看我的朋友圈</option>
+            <option value="limited">仅聊天，朋友圈不可见</option>
+            <option value="none">屏蔽对方朋友圈</option>
+          </select>
+        </div>
+      </div>
 
         <!-- 黑名单 -->
         <div class="setting-item">
@@ -188,7 +203,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   friend: {
@@ -197,7 +212,14 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'update-friend', 'delete-friend'])
+const emit = defineEmits([
+  'close',
+  'update-friend',
+  'delete-friend',
+  'update-block',
+  'update-permission',
+  'share-friend'
+])
 
 // 响应式数据
 const remark = ref(props.friend.remark || '')
@@ -205,8 +227,10 @@ const newTag = ref('')
 const notifications = ref(true)
 const pinned = ref(false)
 const muted = ref(false)
-const blacklisted = ref(false)
+const blacklisted = ref(props.friend.blacklisted || false)
+const momentsPermission = ref(props.friend.momentsPermission || 'all')
 const showDeleteConfirm = ref(false)
+const displayTags = computed(() => props.friend.tags || [])
 
 // 方法
 const closeSettings = () => {
@@ -222,7 +246,7 @@ const addTag = () => {
   if (newTag.value.trim()) {
     const updatedFriend = { 
       ...props.friend, 
-      tags: [...(props.friend.tags || []), newTag.value.trim()]
+      tags: [...displayTags.value, newTag.value.trim()]
     }
     emit('update-friend', updatedFriend)
     newTag.value = ''
@@ -232,7 +256,7 @@ const addTag = () => {
 const removeTag = (tagToRemove) => {
   const updatedFriend = {
     ...props.friend,
-    tags: props.friend.tags.filter(tag => tag !== tagToRemove)
+    tags: displayTags.value.filter(tag => tag !== tagToRemove)
   }
   emit('update-friend', updatedFriend)
 }
@@ -253,13 +277,15 @@ const updateMuted = () => {
 }
 
 const updateBlacklist = () => {
-  const updatedFriend = { ...props.friend, blacklisted: blacklisted.value }
-  emit('update-friend', updatedFriend)
+  emit('update-block', blacklisted.value)
+}
+
+const updatePermission = () => {
+  emit('update-permission', momentsPermission.value)
 }
 
 const shareFriend = () => {
-  // 实现分享好友功能
-  console.log('分享好友:', props.friend)
+  emit('share-friend', props.friend)
 }
 
 const reportFriend = () => {
@@ -408,6 +434,17 @@ const confirmDelete = () => {
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s;
+}
+
+.select {
+  min-width: 180px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #334155;
+  background: #fff;
+  outline: none;
 }
 
 .remark-input:focus, .tag-input:focus {

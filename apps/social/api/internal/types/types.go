@@ -3,11 +3,58 @@
 
 package types
 
+type FriendBlockReq struct {
+	FriendUid string `json:"friend_uid"`
+	Block     bool   `json:"block"`
+}
+
+type FriendBlockResp struct {
+}
+
+type FriendDeleteReq struct {
+	FriendUid string `json:"friend_uid"`
+}
+
+type FriendDeleteResp struct {
+}
+
 type FriendListReq struct {
 }
 
 type FriendListResp struct {
 	List []*Friends `json:"list"`
+}
+
+type FriendMomentsPermissionReq struct {
+	FriendUid  string `json:"friend_uid"`
+	Permission int32  `json:"permission"` // 0允许 1仅聊天 2屏蔽朋友圈
+}
+
+type FriendMomentsPermissionResp struct {
+}
+
+type FriendMuteReq struct {
+	FriendUid string `json:"friend_uid"`
+	Muted     bool   `json:"muted"`
+}
+
+type FriendMuteResp struct {
+}
+
+type FriendNotificationReq struct {
+	FriendUid string `json:"friend_uid"`
+	Enabled   bool   `json:"enabled"`
+}
+
+type FriendNotificationResp struct {
+}
+
+type FriendPinReq struct {
+	FriendUid string `json:"friend_uid"`
+	Pinned    bool   `json:"pinned"`
+}
+
+type FriendPinResp struct {
 }
 
 type FriendPutInDeleteReq struct {
@@ -50,6 +97,22 @@ type FriendPutInReq struct {
 type FriendPutInResp struct {
 }
 
+type FriendRemarkReq struct {
+	FriendUid string `json:"friend_uid"`
+	Remark    string `json:"remark"`
+}
+
+type FriendRemarkResp struct {
+}
+
+type FriendReportReq struct {
+	FriendUid string `json:"friend_uid"`
+	Reason    string `json:"reason,optional"`
+}
+
+type FriendReportResp struct {
+}
+
 type FriendRequests struct {
 	Id            int64  `json:"id,omitempty"`
 	UserId        string `json:"user_id,omitempty"`
@@ -61,6 +124,22 @@ type FriendRequests struct {
 	Status        string `json:"status,omitempty"`      // 状态文本: pending-待处理, accepted-已同意, rejected-已拒绝, ignored-已忽略
 	StatusText    string `json:"status_text,omitempty"` // 状态中文文本: 待处理, 已同意, 已拒绝, 已忽略
 	HandleMsg     string `json:"handle_msg,omitempty"`
+}
+
+type FriendShareReq struct {
+	FriendUid string `json:"friend_uid"`
+	TargetUid string `json:"target_uid,optional"`
+}
+
+type FriendShareResp struct {
+}
+
+type FriendTagsReq struct {
+	FriendUid string   `json:"friend_uid"`
+	Tags      []string `json:"tags"`
+}
+
+type FriendTagsResp struct {
 }
 
 type Friends struct {

@@ -11,6 +11,12 @@ message Friends {
   string remark = 3; //标记
   int32  addSource = 4; // 添加来源
   string friendUid = 5; //朋友id
+  bool   blacklisted = 6; // 拉黑
+  int32  momentsPermission = 7; // 朋友圈权限 0允许 1仅聊天 2屏蔽
+  bool   notifyEnabled = 8; // 消息通知 1开 0关
+  bool   pinned = 9; // 置顶
+  bool   muted = 10; // 静音
+  repeated string friendTags = 11; // 好友标签
 }
 
 message FriendRequests { //好友请求
@@ -102,6 +108,76 @@ message FriendListResp{
   repeated Friends list = 1;
 }
 
+// 好友管理扩展
+message FriendUpdateRemarkReq {
+  string userId = 1;
+  string friendUid = 2;
+  string remark = 3;
+}
+message FriendUpdateRemarkResp {}
+
+message FriendDeleteReq {
+  string userId = 1;
+  string friendUid = 2;
+}
+message FriendDeleteResp {}
+
+message FriendBlockReq {
+  string userId = 1;
+  string friendUid = 2;
+  bool   block = 3;
+}
+message FriendBlockResp {}
+
+message FriendMomentsPermissionReq {
+  string userId = 1;
+  string friendUid = 2;
+  int32  permission = 3; // 0允许 1仅聊天 2屏蔽
+}
+message FriendMomentsPermissionResp {}
+
+message FriendNotificationReq {
+  string userId = 1;
+  string friendUid = 2;
+  bool   enabled = 3;
+}
+message FriendNotificationResp {}
+
+message FriendPinReq {
+  string userId = 1;
+  string friendUid = 2;
+  bool   pinned = 3;
+}
+message FriendPinResp {}
+
+message FriendMuteReq {
+  string userId = 1;
+  string friendUid = 2;
+  bool   muted = 3;
+}
+message FriendMuteResp {}
+
+message FriendTagsReq {
+  string userId = 1;
+  string friendUid = 2;
+  repeated string tags = 3;
+}
+message FriendTagsResp {}
+
+message FriendReportReq {
+  string userId = 1;
+  string friendUid = 2;
+  string reason = 3;
+}
+message FriendReportResp {}
+
+message FriendShareReq {
+  string userId = 1;
+  string friendUid = 2;
+  string targetUid = 3;
+}
+message FriendShareResp {}
+
 // 群
 message GroupCreateReq { //创建群
   string name = 2;
@@ -180,6 +256,16 @@ service social {
   rpc FriendPutInList(FriendPutInListReq) returns(FriendPutInListResp);
   rpc FriendPutInMessageCount(FriendPutInMessageCountReq) returns(FriendPutInMessageCountResp);
   rpc FriendList(FriendListReq) returns (FriendListResp);
+  rpc FriendUpdateRemark(FriendUpdateRemarkReq) returns (FriendUpdateRemarkResp);
+  rpc FriendDelete(FriendDeleteReq) returns (FriendDeleteResp);
+  rpc FriendBlock(FriendBlockReq) returns (FriendBlockResp);
+  rpc FriendMomentsPermission(FriendMomentsPermissionReq) returns (FriendMomentsPermissionResp);
+  rpc FriendNotification(FriendNotificationReq) returns (FriendNotificationResp);
+  rpc FriendPin(FriendPinReq) returns (FriendPinResp);
+  rpc FriendMute(FriendMuteReq) returns (FriendMuteResp);
+  rpc FriendTags(FriendTagsReq) returns (FriendTagsResp);
+  rpc FriendReport(FriendReportReq) returns (FriendReportResp);
+  rpc FriendShare(FriendShareReq) returns (FriendShareResp);
 
   // 群业务：创建群，修改群，群公告，申请群，用户群列表，群成员，申请群，群退出..
   // 群要求

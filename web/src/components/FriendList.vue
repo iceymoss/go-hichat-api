@@ -64,7 +64,7 @@
               </div>
               <div class="friend-info">
                 <div class="name">
-                  {{ friend.remark || friend.nickname || '未知用户' }}
+                  {{ (friend.remark && friend.remark.trim()) ? friend.remark : (friend.nickname || '未知用户') }}
                 </div>
               </div>
             </div>
