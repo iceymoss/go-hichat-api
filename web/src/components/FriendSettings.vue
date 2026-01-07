@@ -203,7 +203,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useContactsStore } from '../stores/contacts'
 
 const props = defineProps({
   friend: {
@@ -221,76 +222,163 @@ const emit = defineEmits([
   'share-friend'
 ])
 
+const contactsStore = useContactsStore()
+
 // 响应式数据
 const remark = ref(props.friend.remark || '')
 const newTag = ref('')
-const notifications = ref(true)
-const pinned = ref(false)
-const muted = ref(false)
+const notifications = ref(props.friend.notify_enabled !== undefined ? props.friend.notify_enabled : (props.friend.notifyEnabled !== undefined ? props.friend.notifyEnabled : true))
+const pinned = ref(props.friend.pinned || false)
+const muted = ref(props.friend.muted || false)
 const blacklisted = ref(props.friend.blacklisted || false)
-const momentsPermission = ref(props.friend.momentsPermission || 'all')
+
+// 朋友圈权限映射：后端 0=允许 1=仅聊天 2=屏蔽，前端 all=允许 limited=仅聊天 none=屏蔽
+const getPermissionValue = (permission) => {
+  if (typeof permission === 'string') return permission
+  if (permission === 0) return 'all'
+  if (permission === 1) return 'limited'
+  if (permission === 2) return 'none'
+  return 'all'
+}
+const getPermissionBackend = (permission) => {
+  if (typeof permission === 'number') return permission
+  if (permission === 'all') return 0
+  if (permission === 'limited') return 1
+  if (permission === 'none') return 2
+  return 0
+}
+const momentsPermission = ref(getPermissionValue(props.friend.moments_permission !== undefined ? props.friend.moments_permission : props.friend.momentsPermission))
+
 const showDeleteConfirm = ref(false)
-const displayTags = computed(() => props.friend.tags || [])
+// 好友标签：优先使用friend_tags（关系维度），其次使用tags（个人标签）
+const displayTags = computed(() => {
+  if (props.friend?.friend_tags && Array.isArray(props.friend.friend_tags)) {
+    return props.friend.friend_tags
+  }
+  if (props.friend?.tags && Array.isArray(props.friend.tags)) {
+    return props.friend.tags
+  }
+  return []
+})
+
+// 监听friend变化
+watch(() => props.friend, (newFriend) => {
+  if (newFriend) {
+    remark.value = newFriend.remark || ''
+    notifications.value = newFriend.notify_enabled !== undefined ? newFriend.notify_enabled : (newFriend.notifyEnabled !== undefined ? newFriend.notifyEnabled : true)
+    pinned.value = newFriend.pinned || false
+    muted.value = newFriend.muted || false
+    blacklisted.value = newFriend.blacklisted || false
+    momentsPermission.value = getPermissionValue(newFriend.moments_permission !== undefined ? newFriend.moments_permission : newFriend.momentsPermission)
+  }
+}, { immediate: true })
 
 // 方法
 const closeSettings = () => {
   emit('close')
 }
 
-const updateRemark = () => {
-  const updatedFriend = { ...props.friend, remark: remark.value }
-  emit('update-friend', updatedFriend)
+const friendUid = computed(() => props.friend?.friend_uid || props.friend?.id)
+
+const updateRemark = async () => {
+  if (!friendUid.value) return
+  try {
+    await contactsStore.updateFriendRemark(friendUid.value, remark.value)
+  } catch (error) {
+    console.error('更新备注失败:', error)
+  }
 }
 
-const addTag = () => {
-  if (newTag.value.trim()) {
-    const updatedFriend = { 
-      ...props.friend, 
-      tags: [...displayTags.value, newTag.value.trim()]
-    }
-    emit('update-friend', updatedFriend)
+const addTag = async () => {
+  if (!friendUid.value || !newTag.value.trim()) return
+  const newTags = [...displayTags.value, newTag.value.trim()]
+  try {
+    await contactsStore.updateFriendTags(friendUid.value, newTags)
     newTag.value = ''
+  } catch (error) {
+    console.error('添加标签失败:', error)
   }
 }
 
-const removeTag = (tagToRemove) => {
-  const updatedFriend = {
-    ...props.friend,
-    tags: displayTags.value.filter(tag => tag !== tagToRemove)
+const removeTag = async (tagToRemove) => {
+  if (!friendUid.value) return
+  const newTags = displayTags.value.filter(tag => tag !== tagToRemove)
+  try {
+    await contactsStore.updateFriendTags(friendUid.value, newTags)
+  } catch (error) {
+    console.error('删除标签失败:', error)
   }
-  emit('update-friend', updatedFriend)
 }
 
-const updateNotifications = () => {
-  const updatedFriend = { ...props.friend, notifications: notifications.value }
-  emit('update-friend', updatedFriend)
+const updateNotifications = async () => {
+  if (!friendUid.value) return
+  try {
+    await contactsStore.updateFriendNotification(friendUid.value, notifications.value)
+  } catch (error) {
+    console.error('更新消息通知失败:', error)
+    notifications.value = !notifications.value // 回滚
+  }
 }
 
-const updatePinned = () => {
-  const updatedFriend = { ...props.friend, pinned: pinned.value }
-  emit('update-friend', updatedFriend)
+const updatePinned = async () => {
+  if (!friendUid.value) return
+  try {
+    await contactsStore.updateFriendPin(friendUid.value, pinned.value)
+  } catch (error) {
+    console.error('更新置顶状态失败:', error)
+    pinned.value = !pinned.value // 回滚
+  }
 }
 
-const updateMuted = () => {
-  const updatedFriend = { ...props.friend, muted: muted.value }
-  emit('update-friend', updatedFriend)
+const updateMuted = async () => {
+  if (!friendUid.value) return
+  try {
+    await contactsStore.updateFriendMute(friendUid.value, muted.value)
+  } catch (error) {
+    console.error('更新静音状态失败:', error)
+    muted.value = !muted.value // 回滚
+  }
 }
 
-const updateBlacklist = () => {
-  emit('update-block', blacklisted.value)
+const updateBlacklist = async () => {
+  if (!friendUid.value) return
+  try {
+    await contactsStore.blockFriend(friendUid.value, blacklisted.value)
+  } catch (error) {
+    console.error('更新拉黑状态失败:', error)
+    blacklisted.value = !blacklisted.value // 回滚
+  }
 }
 
-const updatePermission = () => {
-  emit('update-permission', momentsPermission.value)
+const updatePermission = async () => {
+  if (!friendUid.value) return
+  const backendPermission = getPermissionBackend(momentsPermission.value)
+  try {
+    await contactsStore.updateMomentsPermission(friendUid.value, backendPermission)
+  } catch (error) {
+    console.error('更新朋友圈权限失败:', error)
+  }
 }
 
 const shareFriend = () => {
   emit('share-friend', props.friend)
 }
 
-const reportFriend = () => {
-  // 实现举报好友功能
-  console.log('举报好友:', props.friend)
+const reportFriend = async () => {
+  if (!friendUid.value) return
+  const reason = prompt('请输入举报原因', '')
+  if (reason === null) return // 用户取消
+  if (!reason.trim()) {
+    alert('举报原因不能为空')
+    return
+  }
+  try {
+    await contactsStore.reportFriend(friendUid.value, reason.trim())
+    alert('举报成功，我们会尽快处理')
+  } catch (error) {
+    console.error('举报好友失败:', error)
+    alert('举报失败，请稍后重试')
+  }
 }
 
 const confirmDelete = () => {

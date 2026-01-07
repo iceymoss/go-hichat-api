@@ -75,16 +75,25 @@ export const useContactsStore = defineStore('contacts', () => {
             }
           }
           
+          // 解析好友标签（从friend_tags数组或friendTags数组）
+          let friendTags = []
+          if (friend.friend_tags && Array.isArray(friend.friend_tags)) {
+            friendTags = friend.friend_tags
+          } else if (friend.friendTags && Array.isArray(friend.friendTags)) {
+            friendTags = friend.friendTags
+          }
+          
           return {
             id: friend.id || friend.friend_uid, // 用户ID
             friend_uid: friend.friend_uid || friend.id, // 好友用户ID
             name: friend.nickname || '未设置昵称',
             nickname: friend.nickname,
             avatar: friend.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${friend.friend_uid || friend.id}`,
-            // 注意：备注应保持“真实值”，不要用昵称兜底，否则前端无法判断是否真的设置了备注
+            // 注意：备注应保持"真实值"，不要用昵称兜底，否则前端无法判断是否真的设置了备注
             remark: friend.remark || '',
             status: 'offline', // 默认离线，后续通过在线状态 API 更新
             tags: tags, // 个人标签数组
+            friend_tags: friendTags, // 好友标签数组（关系维度）
             sex: friend.sex, // 性别（0-未知 1-男 2-女）
             email: friend.email, // 邮箱
             phone: friend.phone, // 手机号
@@ -97,7 +106,15 @@ export const useContactsStore = defineStore('contacts', () => {
             lastActive: '未知',
             last_login: friend.last_login, // 最后登录时间戳
             status_code: friend.status, // 用户状态（0-禁用 1-正常）
-            type: friend.type // 用户类型（0-普通用户 1-管理员）
+            type: friend.type, // 用户类型（0-普通用户 1-管理员）
+            // 好友设置相关字段
+            blacklisted: friend.blacklisted || false,
+            moments_permission: friend.moments_permission !== undefined ? friend.moments_permission : (friend.momentsPermission !== undefined ? friend.momentsPermission : 0),
+            momentsPermission: friend.moments_permission !== undefined ? friend.moments_permission : (friend.momentsPermission !== undefined ? friend.momentsPermission : 0),
+            notify_enabled: friend.notify_enabled !== undefined ? friend.notify_enabled : (friend.notifyEnabled !== undefined ? friend.notifyEnabled : true),
+            notifyEnabled: friend.notify_enabled !== undefined ? friend.notify_enabled : (friend.notifyEnabled !== undefined ? friend.notifyEnabled : true),
+            pinned: friend.pinned || false,
+            muted: friend.muted || false
           }
         })
         
@@ -178,6 +195,60 @@ export const useContactsStore = defineStore('contacts', () => {
       console.error('更新朋友圈权限失败:', error)
     } finally {
       patchFriendLocal(friendUid, { momentsPermission: permission })
+    }
+  }
+
+  // 更新好友标签
+  const updateFriendTags = async (friendUid, tags) => {
+    try {
+      await socialApi.friendTags(friendUid, tags)
+      patchFriendLocal(friendUid, { tags })
+    } catch (error) {
+      console.error('更新好友标签失败:', error)
+      throw error
+    }
+  }
+
+  // 更新消息通知开关
+  const updateFriendNotification = async (friendUid, enabled) => {
+    try {
+      await socialApi.friendNotification(friendUid, enabled)
+      patchFriendLocal(friendUid, { notify_enabled: enabled, notifyEnabled: enabled })
+    } catch (error) {
+      console.error('更新消息通知失败:', error)
+      throw error
+    }
+  }
+
+  // 更新置顶开关
+  const updateFriendPin = async (friendUid, pinned) => {
+    try {
+      await socialApi.friendPin(friendUid, pinned)
+      patchFriendLocal(friendUid, { pinned })
+    } catch (error) {
+      console.error('更新置顶状态失败:', error)
+      throw error
+    }
+  }
+
+  // 更新静音开关
+  const updateFriendMute = async (friendUid, muted) => {
+    try {
+      await socialApi.friendMute(friendUid, muted)
+      patchFriendLocal(friendUid, { muted })
+    } catch (error) {
+      console.error('更新静音状态失败:', error)
+      throw error
+    }
+  }
+
+  // 举报好友
+  const reportFriend = async (friendUid, reason) => {
+    try {
+      await socialApi.friendReport(friendUid, reason)
+    } catch (error) {
+      console.error('举报好友失败:', error)
+      throw error
     }
   }
 
@@ -336,6 +407,11 @@ export const useContactsStore = defineStore('contacts', () => {
     deleteFriend,
     blockFriend,
     updateMomentsPermission,
+    updateFriendTags,
+    updateFriendNotification,
+    updateFriendPin,
+    updateFriendMute,
+    reportFriend,
     shareFriend,
     patchFriendLocal
   }

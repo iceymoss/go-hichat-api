@@ -189,7 +189,7 @@ export const socialApi = {
   
   // 更新好友备注
   friendUpdateRemark: (friendUid, remark) => {
-    return socialApiInstance.put('/v1/social/friend/remark', {
+    return socialApiInstance.post('/v1/social/friend/remark', {
       friend_uid: friendUid,
       remark
     })
@@ -212,9 +212,49 @@ export const socialApi = {
 
   // 朋友圈权限设置
   friendMomentsPermission: (friendUid, permission) => {
-    return socialApiInstance.post('/v1/social/friend/moments/permission', {
+    return socialApiInstance.post('/v1/social/friend/momentsPermission', {
       friend_uid: friendUid,
       permission
+    })
+  },
+
+  // 好友标签设置
+  friendTags: (friendUid, tags) => {
+    return socialApiInstance.post('/v1/social/friend/tags', {
+      friend_uid: friendUid,
+      tags
+    })
+  },
+
+  // 消息通知开关
+  friendNotification: (friendUid, enabled) => {
+    return socialApiInstance.post('/v1/social/friend/notification', {
+      friend_uid: friendUid,
+      enabled
+    })
+  },
+
+  // 置顶开关
+  friendPin: (friendUid, pinned) => {
+    return socialApiInstance.post('/v1/social/friend/pin', {
+      friend_uid: friendUid,
+      pinned
+    })
+  },
+
+  // 静音开关
+  friendMute: (friendUid, muted) => {
+    return socialApiInstance.post('/v1/social/friend/mute', {
+      friend_uid: friendUid,
+      muted
+    })
+  },
+
+  // 举报好友
+  friendReport: (friendUid, reason) => {
+    return socialApiInstance.post('/v1/social/friend/report', {
+      friend_uid: friendUid,
+      reason
     })
   },
 

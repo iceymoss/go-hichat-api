@@ -72,6 +72,7 @@ func RunAutoMigrate(dbName string) error {
 		// 社交模块
 		&objects.Friend{},
 		&objects.FriendRequest{},
+		&objects.FriendReport{},
 		&objects.Group{},
 		&objects.GroupMember{},
 		&objects.GroupRequest{},
@@ -191,6 +192,7 @@ func RunAutoMigrateInTx(tx *gorm.DB) error {
 		// 社交模块
 		&objects.Friend{},
 		&objects.FriendRequest{},
+		&objects.FriendReport{},
 		&objects.Group{},
 		&objects.GroupMember{},
 		&objects.GroupRequest{},

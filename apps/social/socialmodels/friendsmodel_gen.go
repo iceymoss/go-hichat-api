@@ -46,18 +46,18 @@ type (
 	}
 
 	Friends struct {
-		Id                uint64       `db:"id"`                 // 自增主键
-		UserId            uint64       `db:"user_id"`            // 用户ID
-		FriendUid         uint64       `db:"friend_uid"`         // 好友的用户ID
-		Remark            string       `db:"remark"`             // 好友备注名（用户自定义）
-		AddSource         int          `db:"add_source"`         // 添加来源（0:未知 1:搜索 2:群组 3:二维码...）
-		Blacklisted       int          `db:"blacklisted"`        // 是否拉黑 0否 1是
-		MomentsPermission int          `db:"moments_permission"` // 朋友圈权限 0允许 1仅聊天 2屏蔽朋友圈
-		NotifyEnabled     int          `db:"notify_enabled"`     // 消息通知 1开 0关
-		Pinned            int          `db:"pinned"`             // 置顶聊天 0否 1是
-		Muted             int          `db:"muted"`              // 静音 0否 1是
-		FriendTags        string       `db:"friend_tags"`        // 好友标签(JSON数组)
-		CreatedAt         sql.NullTime `db:"created_at"`         // 好友关系建立时间
+		Id                uint64         `db:"id"`                 // 自增主键
+		UserId            uint64         `db:"user_id"`            // 用户ID
+		FriendUid         uint64         `db:"friend_uid"`         // 好友的用户ID
+		Remark            string         `db:"remark"`             // 好友备注名（用户自定义）
+		AddSource         int            `db:"add_source"`         // 添加来源（0:未知 1:搜索 2:群组 3:二维码...）
+		Blacklisted       int            `db:"blacklisted"`        // 是否拉黑 0否 1是
+		MomentsPermission int            `db:"moments_permission"` // 朋友圈权限 0允许 1仅聊天 2屏蔽朋友圈
+		NotifyEnabled     int            `db:"notify_enabled"`     // 消息通知 1开 0关
+		Pinned            int            `db:"pinned"`             // 置顶聊天 0否 1是
+		Muted             int            `db:"muted"`              // 静音 0否 1是
+		FriendTags        sql.NullString `db:"friend_tags"`        // 好友标签(JSON数组)
+		CreatedAt         sql.NullTime   `db:"created_at"`         // 好友关系建立时间
 	}
 )
 
