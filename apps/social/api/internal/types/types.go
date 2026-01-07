@@ -143,21 +143,27 @@ type FriendTagsResp struct {
 }
 
 type Friends struct {
-	Id           string `json:"id,omitempty"`           // 用户ID（好友的用户ID，不是关系表ID）
-	FriendUid    string `json:"friend_uid,omitempty"`   // 好友用户ID（与id相同，保留用于兼容）
-	Nickname     string `json:"nickname,omitempty"`     // 昵称
-	Avatar       string `json:"avatar,omitempty"`       // 头像
-	Remark       string `json:"remark,omitempty"`       // 备注
-	Sex          int32  `json:"sex,omitempty"`          // 性别（0-未知 1-男 2-女）
-	Email        string `json:"email,omitempty"`        // 邮箱
-	Phone        string `json:"phone,omitempty"`        // 手机号
-	Introduction string `json:"introduction,omitempty"` // 个性签名
-	Region       string `json:"region,omitempty"`       // 地区
-	Occupation   string `json:"occupation,omitempty"`   // 职业
-	Tags         string `json:"tags,omitempty"`         // 个人标签（JSON数组字符串）
-	Status       int32  `json:"status,omitempty"`       // 用户状态（0-禁用 1-正常）
-	Type         int32  `json:"type,omitempty"`         // 用户类型（0-普通用户 1-管理员）
-	LastLogin    int64  `json:"last_login,omitempty"`   // 最后登录时间（时间戳）
+	Id                string   `json:"id,omitempty"`                 // 用户ID（好友的用户ID，不是关系表ID）
+	FriendUid         string   `json:"friend_uid,omitempty"`         // 好友用户ID（与id相同，保留用于兼容）
+	Nickname          string   `json:"nickname,omitempty"`           // 昵称
+	Avatar            string   `json:"avatar,omitempty"`             // 头像
+	Remark            string   `json:"remark,omitempty"`             // 备注
+	Sex               int32    `json:"sex,omitempty"`                // 性别（0-未知 1-男 2-女）
+	Email             string   `json:"email,omitempty"`              // 邮箱
+	Phone             string   `json:"phone,omitempty"`              // 手机号
+	Introduction      string   `json:"introduction,omitempty"`       // 个性签名
+	Region            string   `json:"region,omitempty"`             // 地区
+	Occupation        string   `json:"occupation,omitempty"`         // 职业
+	Tags              string   `json:"tags,omitempty"`               // 个人标签（JSON数组字符串）
+	Status            int32    `json:"status,omitempty"`             // 用户状态（0-禁用 1-正常）
+	Type              int32    `json:"type,omitempty"`               // 用户类型（0-普通用户 1-管理员）
+	LastLogin         int64    `json:"last_login,omitempty"`         // 最后登录时间（时间戳）
+	Blacklisted       bool     `json:"blacklisted,omitempty"`        // 是否拉黑
+	MomentsPermission int32    `json:"moments_permission,omitempty"` // 朋友圈权限 0允许 1仅聊天 2屏蔽朋友圈
+	NotifyEnabled     bool     `json:"notify_enabled,omitempty"`     // 消息通知开关
+	Pinned            bool     `json:"pinned,omitempty"`             // 是否置顶
+	Muted             bool     `json:"muted,omitempty"`              // 是否静音
+	FriendTags        []string `json:"friend_tags,omitempty"`        // 好友标签数组
 }
 
 type FriendsOnlineReq struct {

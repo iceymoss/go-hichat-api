@@ -93,3 +93,16 @@ type GroupRequest struct {
 func (GroupRequest) TableName() string {
 	return "group_requests"
 }
+
+// FriendReport 好友举报表
+type FriendReport struct {
+	ID          uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
+	ReporterUID uint64     `gorm:"column:reporter_uid;type:BIGINT UNSIGNED;not null;index:idx_reporter;comment:举报人"`
+	TargetUID   uint64     `gorm:"column:target_uid;type:BIGINT UNSIGNED;not null;index:idx_target;comment:被举报人"`
+	Reason      string     `gorm:"column:reason;type:VARCHAR(512);comment:举报原因"`
+	CreatedAt   *time.Time `gorm:"column:created_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP;comment:创建时间"`
+}
+
+func (FriendReport) TableName() string {
+	return "friend_reports"
+}

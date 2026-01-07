@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
@@ -41,7 +42,10 @@ func (l *FriendTagsLogic) FriendTags(in *social.FriendTagsReq) (*social.FriendTa
 		return nil, errors.Wrapf(xerr.NewReqParamErr(), "marshal tags err:%v req:%v", err, in)
 	}
 
-	friend.FriendTags = string(tagBytes)
+	friend.FriendTags = sql.NullString{
+		String: string(tagBytes),
+		Valid:  true,
+	}
 	if err := l.svcCtx.FriendsModel.Update(l.ctx, friend); err != nil {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "update friend tags err:%v req:%v", err, in)
 	}
