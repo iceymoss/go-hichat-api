@@ -108,6 +108,21 @@ func (m *defaultFriendRequestsModel) ListFilterHandler(ctx context.Context, user
 		return []*FriendRequests{}, err
 	}
 
+	// 去重处理：基于 user_id 和 req_uid 去重，保留最新的记录（id最大的）
+	uniqueMap := make(map[string]*FriendRequests)
+	for _, req := range reqList {
+		key := fmt.Sprintf("%d_%d", req.UserId, req.ReqUid)
+		if existing, exists := uniqueMap[key]; !exists || req.Id > existing.Id {
+			uniqueMap[key] = req
+		}
+	}
+
+	// 将去重后的结果转换回切片
+	reqList = make([]*FriendRequests, 0, len(uniqueMap))
+	for _, req := range uniqueMap {
+		reqList = append(reqList, req)
+	}
+
 	return reqList, nil
 }
 

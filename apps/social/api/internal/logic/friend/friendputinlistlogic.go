@@ -92,10 +92,39 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 			statusText = "待处理"
 		}
 
-		// 根据 status 字段控制消息显示：status=2（忽略）时不返回消息
+		// 消息气泡显示规则：
+		// 1. 我收到的申请（class="1"）：待处理（handle_result=0）且未忽略（status!=2）时显示申请消息（req_msg）
+		// 2. 我发起的申请（class="0"）：被拒绝（handle_result=2）且未忽略（status!=2）时显示拒绝消息（handle_msg），如果handle_msg为空则显示默认提示
+		// 3. 同意（handle_result=1）和忽略（status=2或handle_result=3）状态不显示消息气泡
 		reqMsg := v.ReqMsg
+		messageStatus := int(v.Status) // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
+
+		// 根据class判断消息气泡显示规则
+		shouldShowMessage := false
+		if class == "1" {
+			// 我收到的申请：待处理（handle_result=0）且未忽略（status!=2）时显示申请消息
+			shouldShowMessage = v.HandleResult == 0 && v.Status != 2
+			if !shouldShowMessage {
+				reqMsg = ""
+			}
+		} else {
+			// 我发起的申请：被拒绝（handle_result=2）且未忽略（status!=2）时显示拒绝消息
+			shouldShowMessage = v.HandleResult == 2 && v.Status != 2
+			if shouldShowMessage {
+				// 显示拒绝消息，如果handle_msg为空则显示默认提示
+				if v.HandleMsg != "" {
+					reqMsg = v.HandleMsg
+				} else {
+					reqMsg = "对方拒绝了你的好友申请"
+				}
+			} else {
+				reqMsg = ""
+			}
+		}
+
+		// 如果status=2（已忽略），不显示消息
 		if v.Status == 2 {
-			reqMsg = "" // status=2 时不显示消息
+			reqMsg = ""
 		}
 
 		handleResult := int(v.HandleResult)
@@ -104,12 +133,12 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 			UserId:        v.UserId,
 			ReqUid:        v.ReqUid,
 			ReqMsg:        reqMsg,
-			MessageStatus: int(v.Status), // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
+			MessageStatus: messageStatus, // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
 			ReqTime:       v.ReqTime,
 			HandleResult:  handleResult, // 处理结果（0:待处理 1:已同意 2:已拒绝 3:已忽略），确保0值也会返回
 			Status:        status,
 			StatusText:    statusText,
-			HandleMsg:     "",
+			HandleMsg:     v.HandleMsg, // 处理结果备注（用于我发起的申请被拒绝时显示）
 		})
 	}
 

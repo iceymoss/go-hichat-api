@@ -60,11 +60,20 @@
                   <span v-else-if="req.status === 'rejected'" class="status-badge rejected">{{ req.statusText || '已拒绝' }}</span>
                   <span v-else-if="req.status === 'ignored'" class="status-badge ignored">{{ req.statusText || '已忽略' }}</span>
                 </div>
-                <!-- 消息气泡显示规则：我收到的申请，status=1（正常显示）且 handle_result=0（待处理）时显示 -->
-                <div v-if="Number(req.messageStatus) === 1 && Number(req.handleResult) === 0 && req.message" class="message">{{ req.message }}</div>
+                <!-- 消息气泡显示规则：
+                     我收到的申请：待处理（handle_result=0）且未忽略（messageStatus!=2）时显示消息气泡
+                     同意（handle_result=1）和忽略（messageStatus=2或handle_result=3）状态不显示消息气泡 -->
+                <div v-if="shouldShowMessage(req) && req.message" class="message">{{ req.message }}</div>
                 <div class="time">{{ req.time }}</div>
               </div>
               <div v-if="req.status === 'pending'" class="actions">
+                <button 
+                  class="btn-ignore" 
+                  @click="ignoreRequest(req)"
+                  :disabled="processing"
+                >
+                  忽略
+                </button>
                 <button 
                   class="btn-reject" 
                   @click="handleRequest(req, false)"
@@ -113,10 +122,20 @@
                   <div class="name">{{ req.name }}</div>
                   <!-- 我发起的申请列表不显示状态标签 -->
                 </div>
-                <!-- 我发起的申请列表不显示消息气泡 -->
+                <!-- 消息气泡显示规则：我发起的申请，被拒绝（handle_result=2）且未忽略（messageStatus!=2）时显示消息气泡 -->
+                <div v-if="shouldShowSentMessage(req) && req.message" class="message">{{ req.message }}</div>
                 <div class="time">{{ req.time }}</div>
               </div>
-              <!-- 我发起的申请列表不显示右侧状态文本 -->
+              <!-- 我发起的申请列表：被拒绝且未忽略时，可以点击忽略 -->
+              <div v-if="req.status === 'rejected' && Number(req.messageStatus) !== 2" class="actions">
+                <button 
+                  class="btn-ignore" 
+                  @click="ignoreSentRequest(req)"
+                  :disabled="processing"
+                >
+                  忽略
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -163,7 +182,7 @@ const receivedPendingCount = computed(() => {
 // 我发起的申请：待处理的数量（handleResult === 0）
 const sentPendingCount = computed(() => {
   return sentRequests.value.filter(req => 
-    Number(req.messageStatus) === 1 && Number(req.handleResult) === 0
+    Number(req.messageStatus) === 1 && Number(req.handleResult) === 2
   ).length
 })
 
@@ -283,7 +302,9 @@ const loadSentRequests = async () => {
           req_uid: req.req_uid,
           name: user?.nickname || user?.name || userId || '未知用户',
           avatar: user?.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${userId}`,
-          // 我发起的申请不需要 message 和 messageStatus 字段
+          // 后端已经处理好了消息：对于"我发起的申请"被拒绝的情况，会返回handle_msg或默认提示
+          message: req.message || req.req_msg || (handleResult === 2 ? '对方拒绝了你的好友申请' : '申请添加你为好友'),
+          messageStatus: req.message_status !== undefined && req.message_status !== null ? req.message_status : 1, // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
           status: req.status || (handleResult === 0 ? 'pending' : handleResult === 1 ? 'accepted' : handleResult === 2 ? 'rejected' : handleResult === 3 ? 'ignored' : 'pending'),
           statusText: req.statusText || req.status_text || (handleResult === 0 ? '待处理' : handleResult === 1 ? '已同意' : handleResult === 2 ? '已拒绝' : handleResult === 3 ? '已忽略' : '待处理'),
           time: formatTime(req.req_time), // 使用原始时间戳（中国时区）
@@ -313,6 +334,19 @@ const loadRequests = async () => {
   }
 }
 
+// 判断是否应该显示消息气泡（我收到的申请）
+const shouldShowMessage = (req) => {
+  // 我收到的申请：待处理（handle_result=0）且未忽略（messageStatus!=2）时显示消息气泡
+  // 同意（handle_result=1）和忽略（messageStatus=2或handle_result=3）状态不显示消息气泡
+  return Number(req.handleResult) === 0 && Number(req.messageStatus) !== 2 && req.message
+}
+
+// 判断是否应该显示消息气泡（我发起的申请）
+const shouldShowSentMessage = (req) => {
+  // 我发起的申请：被拒绝（handle_result=2）且未忽略（messageStatus!=2）时显示消息气泡
+  return Number(req.handleResult) === 2 && Number(req.messageStatus) !== 2 && req.message
+}
+
 // 处理好友申请
 const handleRequest = async (req, accept) => {
   if (processing.value) return
@@ -328,6 +362,42 @@ const handleRequest = async (req, accept) => {
   } catch (error) {
     console.error('处理好友请求失败:', error)
     alert(error.message || '处理失败，请稍后重试')
+  } finally {
+    processing.value = false
+  }
+}
+
+// 忽略收到的申请
+const ignoreRequest = async (req) => {
+  if (processing.value) return
+  
+  processing.value = true
+  try {
+    await contactsStore.ignoreFriendRequest(req.friend_req_id || req.id)
+    alert('已忽略好友申请')
+    // 刷新列表
+    await loadReceivedRequests()
+  } catch (error) {
+    console.error('忽略好友请求失败:', error)
+    alert(error.message || '忽略失败，请稍后重试')
+  } finally {
+    processing.value = false
+  }
+}
+
+// 忽略我发起的申请（被拒绝后点击忽略）
+const ignoreSentRequest = async (req) => {
+  if (processing.value) return
+  
+  processing.value = true
+  try {
+    await contactsStore.ignoreFriendRequest(req.friend_req_id || req.id)
+    alert('已忽略')
+    // 刷新列表
+    await loadSentRequests()
+  } catch (error) {
+    console.error('忽略好友请求失败:', error)
+    alert(error.message || '忽略失败，请稍后重试')
   } finally {
     processing.value = false
   }
@@ -704,6 +774,17 @@ onMounted(() => {
 }
 
 .btn-reject:hover:not(:disabled) {
+  background: #f7f7f7;
+  border-color: #bbb;
+}
+
+.btn-ignore {
+  background: #fff;
+  color: #999;
+  border: 1px solid #ddd;
+}
+
+.btn-ignore:hover:not(:disabled) {
   background: #f7f7f7;
   border-color: #bbb;
 }

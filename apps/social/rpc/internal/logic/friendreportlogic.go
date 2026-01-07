@@ -3,10 +3,12 @@ package logic
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/pkg/errors"
@@ -38,14 +40,16 @@ func (l *FriendReportLogic) FriendReport(in *social.FriendReportReq) (*social.Fr
 		return nil, errors.Wrapf(xerr.NewReqParamErr(), "invalid target uid:%s err:%v", in.FriendUid, err)
 	}
 
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
-	record := map[string]any{
-		"reporter_uid": reporterUid,
-		"target_uid":   targetUid,
-		"reason":       in.Reason,
+	now := time.Now()
+	report := &objects.FriendReport{
+		ReporterUID: reporterUid,
+		TargetUID:   targetUid,
+		Reason:      in.Reason,
+		CreatedAt:   &now,
 	}
 
-	if err := mysqlConn.Table("friend_reports").Create(record).Error; err != nil {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	if err := mysqlConn.Create(report).Error; err != nil {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "insert friend report err:%v req:%v", err, in)
 	}
 

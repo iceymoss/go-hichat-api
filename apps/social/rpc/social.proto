@@ -27,6 +27,7 @@ message FriendRequests { //好友请求
   int32  status = 7; //消息状态（0:已删除 1:正常显示 2:忽略不显示）
   int64  reqTime = 5; //请求时间
   int32  handleResult = 6; // 处理结果
+  string handleMsg = 8; // 处理结果备注（用于我发起的申请被拒绝时显示）
 }
 
 message Groups { //群
@@ -81,6 +82,12 @@ message FriendPutInHandleReq {
   int32 handleResult = 3; // 处理结果
 }
 message FriendPutInHandleResp {}
+
+message FriendPutInIgnoreReq {
+  int32  friendReqId = 1;
+  string userId = 2;
+}
+message FriendPutInIgnoreResp {}
 
 message FriendPutInListReq{
   string userId = 1;
@@ -253,6 +260,7 @@ service social {
   // 好友业务：请求好友、通过或拒绝申请、好友列表
   rpc FriendPutIn(FriendPutInReq) returns(FriendPutInResp);
   rpc FriendPutInHandle(FriendPutInHandleReq) returns(FriendPutInHandleResp);
+  rpc FriendPutInIgnore(FriendPutInIgnoreReq) returns(FriendPutInIgnoreResp);
   rpc FriendPutInList(FriendPutInListReq) returns(FriendPutInListResp);
   rpc FriendPutInMessageCount(FriendPutInMessageCountReq) returns(FriendPutInMessageCountResp);
   rpc FriendList(FriendListReq) returns (FriendListResp);

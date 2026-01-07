@@ -169,6 +169,10 @@ type (
 		FriendReqId int32 `json:"friend_req_id,omitempty"` // 申请ID
 	}
 	FriendPutInDeleteResp  {}
+	FriendPutInIgnoreReq {
+		FriendReqId int32 `json:"friend_req_id,omitempty"` // 申请ID
+	}
+	FriendPutInIgnoreResp  {}
 	FriendPutInMessageCountReq  {}
 	FriendPutInMessageCountResp {
 		Count int32 `json:"count,omitempty"` // 消息数量
@@ -316,6 +320,10 @@ service social {
 	@doc "删除好友申请"
 	@handler friendPutInDelete
 	post /friend/putIn/delete (FriendPutInDeleteReq) returns (FriendPutInDeleteResp)
+
+	@doc "忽略好友申请（设置status=2）"
+	@handler friendPutInIgnore
+	post /friend/putIn/ignore (FriendPutInIgnoreReq) returns (FriendPutInIgnoreResp)
 
 	@doc "获取好友申请消息数量"
 	@handler friendPutInMessageCount

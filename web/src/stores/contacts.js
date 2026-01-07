@@ -364,7 +364,21 @@ export const useContactsStore = defineStore('contacts', () => {
       console.error('处理好友申请失败:', error)
       throw error
     }
+  }
+  
+  // 忽略好友申请（设置status=2）
+  const ignoreFriendRequest = async (friendReqId) => {
+    try {
+      await socialApi.friendPutInIgnore(friendReqId)
+      return {
+        success: true,
+        message: '已忽略好友申请'
       }
+    } catch (error) {
+      console.error('忽略好友申请失败:', error)
+      throw error
+    }
+  }
       
   // 添加好友请求（用于本地添加，通常不需要）
   const addFriendRequest = (request) => {
@@ -413,6 +427,7 @@ export const useContactsStore = defineStore('contacts', () => {
     updateFriendMute,
     reportFriend,
     shareFriend,
-    patchFriendLocal
+    patchFriendLocal,
+    ignoreFriendRequest
   }
 })

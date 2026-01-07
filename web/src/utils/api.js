@@ -299,6 +299,11 @@ export const socialApi = {
     return socialApiInstance.post('/v1/social/friend/putIn/delete', { friend_req_id: friendReqId })
   },
   
+  // 忽略好友申请（将 status 设为 2）
+  friendPutInIgnore: (friendReqId) => {
+    return socialApiInstance.post('/v1/social/friend/putIn/ignore', { friend_req_id: friendReqId })
+  },
+  
   // 获取好友申请消息数量
   friendPutInMessageCount: () => {
     return socialApiInstance.get('/v1/social/friend/putIn/messageCount')
