@@ -36,6 +36,8 @@ type (
 	FriendPutInListResp         = social.FriendPutInListResp
 	FriendPutInMessageCountReq  = social.FriendPutInMessageCountReq
 	FriendPutInMessageCountResp = social.FriendPutInMessageCountResp
+	FriendPutInReadReq          = social.FriendPutInReadReq
+	FriendPutInReadResp         = social.FriendPutInReadResp
 	FriendPutInReq              = social.FriendPutInReq
 	FriendPutInResp             = social.FriendPutInResp
 	FriendReportReq             = social.FriendReportReq
@@ -50,6 +52,12 @@ type (
 	Friends                     = social.Friends
 	GroupCreateReq              = social.GroupCreateReq
 	GroupCreateResp             = social.GroupCreateResp
+	GroupDetailReq              = social.GroupDetailReq
+	GroupDetailResp             = social.GroupDetailResp
+	GroupInviteReq              = social.GroupInviteReq
+	GroupInviteResp             = social.GroupInviteResp
+	GroupKickReq                = social.GroupKickReq
+	GroupKickResp               = social.GroupKickResp
 	GroupListReq                = social.GroupListReq
 	GroupListResp               = social.GroupListResp
 	GroupMembers                = social.GroupMembers
@@ -59,7 +67,11 @@ type (
 	GroupPutinListResp          = social.GroupPutinListResp
 	GroupPutinReq               = social.GroupPutinReq
 	GroupPutinResp              = social.GroupPutinResp
+	GroupQuitReq                = social.GroupQuitReq
+	GroupQuitResp               = social.GroupQuitResp
 	GroupRequests               = social.GroupRequests
+	GroupUpdateReq              = social.GroupUpdateReq
+	GroupUpdateResp             = social.GroupUpdateResp
 	GroupUsersReq               = social.GroupUsersReq
 	GroupUsersResp              = social.GroupUsersResp
 	Groups                      = social.Groups
@@ -68,6 +80,7 @@ type (
 		// 好友业务：请求好友、通过或拒绝申请、好友列表
 		FriendPutIn(ctx context.Context, in *FriendPutInReq, opts ...grpc.CallOption) (*FriendPutInResp, error)
 		FriendPutInHandle(ctx context.Context, in *FriendPutInHandleReq, opts ...grpc.CallOption) (*FriendPutInHandleResp, error)
+		FriendPutInRead(ctx context.Context, in *FriendPutInReadReq, opts ...grpc.CallOption) (*FriendPutInReadResp, error)
 		FriendPutInList(ctx context.Context, in *FriendPutInListReq, opts ...grpc.CallOption) (*FriendPutInListResp, error)
 		FriendPutInMessageCount(ctx context.Context, in *FriendPutInMessageCountReq, opts ...grpc.CallOption) (*FriendPutInMessageCountResp, error)
 		FriendList(ctx context.Context, in *FriendListReq, opts ...grpc.CallOption) (*FriendListResp, error)
@@ -89,6 +102,11 @@ type (
 		GroupList(ctx context.Context, in *GroupListReq, opts ...grpc.CallOption) (*GroupListResp, error)
 		GroupUsers(ctx context.Context, in *GroupUsersReq, opts ...grpc.CallOption) (*GroupUsersResp, error)
 		FindGroupList(ctx context.Context, in *FindGroupListReq, opts ...grpc.CallOption) (*FindGroupListResp, error)
+		GroupQuit(ctx context.Context, in *GroupQuitReq, opts ...grpc.CallOption) (*GroupQuitResp, error)
+		GroupKick(ctx context.Context, in *GroupKickReq, opts ...grpc.CallOption) (*GroupKickResp, error)
+		GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error)
+		GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error)
+		GroupDetail(ctx context.Context, in *GroupDetailReq, opts ...grpc.CallOption) (*GroupDetailResp, error)
 	}
 
 	defaultSocial struct {
@@ -111,6 +129,11 @@ func (m *defaultSocial) FriendPutIn(ctx context.Context, in *FriendPutInReq, opt
 func (m *defaultSocial) FriendPutInHandle(ctx context.Context, in *FriendPutInHandleReq, opts ...grpc.CallOption) (*FriendPutInHandleResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.FriendPutInHandle(ctx, in, opts...)
+}
+
+func (m *defaultSocial) FriendPutInRead(ctx context.Context, in *FriendPutInReadReq, opts ...grpc.CallOption) (*FriendPutInReadResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.FriendPutInRead(ctx, in, opts...)
 }
 
 func (m *defaultSocial) FriendPutInList(ctx context.Context, in *FriendPutInListReq, opts ...grpc.CallOption) (*FriendPutInListResp, error) {
@@ -212,4 +235,29 @@ func (m *defaultSocial) GroupUsers(ctx context.Context, in *GroupUsersReq, opts 
 func (m *defaultSocial) FindGroupList(ctx context.Context, in *FindGroupListReq, opts ...grpc.CallOption) (*FindGroupListResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.FindGroupList(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupQuit(ctx context.Context, in *GroupQuitReq, opts ...grpc.CallOption) (*GroupQuitResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupQuit(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupKick(ctx context.Context, in *GroupKickReq, opts ...grpc.CallOption) (*GroupKickResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupKick(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupInvite(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupUpdate(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupDetail(ctx context.Context, in *GroupDetailReq, opts ...grpc.CallOption) (*GroupDetailResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupDetail(ctx, in, opts...)
 }

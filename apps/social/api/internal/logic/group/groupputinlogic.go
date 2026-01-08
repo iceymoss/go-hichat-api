@@ -10,6 +10,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -31,8 +32,8 @@ func NewGroupPutInLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GroupP
 	}
 }
 
-func (l *GroupPutInLogic) GroupPutIn(req *types.GroupPutInRep) (resp *types.GroupPutInResp, err error) {
-	uid := l.ctx.Value(Identify).(string)
+func (l *GroupPutInLogic) GroupPutIn(req *types.GroupPutInReq) (resp *types.GroupPutInResp, err error) {
+	uid := ctxdata.GetUId(l.ctx)
 	res, err := l.svcCtx.Social.GroupPutin(l.ctx, &social.GroupPutinReq{
 		GroupId:    req.GroupId,           // 群id
 		ReqId:      uid,                   // 请求者

@@ -6,13 +6,20 @@
         <button :class="{active: tab==='groups'}" @click="tab='groups'">群聊</button>
       </div>
       <div class="list-scroll">
-        <FriendList v-if="tab==='friends'" :selectedFriendId="selectedFriendId" @select-friend="selectFriend" @add-friend="showAddFriendModal = true" />
+        <FriendList 
+          v-if="tab==='friends'" 
+          :selectedFriendId="selectedFriendId" 
+          @select-friend="selectFriend" 
+          @add-friend="showAddFriendModal = true"
+          @select-new-friends="selectNewFriends"
+        />
         <GroupList v-if="tab==='groups'" :selectedGroupId="selectedGroupId" @select-group="selectGroup" />
       </div>
     </div>
     <div class="detail-panel">
-      <FriendDetail v-if="tab==='friends'" :friend="selectedFriend" />
-      <div v-if="tab==='groups' && selectedGroup" class="group-detail-center">
+      <NewFriends v-if="selectedFriendId === 'new-friends'" />
+      <FriendDetail v-else-if="tab==='friends' && selectedFriend" :friend="selectedFriend" />
+      <div v-else-if="tab==='groups' && selectedGroup" class="group-detail-center">
         <GroupDetail :group="selectedGroup" />
       </div>
     </div>
@@ -32,6 +39,7 @@ import FriendDetail from '../components/FriendDetail.vue'
 import AddFriendModal from '../components/AddFriendModal.vue'
 import GroupDetail from '../components/GroupDetail.vue'
 import GroupList from '../components/GroupList.vue'
+import NewFriends from '../components/NewFriends.vue'
 
 const tab = ref('friends')
 const selectedFriendId = ref(null)
@@ -41,14 +49,21 @@ const showAddFriendModal = ref(false)
 const contactsStore = useContactsStore()
 
 const selectedFriend = computed(() => {
+  if (selectedFriendId.value === 'new-friends') return null
   return contactsStore.friends.find(f => (f.id === selectedFriendId.value || f.friend_uid === selectedFriendId.value)) || null
 })
 
 // 组件挂载时加载数据
 onMounted(async () => {
   await contactsStore.fetchFriends()
+  await contactsStore.fetchGroups()
   await contactsStore.fetchFriendRequests(0, '1') // 获取待处理的我收到的申请
 })
+
+const selectNewFriends = () => {
+  selectedFriendId.value = 'new-friends'
+  selectedGroupId.value = null
+}
 
 // 处理添加好友请求（用于刷新列表）
 const handleSendRequest = async (userId) => {
@@ -61,42 +76,12 @@ const handleSendRequest = async (userId) => {
   }
 }
 
-// mock更多群聊
-const groups = ref([
-  { id: 1, name: '前端交流群', avatar: 'https://api.dicebear.com/7.x/icons/svg?seed=fe', desc: '前端技术交流', unread: 2, notice: '欢迎新成员！', members: [
-    { id: 1, name: '小明', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Ming', role: 'owner' },
-    { id: 2, name: '小芳', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Fang', role: 'admin' },
-    { id: 3, name: '小军', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Jun', role: 'member' }
-  ] },
-  { id: 2, name: 'Vue3实战', avatar: 'https://api.dicebear.com/7.x/icons/svg?seed=vue', desc: 'Vue3项目实战讨论', unread: 0, notice: '群公告：欢迎讨论Vue3', members: [
-    { id: 4, name: '小李', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Li', role: 'owner' },
-    { id: 5, name: '小王', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=Wang', role: 'member' }
-  ] },
-  { id: 3, name: 'AI极客群', avatar: 'https://api.dicebear.com/7.x/icons/svg?seed=ai', desc: 'AI极客技术交流', unread: 5, notice: 'AI极客欢迎你', members: [
-    { id: 6, name: '极客A', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=GeekA', role: 'owner' },
-    { id: 7, name: '极客B', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=GeekB', role: 'admin' },
-    { id: 8, name: '极客C', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=GeekC', role: 'member' }
-  ] },
-  { id: 4, name: '产品经理群', avatar: 'https://api.dicebear.com/7.x/icons/svg?seed=pm', desc: '产品经理交流', unread: 0, notice: '产品经理群公告', members: [
-    { id: 9, name: 'PM小张', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=PMZhang', role: 'owner' },
-    { id: 10, name: 'PM小李', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=PMLi', role: 'member' }
-  ] },
-  { id: 5, name: '设计师群', avatar: 'https://api.dicebear.com/7.x/icons/svg?seed=design', desc: '设计师灵感交流', unread: 1, notice: '设计师群公告', members: [
-    { id: 11, name: '设计师A', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=DesignA', role: 'owner' },
-    { id: 12, name: '设计师B', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=DesignB', role: 'member' }
-  ] },
-  { id: 6, name: 'Go开发者', avatar: 'https://api.dicebear.com/7.x/icons/svg?seed=go', desc: 'Go开发技术交流', unread: 0, notice: 'Go开发者群公告', members: [
-    { id: 13, name: 'Go小明', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=GoMing', role: 'owner' },
-    { id: 14, name: 'Go小军', avatar: 'https://api.dicebear.com/7.x/personas/svg?seed=GoJun', role: 'member' }
-  ] }
-])
-
 const selectedGroup = computed(() => {
-  return groups.value.find(g => g.id === selectedGroupId.value) || null
+  return contactsStore.groups.find(g => g.id === selectedGroupId.value) || null
 })
 
 const selectFriend = (friend) => {
-  selectedFriendId.value = friend.id
+  selectedFriendId.value = friend.friend_uid || friend.id
 }
 const selectGroup = (group) => {
   selectedGroupId.value = group.id
@@ -143,21 +128,16 @@ const selectGroup = (group) => {
 }
 .detail-panel {
   flex: 1;
-  background: #f8fafc;
+  background: #fff; /* 改为白色 */
   display: flex;
   flex-direction: column;
-  overflow: auto;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden; /* 防止出现双重滚动条 */
+  /* 移除 align-items: center 和 justify-content: center，让子元素自动撑满 */
 }
 .group-detail-center {
-  width: 30%;
-  min-width: 340px;
-  max-width: 480px;
-  margin: 0 auto;
+  width: 100%; /* 群组详情也改为撑满，内部自己控制布局 */
+  height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
 }
 </style>

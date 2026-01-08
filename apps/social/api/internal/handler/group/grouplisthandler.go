@@ -13,7 +13,7 @@ import (
 // GroupListHandler 用户申群列表
 func GroupListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.GroupListRep
+		var req types.GroupListReq
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return

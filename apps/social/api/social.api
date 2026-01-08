@@ -40,6 +40,7 @@ type (
 		Status        string `json:"status,omitempty"` // 状态文本: pending-待处理, accepted-已同意, rejected-已拒绝, ignored-已忽略
 		StatusText    string `json:"status_text,omitempty"` // 状态中文文本: 待处理, 已同意, 已拒绝, 已忽略
 		HandleMsg     string `json:"handle_msg,omitempty"`
+		ReadState     int    `json:"read_state,omitempty"` // 读取状态 0未读 1已读
 	}
 	Groups {
 		Id              string `json:"id,omitempty"`
@@ -151,10 +152,19 @@ type (
 
 type (
 	FriendPutInHandleReq {
-		FriendReqId  int32 `json:"friend_req_id,omitempty"`
-		HandleResult int32 `json:"handle_result,omitempty"` // 处理结果
+		FriendReqId  int32    `json:"friend_req_id,omitempty"`
+		HandleResult int32    `json:"handle_result,omitempty"` // 处理结果
+		Remark       string   `json:"remark,omitempty"` // 备注
+		Tags         []string `json:"tags,omitempty"` // 标签
 	}
 	FriendPutInHandleResp  {}
+)
+
+type (
+	FriendPutInReadReq {
+		FriendReqId int32 `json:"friend_req_id,omitempty"` // 0 或不传表示全部已读
+	}
+	FriendPutInReadResp  {}
 )
 
 type (
@@ -187,11 +197,13 @@ type (
 		Name string `json:"name,omitempty"`
 		Icon string `json:"icon,omitempty"`
 	}
-	GroupCreateResp  {}
+	GroupCreateResp {
+		GroupId string `json:"group_id"`
+	}
 )
 
 type (
-	GroupPutInRep {
+	GroupPutInReq {
 		GroupId    string `json:"group_id,omitempty"`
 		ReqMsg     string `json:"req_msg,omitempty"`
 		ReqTime    int64  `json:"req_time,omitempty"`
@@ -204,7 +216,7 @@ type (
 )
 
 type (
-	GroupPutInHandleRep {
+	GroupPutInHandleReq {
 		GroupReqId   int32  `json:"group_req_id,omitempty"`
 		GroupId      string `json:"group_id,omitempty"`
 		HandleResult int32  `json:"handle_result,omitempty"` // 处理结果
@@ -213,7 +225,7 @@ type (
 )
 
 type (
-	GroupPutInListRep {
+	GroupPutInListReq {
 		GroupId string  `json:"group_id,omitempty"`
 		Type    []int32 `json:"type,optional"`
 		Class   int32   `json:"class,optional"`
@@ -224,7 +236,7 @@ type (
 )
 
 type (
-	GroupListRep  {}
+	GroupListReq  {}
 	GroupListResp {
 		List []*Groups `json:"list,omitempty"`
 	}
@@ -236,6 +248,49 @@ type (
 	}
 	GroupUserListResp {
 		List []*GroupMembers `json:"List,omitempty"`
+	}
+)
+
+type (
+	GroupQuitReq {
+		GroupId string `json:"group_id"`
+	}
+	GroupQuitResp  {}
+)
+
+type (
+	GroupKickReq {
+		GroupId   string   `json:"group_id"`
+		MemberIds []string `json:"member_ids"`
+	}
+	GroupKickResp  {}
+)
+
+type (
+	GroupInviteReq {
+		GroupId   string   `json:"group_id"`
+		FriendIds []string `json:"friend_ids"`
+	}
+	GroupInviteResp  {}
+)
+
+type (
+	GroupUpdateReq {
+		GroupId      string `json:"group_id"`
+		Name         string `json:"name,optional"`
+		Icon         string `json:"icon,optional"`
+		Notification string `json:"notification,optional"`
+	}
+	GroupUpdateResp  {}
+)
+
+type (
+	GroupDetailReq {
+		GroupId string `form:"group_id"`
+	}
+	GroupDetailResp {
+		Group   Groups          `json:"group"`
+		Members []*GroupMembers `json:"members"`
 	}
 )
 
@@ -309,6 +364,10 @@ service social {
 	@handler friendPutInHandle
 	put /friend/putIn (FriendPutInHandleReq) returns (FriendPutInHandleResp)
 
+	@doc "好友申请已读"
+	@handler friendPutInRead
+	put /friend/putIn/read (FriendPutInReadReq) returns (FriendPutInReadResp)
+
 	@doc "好友申请列表"
 	@handler friendPutInList
 	get /friend/putIns (FriendPutInListReq) returns (FriendPutInListResp)
@@ -342,19 +401,19 @@ service social {
 
 	@doc "申请进群"
 	@handler groupPutIn
-	post /group/putIn (GroupPutInRep) returns (GroupPutInResp)
+	post /group/putIn (GroupPutInReq) returns (GroupPutInResp)
 
 	@doc "申请进群处理"
 	@handler groupPutInHandle
-	put /group/putIn (GroupPutInHandleRep) returns (GroupPutInHandleResp)
+	put /group/putIn (GroupPutInHandleReq) returns (GroupPutInHandleResp)
 
 	@doc "申请进群列表"
 	@handler groupPutInList
-	get /group/putIns (GroupPutInListRep) returns (GroupPutInListResp)
+	get /group/putIns (GroupPutInListReq) returns (GroupPutInListResp)
 
 	@doc "用户申群列表"
 	@handler groupList
-	get /groups (GroupListRep) returns (GroupListResp)
+	get /groups (GroupListReq) returns (GroupListResp)
 
 	@doc "成员列表列表"
 	@handler groupUserList
@@ -363,5 +422,25 @@ service social {
 	@doc "群在线用户"
 	@handler groupUserOnline
 	get /group/users/online (GroupUserOnlineReq) returns (GroupUserOnlineResp)
+
+	@doc "退出群组"
+	@handler groupQuit
+	post /group/quit (GroupQuitReq) returns (GroupQuitResp)
+
+	@doc "踢出群成员"
+	@handler groupKick
+	post /group/kick (GroupKickReq) returns (GroupKickResp)
+
+	@doc "邀请群成员"
+	@handler groupInvite
+	post /group/invite (GroupInviteReq) returns (GroupInviteResp)
+
+	@doc "更新群信息"
+	@handler groupUpdate
+	post /group/update (GroupUpdateReq) returns (GroupUpdateResp)
+
+	@doc "群详情"
+	@handler groupDetail
+	get /group/detail (GroupDetailReq) returns (GroupDetailResp)
 }
 

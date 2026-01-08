@@ -53,6 +53,7 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 			Status:       int32(v.Status), // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
 			ReqTime:      reqTimeUnix,
 			HandleResult: int32(v.HandleResult), // 0-待处理, 1-已同意, 2-已拒绝
+			ReadState:    int32(v.ReadState),
 		})
 	}
 

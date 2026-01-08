@@ -34,6 +34,11 @@ func (s *SocialServer) FriendPutInHandle(ctx context.Context, in *social.FriendP
 	return l.FriendPutInHandle(in)
 }
 
+func (s *SocialServer) FriendPutInRead(ctx context.Context, in *social.FriendPutInReadReq) (*social.FriendPutInReadResp, error) {
+	l := logic.NewFriendPutInReadLogic(ctx, s.svcCtx)
+	return l.FriendPutInRead(in)
+}
+
 func (s *SocialServer) FriendPutInList(ctx context.Context, in *social.FriendPutInListReq) (*social.FriendPutInListResp, error) {
 	l := logic.NewFriendPutInListLogic(ctx, s.svcCtx)
 	return l.FriendPutInList(in)
@@ -133,4 +138,29 @@ func (s *SocialServer) GroupUsers(ctx context.Context, in *social.GroupUsersReq)
 func (s *SocialServer) FindGroupList(ctx context.Context, in *social.FindGroupListReq) (*social.FindGroupListResp, error) {
 	l := logic.NewFindGroupListLogic(ctx, s.svcCtx)
 	return l.FindGroupList(in)
+}
+
+func (s *SocialServer) GroupQuit(ctx context.Context, in *social.GroupQuitReq) (*social.GroupQuitResp, error) {
+	l := logic.NewGroupQuitLogic(ctx, s.svcCtx)
+	return l.GroupQuit(in)
+}
+
+func (s *SocialServer) GroupKick(ctx context.Context, in *social.GroupKickReq) (*social.GroupKickResp, error) {
+	l := logic.NewGroupKickLogic(ctx, s.svcCtx)
+	return l.GroupKick(in)
+}
+
+func (s *SocialServer) GroupInvite(ctx context.Context, in *social.GroupInviteReq) (*social.GroupInviteResp, error) {
+	l := logic.NewGroupInviteLogic(ctx, s.svcCtx)
+	return l.GroupInvite(in)
+}
+
+func (s *SocialServer) GroupUpdate(ctx context.Context, in *social.GroupUpdateReq) (*social.GroupUpdateResp, error) {
+	l := logic.NewGroupUpdateLogic(ctx, s.svcCtx)
+	return l.GroupUpdate(in)
+}
+
+func (s *SocialServer) GroupDetail(ctx context.Context, in *social.GroupDetailReq) (*social.GroupDetailResp, error) {
+	l := logic.NewGroupDetailLogic(ctx, s.svcCtx)
+	return l.GroupDetail(in)
 }

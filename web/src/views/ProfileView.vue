@@ -180,6 +180,14 @@
     </div>
     </template>
 
+  <!-- 头像裁切弹窗 -->
+  <ImageCropper 
+    v-if="showCropper && selectedFile" 
+    :file="selectedFile" 
+    @cancel="showCropper = false" 
+    @confirm="handleCropConfirm" 
+  />
+
   <!-- 邮箱绑定模态框 -->
   <div v-if="showEmailModal" class="modal-overlay" @click.self="closeEmailModal">
     <div class="modal-container email-modal">
@@ -321,6 +329,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useContactsStore } from '../stores/contacts'
 import { userApi, socialApi } from '../utils/api'
+import ImageCropper from '../components/ui/ImageCropper.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -362,6 +371,8 @@ const editTags = ref([])
 const newTag = ref('')
 const avatarInput = ref(null)
 const avatarUploading = ref(false)
+const showCropper = ref(false)
+const selectedFile = ref(null)
 
 // 邮箱绑定相关状态
 const showEmailModal = ref(false)
@@ -529,7 +540,7 @@ const triggerAvatarUpload = () => {
 }
 
 // 处理头像文件选择
-const handleAvatarChange = async (event) => {
+const handleAvatarChange = (event) => {
   const file = event.target.files?.[0]
   if (!file) return
   
@@ -544,17 +555,24 @@ const handleAvatarChange = async (event) => {
     alert('图片大小不能超过5MB')
     return
   }
-  
+
+  // 打开裁切弹窗
+  selectedFile.value = file
+  showCropper.value = true
+  event.target.value = '' // 重置 input，允许重复选择同一文件
+}
+
+const handleCropConfirm = async (blob) => {
+  showCropper.value = false
   avatarUploading.value = true
   
   try {
-    // 先预览（使用base64）
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      // 临时预览
-      currentUser.value.avatar = e.target.result
-    }
-    reader.readAsDataURL(file)
+    // 临时预览裁切后的图片
+    const previewUrl = URL.createObjectURL(blob)
+    currentUser.value.avatar = previewUrl
+
+    // 创建 File 对象
+    const file = new File([blob], "avatar.jpg", { type: "image/jpeg" })
     
     // 上传到服务器
     const response = await userApi.uploadAvatar(file)
