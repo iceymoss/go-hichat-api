@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Social_FriendPutIn_FullMethodName             = "/social.social/FriendPutIn"
 	Social_FriendPutInHandle_FullMethodName       = "/social.social/FriendPutInHandle"
+	Social_FriendPutInRead_FullMethodName         = "/social.social/FriendPutInRead"
 	Social_FriendPutInList_FullMethodName         = "/social.social/FriendPutInList"
 	Social_FriendPutInMessageCount_FullMethodName = "/social.social/FriendPutInMessageCount"
 	Social_FriendList_FullMethodName              = "/social.social/FriendList"
@@ -41,6 +42,11 @@ const (
 	Social_GroupList_FullMethodName               = "/social.social/GroupList"
 	Social_GroupUsers_FullMethodName              = "/social.social/GroupUsers"
 	Social_FindGroupList_FullMethodName           = "/social.social/FindGroupList"
+	Social_GroupQuit_FullMethodName               = "/social.social/GroupQuit"
+	Social_GroupKick_FullMethodName               = "/social.social/GroupKick"
+	Social_GroupInvite_FullMethodName             = "/social.social/GroupInvite"
+	Social_GroupUpdate_FullMethodName             = "/social.social/GroupUpdate"
+	Social_GroupDetail_FullMethodName             = "/social.social/GroupDetail"
 )
 
 // SocialClient is the client API for Social service.
@@ -52,6 +58,7 @@ type SocialClient interface {
 	// 好友业务：请求好友、通过或拒绝申请、好友列表
 	FriendPutIn(ctx context.Context, in *FriendPutInReq, opts ...grpc.CallOption) (*FriendPutInResp, error)
 	FriendPutInHandle(ctx context.Context, in *FriendPutInHandleReq, opts ...grpc.CallOption) (*FriendPutInHandleResp, error)
+	FriendPutInRead(ctx context.Context, in *FriendPutInReadReq, opts ...grpc.CallOption) (*FriendPutInReadResp, error)
 	FriendPutInList(ctx context.Context, in *FriendPutInListReq, opts ...grpc.CallOption) (*FriendPutInListResp, error)
 	FriendPutInMessageCount(ctx context.Context, in *FriendPutInMessageCountReq, opts ...grpc.CallOption) (*FriendPutInMessageCountResp, error)
 	FriendList(ctx context.Context, in *FriendListReq, opts ...grpc.CallOption) (*FriendListResp, error)
@@ -74,6 +81,11 @@ type SocialClient interface {
 	GroupList(ctx context.Context, in *GroupListReq, opts ...grpc.CallOption) (*GroupListResp, error)
 	GroupUsers(ctx context.Context, in *GroupUsersReq, opts ...grpc.CallOption) (*GroupUsersResp, error)
 	FindGroupList(ctx context.Context, in *FindGroupListReq, opts ...grpc.CallOption) (*FindGroupListResp, error)
+	GroupQuit(ctx context.Context, in *GroupQuitReq, opts ...grpc.CallOption) (*GroupQuitResp, error)
+	GroupKick(ctx context.Context, in *GroupKickReq, opts ...grpc.CallOption) (*GroupKickResp, error)
+	GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error)
+	GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error)
+	GroupDetail(ctx context.Context, in *GroupDetailReq, opts ...grpc.CallOption) (*GroupDetailResp, error)
 }
 
 type socialClient struct {
@@ -98,6 +110,16 @@ func (c *socialClient) FriendPutInHandle(ctx context.Context, in *FriendPutInHan
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FriendPutInHandleResp)
 	err := c.cc.Invoke(ctx, Social_FriendPutInHandle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) FriendPutInRead(ctx context.Context, in *FriendPutInReadReq, opts ...grpc.CallOption) (*FriendPutInReadResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FriendPutInReadResp)
+	err := c.cc.Invoke(ctx, Social_FriendPutInRead_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -304,6 +326,56 @@ func (c *socialClient) FindGroupList(ctx context.Context, in *FindGroupListReq, 
 	return out, nil
 }
 
+func (c *socialClient) GroupQuit(ctx context.Context, in *GroupQuitReq, opts ...grpc.CallOption) (*GroupQuitResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupQuitResp)
+	err := c.cc.Invoke(ctx, Social_GroupQuit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupKick(ctx context.Context, in *GroupKickReq, opts ...grpc.CallOption) (*GroupKickResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupKickResp)
+	err := c.cc.Invoke(ctx, Social_GroupKick_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupInviteResp)
+	err := c.cc.Invoke(ctx, Social_GroupInvite_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupUpdateResp)
+	err := c.cc.Invoke(ctx, Social_GroupUpdate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupDetail(ctx context.Context, in *GroupDetailReq, opts ...grpc.CallOption) (*GroupDetailResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupDetailResp)
+	err := c.cc.Invoke(ctx, Social_GroupDetail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SocialServer is the server API for Social service.
 // All implementations must embed UnimplementedSocialServer
 // for forward compatibility.
@@ -313,6 +385,7 @@ type SocialServer interface {
 	// 好友业务：请求好友、通过或拒绝申请、好友列表
 	FriendPutIn(context.Context, *FriendPutInReq) (*FriendPutInResp, error)
 	FriendPutInHandle(context.Context, *FriendPutInHandleReq) (*FriendPutInHandleResp, error)
+	FriendPutInRead(context.Context, *FriendPutInReadReq) (*FriendPutInReadResp, error)
 	FriendPutInList(context.Context, *FriendPutInListReq) (*FriendPutInListResp, error)
 	FriendPutInMessageCount(context.Context, *FriendPutInMessageCountReq) (*FriendPutInMessageCountResp, error)
 	FriendList(context.Context, *FriendListReq) (*FriendListResp, error)
@@ -335,6 +408,11 @@ type SocialServer interface {
 	GroupList(context.Context, *GroupListReq) (*GroupListResp, error)
 	GroupUsers(context.Context, *GroupUsersReq) (*GroupUsersResp, error)
 	FindGroupList(context.Context, *FindGroupListReq) (*FindGroupListResp, error)
+	GroupQuit(context.Context, *GroupQuitReq) (*GroupQuitResp, error)
+	GroupKick(context.Context, *GroupKickReq) (*GroupKickResp, error)
+	GroupInvite(context.Context, *GroupInviteReq) (*GroupInviteResp, error)
+	GroupUpdate(context.Context, *GroupUpdateReq) (*GroupUpdateResp, error)
+	GroupDetail(context.Context, *GroupDetailReq) (*GroupDetailResp, error)
 	mustEmbedUnimplementedSocialServer()
 }
 
@@ -350,6 +428,9 @@ func (UnimplementedSocialServer) FriendPutIn(context.Context, *FriendPutInReq) (
 }
 func (UnimplementedSocialServer) FriendPutInHandle(context.Context, *FriendPutInHandleReq) (*FriendPutInHandleResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FriendPutInHandle not implemented")
+}
+func (UnimplementedSocialServer) FriendPutInRead(context.Context, *FriendPutInReadReq) (*FriendPutInReadResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FriendPutInRead not implemented")
 }
 func (UnimplementedSocialServer) FriendPutInList(context.Context, *FriendPutInListReq) (*FriendPutInListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FriendPutInList not implemented")
@@ -411,6 +492,21 @@ func (UnimplementedSocialServer) GroupUsers(context.Context, *GroupUsersReq) (*G
 func (UnimplementedSocialServer) FindGroupList(context.Context, *FindGroupListReq) (*FindGroupListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindGroupList not implemented")
 }
+func (UnimplementedSocialServer) GroupQuit(context.Context, *GroupQuitReq) (*GroupQuitResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupQuit not implemented")
+}
+func (UnimplementedSocialServer) GroupKick(context.Context, *GroupKickReq) (*GroupKickResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupKick not implemented")
+}
+func (UnimplementedSocialServer) GroupInvite(context.Context, *GroupInviteReq) (*GroupInviteResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupInvite not implemented")
+}
+func (UnimplementedSocialServer) GroupUpdate(context.Context, *GroupUpdateReq) (*GroupUpdateResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupUpdate not implemented")
+}
+func (UnimplementedSocialServer) GroupDetail(context.Context, *GroupDetailReq) (*GroupDetailResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupDetail not implemented")
+}
 func (UnimplementedSocialServer) mustEmbedUnimplementedSocialServer() {}
 func (UnimplementedSocialServer) testEmbeddedByValue()                {}
 
@@ -464,6 +560,24 @@ func _Social_FriendPutInHandle_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SocialServer).FriendPutInHandle(ctx, req.(*FriendPutInHandleReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_FriendPutInRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FriendPutInReadReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).FriendPutInRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_FriendPutInRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).FriendPutInRead(ctx, req.(*FriendPutInReadReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -828,6 +942,96 @@ func _Social_FindGroupList_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Social_GroupQuit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupQuitReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupQuit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupQuit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupQuit(ctx, req.(*GroupQuitReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupKick_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupKickReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupKick(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupKick_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupKick(ctx, req.(*GroupKickReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupInvite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupInviteReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupInvite(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupInvite_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupInvite(ctx, req.(*GroupInviteReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupUpdateReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupUpdate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupUpdate(ctx, req.(*GroupUpdateReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupDetail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupDetailReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupDetail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupDetail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupDetail(ctx, req.(*GroupDetailReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Social_ServiceDesc is the grpc.ServiceDesc for Social service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -842,6 +1046,10 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FriendPutInHandle",
 			Handler:    _Social_FriendPutInHandle_Handler,
+		},
+		{
+			MethodName: "FriendPutInRead",
+			Handler:    _Social_FriendPutInRead_Handler,
 		},
 		{
 			MethodName: "FriendPutInList",
@@ -922,6 +1130,26 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FindGroupList",
 			Handler:    _Social_FindGroupList_Handler,
+		},
+		{
+			MethodName: "GroupQuit",
+			Handler:    _Social_GroupQuit_Handler,
+		},
+		{
+			MethodName: "GroupKick",
+			Handler:    _Social_GroupKick_Handler,
+		},
+		{
+			MethodName: "GroupInvite",
+			Handler:    _Social_GroupInvite_Handler,
+		},
+		{
+			MethodName: "GroupUpdate",
+			Handler:    _Social_GroupUpdate_Handler,
+		},
+		{
+			MethodName: "GroupDetail",
+			Handler:    _Social_GroupDetail_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

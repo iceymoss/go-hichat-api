@@ -42,7 +42,7 @@ func NewGroupPutInListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Gr
 //		"type": [],
 //		"class": 2
 //	}
-func (l *GroupPutInListLogic) GroupPutInList(req *types.GroupPutInListRep) (resp *types.GroupPutInListResp, err error) {
+func (l *GroupPutInListLogic) GroupPutInList(req *types.GroupPutInListReq) (resp *types.GroupPutInListResp, err error) {
 	uid := l.ctx.Value(Identify).(string)
 	res, err := l.svcCtx.Social.GroupPutinList(l.ctx, &social.GroupPutinListReq{
 		GroupId: req.GroupId,

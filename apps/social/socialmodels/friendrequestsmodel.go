@@ -2,7 +2,6 @@ package socialmodels
 
 import (
 	"context"
-
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"

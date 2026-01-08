@@ -27,6 +27,7 @@ message FriendRequests { //好友请求
   int32  status = 7; //消息状态（0:已删除 1:正常显示 2:忽略不显示）
   int64  reqTime = 5; //请求时间
   int32  handleResult = 6; // 处理结果
+  int32  readState = 8; // [新增] 读取状态 0未读 1已读
 }
 
 message Groups { //群
@@ -65,6 +66,44 @@ message GroupRequests { //
   int64  handleResultTime = 10; // 处理时间
 }
 
+message GroupQuitReq {
+  string userId = 1;
+  string groupId = 2;
+}
+message GroupQuitResp {}
+
+message GroupKickReq {
+  string userId = 1; // Operator (Admin)
+  string groupId = 2;
+  repeated string memberIds = 3; // Members to kick
+}
+message GroupKickResp {}
+
+message GroupInviteReq {
+  string userId = 1; // Operator/Inviter
+  string groupId = 2;
+  repeated string friendIds = 3;
+}
+message GroupInviteResp {}
+
+message GroupUpdateReq {
+  string userId = 1; // Operator
+  string groupId = 2;
+  string name = 3;
+  string icon = 4;
+  string notification = 5;
+  string notificationUid = 6;
+}
+message GroupUpdateResp {}
+
+message GroupDetailReq {
+  string groupId = 1;
+}
+message GroupDetailResp {
+  Groups group = 1;
+  repeated GroupMembers members = 2;
+}
+
 // req resp
 
 message FriendPutInReq {
@@ -78,9 +117,17 @@ message FriendPutInResp {}
 message FriendPutInHandleReq {
   int32  friendReqId = 1;
   string userId = 2;
-  int32 handleResult = 3; // 处理结果
+  int32  handleResult = 3; // 处理结果
+  string remark = 4;       // [新增] 备注
+  repeated string tags = 5; // [新增] 标签
 }
 message FriendPutInHandleResp {}
+
+message FriendPutInReadReq {
+  string userId = 1;
+  int32  friendReqId = 2; // 0 表示全部已读
+}
+message FriendPutInReadResp {}
 
 message FriendPutInListReq{
   string userId = 1;
@@ -253,6 +300,7 @@ service social {
   // 好友业务：请求好友、通过或拒绝申请、好友列表
   rpc FriendPutIn(FriendPutInReq) returns(FriendPutInResp);
   rpc FriendPutInHandle(FriendPutInHandleReq) returns(FriendPutInHandleResp);
+  rpc FriendPutInRead(FriendPutInReadReq) returns(FriendPutInReadResp);
   rpc FriendPutInList(FriendPutInListReq) returns(FriendPutInListResp);
   rpc FriendPutInMessageCount(FriendPutInMessageCountReq) returns(FriendPutInMessageCountResp);
   rpc FriendList(FriendListReq) returns (FriendListResp);
@@ -276,4 +324,10 @@ service social {
   rpc GroupList(GroupListReq) returns (GroupListResp);
   rpc GroupUsers(GroupUsersReq) returns (GroupUsersResp);
   rpc FindGroupList(FindGroupListReq) returns (FindGroupListResp);
+  
+  rpc GroupQuit(GroupQuitReq) returns (GroupQuitResp);
+  rpc GroupKick(GroupKickReq) returns (GroupKickResp);
+  rpc GroupInvite(GroupInviteReq) returns (GroupInviteResp);
+  rpc GroupUpdate(GroupUpdateReq) returns (GroupUpdateResp);
+  rpc GroupDetail(GroupDetailReq) returns (GroupDetailResp);
 }

@@ -35,6 +35,7 @@ type FriendRequest struct {
 	HandleMsg    string     `gorm:"column:handle_msg;type:VARCHAR(255);comment:处理结果备注"`
 	HandledAt    *time.Time `gorm:"column:handled_at;type:TIMESTAMP;comment:处理操作时间"`
 	Status       *int       `gorm:"column:status;type:INT;comment:消息状态（0:已删除 1:正常显示 2:忽略不显示）"`
+	ReadState    int        `gorm:"column:read_state;type:TINYINT;default:0;not null;comment:读取状态（0:未读 1:已读）"`
 }
 
 func (FriendRequest) TableName() string {

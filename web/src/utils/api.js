@@ -276,13 +276,25 @@ export const socialApi = {
   },
   
   // 好友申请处理
-  friendPutInHandle: (friendReqId, handleResult) => {
+  friendPutInHandle: (friendReqId, handleResult, remark, tags) => {
     // handleResult: 1-同意, 2-拒绝
-    return socialApiInstance.put('/v1/social/friend/putIn', {
+    const data = {
       friend_req_id: friendReqId,
       handle_result: handleResult
+    }
+    if (remark) data.remark = remark
+    if (tags) data.tags = tags
+    
+    return socialApiInstance.put('/v1/social/friend/putIn', data)
+  },
+
+  // 好友申请已读
+  friendPutInRead: (friendReqId) => {
+    return socialApiInstance.put('/v1/social/friend/putIn/read', {
+      friend_req_id: friendReqId || 0
     })
   },
+
   
   // 好友申请列表
   friendPutInList: (type, classType) => {
@@ -368,6 +380,48 @@ export const socialApi = {
   groupUserOnline: (groupId) => {
     return socialApiInstance.get('/v1/social/group/users/online', {
       params: { group_id: groupId }
+    })
+  },
+
+  // 退出群组
+  groupQuit: (groupId) => {
+    return socialApiInstance.post('/v1/social/group/quit', { group_id: groupId })
+  },
+
+  // 踢出群成员
+  groupKick: (groupId, memberIds) => {
+    return socialApiInstance.post('/v1/social/group/kick', { 
+      group_id: groupId,
+      member_ids: memberIds
+    })
+  },
+
+  // 邀请群成员
+  groupInvite: (groupId, friendIds) => {
+    return socialApiInstance.post('/v1/social/group/invite', { 
+      group_id: groupId,
+      friend_ids: friendIds
+    })
+  },
+
+  // 更新群信息
+  groupUpdate: (groupId, data) => {
+    return socialApiInstance.post('/v1/social/group/update', { 
+      group_id: groupId,
+      ...data
+    })
+  },
+
+  // 群详情
+  groupDetail: (groupId) => {
+    return socialApiInstance.get('/v1/social/group/detail', { params: { group_id: groupId } })
+  },
+
+  // 创建群组
+  createGroup: (name, icon) => {
+    return socialApiInstance.post('/v1/social/group', { 
+      name, 
+      icon: icon || '' 
     })
   }
 }

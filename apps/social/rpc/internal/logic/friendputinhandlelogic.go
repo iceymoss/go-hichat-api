@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -73,22 +74,35 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 		friend1 := &socialmodels.Friends{
 			UserId:    firendReq.UserId,
 			FriendUid: firendReq.ReqUid,
-			Remark:    string(firendReq.ReqUid),
+			Remark:    string(firendReq.ReqUid), // 默认使用对方UID作为备注，或者使用昵称（如果能获取到）
 			AddSource: 1,
 			CreatedAt: sql.NullTime{
 				Time:  chinaNow,
-				Valid: false,
+				Valid: true,
 			},
+		}
+
+		// 对方视角（friend2）：我是他的好友。
+		// 这里 in.Remark 是我给对方设置的备注，所以应该设置在 friend1 中。
+		// 如果前端传递了 Remark，则更新 friend1 的 Remark。
+		if in.Remark != "" {
+			friend1.Remark = in.Remark
+		}
+
+		// 处理标签
+		if len(in.Tags) > 0 {
+			tagBytes, _ := json.Marshal(in.Tags)
+			friend1.FriendTags = sql.NullString{String: string(tagBytes), Valid: true}
 		}
 
 		friend2 := &socialmodels.Friends{
 			UserId:    firendReq.ReqUid,
 			FriendUid: firendReq.UserId,
-			Remark:    string(firendReq.UserId),
+			Remark:    string(firendReq.UserId), // 对方给我的备注，默认是我的UID
 			AddSource: 1,
 			CreatedAt: sql.NullTime{
 				Time:  chinaNow,
-				Valid: false,
+				Valid: true,
 			},
 		}
 

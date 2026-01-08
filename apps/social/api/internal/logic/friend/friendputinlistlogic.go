@@ -110,6 +110,7 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 			Status:        status,
 			StatusText:    statusText,
 			HandleMsg:     "",
+			ReadState:     int(v.ReadState),
 		})
 	}
 

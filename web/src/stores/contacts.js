@@ -8,6 +8,10 @@ export const useContactsStore = defineStore('contacts', () => {
   
   // 好友请求列表
   const friendRequests = ref([])
+
+  // 群组列表
+  const groups = ref([])
+  const currentGroup = ref(null)
   
   // 在线状态映射
   const onlineStatus = ref({})
@@ -297,6 +301,7 @@ export const useContactsStore = defineStore('contacts', () => {
           statusText: req.status_text || (req.handle_result === 0 ? '待处理' : req.handle_result === 1 ? '已同意' : req.handle_result === 2 ? '已拒绝' : req.handle_result === 3 ? '已忽略' : '待处理'),
           status_text: req.status_text || (req.handle_result === 0 ? '待处理' : req.handle_result === 1 ? '已同意' : '已拒绝'), // 兼容字段
           message_status: req.message_status !== undefined && req.message_status !== null ? req.message_status : 1, // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
+          read_state: req.read_state !== undefined ? req.read_state : 0, // 读取状态 0未读 1已读
           // 这些字段会在组件中通过用户信息填充
           name: req.req_uid, // 临时使用，组件中会替换
           avatar: `https://api.dicebear.com/7.x/personas/svg?seed=${req.req_uid}`, // 临时使用
@@ -342,11 +347,11 @@ export const useContactsStore = defineStore('contacts', () => {
   }
   
   // 处理好友申请
-  const handleFriendRequest = async (friendReqId, accept) => {
+  const handleFriendRequest = async (friendReqId, accept, remark, tags) => {
     try {
       // handleResult: 1-同意, 2-拒绝
       const handleResult = accept ? 1 : 2
-      await socialApi.friendPutInHandle(friendReqId, handleResult)
+      await socialApi.friendPutInHandle(friendReqId, handleResult, remark, tags)
       
       // 如果同意，刷新好友列表
       if (accept) {
@@ -364,13 +369,123 @@ export const useContactsStore = defineStore('contacts', () => {
       console.error('处理好友申请失败:', error)
       throw error
     }
-      }
+  }
       
   // 添加好友请求（用于本地添加，通常不需要）
   const addFriendRequest = (request) => {
     friendRequests.value.unshift(request)
   }
   
+  // 获取群组列表
+  const fetchGroups = async () => {
+    try {
+      const response = await socialApi.groupList()
+      if (response && response.list) {
+        groups.value = response.list.map(g => ({
+          ...g,
+          avatar: g.icon || `https://api.dicebear.com/7.x/identicon/svg?seed=${g.id}`,
+          desc: g.notification || '暂无公告',
+          unread: 0 // TODO: fetch unread count
+        }))
+      } else {
+        groups.value = []
+      }
+    } catch (error) {
+      console.error('获取群组列表失败:', error)
+      groups.value = []
+    }
+  }
+
+  // 获取群详情
+  const fetchGroupDetail = async (groupId) => {
+    try {
+      const response = await socialApi.groupDetail(groupId)
+      if (response && response.group) {
+        currentGroup.value = {
+          ...response.group,
+          members: response.members || []
+        }
+        return currentGroup.value
+      }
+    } catch (error) {
+      console.error('获取群详情失败:', error)
+      throw error
+    }
+  }
+
+  // 退出群组
+  const quitGroup = async (groupId) => {
+    try {
+      await socialApi.groupQuit(groupId)
+      // Remove from list
+      groups.value = groups.value.filter(g => g.id !== groupId)
+      if (currentGroup.value && currentGroup.value.id === groupId) {
+        currentGroup.value = null
+      }
+    } catch (error) {
+      console.error('退出群组失败:', error)
+      throw error
+    }
+  }
+
+  // 邀请成员
+  const inviteGroupMembers = async (groupId, friendIds) => {
+    try {
+      await socialApi.groupInvite(groupId, friendIds)
+      // Refresh group detail to see new members
+      if (currentGroup.value && currentGroup.value.id === groupId) {
+        await fetchGroupDetail(groupId)
+      }
+    } catch (error) {
+      console.error('邀请成员失败:', error)
+      throw error
+    }
+  }
+
+  // 踢出成员
+  const kickGroupMember = async (groupId, memberIds) => {
+    try {
+      await socialApi.groupKick(groupId, memberIds)
+      // Update current group members locally
+      if (currentGroup.value && currentGroup.value.id === groupId) {
+        currentGroup.value.members = currentGroup.value.members.filter(m => !memberIds.includes(m.user_id))
+      }
+    } catch (error) {
+      console.error('踢出成员失败:', error)
+      throw error
+    }
+  }
+
+  // 更新群信息
+  const updateGroupInfo = async (groupId, data) => {
+    try {
+      await socialApi.groupUpdate(groupId, data)
+      // Update local data
+      const group = groups.value.find(g => g.id === groupId)
+      if (group) {
+        Object.assign(group, data)
+      }
+      if (currentGroup.value && currentGroup.value.id === groupId) {
+        Object.assign(currentGroup.value, data)
+      }
+    } catch (error) {
+      console.error('更新群信息失败:', error)
+      throw error
+    }
+  }
+
+  // 创建群组
+  const createGroup = async (name, icon) => {
+    try {
+      await socialApi.createGroup(name, icon)
+      // Refresh group list
+      await fetchGroups()
+    } catch (error) {
+      console.error('创建群组失败:', error)
+      throw error
+    }
+  }
+
   // 格式化时间戳
   const formatTime = (timestamp) => {
     if (!timestamp) return '未知'
@@ -391,6 +506,8 @@ export const useContactsStore = defineStore('contacts', () => {
   return {
     friends,
     friendRequests,
+    groups,
+    currentGroup,
     onlineStatus,
     loading,
     requestsLoading,
@@ -398,6 +515,13 @@ export const useContactsStore = defineStore('contacts', () => {
     groupedFriends,
     searchResults,
     fetchFriends,
+    fetchGroups,
+    fetchGroupDetail,
+    quitGroup,
+    inviteGroupMembers,
+    kickGroupMember,
+    updateGroupInfo,
+    createGroup,
     fetchFriendsOnline,
     fetchFriendRequests,
     sendFriendRequest,

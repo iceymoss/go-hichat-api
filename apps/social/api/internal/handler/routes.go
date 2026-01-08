@@ -77,6 +77,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: friend.FriendPutInMessageCountHandler(serverCtx),
 			},
 			{
+				// 好友申请已读
+				Method:  http.MethodPut,
+				Path:    "/friend/putIn/read",
+				Handler: friend.FriendPutInReadHandler(serverCtx),
+			},
+			{
 				// 好友申请列表
 				Method:  http.MethodGet,
 				Path:    "/friend/putIns",
@@ -132,6 +138,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: group.CreateGroupHandler(serverCtx),
 			},
 			{
+				// 群详情
+				Method:  http.MethodGet,
+				Path:    "/group/detail",
+				Handler: group.GroupDetailHandler(serverCtx),
+			},
+			{
+				// 邀请群成员
+				Method:  http.MethodPost,
+				Path:    "/group/invite",
+				Handler: group.GroupInviteHandler(serverCtx),
+			},
+			{
+				// 踢出群成员
+				Method:  http.MethodPost,
+				Path:    "/group/kick",
+				Handler: group.GroupKickHandler(serverCtx),
+			},
+			{
 				// 申请进群
 				Method:  http.MethodPost,
 				Path:    "/group/putIn",
@@ -148,6 +172,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodGet,
 				Path:    "/group/putIns",
 				Handler: group.GroupPutInListHandler(serverCtx),
+			},
+			{
+				// 退出群组
+				Method:  http.MethodPost,
+				Path:    "/group/quit",
+				Handler: group.GroupQuitHandler(serverCtx),
+			},
+			{
+				// 更新群信息
+				Method:  http.MethodPost,
+				Path:    "/group/update",
+				Handler: group.GroupUpdateHandler(serverCtx),
 			},
 			{
 				// 成员列表列表
