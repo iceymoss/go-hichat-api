@@ -54,9 +54,11 @@
             @click="selectFriend(friend)"
           >
             <img :src="friend.avatar" alt="头像" class="friend-avatar" @error="handleAvatarError">
-            <span class="friend-name">
-              {{ (friend.remark && friend.remark.trim()) ? friend.remark : (friend.nickname || '未知用户') }}
-            </span>
+            <div class="friend-info">
+              <span class="friend-name" :class="{ 'is-remark': friend.remark && friend.remark.trim() }">
+                {{ (friend.remark && friend.remark.trim()) ? friend.remark : (friend.nickname || '未知用户') }}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -223,8 +225,31 @@ const selectFriend = (friend) => {
   border-radius: 4px;
 }
 
+.friend-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .friend-name {
   font-size: 14px;
   color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.friend-name.is-remark {
+  /* color: #111827; */ /* 移除颜色区分，保持一致 */
+  /* font-weight: 500; */ /* 移除字重区分，保持一致 */
+}
+
+.friend-nickname {
+  font-size: 12px;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

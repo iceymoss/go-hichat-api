@@ -21,7 +21,7 @@
               <span class="remark">{{ friend.remark || friend.nickname || '未设置昵称' }}</span>
               <i v-if="friend.sex" class="gender-icon" :class="friend.sex === 1 ? 'icon-male' : 'icon-female'"></i>
             </div>
-            <div class="sub-info">昵称：{{ friend.nickname }}</div>
+            <div class="sub-info" v-if="friend.remark && friend.remark.trim()">昵称：{{ friend.nickname }}</div>
             <div class="sub-info">微信号：{{ friend.friend_uid || friend.id }}</div>
             <div class="sub-info" v-if="friend.phone">手机号：{{ friend.phone }}</div>
           </div>
