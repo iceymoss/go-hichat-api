@@ -336,16 +336,42 @@ export const socialApi = {
     })
   },
   
-  // 申请进群
-  groupPutIn: (groupId, reqMsg, joinSource, inviterUid) => {
-    return socialApiInstance.post('/v1/social/group/putIn', {
-      group_id: groupId,
+  // 申请进群（统一入口：普通申请、邀请入群、token入群都使用此接口）
+  // 参数说明：
+  // - groupId: 群ID（普通申请/邀请入群时必传）
+  // - reqMsg: 申请消息
+  // - joinSource: 1=申请入群, 2=邀请入群, 3=邀请链接/二维码入群
+  // - inviterUid: 邀请人UID（邀请入群/token入群时必传）
+  // - token: 邀请链接token（token入群时必传，此时groupId可为空）
+  // - reqId: 申请者/被邀请者ID（邀请入群时必传，普通申请时为空则使用当前用户ID）
+  groupPutIn: (groupId, reqMsg, joinSource, inviterUid, token, reqId) => {
+    const payload = {
       req_msg: reqMsg || '',
       req_time: Math.floor(Date.now() / 1000),
-      join_source: joinSource || 0,
-      inviter_uid: inviterUid || '' // 邀请人 UID，如果是主动申请则为空
-    })
+      join_source: joinSource || 1,
+      inviter_uid: inviterUid || ''
+    }
+    // 如果有 token，使用 token 入群（后端会通过 token 获取 groupId）
+    if (token) {
+      payload.token = token
+    } else {
+      // 普通申请/邀请入群需要 groupId
+      payload.group_id = groupId
+    }
+    // 如果传了 reqId（邀请入群场景），添加到 payload
+    if (reqId) {
+      payload.req_id = reqId
+    }
+    return socialApiInstance.post('/v1/social/group/putIn', payload)
   },
+
+  // 已废弃：邀请入群现在统一使用 groupPutIn API（joinSource=2）
+  // groupInvite: (groupId, friendIds) => {
+  //   return socialApiInstance.post('/v1/social/group/invite', { 
+  //     group_id: groupId,
+  //     friend_ids: friendIds
+  //   })
+  // },
   
   // 申请进群处理
   groupPutInHandle: (groupReqId, groupId, handleResult) => {
@@ -358,9 +384,11 @@ export const socialApi = {
   },
   
   // 申请进群列表
-  groupPutInList: (groupId) => {
+  groupPutInList: (groupId, types, classType) => {
     const params = {}
     if (groupId) params.group_id = groupId
+    if (Array.isArray(types) && types.length > 0) params.type = types
+    if (classType !== undefined && classType !== null) params.class = classType
     return socialApiInstance.get('/v1/social/group/putIns', { params })
   },
   
@@ -409,6 +437,107 @@ export const socialApi = {
     return socialApiInstance.post('/v1/social/group/update', { 
       group_id: groupId,
       ...data
+    })
+  },
+
+  // 解散群（仅群主）
+  groupDisband: (groupId) => {
+    return socialApiInstance.post('/v1/social/group/disband', { group_id: groupId })
+  },
+
+  // 转让群主（仅群主）
+  groupTransferOwner: (groupId, newOwnerId, keepOldOwnerAsAdmin = true) => {
+    return socialApiInstance.post('/v1/social/group/transferOwner', {
+      group_id: groupId,
+      new_owner_id: newOwnerId,
+      keep_old_owner_as_admin: keepOldOwnerAsAdmin
+    })
+  },
+
+  // 设置/取消管理员（仅群主）
+  groupSetAdmin: (groupId, memberIds, isAdmin) => {
+    return socialApiInstance.post('/v1/social/group/setAdmin', {
+      group_id: groupId,
+      member_ids: memberIds,
+      is_admin: !!isAdmin
+    })
+  },
+
+  // 创建邀请链接/二维码
+  groupInviteLinkCreate: (groupId, expireSeconds = 0, maxUses = 0) => {
+    return socialApiInstance.post('/v1/social/group/inviteLink/create', {
+      group_id: groupId,
+      expire_seconds: expireSeconds,
+      max_uses: maxUses
+    })
+  },
+
+  // 邀请链接列表
+  groupInviteLinkList: (groupId, includeRevoked = false) => {
+    return socialApiInstance.get('/v1/social/group/inviteLinks', {
+      params: { group_id: groupId, include_revoked: includeRevoked }
+    })
+  },
+
+  // 撤销邀请链接
+  groupInviteLinkRevoke: (groupId, token) => {
+    return socialApiInstance.post('/v1/social/group/inviteLink/revoke', {
+      group_id: groupId,
+      token
+    })
+  },
+
+  // 已废弃：通过 token 入群现在统一使用 groupPutIn API
+  // groupJoinByToken: (token, reqMsg = '') => {
+  //   return socialApiInstance.post('/v1/social/group/joinByToken', {
+  //     token,
+  //     req_msg: reqMsg
+  //   })
+  // },
+
+  // 获取我的群成员资料（群内昵称/群备注）
+  getMyGroupMemberSetting: (groupId) => {
+    return socialApiInstance.get('/v1/social/group/memberSetting', {
+      params: { group_id: groupId }
+    })
+  },
+
+  // 更新我的群成员资料（群内昵称/群备注）
+  updateMyGroupMemberSetting: (groupId, data) => {
+    return socialApiInstance.post('/v1/social/group/memberSetting', {
+      group_id: groupId,
+      ...data
+    })
+  },
+
+  // 群 @ 列表
+  groupAtList: (groupId, keyword = '') => {
+    const params = { group_id: groupId }
+    if (keyword) params.keyword = keyword
+    return socialApiInstance.get('/v1/social/group/atList', { params })
+  },
+
+  // 发布群公告
+  groupAnnouncementCreate: (groupId, content) => {
+    return socialApiInstance.post('/v1/social/group/announcement', {
+      group_id: groupId,
+      content
+    })
+  },
+
+  // 群公告列表
+  groupAnnouncementList: (groupId, includeDeleted = false) => {
+    return socialApiInstance.get('/v1/social/group/announcements', {
+      params: { group_id: groupId, include_deleted: includeDeleted }
+    })
+  },
+
+  // 置顶/取消置顶群公告
+  groupAnnouncementPin: (groupId, announcementId, pinned) => {
+    return socialApiInstance.post('/v1/social/group/announcement/pin', {
+      group_id: groupId,
+      announcement_id: announcementId,
+      pinned: !!pinned
     })
   },
 

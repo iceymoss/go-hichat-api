@@ -14,67 +14,97 @@ import (
 )
 
 type (
-	FindGroupListReq            = social.FindGroupListReq
-	FindGroupListResp           = social.FindGroupListResp
-	FriendBlockReq              = social.FriendBlockReq
-	FriendBlockResp             = social.FriendBlockResp
-	FriendDeleteReq             = social.FriendDeleteReq
-	FriendDeleteResp            = social.FriendDeleteResp
-	FriendListReq               = social.FriendListReq
-	FriendListResp              = social.FriendListResp
-	FriendMomentsPermissionReq  = social.FriendMomentsPermissionReq
-	FriendMomentsPermissionResp = social.FriendMomentsPermissionResp
-	FriendMuteReq               = social.FriendMuteReq
-	FriendMuteResp              = social.FriendMuteResp
-	FriendNotificationReq       = social.FriendNotificationReq
-	FriendNotificationResp      = social.FriendNotificationResp
-	FriendPinReq                = social.FriendPinReq
-	FriendPinResp               = social.FriendPinResp
-	FriendPutInHandleReq        = social.FriendPutInHandleReq
-	FriendPutInHandleResp       = social.FriendPutInHandleResp
-	FriendPutInListReq          = social.FriendPutInListReq
-	FriendPutInListResp         = social.FriendPutInListResp
-	FriendPutInMessageCountReq  = social.FriendPutInMessageCountReq
-	FriendPutInMessageCountResp = social.FriendPutInMessageCountResp
-	FriendPutInReadReq          = social.FriendPutInReadReq
-	FriendPutInReadResp         = social.FriendPutInReadResp
-	FriendPutInReq              = social.FriendPutInReq
-	FriendPutInResp             = social.FriendPutInResp
-	FriendReportReq             = social.FriendReportReq
-	FriendReportResp            = social.FriendReportResp
-	FriendRequests              = social.FriendRequests
-	FriendShareReq              = social.FriendShareReq
-	FriendShareResp             = social.FriendShareResp
-	FriendTagsReq               = social.FriendTagsReq
-	FriendTagsResp              = social.FriendTagsResp
-	FriendUpdateRemarkReq       = social.FriendUpdateRemarkReq
-	FriendUpdateRemarkResp      = social.FriendUpdateRemarkResp
-	Friends                     = social.Friends
-	GroupCreateReq              = social.GroupCreateReq
-	GroupCreateResp             = social.GroupCreateResp
-	GroupDetailReq              = social.GroupDetailReq
-	GroupDetailResp             = social.GroupDetailResp
-	GroupInviteReq              = social.GroupInviteReq
-	GroupInviteResp             = social.GroupInviteResp
-	GroupKickReq                = social.GroupKickReq
-	GroupKickResp               = social.GroupKickResp
-	GroupListReq                = social.GroupListReq
-	GroupListResp               = social.GroupListResp
-	GroupMembers                = social.GroupMembers
-	GroupPutInHandleReq         = social.GroupPutInHandleReq
-	GroupPutInHandleResp        = social.GroupPutInHandleResp
-	GroupPutinListReq           = social.GroupPutinListReq
-	GroupPutinListResp          = social.GroupPutinListResp
-	GroupPutinReq               = social.GroupPutinReq
-	GroupPutinResp              = social.GroupPutinResp
-	GroupQuitReq                = social.GroupQuitReq
-	GroupQuitResp               = social.GroupQuitResp
-	GroupRequests               = social.GroupRequests
-	GroupUpdateReq              = social.GroupUpdateReq
-	GroupUpdateResp             = social.GroupUpdateResp
-	GroupUsersReq               = social.GroupUsersReq
-	GroupUsersResp              = social.GroupUsersResp
-	Groups                      = social.Groups
+	AtMember                       = social.AtMember
+	FindGroupListReq               = social.FindGroupListReq
+	FindGroupListResp              = social.FindGroupListResp
+	FriendBlockReq                 = social.FriendBlockReq
+	FriendBlockResp                = social.FriendBlockResp
+	FriendDeleteReq                = social.FriendDeleteReq
+	FriendDeleteResp               = social.FriendDeleteResp
+	FriendListReq                  = social.FriendListReq
+	FriendListResp                 = social.FriendListResp
+	FriendMomentsPermissionReq     = social.FriendMomentsPermissionReq
+	FriendMomentsPermissionResp    = social.FriendMomentsPermissionResp
+	FriendMuteReq                  = social.FriendMuteReq
+	FriendMuteResp                 = social.FriendMuteResp
+	FriendNotificationReq          = social.FriendNotificationReq
+	FriendNotificationResp         = social.FriendNotificationResp
+	FriendPinReq                   = social.FriendPinReq
+	FriendPinResp                  = social.FriendPinResp
+	FriendPutInHandleReq           = social.FriendPutInHandleReq
+	FriendPutInHandleResp          = social.FriendPutInHandleResp
+	FriendPutInListReq             = social.FriendPutInListReq
+	FriendPutInListResp            = social.FriendPutInListResp
+	FriendPutInMessageCountReq     = social.FriendPutInMessageCountReq
+	FriendPutInMessageCountResp    = social.FriendPutInMessageCountResp
+	FriendPutInReadReq             = social.FriendPutInReadReq
+	FriendPutInReadResp            = social.FriendPutInReadResp
+	FriendPutInReq                 = social.FriendPutInReq
+	FriendPutInResp                = social.FriendPutInResp
+	FriendReportReq                = social.FriendReportReq
+	FriendReportResp               = social.FriendReportResp
+	FriendRequests                 = social.FriendRequests
+	FriendShareReq                 = social.FriendShareReq
+	FriendShareResp                = social.FriendShareResp
+	FriendTagsReq                  = social.FriendTagsReq
+	FriendTagsResp                 = social.FriendTagsResp
+	FriendUpdateRemarkReq          = social.FriendUpdateRemarkReq
+	FriendUpdateRemarkResp         = social.FriendUpdateRemarkResp
+	Friends                        = social.Friends
+	GetMyGroupMemberSettingReq     = social.GetMyGroupMemberSettingReq
+	GetMyGroupMemberSettingResp    = social.GetMyGroupMemberSettingResp
+	GroupAnnouncement              = social.GroupAnnouncement
+	GroupAnnouncementCreateReq     = social.GroupAnnouncementCreateReq
+	GroupAnnouncementCreateResp    = social.GroupAnnouncementCreateResp
+	GroupAnnouncementListReq       = social.GroupAnnouncementListReq
+	GroupAnnouncementListResp      = social.GroupAnnouncementListResp
+	GroupAnnouncementPinReq        = social.GroupAnnouncementPinReq
+	GroupAnnouncementPinResp       = social.GroupAnnouncementPinResp
+	GroupAtListReq                 = social.GroupAtListReq
+	GroupAtListResp                = social.GroupAtListResp
+	GroupCreateReq                 = social.GroupCreateReq
+	GroupCreateResp                = social.GroupCreateResp
+	GroupDetailReq                 = social.GroupDetailReq
+	GroupDetailResp                = social.GroupDetailResp
+	GroupDisbandReq                = social.GroupDisbandReq
+	GroupDisbandResp               = social.GroupDisbandResp
+	GroupInviteLink                = social.GroupInviteLink
+	GroupInviteLinkCreateReq       = social.GroupInviteLinkCreateReq
+	GroupInviteLinkCreateResp      = social.GroupInviteLinkCreateResp
+	GroupInviteLinkListReq         = social.GroupInviteLinkListReq
+	GroupInviteLinkListResp        = social.GroupInviteLinkListResp
+	GroupInviteLinkRevokeReq       = social.GroupInviteLinkRevokeReq
+	GroupInviteLinkRevokeResp      = social.GroupInviteLinkRevokeResp
+	GroupInviteReq                 = social.GroupInviteReq
+	GroupInviteResp                = social.GroupInviteResp
+	GroupJoinByTokenReq            = social.GroupJoinByTokenReq
+	GroupJoinByTokenResp           = social.GroupJoinByTokenResp
+	GroupKickReq                   = social.GroupKickReq
+	GroupKickResp                  = social.GroupKickResp
+	GroupListReq                   = social.GroupListReq
+	GroupListResp                  = social.GroupListResp
+	GroupMemberSetting             = social.GroupMemberSetting
+	GroupMembers                   = social.GroupMembers
+	GroupPutInHandleReq            = social.GroupPutInHandleReq
+	GroupPutInHandleResp           = social.GroupPutInHandleResp
+	GroupPutinListReq              = social.GroupPutinListReq
+	GroupPutinListResp             = social.GroupPutinListResp
+	GroupPutinReq                  = social.GroupPutinReq
+	GroupPutinResp                 = social.GroupPutinResp
+	GroupQuitReq                   = social.GroupQuitReq
+	GroupQuitResp                  = social.GroupQuitResp
+	GroupRequests                  = social.GroupRequests
+	GroupSetAdminReq               = social.GroupSetAdminReq
+	GroupSetAdminResp              = social.GroupSetAdminResp
+	GroupTransferOwnerReq          = social.GroupTransferOwnerReq
+	GroupTransferOwnerResp         = social.GroupTransferOwnerResp
+	GroupUpdateReq                 = social.GroupUpdateReq
+	GroupUpdateResp                = social.GroupUpdateResp
+	GroupUsersReq                  = social.GroupUsersReq
+	GroupUsersResp                 = social.GroupUsersResp
+	Groups                         = social.Groups
+	UpdateMyGroupMemberSettingReq  = social.UpdateMyGroupMemberSettingReq
+	UpdateMyGroupMemberSettingResp = social.UpdateMyGroupMemberSettingResp
 
 	Social interface {
 		// 好友业务：请求好友、通过或拒绝申请、好友列表
@@ -107,6 +137,22 @@ type (
 		GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error)
 		GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error)
 		GroupDetail(ctx context.Context, in *GroupDetailReq, opts ...grpc.CallOption) (*GroupDetailResp, error)
+		GroupDisband(ctx context.Context, in *GroupDisbandReq, opts ...grpc.CallOption) (*GroupDisbandResp, error)
+		GroupTransferOwner(ctx context.Context, in *GroupTransferOwnerReq, opts ...grpc.CallOption) (*GroupTransferOwnerResp, error)
+		GroupSetAdmin(ctx context.Context, in *GroupSetAdminReq, opts ...grpc.CallOption) (*GroupSetAdminResp, error)
+		// 邀请链接/二维码入群
+		GroupInviteLinkCreate(ctx context.Context, in *GroupInviteLinkCreateReq, opts ...grpc.CallOption) (*GroupInviteLinkCreateResp, error)
+		GroupInviteLinkList(ctx context.Context, in *GroupInviteLinkListReq, opts ...grpc.CallOption) (*GroupInviteLinkListResp, error)
+		GroupInviteLinkRevoke(ctx context.Context, in *GroupInviteLinkRevokeReq, opts ...grpc.CallOption) (*GroupInviteLinkRevokeResp, error)
+		GroupJoinByToken(ctx context.Context, in *GroupJoinByTokenReq, opts ...grpc.CallOption) (*GroupJoinByTokenResp, error)
+		// 群成员资料（群内昵称/群备注/@列表）
+		GetMyGroupMemberSetting(ctx context.Context, in *GetMyGroupMemberSettingReq, opts ...grpc.CallOption) (*GetMyGroupMemberSettingResp, error)
+		UpdateMyGroupMemberSetting(ctx context.Context, in *UpdateMyGroupMemberSettingReq, opts ...grpc.CallOption) (*UpdateMyGroupMemberSettingResp, error)
+		GroupAtList(ctx context.Context, in *GroupAtListReq, opts ...grpc.CallOption) (*GroupAtListResp, error)
+		// 公告历史/置顶
+		GroupAnnouncementCreate(ctx context.Context, in *GroupAnnouncementCreateReq, opts ...grpc.CallOption) (*GroupAnnouncementCreateResp, error)
+		GroupAnnouncementList(ctx context.Context, in *GroupAnnouncementListReq, opts ...grpc.CallOption) (*GroupAnnouncementListResp, error)
+		GroupAnnouncementPin(ctx context.Context, in *GroupAnnouncementPinReq, opts ...grpc.CallOption) (*GroupAnnouncementPinResp, error)
 	}
 
 	defaultSocial struct {
@@ -260,4 +306,72 @@ func (m *defaultSocial) GroupUpdate(ctx context.Context, in *GroupUpdateReq, opt
 func (m *defaultSocial) GroupDetail(ctx context.Context, in *GroupDetailReq, opts ...grpc.CallOption) (*GroupDetailResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.GroupDetail(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupDisband(ctx context.Context, in *GroupDisbandReq, opts ...grpc.CallOption) (*GroupDisbandResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupDisband(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupTransferOwner(ctx context.Context, in *GroupTransferOwnerReq, opts ...grpc.CallOption) (*GroupTransferOwnerResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupTransferOwner(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupSetAdmin(ctx context.Context, in *GroupSetAdminReq, opts ...grpc.CallOption) (*GroupSetAdminResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupSetAdmin(ctx, in, opts...)
+}
+
+// 邀请链接/二维码入群
+func (m *defaultSocial) GroupInviteLinkCreate(ctx context.Context, in *GroupInviteLinkCreateReq, opts ...grpc.CallOption) (*GroupInviteLinkCreateResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupInviteLinkCreate(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupInviteLinkList(ctx context.Context, in *GroupInviteLinkListReq, opts ...grpc.CallOption) (*GroupInviteLinkListResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupInviteLinkList(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupInviteLinkRevoke(ctx context.Context, in *GroupInviteLinkRevokeReq, opts ...grpc.CallOption) (*GroupInviteLinkRevokeResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupInviteLinkRevoke(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupJoinByToken(ctx context.Context, in *GroupJoinByTokenReq, opts ...grpc.CallOption) (*GroupJoinByTokenResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupJoinByToken(ctx, in, opts...)
+}
+
+// 群成员资料（群内昵称/群备注/@列表）
+func (m *defaultSocial) GetMyGroupMemberSetting(ctx context.Context, in *GetMyGroupMemberSettingReq, opts ...grpc.CallOption) (*GetMyGroupMemberSettingResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GetMyGroupMemberSetting(ctx, in, opts...)
+}
+
+func (m *defaultSocial) UpdateMyGroupMemberSetting(ctx context.Context, in *UpdateMyGroupMemberSettingReq, opts ...grpc.CallOption) (*UpdateMyGroupMemberSettingResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.UpdateMyGroupMemberSetting(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupAtList(ctx context.Context, in *GroupAtListReq, opts ...grpc.CallOption) (*GroupAtListResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupAtList(ctx, in, opts...)
+}
+
+// 公告历史/置顶
+func (m *defaultSocial) GroupAnnouncementCreate(ctx context.Context, in *GroupAnnouncementCreateReq, opts ...grpc.CallOption) (*GroupAnnouncementCreateResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupAnnouncementCreate(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupAnnouncementList(ctx context.Context, in *GroupAnnouncementListReq, opts ...grpc.CallOption) (*GroupAnnouncementListResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupAnnouncementList(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupAnnouncementPin(ctx context.Context, in *GroupAnnouncementPinReq, opts ...grpc.CallOption) (*GroupAnnouncementPinResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupAnnouncementPin(ctx, in, opts...)
 }

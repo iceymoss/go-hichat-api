@@ -1,6 +1,9 @@
 package socialmodels
 
 import (
+	"context"
+
+	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
@@ -12,6 +15,9 @@ type (
 	// and implement the added methods in customGroupRequestsModel.
 	GroupRequestsModel interface {
 		groupRequestsModel
+
+		// DeleteByGroupId 解散群时清理入群申请记录（可选）
+		DeleteByGroupId(ctx context.Context, groupId string) error
 	}
 
 	customGroupRequestsModel struct {
@@ -24,4 +30,9 @@ func NewGroupRequestsModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.O
 	return &customGroupRequestsModel{
 		defaultGroupRequestsModel: newGroupRequestsModel(conn, c, opts...),
 	}
+}
+
+func (m *customGroupRequestsModel) DeleteByGroupId(ctx context.Context, groupId string) error {
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	return mysqlConn.WithContext(ctx).Table(m.table).Where("group_id = ?", groupId).Delete(&GroupRequests{}).Error
 }

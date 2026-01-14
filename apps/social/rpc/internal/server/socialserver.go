@@ -164,3 +164,71 @@ func (s *SocialServer) GroupDetail(ctx context.Context, in *social.GroupDetailRe
 	l := logic.NewGroupDetailLogic(ctx, s.svcCtx)
 	return l.GroupDetail(in)
 }
+
+func (s *SocialServer) GroupDisband(ctx context.Context, in *social.GroupDisbandReq) (*social.GroupDisbandResp, error) {
+	l := logic.NewGroupDisbandLogic(ctx, s.svcCtx)
+	return l.GroupDisband(in)
+}
+
+func (s *SocialServer) GroupTransferOwner(ctx context.Context, in *social.GroupTransferOwnerReq) (*social.GroupTransferOwnerResp, error) {
+	l := logic.NewGroupTransferOwnerLogic(ctx, s.svcCtx)
+	return l.GroupTransferOwner(in)
+}
+
+func (s *SocialServer) GroupSetAdmin(ctx context.Context, in *social.GroupSetAdminReq) (*social.GroupSetAdminResp, error) {
+	l := logic.NewGroupSetAdminLogic(ctx, s.svcCtx)
+	return l.GroupSetAdmin(in)
+}
+
+// 邀请链接/二维码入群
+func (s *SocialServer) GroupInviteLinkCreate(ctx context.Context, in *social.GroupInviteLinkCreateReq) (*social.GroupInviteLinkCreateResp, error) {
+	l := logic.NewGroupInviteLinkCreateLogic(ctx, s.svcCtx)
+	return l.GroupInviteLinkCreate(in)
+}
+
+func (s *SocialServer) GroupInviteLinkList(ctx context.Context, in *social.GroupInviteLinkListReq) (*social.GroupInviteLinkListResp, error) {
+	l := logic.NewGroupInviteLinkListLogic(ctx, s.svcCtx)
+	return l.GroupInviteLinkList(in)
+}
+
+func (s *SocialServer) GroupInviteLinkRevoke(ctx context.Context, in *social.GroupInviteLinkRevokeReq) (*social.GroupInviteLinkRevokeResp, error) {
+	l := logic.NewGroupInviteLinkRevokeLogic(ctx, s.svcCtx)
+	return l.GroupInviteLinkRevoke(in)
+}
+
+func (s *SocialServer) GroupJoinByToken(ctx context.Context, in *social.GroupJoinByTokenReq) (*social.GroupJoinByTokenResp, error) {
+	l := logic.NewGroupJoinByTokenLogic(ctx, s.svcCtx)
+	return l.GroupJoinByToken(in)
+}
+
+// 群成员资料（群内昵称/群备注/@列表）
+func (s *SocialServer) GetMyGroupMemberSetting(ctx context.Context, in *social.GetMyGroupMemberSettingReq) (*social.GetMyGroupMemberSettingResp, error) {
+	l := logic.NewGetMyGroupMemberSettingLogic(ctx, s.svcCtx)
+	return l.GetMyGroupMemberSetting(in)
+}
+
+func (s *SocialServer) UpdateMyGroupMemberSetting(ctx context.Context, in *social.UpdateMyGroupMemberSettingReq) (*social.UpdateMyGroupMemberSettingResp, error) {
+	l := logic.NewUpdateMyGroupMemberSettingLogic(ctx, s.svcCtx)
+	return l.UpdateMyGroupMemberSetting(in)
+}
+
+func (s *SocialServer) GroupAtList(ctx context.Context, in *social.GroupAtListReq) (*social.GroupAtListResp, error) {
+	l := logic.NewGroupAtListLogic(ctx, s.svcCtx)
+	return l.GroupAtList(in)
+}
+
+// 公告历史/置顶
+func (s *SocialServer) GroupAnnouncementCreate(ctx context.Context, in *social.GroupAnnouncementCreateReq) (*social.GroupAnnouncementCreateResp, error) {
+	l := logic.NewGroupAnnouncementCreateLogic(ctx, s.svcCtx)
+	return l.GroupAnnouncementCreate(in)
+}
+
+func (s *SocialServer) GroupAnnouncementList(ctx context.Context, in *social.GroupAnnouncementListReq) (*social.GroupAnnouncementListResp, error) {
+	l := logic.NewGroupAnnouncementListLogic(ctx, s.svcCtx)
+	return l.GroupAnnouncementList(in)
+}
+
+func (s *SocialServer) GroupAnnouncementPin(ctx context.Context, in *social.GroupAnnouncementPinReq) (*social.GroupAnnouncementPinResp, error) {
+	l := logic.NewGroupAnnouncementPinLogic(ctx, s.svcCtx)
+	return l.GroupAnnouncementPin(in)
+}

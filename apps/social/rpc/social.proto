@@ -93,6 +93,7 @@ message GroupUpdateReq {
   string icon = 4;
   string notification = 5;
   string notificationUid = 6;
+  int32  isVerify = 7; // 入群验证：-1不修改 0不需要 1需要
 }
 message GroupUpdateResp {}
 
@@ -103,6 +104,159 @@ message GroupDetailResp {
   Groups group = 1;
   repeated GroupMembers members = 2;
 }
+
+// ---------------- 邀请链接/二维码入群 ----------------
+message GroupInviteLink {
+  string token = 1;
+  string groupId = 2;
+  string createdBy = 3;
+  int64  createdAt = 4;
+  int64  expireAt = 5; // 0=永不过期
+  int32  maxUses = 6;  // 0=无限
+  int32  usedCount = 7;
+  bool   revoked = 8;
+  int64  revokedAt = 9;
+}
+
+message GroupInviteLinkCreateReq {
+  string userId = 1; // Operator（群成员）
+  string groupId = 2;
+  int64  expireSeconds = 3; // 0=永不过期
+  int32  maxUses = 4; // 0=无限
+}
+message GroupInviteLinkCreateResp {
+  GroupInviteLink link = 1;
+}
+
+message GroupInviteLinkListReq {
+  string userId = 1;
+  string groupId = 2;
+  bool   includeRevoked = 3;
+}
+message GroupInviteLinkListResp {
+  repeated GroupInviteLink list = 1;
+}
+
+message GroupInviteLinkRevokeReq {
+  string userId = 1;
+  string groupId = 2;
+  string token = 3;
+}
+message GroupInviteLinkRevokeResp {}
+
+message GroupJoinByTokenReq {
+  string userId = 1; // 当前登录用户
+  string token = 2;
+  string reqMsg = 3;
+}
+message GroupJoinByTokenResp {
+  int32 groupId = 1;
+  int32 isPass = 2; // 1=直接进群 0=进入申请流程
+}
+
+// ---------------- 群成员资料（群内昵称/群备注/@列表） ----------------
+message GroupMemberSetting {
+  string groupId = 1;
+  string userId = 2;
+  string groupNickname = 3;
+  string groupRemark = 4;
+  int64  updatedAt = 5;
+}
+
+message GetMyGroupMemberSettingReq {
+  string userId = 1;
+  string groupId = 2;
+}
+message GetMyGroupMemberSettingResp {
+  GroupMemberSetting setting = 1;
+}
+
+message UpdateMyGroupMemberSettingReq {
+  string userId = 1;
+  string groupId = 2;
+  string groupNickname = 3;
+  string groupRemark = 4;
+}
+message UpdateMyGroupMemberSettingResp {}
+
+message AtMember {
+  string userId = 1;
+  string nickname = 2;       // 用户昵称
+  string groupNickname = 3;  // 群内昵称（可空）
+  string avatar = 4;         // 由 API 层补齐
+  int32  roleLevel = 5;
+}
+
+message GroupAtListReq {
+  string userId = 1;
+  string groupId = 2;
+  string keyword = 3; // 可选：按昵称/群内昵称过滤（API层也可做）
+}
+message GroupAtListResp {
+  repeated AtMember list = 1;
+}
+
+// ---------------- 公告历史/置顶 ----------------
+message GroupAnnouncement {
+  int64  id = 1;
+  string groupId = 2;
+  string content = 3;
+  string createdBy = 4;
+  int64  createdAt = 5;
+  bool   pinned = 6;
+  int64  pinnedAt = 7;
+}
+
+message GroupAnnouncementCreateReq {
+  string userId = 1; // admin/owner
+  string groupId = 2;
+  string content = 3;
+}
+message GroupAnnouncementCreateResp {
+  int64 id = 1;
+}
+
+message GroupAnnouncementListReq {
+  string userId = 1;
+  string groupId = 2;
+  bool   includeDeleted = 3;
+}
+message GroupAnnouncementListResp {
+  repeated GroupAnnouncement list = 1;
+}
+
+message GroupAnnouncementPinReq {
+  string userId = 1; // admin/owner
+  string groupId = 2;
+  int64  announcementId = 3;
+  bool   pinned = 4; // true=置顶 false=取消置顶
+}
+message GroupAnnouncementPinResp {}
+
+// 解散群
+message GroupDisbandReq {
+  string userId = 1; // Operator（必须群主）
+  string groupId = 2;
+}
+message GroupDisbandResp {}
+
+// 转让群主
+message GroupTransferOwnerReq {
+  string userId = 1; // Operator（必须群主）
+  string groupId = 2;
+  string newOwnerId = 3; // 新群主（必须已在群内）
+  bool   keepOldOwnerAsAdmin = 4; // 旧群主是否保留为管理员（默认 true）
+}
+message GroupTransferOwnerResp {}
+
+// 设置/取消管理员
+message GroupSetAdminReq {
+  string userId = 1; // Operator（必须群主）
+  string groupId = 2;
+  repeated string memberIds = 3;
+  bool isAdmin = 4; // true=设为管理员 false=取消管理员
+}
+message GroupSetAdminResp {}
 
 // req resp
 
@@ -270,6 +424,7 @@ message GroupPutInHandleReq {
 }
 message GroupPutInHandleResp {
   string groupId = 1;
+  string reqId = 2; // 被处理的入群申请用户ID（通过后需要用它建立群会话）
 }
 
 message GroupListReq{
@@ -330,4 +485,23 @@ service social {
   rpc GroupInvite(GroupInviteReq) returns (GroupInviteResp);
   rpc GroupUpdate(GroupUpdateReq) returns (GroupUpdateResp);
   rpc GroupDetail(GroupDetailReq) returns (GroupDetailResp);
+  rpc GroupDisband(GroupDisbandReq) returns (GroupDisbandResp);
+  rpc GroupTransferOwner(GroupTransferOwnerReq) returns (GroupTransferOwnerResp);
+  rpc GroupSetAdmin(GroupSetAdminReq) returns (GroupSetAdminResp);
+
+  // 邀请链接/二维码入群
+  rpc GroupInviteLinkCreate(GroupInviteLinkCreateReq) returns (GroupInviteLinkCreateResp);
+  rpc GroupInviteLinkList(GroupInviteLinkListReq) returns (GroupInviteLinkListResp);
+  rpc GroupInviteLinkRevoke(GroupInviteLinkRevokeReq) returns (GroupInviteLinkRevokeResp);
+  rpc GroupJoinByToken(GroupJoinByTokenReq) returns (GroupJoinByTokenResp);
+
+  // 群成员资料（群内昵称/群备注/@列表）
+  rpc GetMyGroupMemberSetting(GetMyGroupMemberSettingReq) returns (GetMyGroupMemberSettingResp);
+  rpc UpdateMyGroupMemberSetting(UpdateMyGroupMemberSettingReq) returns (UpdateMyGroupMemberSettingResp);
+  rpc GroupAtList(GroupAtListReq) returns (GroupAtListResp);
+
+  // 公告历史/置顶
+  rpc GroupAnnouncementCreate(GroupAnnouncementCreateReq) returns (GroupAnnouncementCreateResp);
+  rpc GroupAnnouncementList(GroupAnnouncementListReq) returns (GroupAnnouncementListResp);
+  rpc GroupAnnouncementPin(GroupAnnouncementPinReq) returns (GroupAnnouncementPinResp);
 }

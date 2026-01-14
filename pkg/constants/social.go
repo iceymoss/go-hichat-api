@@ -36,6 +36,9 @@ const (
 
 	// InviteGroupJoinSource 邀请入群
 	InviteGroupJoinSource
+
+	// InviteLinkGroupJoinSource 邀请链接/二维码入群（本质是链接）
+	InviteLinkGroupJoinSource
 )
 
 const GroupRequests = "group_requests"

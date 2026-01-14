@@ -19,34 +19,47 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Social_FriendPutIn_FullMethodName             = "/social.social/FriendPutIn"
-	Social_FriendPutInHandle_FullMethodName       = "/social.social/FriendPutInHandle"
-	Social_FriendPutInRead_FullMethodName         = "/social.social/FriendPutInRead"
-	Social_FriendPutInList_FullMethodName         = "/social.social/FriendPutInList"
-	Social_FriendPutInMessageCount_FullMethodName = "/social.social/FriendPutInMessageCount"
-	Social_FriendList_FullMethodName              = "/social.social/FriendList"
-	Social_FriendUpdateRemark_FullMethodName      = "/social.social/FriendUpdateRemark"
-	Social_FriendDelete_FullMethodName            = "/social.social/FriendDelete"
-	Social_FriendBlock_FullMethodName             = "/social.social/FriendBlock"
-	Social_FriendMomentsPermission_FullMethodName = "/social.social/FriendMomentsPermission"
-	Social_FriendNotification_FullMethodName      = "/social.social/FriendNotification"
-	Social_FriendPin_FullMethodName               = "/social.social/FriendPin"
-	Social_FriendMute_FullMethodName              = "/social.social/FriendMute"
-	Social_FriendTags_FullMethodName              = "/social.social/FriendTags"
-	Social_FriendReport_FullMethodName            = "/social.social/FriendReport"
-	Social_FriendShare_FullMethodName             = "/social.social/FriendShare"
-	Social_GroupCreate_FullMethodName             = "/social.social/GroupCreate"
-	Social_GroupPutin_FullMethodName              = "/social.social/GroupPutin"
-	Social_GroupPutinList_FullMethodName          = "/social.social/GroupPutinList"
-	Social_GroupPutInHandle_FullMethodName        = "/social.social/GroupPutInHandle"
-	Social_GroupList_FullMethodName               = "/social.social/GroupList"
-	Social_GroupUsers_FullMethodName              = "/social.social/GroupUsers"
-	Social_FindGroupList_FullMethodName           = "/social.social/FindGroupList"
-	Social_GroupQuit_FullMethodName               = "/social.social/GroupQuit"
-	Social_GroupKick_FullMethodName               = "/social.social/GroupKick"
-	Social_GroupInvite_FullMethodName             = "/social.social/GroupInvite"
-	Social_GroupUpdate_FullMethodName             = "/social.social/GroupUpdate"
-	Social_GroupDetail_FullMethodName             = "/social.social/GroupDetail"
+	Social_FriendPutIn_FullMethodName                = "/social.social/FriendPutIn"
+	Social_FriendPutInHandle_FullMethodName          = "/social.social/FriendPutInHandle"
+	Social_FriendPutInRead_FullMethodName            = "/social.social/FriendPutInRead"
+	Social_FriendPutInList_FullMethodName            = "/social.social/FriendPutInList"
+	Social_FriendPutInMessageCount_FullMethodName    = "/social.social/FriendPutInMessageCount"
+	Social_FriendList_FullMethodName                 = "/social.social/FriendList"
+	Social_FriendUpdateRemark_FullMethodName         = "/social.social/FriendUpdateRemark"
+	Social_FriendDelete_FullMethodName               = "/social.social/FriendDelete"
+	Social_FriendBlock_FullMethodName                = "/social.social/FriendBlock"
+	Social_FriendMomentsPermission_FullMethodName    = "/social.social/FriendMomentsPermission"
+	Social_FriendNotification_FullMethodName         = "/social.social/FriendNotification"
+	Social_FriendPin_FullMethodName                  = "/social.social/FriendPin"
+	Social_FriendMute_FullMethodName                 = "/social.social/FriendMute"
+	Social_FriendTags_FullMethodName                 = "/social.social/FriendTags"
+	Social_FriendReport_FullMethodName               = "/social.social/FriendReport"
+	Social_FriendShare_FullMethodName                = "/social.social/FriendShare"
+	Social_GroupCreate_FullMethodName                = "/social.social/GroupCreate"
+	Social_GroupPutin_FullMethodName                 = "/social.social/GroupPutin"
+	Social_GroupPutinList_FullMethodName             = "/social.social/GroupPutinList"
+	Social_GroupPutInHandle_FullMethodName           = "/social.social/GroupPutInHandle"
+	Social_GroupList_FullMethodName                  = "/social.social/GroupList"
+	Social_GroupUsers_FullMethodName                 = "/social.social/GroupUsers"
+	Social_FindGroupList_FullMethodName              = "/social.social/FindGroupList"
+	Social_GroupQuit_FullMethodName                  = "/social.social/GroupQuit"
+	Social_GroupKick_FullMethodName                  = "/social.social/GroupKick"
+	Social_GroupInvite_FullMethodName                = "/social.social/GroupInvite"
+	Social_GroupUpdate_FullMethodName                = "/social.social/GroupUpdate"
+	Social_GroupDetail_FullMethodName                = "/social.social/GroupDetail"
+	Social_GroupDisband_FullMethodName               = "/social.social/GroupDisband"
+	Social_GroupTransferOwner_FullMethodName         = "/social.social/GroupTransferOwner"
+	Social_GroupSetAdmin_FullMethodName              = "/social.social/GroupSetAdmin"
+	Social_GroupInviteLinkCreate_FullMethodName      = "/social.social/GroupInviteLinkCreate"
+	Social_GroupInviteLinkList_FullMethodName        = "/social.social/GroupInviteLinkList"
+	Social_GroupInviteLinkRevoke_FullMethodName      = "/social.social/GroupInviteLinkRevoke"
+	Social_GroupJoinByToken_FullMethodName           = "/social.social/GroupJoinByToken"
+	Social_GetMyGroupMemberSetting_FullMethodName    = "/social.social/GetMyGroupMemberSetting"
+	Social_UpdateMyGroupMemberSetting_FullMethodName = "/social.social/UpdateMyGroupMemberSetting"
+	Social_GroupAtList_FullMethodName                = "/social.social/GroupAtList"
+	Social_GroupAnnouncementCreate_FullMethodName    = "/social.social/GroupAnnouncementCreate"
+	Social_GroupAnnouncementList_FullMethodName      = "/social.social/GroupAnnouncementList"
+	Social_GroupAnnouncementPin_FullMethodName       = "/social.social/GroupAnnouncementPin"
 )
 
 // SocialClient is the client API for Social service.
@@ -86,6 +99,22 @@ type SocialClient interface {
 	GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error)
 	GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error)
 	GroupDetail(ctx context.Context, in *GroupDetailReq, opts ...grpc.CallOption) (*GroupDetailResp, error)
+	GroupDisband(ctx context.Context, in *GroupDisbandReq, opts ...grpc.CallOption) (*GroupDisbandResp, error)
+	GroupTransferOwner(ctx context.Context, in *GroupTransferOwnerReq, opts ...grpc.CallOption) (*GroupTransferOwnerResp, error)
+	GroupSetAdmin(ctx context.Context, in *GroupSetAdminReq, opts ...grpc.CallOption) (*GroupSetAdminResp, error)
+	// 邀请链接/二维码入群
+	GroupInviteLinkCreate(ctx context.Context, in *GroupInviteLinkCreateReq, opts ...grpc.CallOption) (*GroupInviteLinkCreateResp, error)
+	GroupInviteLinkList(ctx context.Context, in *GroupInviteLinkListReq, opts ...grpc.CallOption) (*GroupInviteLinkListResp, error)
+	GroupInviteLinkRevoke(ctx context.Context, in *GroupInviteLinkRevokeReq, opts ...grpc.CallOption) (*GroupInviteLinkRevokeResp, error)
+	GroupJoinByToken(ctx context.Context, in *GroupJoinByTokenReq, opts ...grpc.CallOption) (*GroupJoinByTokenResp, error)
+	// 群成员资料（群内昵称/群备注/@列表）
+	GetMyGroupMemberSetting(ctx context.Context, in *GetMyGroupMemberSettingReq, opts ...grpc.CallOption) (*GetMyGroupMemberSettingResp, error)
+	UpdateMyGroupMemberSetting(ctx context.Context, in *UpdateMyGroupMemberSettingReq, opts ...grpc.CallOption) (*UpdateMyGroupMemberSettingResp, error)
+	GroupAtList(ctx context.Context, in *GroupAtListReq, opts ...grpc.CallOption) (*GroupAtListResp, error)
+	// 公告历史/置顶
+	GroupAnnouncementCreate(ctx context.Context, in *GroupAnnouncementCreateReq, opts ...grpc.CallOption) (*GroupAnnouncementCreateResp, error)
+	GroupAnnouncementList(ctx context.Context, in *GroupAnnouncementListReq, opts ...grpc.CallOption) (*GroupAnnouncementListResp, error)
+	GroupAnnouncementPin(ctx context.Context, in *GroupAnnouncementPinReq, opts ...grpc.CallOption) (*GroupAnnouncementPinResp, error)
 }
 
 type socialClient struct {
@@ -376,6 +405,136 @@ func (c *socialClient) GroupDetail(ctx context.Context, in *GroupDetailReq, opts
 	return out, nil
 }
 
+func (c *socialClient) GroupDisband(ctx context.Context, in *GroupDisbandReq, opts ...grpc.CallOption) (*GroupDisbandResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupDisbandResp)
+	err := c.cc.Invoke(ctx, Social_GroupDisband_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupTransferOwner(ctx context.Context, in *GroupTransferOwnerReq, opts ...grpc.CallOption) (*GroupTransferOwnerResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupTransferOwnerResp)
+	err := c.cc.Invoke(ctx, Social_GroupTransferOwner_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupSetAdmin(ctx context.Context, in *GroupSetAdminReq, opts ...grpc.CallOption) (*GroupSetAdminResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupSetAdminResp)
+	err := c.cc.Invoke(ctx, Social_GroupSetAdmin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupInviteLinkCreate(ctx context.Context, in *GroupInviteLinkCreateReq, opts ...grpc.CallOption) (*GroupInviteLinkCreateResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupInviteLinkCreateResp)
+	err := c.cc.Invoke(ctx, Social_GroupInviteLinkCreate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupInviteLinkList(ctx context.Context, in *GroupInviteLinkListReq, opts ...grpc.CallOption) (*GroupInviteLinkListResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupInviteLinkListResp)
+	err := c.cc.Invoke(ctx, Social_GroupInviteLinkList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupInviteLinkRevoke(ctx context.Context, in *GroupInviteLinkRevokeReq, opts ...grpc.CallOption) (*GroupInviteLinkRevokeResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupInviteLinkRevokeResp)
+	err := c.cc.Invoke(ctx, Social_GroupInviteLinkRevoke_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupJoinByToken(ctx context.Context, in *GroupJoinByTokenReq, opts ...grpc.CallOption) (*GroupJoinByTokenResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupJoinByTokenResp)
+	err := c.cc.Invoke(ctx, Social_GroupJoinByToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GetMyGroupMemberSetting(ctx context.Context, in *GetMyGroupMemberSettingReq, opts ...grpc.CallOption) (*GetMyGroupMemberSettingResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMyGroupMemberSettingResp)
+	err := c.cc.Invoke(ctx, Social_GetMyGroupMemberSetting_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) UpdateMyGroupMemberSetting(ctx context.Context, in *UpdateMyGroupMemberSettingReq, opts ...grpc.CallOption) (*UpdateMyGroupMemberSettingResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateMyGroupMemberSettingResp)
+	err := c.cc.Invoke(ctx, Social_UpdateMyGroupMemberSetting_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupAtList(ctx context.Context, in *GroupAtListReq, opts ...grpc.CallOption) (*GroupAtListResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupAtListResp)
+	err := c.cc.Invoke(ctx, Social_GroupAtList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupAnnouncementCreate(ctx context.Context, in *GroupAnnouncementCreateReq, opts ...grpc.CallOption) (*GroupAnnouncementCreateResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupAnnouncementCreateResp)
+	err := c.cc.Invoke(ctx, Social_GroupAnnouncementCreate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupAnnouncementList(ctx context.Context, in *GroupAnnouncementListReq, opts ...grpc.CallOption) (*GroupAnnouncementListResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupAnnouncementListResp)
+	err := c.cc.Invoke(ctx, Social_GroupAnnouncementList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupAnnouncementPin(ctx context.Context, in *GroupAnnouncementPinReq, opts ...grpc.CallOption) (*GroupAnnouncementPinResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupAnnouncementPinResp)
+	err := c.cc.Invoke(ctx, Social_GroupAnnouncementPin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SocialServer is the server API for Social service.
 // All implementations must embed UnimplementedSocialServer
 // for forward compatibility.
@@ -413,6 +572,22 @@ type SocialServer interface {
 	GroupInvite(context.Context, *GroupInviteReq) (*GroupInviteResp, error)
 	GroupUpdate(context.Context, *GroupUpdateReq) (*GroupUpdateResp, error)
 	GroupDetail(context.Context, *GroupDetailReq) (*GroupDetailResp, error)
+	GroupDisband(context.Context, *GroupDisbandReq) (*GroupDisbandResp, error)
+	GroupTransferOwner(context.Context, *GroupTransferOwnerReq) (*GroupTransferOwnerResp, error)
+	GroupSetAdmin(context.Context, *GroupSetAdminReq) (*GroupSetAdminResp, error)
+	// 邀请链接/二维码入群
+	GroupInviteLinkCreate(context.Context, *GroupInviteLinkCreateReq) (*GroupInviteLinkCreateResp, error)
+	GroupInviteLinkList(context.Context, *GroupInviteLinkListReq) (*GroupInviteLinkListResp, error)
+	GroupInviteLinkRevoke(context.Context, *GroupInviteLinkRevokeReq) (*GroupInviteLinkRevokeResp, error)
+	GroupJoinByToken(context.Context, *GroupJoinByTokenReq) (*GroupJoinByTokenResp, error)
+	// 群成员资料（群内昵称/群备注/@列表）
+	GetMyGroupMemberSetting(context.Context, *GetMyGroupMemberSettingReq) (*GetMyGroupMemberSettingResp, error)
+	UpdateMyGroupMemberSetting(context.Context, *UpdateMyGroupMemberSettingReq) (*UpdateMyGroupMemberSettingResp, error)
+	GroupAtList(context.Context, *GroupAtListReq) (*GroupAtListResp, error)
+	// 公告历史/置顶
+	GroupAnnouncementCreate(context.Context, *GroupAnnouncementCreateReq) (*GroupAnnouncementCreateResp, error)
+	GroupAnnouncementList(context.Context, *GroupAnnouncementListReq) (*GroupAnnouncementListResp, error)
+	GroupAnnouncementPin(context.Context, *GroupAnnouncementPinReq) (*GroupAnnouncementPinResp, error)
 	mustEmbedUnimplementedSocialServer()
 }
 
@@ -506,6 +681,45 @@ func (UnimplementedSocialServer) GroupUpdate(context.Context, *GroupUpdateReq) (
 }
 func (UnimplementedSocialServer) GroupDetail(context.Context, *GroupDetailReq) (*GroupDetailResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupDetail not implemented")
+}
+func (UnimplementedSocialServer) GroupDisband(context.Context, *GroupDisbandReq) (*GroupDisbandResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupDisband not implemented")
+}
+func (UnimplementedSocialServer) GroupTransferOwner(context.Context, *GroupTransferOwnerReq) (*GroupTransferOwnerResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupTransferOwner not implemented")
+}
+func (UnimplementedSocialServer) GroupSetAdmin(context.Context, *GroupSetAdminReq) (*GroupSetAdminResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupSetAdmin not implemented")
+}
+func (UnimplementedSocialServer) GroupInviteLinkCreate(context.Context, *GroupInviteLinkCreateReq) (*GroupInviteLinkCreateResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupInviteLinkCreate not implemented")
+}
+func (UnimplementedSocialServer) GroupInviteLinkList(context.Context, *GroupInviteLinkListReq) (*GroupInviteLinkListResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupInviteLinkList not implemented")
+}
+func (UnimplementedSocialServer) GroupInviteLinkRevoke(context.Context, *GroupInviteLinkRevokeReq) (*GroupInviteLinkRevokeResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupInviteLinkRevoke not implemented")
+}
+func (UnimplementedSocialServer) GroupJoinByToken(context.Context, *GroupJoinByTokenReq) (*GroupJoinByTokenResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupJoinByToken not implemented")
+}
+func (UnimplementedSocialServer) GetMyGroupMemberSetting(context.Context, *GetMyGroupMemberSettingReq) (*GetMyGroupMemberSettingResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMyGroupMemberSetting not implemented")
+}
+func (UnimplementedSocialServer) UpdateMyGroupMemberSetting(context.Context, *UpdateMyGroupMemberSettingReq) (*UpdateMyGroupMemberSettingResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateMyGroupMemberSetting not implemented")
+}
+func (UnimplementedSocialServer) GroupAtList(context.Context, *GroupAtListReq) (*GroupAtListResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupAtList not implemented")
+}
+func (UnimplementedSocialServer) GroupAnnouncementCreate(context.Context, *GroupAnnouncementCreateReq) (*GroupAnnouncementCreateResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupAnnouncementCreate not implemented")
+}
+func (UnimplementedSocialServer) GroupAnnouncementList(context.Context, *GroupAnnouncementListReq) (*GroupAnnouncementListResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupAnnouncementList not implemented")
+}
+func (UnimplementedSocialServer) GroupAnnouncementPin(context.Context, *GroupAnnouncementPinReq) (*GroupAnnouncementPinResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupAnnouncementPin not implemented")
 }
 func (UnimplementedSocialServer) mustEmbedUnimplementedSocialServer() {}
 func (UnimplementedSocialServer) testEmbeddedByValue()                {}
@@ -1032,6 +1246,240 @@ func _Social_GroupDetail_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Social_GroupDisband_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupDisbandReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupDisband(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupDisband_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupDisband(ctx, req.(*GroupDisbandReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupTransferOwner_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupTransferOwnerReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupTransferOwner(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupTransferOwner_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupTransferOwner(ctx, req.(*GroupTransferOwnerReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupSetAdmin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupSetAdminReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupSetAdmin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupSetAdmin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupSetAdmin(ctx, req.(*GroupSetAdminReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupInviteLinkCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupInviteLinkCreateReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupInviteLinkCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupInviteLinkCreate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupInviteLinkCreate(ctx, req.(*GroupInviteLinkCreateReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupInviteLinkList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupInviteLinkListReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupInviteLinkList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupInviteLinkList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupInviteLinkList(ctx, req.(*GroupInviteLinkListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupInviteLinkRevoke_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupInviteLinkRevokeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupInviteLinkRevoke(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupInviteLinkRevoke_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupInviteLinkRevoke(ctx, req.(*GroupInviteLinkRevokeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupJoinByToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupJoinByTokenReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupJoinByToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupJoinByToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupJoinByToken(ctx, req.(*GroupJoinByTokenReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GetMyGroupMemberSetting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMyGroupMemberSettingReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GetMyGroupMemberSetting(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GetMyGroupMemberSetting_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GetMyGroupMemberSetting(ctx, req.(*GetMyGroupMemberSettingReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_UpdateMyGroupMemberSetting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMyGroupMemberSettingReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).UpdateMyGroupMemberSetting(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_UpdateMyGroupMemberSetting_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).UpdateMyGroupMemberSetting(ctx, req.(*UpdateMyGroupMemberSettingReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupAtList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupAtListReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupAtList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupAtList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupAtList(ctx, req.(*GroupAtListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupAnnouncementCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupAnnouncementCreateReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupAnnouncementCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupAnnouncementCreate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupAnnouncementCreate(ctx, req.(*GroupAnnouncementCreateReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupAnnouncementList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupAnnouncementListReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupAnnouncementList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupAnnouncementList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupAnnouncementList(ctx, req.(*GroupAnnouncementListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupAnnouncementPin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupAnnouncementPinReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupAnnouncementPin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupAnnouncementPin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupAnnouncementPin(ctx, req.(*GroupAnnouncementPinReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Social_ServiceDesc is the grpc.ServiceDesc for Social service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1150,6 +1598,58 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GroupDetail",
 			Handler:    _Social_GroupDetail_Handler,
+		},
+		{
+			MethodName: "GroupDisband",
+			Handler:    _Social_GroupDisband_Handler,
+		},
+		{
+			MethodName: "GroupTransferOwner",
+			Handler:    _Social_GroupTransferOwner_Handler,
+		},
+		{
+			MethodName: "GroupSetAdmin",
+			Handler:    _Social_GroupSetAdmin_Handler,
+		},
+		{
+			MethodName: "GroupInviteLinkCreate",
+			Handler:    _Social_GroupInviteLinkCreate_Handler,
+		},
+		{
+			MethodName: "GroupInviteLinkList",
+			Handler:    _Social_GroupInviteLinkList_Handler,
+		},
+		{
+			MethodName: "GroupInviteLinkRevoke",
+			Handler:    _Social_GroupInviteLinkRevoke_Handler,
+		},
+		{
+			MethodName: "GroupJoinByToken",
+			Handler:    _Social_GroupJoinByToken_Handler,
+		},
+		{
+			MethodName: "GetMyGroupMemberSetting",
+			Handler:    _Social_GetMyGroupMemberSetting_Handler,
+		},
+		{
+			MethodName: "UpdateMyGroupMemberSetting",
+			Handler:    _Social_UpdateMyGroupMemberSetting_Handler,
+		},
+		{
+			MethodName: "GroupAtList",
+			Handler:    _Social_GroupAtList_Handler,
+		},
+		{
+			MethodName: "GroupAnnouncementCreate",
+			Handler:    _Social_GroupAnnouncementCreate_Handler,
+		},
+		{
+			MethodName: "GroupAnnouncementList",
+			Handler:    _Social_GroupAnnouncementList_Handler,
+		},
+		{
+			MethodName: "GroupAnnouncementPin",
+			Handler:    _Social_GroupAnnouncementPin_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
