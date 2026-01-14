@@ -2,6 +2,9 @@
   <div class="group-list-container">
     <div class="search-section">
       <input v-model="keyword" placeholder="搜索群聊/群号" />
+      <button class="add-group-btn" title="Join by token" @click="showJoinModal = true">
+        <i class="icon icon-link"></i>
+      </button>
       <button class="add-group-btn" @click="showCreateModal = true">
         <i class="icon icon-plus"></i>
       </button>
@@ -21,6 +24,12 @@
       @close="showCreateModal = false" 
       @success="handleCreateSuccess" 
     />
+
+    <JoinGroupByTokenModal
+      v-if="showJoinModal"
+      @close="showJoinModal = false"
+      @success="handleJoinSuccess"
+    />
     <Toast ref="toastRef" />
   </div>
 </template>
@@ -28,6 +37,7 @@
 import { ref, computed } from 'vue'
 import { useContactsStore } from '../stores/contacts'
 import CreateGroupModal from './CreateGroupModal.vue'
+import JoinGroupByTokenModal from './JoinGroupByTokenModal.vue'
 import Toast from './ui/Toast.vue'
 
 const props = defineProps({
@@ -40,6 +50,7 @@ const emit = defineEmits(['select-group'])
 const contactsStore = useContactsStore()
 const keyword = ref('')
 const showCreateModal = ref(false)
+const showJoinModal = ref(false)
 const toastRef = ref(null)
 
 const filteredGroups = computed(() => {
@@ -55,6 +66,12 @@ const selectGroup = (group) => {
 
 const handleCreateSuccess = () => {
   toastRef.value?.show('群聊创建成功')
+}
+
+const handleJoinSuccess = (resp) => {
+  const isPass = resp?.is_pass ?? resp?.isPass
+  if (isPass === 1) toastRef.value?.show('已加入群聊')
+  else toastRef.value?.show('已提交入群申请')
 }
 </script>
 <style scoped>

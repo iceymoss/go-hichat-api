@@ -144,6 +144,72 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: group.GroupDetailHandler(serverCtx),
 			},
 			{
+				// 解散群（仅群主）
+				Method:  http.MethodPost,
+				Path:    "/group/disband",
+				Handler: group.GroupDisbandHandler(serverCtx),
+			},
+			{
+				// 创建邀请链接/二维码
+				Method:  http.MethodPost,
+				Path:    "/group/inviteLink/create",
+				Handler: group.GroupInviteLinkCreateHandler(serverCtx),
+			},
+			{
+				// 邀请链接列表
+				Method:  http.MethodGet,
+				Path:    "/group/inviteLinks",
+				Handler: group.GroupInviteLinkListHandler(serverCtx),
+			},
+			{
+				// 撤销邀请链接
+				Method:  http.MethodPost,
+				Path:    "/group/inviteLink/revoke",
+				Handler: group.GroupInviteLinkRevokeHandler(serverCtx),
+			},
+			{
+				// 通过邀请token入群（链接/二维码）
+				Method:  http.MethodPost,
+				Path:    "/group/joinByToken",
+				Handler: group.GroupJoinByTokenHandler(serverCtx),
+			},
+			{
+				// 获取我的群成员资料（群内昵称/群备注）
+				Method:  http.MethodGet,
+				Path:    "/group/memberSetting",
+				Handler: group.GetMyGroupMemberSettingHandler(serverCtx),
+			},
+			{
+				// 更新我的群成员资料（群内昵称/群备注）
+				Method:  http.MethodPost,
+				Path:    "/group/memberSetting",
+				Handler: group.UpdateMyGroupMemberSettingHandler(serverCtx),
+			},
+			{
+				// 群 @ 列表
+				Method:  http.MethodGet,
+				Path:    "/group/atList",
+				Handler: group.GroupAtListHandler(serverCtx),
+			},
+			{
+				// 发布群公告
+				Method:  http.MethodPost,
+				Path:    "/group/announcement",
+				Handler: group.GroupAnnouncementCreateHandler(serverCtx),
+			},
+			{
+				// 群公告列表
+				Method:  http.MethodGet,
+				Path:    "/group/announcements",
+				Handler: group.GroupAnnouncementListHandler(serverCtx),
+			},
+			{
+				// 置顶/取消置顶群公告
+				Method:  http.MethodPost,
+				Path:    "/group/announcement/pin",
+				Handler: group.GroupAnnouncementPinHandler(serverCtx),
+			},
+			{
 				// 邀请群成员
 				Method:  http.MethodPost,
 				Path:    "/group/invite",
@@ -178,6 +244,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/group/quit",
 				Handler: group.GroupQuitHandler(serverCtx),
+			},
+			{
+				// 设置/取消管理员（仅群主）
+				Method:  http.MethodPost,
+				Path:    "/group/setAdmin",
+				Handler: group.GroupSetAdminHandler(serverCtx),
+			},
+			{
+				// 转让群主（仅群主）
+				Method:  http.MethodPost,
+				Path:    "/group/transferOwner",
+				Handler: group.GroupTransferOwnerHandler(serverCtx),
 			},
 			{
 				// 更新群信息

@@ -43,6 +43,7 @@ type (
 		Update(ctx context.Context, data *GroupMembers) error
 		Delete(ctx context.Context, id int64) error
 		FindMemberByUid(ctx context.Context, groupId, uid string, filter []string) (*GroupMembers, error)
+		FindByGroudIdAndUserIds(ctx context.Context, userId []string, groupId string) ([]GroupMembers, error)
 	}
 
 	defaultGroupMembersModel struct {
@@ -97,6 +98,16 @@ func (m *defaultGroupMembersModel) FindByGroudIdAndUserId(ctx context.Context, u
 	res := m.mysqlConn.Table(m.table).Where("user_id = ?", userId).Where("group_id = ?", groupId).First(&resp)
 	if res.Error != nil {
 		return resp, res.Error
+	}
+
+	return resp, nil
+}
+
+func (m *defaultGroupMembersModel) FindByGroudIdAndUserIds(ctx context.Context, userId []string, groupId string) ([]GroupMembers, error) {
+	var resp []GroupMembers
+	err := m.mysqlConn.Table(m.table).Where("group_id = ?", groupId).Where("user_id in (?)", userId).Find(&resp).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
 	}
 
 	return resp, nil
@@ -162,7 +173,7 @@ func (m *defaultGroupMembersModel) Update(ctx context.Context, data *GroupMember
 		member.GroupId = data.GroupId
 	}
 	if data.RoleLevel != 0 {
-		data.RoleLevel = data.RoleLevel
+		member.RoleLevel = data.RoleLevel
 	}
 	err = m.mysqlConn.Table(m.table).Where("id = ?", data.Id).Save(&member).Error
 	if err != nil {

@@ -95,6 +95,54 @@ func (GroupRequest) TableName() string {
 	return "group_requests"
 }
 
+// GroupInviteLink 群邀请链接表（链接/二维码统一）
+type GroupInviteLink struct {
+	ID        uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
+	GroupID   uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;index:idx_group;comment:群ID"`
+	Token     string     `gorm:"column:token;type:VARCHAR(64);not null;uniqueIndex:uk_token;comment:邀请token（唯一）"`
+	CreatedBy uint64     `gorm:"column:created_by;type:INT UNSIGNED;not null;index:idx_creator;comment:创建人"`
+	ExpireAt  *time.Time `gorm:"column:expire_at;type:TIMESTAMP;comment:过期时间（NULL=永不过期）"`
+	MaxUses   uint       `gorm:"column:max_uses;type:INT UNSIGNED;not null;default:0;comment:最大可用次数（0=无限）"`
+	UsedCount uint       `gorm:"column:used_count;type:INT UNSIGNED;not null;default:0;comment:已使用次数"`
+	Revoked   bool       `gorm:"column:revoked;type:TINYINT(1);not null;default:0;comment:是否撤销 0否 1是"`
+	RevokedAt *time.Time `gorm:"column:revoked_at;type:TIMESTAMP;comment:撤销时间"`
+	CreatedAt *time.Time `gorm:"column:created_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP;comment:创建时间"`
+}
+
+func (GroupInviteLink) TableName() string {
+	return "group_invite_links"
+}
+
+// GroupMemberSetting 群成员资料/设置
+type GroupMemberSetting struct {
+	ID          uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
+	GroupID     uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:1;comment:群ID"`
+	UserID      uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:2;index:idx_user;comment:用户ID"`
+	GroupNick   string     `gorm:"column:group_nickname;type:VARCHAR(64);comment:我在本群的昵称"`
+	GroupRemark string     `gorm:"column:group_remark;type:VARCHAR(255);comment:群备注（仅自己可见）"`
+	UpdatedAt   *time.Time `gorm:"column:updated_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;comment:更新时间"`
+}
+
+func (GroupMemberSetting) TableName() string {
+	return "group_member_settings"
+}
+
+// GroupAnnouncement 群公告历史
+type GroupAnnouncement struct {
+	ID        uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
+	GroupID   uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;index:idx_group;comment:群ID"`
+	Content   string     `gorm:"column:content;type:VARCHAR(1024);not null;comment:公告内容"`
+	CreatedBy uint64     `gorm:"column:created_by;type:INT UNSIGNED;not null;index:idx_creator;comment:发布人"`
+	CreatedAt *time.Time `gorm:"column:created_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP;comment:发布时间"`
+	Pinned    bool       `gorm:"column:pinned;type:TINYINT(1);not null;default:0;comment:是否置顶"`
+	PinnedAt  *time.Time `gorm:"column:pinned_at;type:TIMESTAMP;comment:置顶时间"`
+	Deleted   bool       `gorm:"column:deleted;type:TINYINT(1);not null;default:0;comment:是否删除"`
+}
+
+func (GroupAnnouncement) TableName() string {
+	return "group_announcements"
+}
+
 // FriendReport 好友举报表
 type FriendReport struct {
 	ID          uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`

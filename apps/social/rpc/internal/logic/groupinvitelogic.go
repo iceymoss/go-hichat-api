@@ -7,7 +7,6 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
@@ -30,39 +29,30 @@ func NewGroupInviteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Group
 }
 
 func (l *GroupInviteLogic) GroupInvite(in *social.GroupInviteReq) (*social.GroupInviteResp, error) {
-	// 1. Check if inviter is in the group
+	// 说明：邀请入群在业务上属于 GroupPutin 的一个分支（joinSource=邀请）。
+	// 这里保留 GroupInvite 只是为了 API/前端兼容，内部统一走 GroupPutin，避免两套逻辑不一致。
+
+	// inviter 必须是群成员（否则不允许“替别人申请入群”）
 	_, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.UserId, in.GroupId)
 	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "inviter not in group")
+		return nil, errors.Wrapf(xerr.NewMsg("inviter not in group"), "inviter not in group")
 	}
 
-	// 2. Loop through friends to invite
+	putin := NewGroupPutinLogic(l.ctx, l.svcCtx)
+	now := time.Now().Unix()
+
 	for _, friendId := range in.FriendIds {
-		// Check if already a member
-		_, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, friendId, in.GroupId)
-		if err == nil {
-			continue // Already a member, skip
-		}
-
-		// Add as member
-		// TODO: In a real app, this might create a request or notification first.
-		// For now, we directly add them as members (like scanning QR code or direct invite in some apps).
-		// Or we could create a GroupRequests record with JoinSource = InviteGroupJoinSource.
-
-		// Direct add approach:
-		groupMember := &socialmodels.GroupMembers{
-			GroupId:     in.GroupId,
-			UserId:      friendId,
-			RoleLevel:   int(constants.AtLargeGroupRoleLevel),
-			JoinTime:    time.Now(),
-			JoinSource:  int(constants.InviteGroupJoinSource),
-			InviterUid:  in.UserId,
-			OperatorUid: in.UserId,
-		}
-		_, err = l.svcCtx.GroupMembersModel.Insert(l.ctx, groupMember)
+		_, err := putin.GroupPutin(&social.GroupPutinReq{
+			GroupId:    in.GroupId,
+			ReqId:      friendId, // 被邀请者
+			ReqMsg:     "invited",
+			ReqTime:    now,
+			JoinSource: int32(constants.InviteGroupJoinSource),
+			InviterUid: in.UserId, // 邀请者
+		})
 		if err != nil {
-			l.Logger.Errorf("Failed to invite user %s: %v", friendId, err)
-			// Continue with others
+			// 不阻塞其它邀请，记录日志即可
+			l.Logger.Errorf("GroupInvite->GroupPutin failed: groupId=%s inviter=%s friend=%s err=%v", in.GroupId, in.UserId, friendId, err)
 		}
 	}
 

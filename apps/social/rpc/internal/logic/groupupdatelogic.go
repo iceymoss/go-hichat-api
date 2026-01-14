@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -57,6 +58,13 @@ func (l *GroupUpdateLogic) GroupUpdate(in *social.GroupUpdateReq) (*social.Group
 		uidInt, _ := strconv.Atoi(in.UserId)
 		group.NotificationUid = uidInt
 	}
+	// 入群验证：-1不修改 0不需要 1需要
+	if in.IsVerify == 0 {
+		group.IsVerify = 0
+	} else if in.IsVerify == 1 {
+		group.IsVerify = 1
+	}
+	group.UpdatedAt = time.Now()
 
 	// 4. Save
 	err = l.svcCtx.GroupsModel.Update(l.ctx, group)

@@ -42,6 +42,15 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find friend req err %v req %v", err, in.GroupReqId)
 	}
 
+	// 权限校验：只有群主/管理员可以审批入群申请
+	handleMember, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.HandleUid, groupReq.GroupId)
+	if err != nil {
+		return nil, errors.Wrapf(xerr.NewMsg("no permission"), "handle user not in group")
+	}
+	if handleMember.RoleLevel < int(constants.ManagerGroupRoleLevel) {
+		return nil, errors.Wrapf(xerr.NewMsg("no permission"), "only admin/owner can handle group requests")
+	}
+
 	switch constants.HandlerResult(groupReq.HandleResult.Int64) {
 	case constants.PassHandlerResult:
 		return nil, errors.WithStack(ErrGroupReqBeforePass)
@@ -79,7 +88,7 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 	if constants.HandlerResult(groupReq.HandleResult.Int64) != constants.PassHandlerResult {
 		//拒绝加入群
 		tx.Commit()
-		return &social.GroupPutInHandleResp{}, nil
+		return &social.GroupPutInHandleResp{GroupId: groupReq.GroupId, ReqId: groupReq.ReqId}, nil
 	}
 
 	//插入群成员表
@@ -119,5 +128,6 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 
 	return &social.GroupPutInHandleResp{
 		GroupId: groupReq.GroupId,
+		ReqId:   groupReq.ReqId,
 	}, err
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/pkg/errors"
@@ -36,6 +37,11 @@ func (l *GroupQuitLogic) GroupQuit(in *social.GroupQuitReq) (*social.GroupQuitRe
 	member, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.UserId, in.GroupId)
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "member not found %v", err)
+	}
+
+	// 微信式约束：群主不能直接退群，必须先转让群主或解散群
+	if member.RoleLevel == int(constants.CreatorGroupRoleLevel) {
+		return nil, errors.Wrapf(xerr.NewMsg("群主不能直接退群，请先转让群主或解散群"), "owner cannot quit")
 	}
 
 	// 3. Delete member

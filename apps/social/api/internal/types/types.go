@@ -201,6 +201,13 @@ type GroupDetailResp struct {
 	Members []*GroupMembers `json:"members"`
 }
 
+type GroupDisbandReq struct {
+	GroupId string `json:"group_id"`
+}
+
+type GroupDisbandResp struct {
+}
+
 type GroupInviteReq struct {
 	GroupId   string   `json:"group_id"`
 	FriendIds []string `json:"friend_ids"`
@@ -289,11 +296,32 @@ type GroupRequests struct {
 	Group         Groups `json:"group,omitempty"`
 }
 
+type GroupSetAdminReq struct {
+	GroupId   string   `json:"group_id"`
+	MemberIds []string `json:"member_ids"`
+	IsAdmin   bool     `json:"is_admin"` // true=设为管理员 false=取消管理员
+}
+
+type GroupSetAdminResp struct {
+}
+
+type GroupTransferOwnerReq struct {
+	GroupId    string `json:"group_id"`
+	NewOwnerId string `json:"new_owner_id"`
+	// 使用指针以区分“未传”(nil) vs “显式传false”
+	KeepOldOwnerAsAdmin *bool `json:"keep_old_owner_as_admin,optional"` // 默认 true（服务端兜底）
+}
+
+type GroupTransferOwnerResp struct {
+}
+
 type GroupUpdateReq struct {
 	GroupId      string `json:"group_id"`
 	Name         string `json:"name,optional"`
 	Icon         string `json:"icon,optional"`
 	Notification string `json:"notification,optional"`
+	// 使用指针以区分“未传”(nil) vs “显式传0”
+	IsVerify *int32 `json:"is_verify,optional"` // -1不修改 0不需要验证 1需要验证
 }
 
 type GroupUpdateResp struct {
@@ -334,4 +362,141 @@ type User struct {
 	Avatar        string `json:"avatar,omitempty"`
 	Introduction  string `json:"introduction,omitempty"`
 	IsCurrentUser int    `json:"is_current_user,omitempty"`
+}
+
+// ---------------- Invite link / QR join ----------------
+
+type GroupInviteLink struct {
+	Token     string `json:"token,omitempty"`
+	GroupId   string `json:"group_id,omitempty"`
+	CreatedBy string `json:"created_by,omitempty"`
+	CreatedAt int64  `json:"created_at,omitempty"`
+	ExpireAt  int64  `json:"expire_at,omitempty"` // 0=never
+	MaxUses   int32  `json:"max_uses,omitempty"`  // 0=unlimited
+	UsedCount int32  `json:"used_count,omitempty"`
+	Revoked   bool   `json:"revoked,omitempty"`
+	RevokedAt int64  `json:"revoked_at,omitempty"`
+}
+
+type GroupInviteLinkCreateReq struct {
+	GroupId       string `json:"group_id"`
+	ExpireSeconds int64  `json:"expire_seconds,optional"` // 0=never
+	MaxUses       int32  `json:"max_uses,optional"`       // 0=unlimited
+}
+
+type GroupInviteLinkCreateResp struct {
+	Link *GroupInviteLink `json:"link,omitempty"`
+}
+
+type GroupInviteLinkListReq struct {
+	GroupId        string `form:"group_id"`
+	IncludeRevoked bool   `form:"include_revoked,optional"`
+}
+
+type GroupInviteLinkListResp struct {
+	List []*GroupInviteLink `json:"list,omitempty"`
+}
+
+type GroupInviteLinkRevokeReq struct {
+	GroupId string `json:"group_id"`
+	Token   string `json:"token"`
+}
+
+type GroupInviteLinkRevokeResp struct {
+}
+
+type GroupJoinByTokenReq struct {
+	Token  string `json:"token"`
+	ReqMsg string `json:"req_msg,optional"`
+}
+
+type GroupJoinByTokenResp struct {
+	GroupId int32 `json:"group_id,omitempty"`
+	IsPass  int32 `json:"is_pass,omitempty"` // 1=direct join, 0=request flow
+}
+
+// ---------------- Group member setting / @ list ----------------
+
+type GroupMemberSetting struct {
+	GroupId       string `json:"group_id,omitempty"`
+	UserId        string `json:"user_id,omitempty"`
+	GroupNickname string `json:"group_nickname,omitempty"`
+	GroupRemark   string `json:"group_remark,omitempty"`
+	UpdatedAt     int64  `json:"updated_at,omitempty"`
+}
+
+type GetMyGroupMemberSettingReq struct {
+	GroupId string `form:"group_id"`
+}
+
+type GetMyGroupMemberSettingResp struct {
+	Setting *GroupMemberSetting `json:"setting,omitempty"`
+}
+
+type UpdateMyGroupMemberSettingReq struct {
+	GroupId       string `json:"group_id"`
+	GroupNickname string `json:"group_nickname,optional"`
+	GroupRemark   string `json:"group_remark,optional"`
+}
+
+type UpdateMyGroupMemberSettingResp struct {
+}
+
+type AtMember struct {
+	UserId        string `json:"user_id,omitempty"`
+	Nickname      string `json:"nickname,omitempty"`
+	GroupNickname string `json:"group_nickname,omitempty"`
+	Avatar        string `json:"avatar,omitempty"`
+	RoleLevel     int32  `json:"role_level,omitempty"`
+}
+
+type GroupAtListReq struct {
+	GroupId string `form:"group_id"`
+	Keyword string `form:"keyword,optional"`
+}
+
+type GroupAtListResp struct {
+	List []*AtMember `json:"list,omitempty"`
+}
+
+// ---------------- Announcement history / pin ----------------
+
+type GroupAnnouncement struct {
+	Id        int64  `json:"id,omitempty"`
+	GroupId   string `json:"group_id,omitempty"`
+	Content   string `json:"content,omitempty"`
+	CreatedBy string `json:"created_by,omitempty"`
+	CreatedAt int64  `json:"created_at,omitempty"`
+	Pinned    bool   `json:"pinned,omitempty"`
+	PinnedAt  int64  `json:"pinned_at,omitempty"`
+
+	// enriched in api layer
+	Creator *User `json:"creator,omitempty"`
+}
+
+type GroupAnnouncementCreateReq struct {
+	GroupId string `json:"group_id"`
+	Content string `json:"content"`
+}
+
+type GroupAnnouncementCreateResp struct {
+	Id int64 `json:"id,omitempty"`
+}
+
+type GroupAnnouncementListReq struct {
+	GroupId        string `form:"group_id"`
+	IncludeDeleted bool   `form:"include_deleted,optional"`
+}
+
+type GroupAnnouncementListResp struct {
+	List []*GroupAnnouncement `json:"list,omitempty"`
+}
+
+type GroupAnnouncementPinReq struct {
+	GroupId        string `json:"group_id"`
+	AnnouncementId int64  `json:"announcement_id"`
+	Pinned         bool   `json:"pinned"`
+}
+
+type GroupAnnouncementPinResp struct {
 }

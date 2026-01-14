@@ -6,6 +6,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -32,12 +33,39 @@ func (l *GroupDetailLogic) GroupDetail(req *types.GroupDetailReq) (resp *types.G
 		return nil, err
 	}
 
+	// enrich member user profile via user-rpc
+	userIdList := make([]string, 0, len(rpcResp.Members))
+	for _, m := range rpcResp.Members {
+		userIdList = append(userIdList, m.UserId)
+	}
+
+	userBindUid := make(map[string]user.UserEntity, len(userIdList))
+	if len(userIdList) > 0 {
+		userRes, err := l.svcCtx.User.FindUser(l.ctx, &user.FindUserReq{Ids: userIdList})
+		if err != nil {
+			return nil, err
+		}
+		for _, u := range userRes.User {
+			userBindUid[u.Id] = *u
+		}
+	}
+
 	members := make([]*types.GroupMembers, 0)
 	for _, m := range rpcResp.Members {
+		u := userBindUid[m.UserId]
 		members = append(members, &types.GroupMembers{
-			Id:          int64(m.Id),
-			GroupId:     m.GroupId,
-			UserId:      m.UserId,
+			Id:            int64(m.Id),
+			GroupId:       m.GroupId,
+			UserId:        m.UserId,
+			Nickname:      u.Nickname,
+			UserAvatarUrl: u.Avatar,
+			User: types.User{
+				Id:           u.Id,
+				Nickname:     u.Nickname,
+				Sex:          int(u.Sex),
+				Avatar:       u.Avatar,
+				Introduction: u.Introduction,
+			},
 			RoleLevel:   int(m.RoleLevel),
 			InviterUid:  m.InviterUid,
 			OperatorUid: m.OperatorUid,

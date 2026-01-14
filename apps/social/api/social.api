@@ -280,8 +280,158 @@ type (
 		Name         string `json:"name,optional"`
 		Icon         string `json:"icon,optional"`
 		Notification string `json:"notification,optional"`
+		IsVerify     int32  `json:"is_verify,optional"` // -1不修改 0不需要验证 1需要验证
 	}
 	GroupUpdateResp  {}
+)
+
+type (
+	GroupDisbandReq {
+		GroupId string `json:"group_id"`
+	}
+	GroupDisbandResp  {}
+)
+
+type (
+	GroupTransferOwnerReq {
+		GroupId             string `json:"group_id"`
+		NewOwnerId          string `json:"new_owner_id"`
+		KeepOldOwnerAsAdmin bool   `json:"keep_old_owner_as_admin,optional"` // 默认 true（服务端兜底）
+	}
+	GroupTransferOwnerResp  {}
+)
+
+type (
+	GroupSetAdminReq {
+		GroupId   string   `json:"group_id"`
+		MemberIds []string `json:"member_ids"`
+		IsAdmin   bool     `json:"is_admin"` // true=设为管理员 false=取消管理员
+	}
+	GroupSetAdminResp  {}
+)
+
+// ---------------- 邀请链接/二维码入群 ----------------
+type (
+	GroupInviteLink {
+		Token     string `json:"token,omitempty"`
+		GroupId   string `json:"group_id,omitempty"`
+		CreatedBy string `json:"created_by,omitempty"`
+		CreatedAt int64  `json:"created_at,omitempty"`
+		ExpireAt  int64  `json:"expire_at,omitempty"`
+		MaxUses   int32  `json:"max_uses,omitempty"`
+		UsedCount int32  `json:"used_count,omitempty"`
+		Revoked   bool   `json:"revoked,omitempty"`
+		RevokedAt int64  `json:"revoked_at,omitempty"`
+	}
+
+	GroupInviteLinkCreateReq {
+		GroupId       string `json:"group_id"`
+		ExpireSeconds int64  `json:"expire_seconds,optional"` // 0=永不过期
+		MaxUses       int32  `json:"max_uses,optional"`       // 0=无限
+	}
+	GroupInviteLinkCreateResp {
+		Link GroupInviteLink `json:"link,omitempty"`
+	}
+
+	GroupInviteLinkListReq {
+		GroupId        string `form:"group_id"`
+		IncludeRevoked bool   `form:"include_revoked,optional"`
+	}
+	GroupInviteLinkListResp {
+		List []GroupInviteLink `json:"list,omitempty"`
+	}
+
+	GroupInviteLinkRevokeReq {
+		GroupId string `json:"group_id"`
+		Token   string `json:"token"`
+	}
+	GroupInviteLinkRevokeResp {}
+
+	GroupJoinByTokenReq {
+		Token  string `json:"token"`
+		ReqMsg string `json:"req_msg,optional"`
+	}
+	GroupJoinByTokenResp {
+		GroupId int32 `json:"group_id,omitempty"`
+		IsPass  int32 `json:"is_pass,omitempty"` // 1=直接进群 0=进入申请流程
+	}
+)
+
+// ---------------- 群成员资料（群内昵称/群备注/@列表） ----------------
+type (
+	GroupMemberSetting {
+		GroupId       string `json:"group_id,omitempty"`
+		UserId        string `json:"user_id,omitempty"`
+		GroupNickname string `json:"group_nickname,omitempty"`
+		GroupRemark   string `json:"group_remark,omitempty"`
+		UpdatedAt     int64  `json:"updated_at,omitempty"`
+	}
+
+	GetMyGroupMemberSettingReq {
+		GroupId string `form:"group_id"`
+	}
+	GetMyGroupMemberSettingResp {
+		Setting GroupMemberSetting `json:"setting,omitempty"`
+	}
+
+	UpdateMyGroupMemberSettingReq {
+		GroupId       string `json:"group_id"`
+		GroupNickname string `json:"group_nickname,optional"`
+		GroupRemark   string `json:"group_remark,optional"`
+	}
+	UpdateMyGroupMemberSettingResp {}
+
+	AtMember {
+		UserId        string `json:"user_id,omitempty"`
+		Nickname      string `json:"nickname,omitempty"`
+		GroupNickname string `json:"group_nickname,omitempty"`
+		Avatar        string `json:"avatar,omitempty"`
+		RoleLevel     int32  `json:"role_level,omitempty"`
+	}
+
+	GroupAtListReq {
+		GroupId  string `form:"group_id"`
+		Keyword  string `form:"keyword,optional"`
+	}
+	GroupAtListResp {
+		List []AtMember `json:"list,omitempty"`
+	}
+)
+
+// ---------------- 公告历史/置顶 ----------------
+type (
+	GroupAnnouncement {
+		Id        int64  `json:"id,omitempty"`
+		GroupId   string `json:"group_id,omitempty"`
+		Content   string `json:"content,omitempty"`
+		CreatedBy string `json:"created_by,omitempty"`
+		CreatedAt int64  `json:"created_at,omitempty"`
+		Pinned    bool   `json:"pinned,omitempty"`
+		PinnedAt  int64  `json:"pinned_at,omitempty"`
+	}
+
+	GroupAnnouncementCreateReq {
+		GroupId string `json:"group_id"`
+		Content string `json:"content"`
+	}
+	GroupAnnouncementCreateResp {
+		Id int64 `json:"id,omitempty"`
+	}
+
+	GroupAnnouncementListReq {
+		GroupId        string `form:"group_id"`
+		IncludeDeleted bool   `form:"include_deleted,optional"`
+	}
+	GroupAnnouncementListResp {
+		List []GroupAnnouncement `json:"list,omitempty"`
+	}
+
+	GroupAnnouncementPinReq {
+		GroupId        string `json:"group_id"`
+		AnnouncementId int64  `json:"announcement_id"`
+		Pinned         bool   `json:"pinned"`
+	}
+	GroupAnnouncementPinResp {}
 )
 
 type (
@@ -442,5 +592,57 @@ service social {
 	@doc "群详情"
 	@handler groupDetail
 	get /group/detail (GroupDetailReq) returns (GroupDetailResp)
+
+	@doc "解散群（仅群主）"
+	@handler groupDisband
+	post /group/disband (GroupDisbandReq) returns (GroupDisbandResp)
+
+	@doc "转让群主（仅群主）"
+	@handler groupTransferOwner
+	post /group/transferOwner (GroupTransferOwnerReq) returns (GroupTransferOwnerResp)
+
+	@doc "设置/取消管理员（仅群主）"
+	@handler groupSetAdmin
+	post /group/setAdmin (GroupSetAdminReq) returns (GroupSetAdminResp)
+
+	@doc "创建邀请链接/二维码（管理员/群主）"
+	@handler groupInviteLinkCreate
+	post /group/inviteLink/create (GroupInviteLinkCreateReq) returns (GroupInviteLinkCreateResp)
+
+	@doc "邀请链接列表（管理员/群主）"
+	@handler groupInviteLinkList
+	get /group/inviteLinks (GroupInviteLinkListReq) returns (GroupInviteLinkListResp)
+
+	@doc "撤销邀请链接（管理员/群主/创建者）"
+	@handler groupInviteLinkRevoke
+	post /group/inviteLink/revoke (GroupInviteLinkRevokeReq) returns (GroupInviteLinkRevokeResp)
+
+	@doc "通过邀请token入群（链接/二维码）"
+	@handler groupJoinByToken
+	post /group/joinByToken (GroupJoinByTokenReq) returns (GroupJoinByTokenResp)
+
+	@doc "获取我的群成员资料（群内昵称/群备注）"
+	@handler getMyGroupMemberSetting
+	get /group/memberSetting (GetMyGroupMemberSettingReq) returns (GetMyGroupMemberSettingResp)
+
+	@doc "更新我的群成员资料（群内昵称/群备注）"
+	@handler updateMyGroupMemberSetting
+	post /group/memberSetting (UpdateMyGroupMemberSettingReq) returns (UpdateMyGroupMemberSettingResp)
+
+	@doc "群 @ 列表"
+	@handler groupAtList
+	get /group/atList (GroupAtListReq) returns (GroupAtListResp)
+
+	@doc "发布群公告（管理员/群主）"
+	@handler groupAnnouncementCreate
+	post /group/announcement (GroupAnnouncementCreateReq) returns (GroupAnnouncementCreateResp)
+
+	@doc "群公告列表"
+	@handler groupAnnouncementList
+	get /group/announcements (GroupAnnouncementListReq) returns (GroupAnnouncementListResp)
+
+	@doc "置顶/取消置顶群公告（管理员/群主）"
+	@handler groupAnnouncementPin
+	post /group/announcement/pin (GroupAnnouncementPinReq) returns (GroupAnnouncementPinResp)
 }
 

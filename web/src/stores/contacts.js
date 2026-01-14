@@ -12,6 +12,9 @@ export const useContactsStore = defineStore('contacts', () => {
   // 群组列表
   const groups = ref([])
   const currentGroup = ref(null)
+
+  // 加群申请列表（仅管理员/群主在某群内可看）
+  const groupRequests = ref([])
   
   // 在线状态映射
   const onlineStatus = ref({})
@@ -19,6 +22,11 @@ export const useContactsStore = defineStore('contacts', () => {
   // 加载状态
   const loading = ref(false)
   const requestsLoading = ref(false)
+
+  // 邀请链接/群内资料/@列表/公告
+  const inviteLinks = ref([])
+  const myGroupMemberSetting = ref(null)
+  const groupAnnouncements = ref([])
   
   // 搜索关键词
   const searchKeyword = ref('')
@@ -396,6 +404,58 @@ export const useContactsStore = defineStore('contacts', () => {
     }
   }
 
+  // 获取加群申请列表
+  // classType: 1=我发起的申请, 2=我收到的申请(需要传 groupId 且需要管理员/群主权限)
+  const fetchGroupRequests = async (groupId, types = [0], classType = 2) => {
+    try {
+      requestsLoading.value = true
+      const response = await socialApi.groupPutInList(groupId, types, classType)
+      const list = response?.list || []
+
+      const formatted = list.map(req => ({
+        id: req.id,
+        group_req_id: req.id,
+        group_id: req.group_id,
+        user_id: req.user_id,
+        req_msg: req.req_msg || '',
+        req_time: req.req_time,
+        handle_result: req.handle_result,
+        join_source: req.join_source,
+        inviter_user_id: req.inviter_user_id,
+        // 后端已经带 user / group
+        user: req.user,
+        group: req.group,
+        // 便捷字段（UI 展示）
+        name: req.user?.nickname || req.user_id,
+        avatar: req.user?.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${req.user_id}`,
+        message: req.req_msg || '申请加入群聊'
+      }))
+
+      groupRequests.value = formatted
+      return formatted
+    } catch (error) {
+      console.error('获取加群申请列表失败:', error)
+      groupRequests.value = []
+      return []
+    } finally {
+      requestsLoading.value = false
+    }
+  }
+
+  // 处理加群申请
+  const handleGroupRequest = async (groupReqId, groupId, accept) => {
+    const handleResult = accept ? 1 : 2
+    await socialApi.groupPutInHandle(groupReqId, groupId, handleResult)
+
+    // 刷新当前群详情（如果就是当前群）
+    if (currentGroup.value && String(currentGroup.value.id) === String(groupId)) {
+      await fetchGroupDetail(groupId)
+    }
+
+    // 本地移除该申请
+    groupRequests.value = groupRequests.value.filter(r => r.group_req_id !== groupReqId)
+  }
+
   // 获取群详情
   const fetchGroupDetail = async (groupId) => {
     try {
@@ -403,6 +463,9 @@ export const useContactsStore = defineStore('contacts', () => {
       if (response && response.group) {
         currentGroup.value = {
           ...response.group,
+          // UI needs avatar/desc like group list
+          avatar: response.group.icon || `https://api.dicebear.com/7.x/identicon/svg?seed=${response.group.id}`,
+          desc: response.group.notification || '暂无公告',
           members: response.members || []
         }
         return currentGroup.value
@@ -474,6 +537,102 @@ export const useContactsStore = defineStore('contacts', () => {
     }
   }
 
+  // 解散群（仅群主）
+  const disbandGroup = async (groupId) => {
+    await socialApi.groupDisband(groupId)
+    // Remove from list
+    groups.value = groups.value.filter(g => String(g.id) !== String(groupId))
+    if (currentGroup.value && String(currentGroup.value.id) === String(groupId)) {
+      currentGroup.value = null
+    }
+  }
+
+  // 转让群主（仅群主）
+  const transferGroupOwner = async (groupId, newOwnerId, keepOldOwnerAsAdmin = true) => {
+    await socialApi.groupTransferOwner(groupId, newOwnerId, keepOldOwnerAsAdmin)
+    // Refresh detail to update role display
+    if (currentGroup.value && String(currentGroup.value.id) === String(groupId)) {
+      await fetchGroupDetail(groupId)
+    }
+  }
+
+  // 设置/取消管理员（仅群主）
+  const setGroupAdmin = async (groupId, memberIds, isAdmin) => {
+    await socialApi.groupSetAdmin(groupId, memberIds, isAdmin)
+    if (currentGroup.value && String(currentGroup.value.id) === String(groupId)) {
+      await fetchGroupDetail(groupId)
+    }
+  }
+
+  // 创建邀请链接/二维码
+  const createInviteLink = async (groupId, expireSeconds = 0, maxUses = 0) => {
+    const resp = await socialApi.groupInviteLinkCreate(groupId, expireSeconds, maxUses)
+    return resp?.link
+  }
+
+  // 获取邀请链接列表
+  const fetchInviteLinks = async (groupId, includeRevoked = false) => {
+    const resp = await socialApi.groupInviteLinkList(groupId, includeRevoked)
+    inviteLinks.value = resp?.list || []
+    return inviteLinks.value
+  }
+
+  // 撤销邀请链接
+  const revokeInviteLink = async (groupId, token) => {
+    await socialApi.groupInviteLinkRevoke(groupId, token)
+    await fetchInviteLinks(groupId, true)
+  }
+
+  // 通过 token 入群（链接/二维码）
+  const joinGroupByToken = async (token, reqMsg = '') => {
+    const resp = await socialApi.groupJoinByToken(token, reqMsg)
+    // 成功直入群则刷新群列表
+    if (resp?.is_pass === 1 || resp?.isPass === 1) {
+      await fetchGroups()
+    }
+    return resp
+  }
+
+  // 获取我的群成员资料
+  const fetchMyGroupMemberSetting = async (groupId) => {
+    const resp = await socialApi.getMyGroupMemberSetting(groupId)
+    myGroupMemberSetting.value = resp?.setting || null
+    return myGroupMemberSetting.value
+  }
+
+  // 更新我的群成员资料
+  const updateMyGroupMemberSetting = async (groupId, data) => {
+    await socialApi.updateMyGroupMemberSetting(groupId, data)
+    await fetchMyGroupMemberSetting(groupId)
+  }
+
+  // 获取群 @ 列表
+  const fetchGroupAtList = async (groupId, keyword = '') => {
+    const resp = await socialApi.groupAtList(groupId, keyword)
+    return resp?.list || []
+  }
+
+  // 发布群公告
+  const createGroupAnnouncement = async (groupId, content) => {
+    const resp = await socialApi.groupAnnouncementCreate(groupId, content)
+    await fetchGroupDetail(groupId) // 更新顶部公告展示
+    return resp
+  }
+
+  // 获取群公告列表
+  const fetchGroupAnnouncements = async (groupId, includeDeleted = false) => {
+    const resp = await socialApi.groupAnnouncementList(groupId, includeDeleted)
+    groupAnnouncements.value = resp?.list || []
+    return groupAnnouncements.value
+  }
+
+  // 置顶/取消置顶群公告
+  const pinGroupAnnouncement = async (groupId, announcementId, pinned) => {
+    await socialApi.groupAnnouncementPin(groupId, announcementId, pinned)
+    await fetchGroupAnnouncements(groupId, false)
+    await fetchGroupDetail(groupId) // pinned 会同步到 groups.notification
+  }
+
   // 创建群组
   const createGroup = async (name, icon) => {
     try {
@@ -508,20 +667,39 @@ export const useContactsStore = defineStore('contacts', () => {
     friendRequests,
     groups,
     currentGroup,
+    groupRequests,
     onlineStatus,
     loading,
     requestsLoading,
+    inviteLinks,
+    myGroupMemberSetting,
+    groupAnnouncements,
     searchKeyword,
     groupedFriends,
     searchResults,
     fetchFriends,
     fetchGroups,
     fetchGroupDetail,
+    fetchGroupRequests,
+    handleGroupRequest,
     quitGroup,
     inviteGroupMembers,
     kickGroupMember,
     updateGroupInfo,
     createGroup,
+    disbandGroup,
+    transferGroupOwner,
+    setGroupAdmin,
+    createInviteLink,
+    fetchInviteLinks,
+    revokeInviteLink,
+    joinGroupByToken,
+    fetchMyGroupMemberSetting,
+    updateMyGroupMemberSetting,
+    fetchGroupAtList,
+    createGroupAnnouncement,
+    fetchGroupAnnouncements,
+    pinGroupAnnouncement,
     fetchFriendsOnline,
     fetchFriendRequests,
     sendFriendRequest,

@@ -27,12 +27,17 @@ func NewGroupUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Group
 
 func (l *GroupUpdateLogic) GroupUpdate(req *types.GroupUpdateReq) (resp *types.GroupUpdateResp, err error) {
 	uid := ctxdata.GetUId(l.ctx)
+	isVerify := int32(-1)
+	if req.IsVerify != nil {
+		isVerify = *req.IsVerify
+	}
 	_, err = l.svcCtx.Social.GroupUpdate(l.ctx, &social.GroupUpdateReq{
 		UserId:       uid,
 		GroupId:      req.GroupId,
 		Name:         req.Name,
 		Icon:         req.Icon,
 		Notification: req.Notification,
+		IsVerify:     isVerify,
 	})
 	if err != nil {
 		return nil, err

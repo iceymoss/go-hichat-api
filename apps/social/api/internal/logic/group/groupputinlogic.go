@@ -48,15 +48,19 @@ func (l *GroupPutInLogic) GroupPutIn(req *types.GroupPutInReq) (resp *types.Grou
 
 	// 如果成功加入群聊后，为其用户创建该群的聊天会话
 	if res.IsPass == 1 {
-		_, err = l.svcCtx.Im.SetUpUserConversation(l.ctx, &im.SetUpUserConversationReq{
-			SendId:   uid,
-			RecvId:   strconv.Itoa(int(res.GroupId)),
-			ChatType: int32(constants.GroupChatType),
-		})
-		if err != nil {
-			zLog.Error("GroupPutIn.SetUpUserConversation: create conversation failed", zap.Error(err))
-			return nil, err
-		}
+		recvId := strconv.Itoa(int(res.GroupId))
+		// Best-effort: do NOT block or fail join if im-rpc is down.
+		go func(sendId, recvId string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 800*time.Millisecond)
+			defer cancel()
+			if _, err := l.svcCtx.Im.SetUpUserConversation(ctx, &im.SetUpUserConversationReq{
+				SendId:   sendId,
+				RecvId:   recvId,
+				ChatType: int32(constants.GroupChatType),
+			}); err != nil {
+				zLog.Error("GroupPutIn.SetUpUserConversation: best-effort failed", zap.Error(err))
+			}
+		}(uid, recvId)
 	}
 
 	resp = &types.GroupPutInResp{
