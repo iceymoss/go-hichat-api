@@ -53,21 +53,9 @@ func (l *GroupAnnouncementListLogic) GroupAnnouncementList(req *types.GroupAnnou
 		}
 	}
 
-	list := make([]*types.GroupAnnouncement, 0, len(rpcResp.List))
+	list := make([]types.GroupAnnouncement, 0, len(rpcResp.List))
 	for _, a := range rpcResp.List {
-		u := userBind[a.CreatedBy]
-		var creator *types.User
-		if u.Id != "" {
-			creator = &types.User{
-				Id:           u.Id,
-				Nickname:     u.Nickname,
-				Sex:          int(u.Sex),
-				Avatar:       u.Avatar,
-				Introduction: u.Introduction,
-			}
-		}
-
-		list = append(list, &types.GroupAnnouncement{
+		list = append(list, types.GroupAnnouncement{
 			Id:        a.Id,
 			GroupId:   a.GroupId,
 			Content:   a.Content,
@@ -75,9 +63,10 @@ func (l *GroupAnnouncementListLogic) GroupAnnouncementList(req *types.GroupAnnou
 			CreatedAt: a.CreatedAt,
 			Pinned:    a.Pinned,
 			PinnedAt:  a.PinnedAt,
-			Creator:   creator,
 		})
 	}
 
 	return &types.GroupAnnouncementListResp{List: list}, nil
 }
+
+

@@ -84,15 +84,15 @@ func (l *GroupInviteLinkCreateLogic) GroupInviteLinkCreate(in *social.GroupInvit
 		token = base64.RawURLEncoding.EncodeToString(b) // ~43 chars
 
 		res := mysqlConn.Table("group_invite_links").Create(map[string]any{
-			"group_id":   groupIdInt,
-			"token":      token,
-			"created_by": uidInt,
-			"expire_at":  expireAt,
-			"max_uses":   maxUses,
-			"used_count": 0,
-			"revoked":    0,
-			"revoked_at": nil,
-			"created_at": time.Now(),
+			"group_id":    groupIdInt,
+			"token":       token,
+			"created_by":  uidInt,
+			"expire_at":   expireAt,
+			"max_uses":    maxUses,
+			"used_count":  0,
+			"revoked":     0,
+			"revoked_at":  nil,
+			"created_at":  time.Now(),
 		})
 		if res.Error == nil && res.RowsAffected > 0 {
 			break

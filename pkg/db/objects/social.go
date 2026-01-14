@@ -115,12 +115,12 @@ func (GroupInviteLink) TableName() string {
 
 // GroupMemberSetting 群成员资料/设置
 type GroupMemberSetting struct {
-	ID          uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
-	GroupID     uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:1;comment:群ID"`
-	UserID      uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:2;index:idx_user;comment:用户ID"`
-	GroupNick   string     `gorm:"column:group_nickname;type:VARCHAR(64);comment:我在本群的昵称"`
-	GroupRemark string     `gorm:"column:group_remark;type:VARCHAR(255);comment:群备注（仅自己可见）"`
-	UpdatedAt   *time.Time `gorm:"column:updated_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;comment:更新时间"`
+	ID           uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
+	GroupID      uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:1;comment:群ID"`
+	UserID       uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:2;index:idx_user;comment:用户ID"`
+	GroupNick    string     `gorm:"column:group_nickname;type:VARCHAR(64);comment:我在本群的昵称"`
+	GroupRemark  string     `gorm:"column:group_remark;type:VARCHAR(255);comment:群备注（仅自己可见）"`
+	UpdatedAt    *time.Time `gorm:"column:updated_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;comment:更新时间"`
 }
 
 func (GroupMemberSetting) TableName() string {

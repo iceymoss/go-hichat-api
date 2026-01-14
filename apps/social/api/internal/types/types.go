@@ -3,6 +3,14 @@
 
 package types
 
+type AtMember struct {
+	UserId        string `json:"user_id,omitempty"`
+	Nickname      string `json:"nickname,omitempty"`
+	GroupNickname string `json:"group_nickname,omitempty"`
+	Avatar        string `json:"avatar,omitempty"`
+	RoleLevel     int32  `json:"role_level,omitempty"`
+}
+
 type FriendBlockReq struct {
 	FriendUid string `json:"friend_uid"`
 	Block     bool   `json:"block"`
@@ -183,6 +191,60 @@ type FriendsOnlineResp struct {
 	OnlineList map[string]bool `json:"onLineList"`
 }
 
+type GetMyGroupMemberSettingReq struct {
+	GroupId string `form:"group_id"`
+}
+
+type GetMyGroupMemberSettingResp struct {
+	Setting GroupMemberSetting `json:"setting,omitempty"`
+}
+
+type GroupAnnouncement struct {
+	Id        int64  `json:"id,omitempty"`
+	GroupId   string `json:"group_id,omitempty"`
+	Content   string `json:"content,omitempty"`
+	CreatedBy string `json:"created_by,omitempty"`
+	CreatedAt int64  `json:"created_at,omitempty"`
+	Pinned    bool   `json:"pinned,omitempty"`
+	PinnedAt  int64  `json:"pinned_at,omitempty"`
+}
+
+type GroupAnnouncementCreateReq struct {
+	GroupId string `json:"group_id"`
+	Content string `json:"content"`
+}
+
+type GroupAnnouncementCreateResp struct {
+	Id int64 `json:"id,omitempty"`
+}
+
+type GroupAnnouncementListReq struct {
+	GroupId        string `form:"group_id"`
+	IncludeDeleted bool   `form:"include_deleted,optional"`
+}
+
+type GroupAnnouncementListResp struct {
+	List []GroupAnnouncement `json:"list,omitempty"`
+}
+
+type GroupAnnouncementPinReq struct {
+	GroupId        string `json:"group_id"`
+	AnnouncementId int64  `json:"announcement_id"`
+	Pinned         bool   `json:"pinned"`
+}
+
+type GroupAnnouncementPinResp struct {
+}
+
+type GroupAtListReq struct {
+	GroupId string `form:"group_id"`
+	Keyword string `form:"keyword,optional"`
+}
+
+type GroupAtListResp struct {
+	List []AtMember `json:"list,omitempty"`
+}
+
 type GroupCreateReq struct {
 	Name string `json:"name,omitempty"`
 	Icon string `json:"icon,omitempty"`
@@ -208,12 +270,61 @@ type GroupDisbandReq struct {
 type GroupDisbandResp struct {
 }
 
+type GroupInviteLink struct {
+	Token     string `json:"token,omitempty"`
+	GroupId   string `json:"group_id,omitempty"`
+	CreatedBy string `json:"created_by,omitempty"`
+	CreatedAt int64  `json:"created_at,omitempty"`
+	ExpireAt  int64  `json:"expire_at,omitempty"`
+	MaxUses   int32  `json:"max_uses,omitempty"`
+	UsedCount int32  `json:"used_count,omitempty"`
+	Revoked   bool   `json:"revoked,omitempty"`
+	RevokedAt int64  `json:"revoked_at,omitempty"`
+}
+
+type GroupInviteLinkCreateReq struct {
+	GroupId       string `json:"group_id"`
+	ExpireSeconds int64  `json:"expire_seconds,optional"` // 0=永不过期
+	MaxUses       int32  `json:"max_uses,optional"`       // 0=无限
+}
+
+type GroupInviteLinkCreateResp struct {
+	Link GroupInviteLink `json:"link,omitempty"`
+}
+
+type GroupInviteLinkListReq struct {
+	GroupId        string `form:"group_id"`
+	IncludeRevoked bool   `form:"include_revoked,optional"`
+}
+
+type GroupInviteLinkListResp struct {
+	List []GroupInviteLink `json:"list,omitempty"`
+}
+
+type GroupInviteLinkRevokeReq struct {
+	GroupId string `json:"group_id"`
+	Token   string `json:"token"`
+}
+
+type GroupInviteLinkRevokeResp struct {
+}
+
 type GroupInviteReq struct {
 	GroupId   string   `json:"group_id"`
 	FriendIds []string `json:"friend_ids"`
 }
 
 type GroupInviteResp struct {
+}
+
+type GroupJoinByTokenReq struct {
+	Token  string `json:"token"`
+	ReqMsg string `json:"req_msg,optional"`
+}
+
+type GroupJoinByTokenResp struct {
+	GroupId int32 `json:"group_id,omitempty"`
+	IsPass  int32 `json:"is_pass,omitempty"` // 1=直接进群 0=进入申请流程
 }
 
 type GroupKickReq struct {
@@ -229,6 +340,14 @@ type GroupListReq struct {
 
 type GroupListResp struct {
 	List []*Groups `json:"list,omitempty"`
+}
+
+type GroupMemberSetting struct {
+	GroupId       string `json:"group_id,omitempty"`
+	UserId        string `json:"user_id,omitempty"`
+	GroupNickname string `json:"group_nickname,omitempty"`
+	GroupRemark   string `json:"group_remark,omitempty"`
+	UpdatedAt     int64  `json:"updated_at,omitempty"`
 }
 
 type GroupMembers struct {
@@ -263,15 +382,18 @@ type GroupPutInListResp struct {
 }
 
 type GroupPutInReq struct {
-	GroupId    string `json:"group_id,omitempty"`
-	ReqMsg     string `json:"req_msg,omitempty"`
-	ReqTime    int64  `json:"req_time,omitempty"`
-	JoinSource int64  `json:"join_source,omitempty"`
-	InviterUid string `json:"inviter_uid,omitempty"`
+	GroupId    string `json:"group_id,optional"`    // 群ID（普通申请/邀请入群时必传，token入群时可为空）
+	ReqId      string `json:"req_id,optional"`      // 申请者/被邀请者ID（邀请入群时必传，普通申请时为空则使用当前用户ID）
+	ReqMsg     string `json:"req_msg,optional"`     // 申请消息
+	ReqTime    int64  `json:"req_time,optional"`    // 请求时间
+	JoinSource int64  `json:"join_source,optional"` // 1=申请入群, 2=邀请入群, 3=邀请链接/二维码入群
+	InviterUid string `json:"inviter_uid,optional"` // 邀请人UID（邀请入群/token入群时必传）
+	Token      string `json:"token,optional"`       // 邀请链接token（token入群时必传，此时groupId可为空）
 }
 
 type GroupPutInResp struct {
 	GroupId int `json:"group_id,omitempty"`
+	IsPass  int `json:"is_pass,omitempty"` // 1=直接进群, 0=进入申请流程
 }
 
 type GroupQuitReq struct {
@@ -306,10 +428,9 @@ type GroupSetAdminResp struct {
 }
 
 type GroupTransferOwnerReq struct {
-	GroupId    string `json:"group_id"`
-	NewOwnerId string `json:"new_owner_id"`
-	// 使用指针以区分“未传”(nil) vs “显式传false”
-	KeepOldOwnerAsAdmin *bool `json:"keep_old_owner_as_admin,optional"` // 默认 true（服务端兜底）
+	GroupId             string `json:"group_id"`
+	NewOwnerId          string `json:"new_owner_id"`
+	KeepOldOwnerAsAdmin bool   `json:"keep_old_owner_as_admin,optional"` // 默认 true（服务端兜底）
 }
 
 type GroupTransferOwnerResp struct {
@@ -320,8 +441,7 @@ type GroupUpdateReq struct {
 	Name         string `json:"name,optional"`
 	Icon         string `json:"icon,optional"`
 	Notification string `json:"notification,optional"`
-	// 使用指针以区分“未传”(nil) vs “显式传0”
-	IsVerify *int32 `json:"is_verify,optional"` // -1不修改 0不需要验证 1需要验证
+	IsVerify     int32  `json:"is_verify,optional"` // -1不修改 0不需要验证 1需要验证
 }
 
 type GroupUpdateResp struct {
@@ -355,84 +475,6 @@ type Groups struct {
 	CreateUid       string `json:"create_uid,omitempty"`
 }
 
-type User struct {
-	Id            string `json:"id,omitempty"`
-	Nickname      string `json:"nickname,omitempty"`
-	Sex           int    `json:"sex,omitempty"`
-	Avatar        string `json:"avatar,omitempty"`
-	Introduction  string `json:"introduction,omitempty"`
-	IsCurrentUser int    `json:"is_current_user,omitempty"`
-}
-
-// ---------------- Invite link / QR join ----------------
-
-type GroupInviteLink struct {
-	Token     string `json:"token,omitempty"`
-	GroupId   string `json:"group_id,omitempty"`
-	CreatedBy string `json:"created_by,omitempty"`
-	CreatedAt int64  `json:"created_at,omitempty"`
-	ExpireAt  int64  `json:"expire_at,omitempty"` // 0=never
-	MaxUses   int32  `json:"max_uses,omitempty"`  // 0=unlimited
-	UsedCount int32  `json:"used_count,omitempty"`
-	Revoked   bool   `json:"revoked,omitempty"`
-	RevokedAt int64  `json:"revoked_at,omitempty"`
-}
-
-type GroupInviteLinkCreateReq struct {
-	GroupId       string `json:"group_id"`
-	ExpireSeconds int64  `json:"expire_seconds,optional"` // 0=never
-	MaxUses       int32  `json:"max_uses,optional"`       // 0=unlimited
-}
-
-type GroupInviteLinkCreateResp struct {
-	Link *GroupInviteLink `json:"link,omitempty"`
-}
-
-type GroupInviteLinkListReq struct {
-	GroupId        string `form:"group_id"`
-	IncludeRevoked bool   `form:"include_revoked,optional"`
-}
-
-type GroupInviteLinkListResp struct {
-	List []*GroupInviteLink `json:"list,omitempty"`
-}
-
-type GroupInviteLinkRevokeReq struct {
-	GroupId string `json:"group_id"`
-	Token   string `json:"token"`
-}
-
-type GroupInviteLinkRevokeResp struct {
-}
-
-type GroupJoinByTokenReq struct {
-	Token  string `json:"token"`
-	ReqMsg string `json:"req_msg,optional"`
-}
-
-type GroupJoinByTokenResp struct {
-	GroupId int32 `json:"group_id,omitempty"`
-	IsPass  int32 `json:"is_pass,omitempty"` // 1=direct join, 0=request flow
-}
-
-// ---------------- Group member setting / @ list ----------------
-
-type GroupMemberSetting struct {
-	GroupId       string `json:"group_id,omitempty"`
-	UserId        string `json:"user_id,omitempty"`
-	GroupNickname string `json:"group_nickname,omitempty"`
-	GroupRemark   string `json:"group_remark,omitempty"`
-	UpdatedAt     int64  `json:"updated_at,omitempty"`
-}
-
-type GetMyGroupMemberSettingReq struct {
-	GroupId string `form:"group_id"`
-}
-
-type GetMyGroupMemberSettingResp struct {
-	Setting *GroupMemberSetting `json:"setting,omitempty"`
-}
-
 type UpdateMyGroupMemberSettingReq struct {
 	GroupId       string `json:"group_id"`
 	GroupNickname string `json:"group_nickname,optional"`
@@ -442,61 +484,11 @@ type UpdateMyGroupMemberSettingReq struct {
 type UpdateMyGroupMemberSettingResp struct {
 }
 
-type AtMember struct {
-	UserId        string `json:"user_id,omitempty"`
+type User struct {
+	Id            string `json:"id,omitempty"`
 	Nickname      string `json:"nickname,omitempty"`
-	GroupNickname string `json:"group_nickname,omitempty"`
+	Sex           int    `json:"sex,omitempty"`
 	Avatar        string `json:"avatar,omitempty"`
-	RoleLevel     int32  `json:"role_level,omitempty"`
-}
-
-type GroupAtListReq struct {
-	GroupId string `form:"group_id"`
-	Keyword string `form:"keyword,optional"`
-}
-
-type GroupAtListResp struct {
-	List []*AtMember `json:"list,omitempty"`
-}
-
-// ---------------- Announcement history / pin ----------------
-
-type GroupAnnouncement struct {
-	Id        int64  `json:"id,omitempty"`
-	GroupId   string `json:"group_id,omitempty"`
-	Content   string `json:"content,omitempty"`
-	CreatedBy string `json:"created_by,omitempty"`
-	CreatedAt int64  `json:"created_at,omitempty"`
-	Pinned    bool   `json:"pinned,omitempty"`
-	PinnedAt  int64  `json:"pinned_at,omitempty"`
-
-	// enriched in api layer
-	Creator *User `json:"creator,omitempty"`
-}
-
-type GroupAnnouncementCreateReq struct {
-	GroupId string `json:"group_id"`
-	Content string `json:"content"`
-}
-
-type GroupAnnouncementCreateResp struct {
-	Id int64 `json:"id,omitempty"`
-}
-
-type GroupAnnouncementListReq struct {
-	GroupId        string `form:"group_id"`
-	IncludeDeleted bool   `form:"include_deleted,optional"`
-}
-
-type GroupAnnouncementListResp struct {
-	List []*GroupAnnouncement `json:"list,omitempty"`
-}
-
-type GroupAnnouncementPinReq struct {
-	GroupId        string `json:"group_id"`
-	AnnouncementId int64  `json:"announcement_id"`
-	Pinned         bool   `json:"pinned"`
-}
-
-type GroupAnnouncementPinResp struct {
+	Introduction  string `json:"introduction,omitempty"`
+	IsCurrentUser int    `json:"is_current_user,omitempty"`
 }

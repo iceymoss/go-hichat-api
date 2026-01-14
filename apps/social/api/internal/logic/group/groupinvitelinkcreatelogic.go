@@ -37,9 +37,9 @@ func (l *GroupInviteLinkCreateLogic) GroupInviteLinkCreate(req *types.GroupInvit
 		return nil, err
 	}
 
-	var link *types.GroupInviteLink
+	var link types.GroupInviteLink
 	if rpcResp.Link != nil {
-		link = &types.GroupInviteLink{
+		link = types.GroupInviteLink{
 			Token:     rpcResp.Link.Token,
 			GroupId:   rpcResp.Link.GroupId,
 			CreatedBy: rpcResp.Link.CreatedBy,

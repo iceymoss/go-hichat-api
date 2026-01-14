@@ -36,9 +36,9 @@ func (l *GroupInviteLinkListLogic) GroupInviteLinkList(req *types.GroupInviteLin
 		return nil, err
 	}
 
-	list := make([]*types.GroupInviteLink, 0, len(rpcResp.List))
+	list := make([]types.GroupInviteLink, 0, len(rpcResp.List))
 	for _, it := range rpcResp.List {
-		list = append(list, &types.GroupInviteLink{
+		list = append(list, types.GroupInviteLink{
 			Token:     it.Token,
 			GroupId:   it.GroupId,
 			CreatedBy: it.CreatedBy,

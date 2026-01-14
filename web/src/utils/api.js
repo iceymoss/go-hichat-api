@@ -336,17 +336,42 @@ export const socialApi = {
     })
   },
   
-  // 申请进群
-  groupPutIn: (groupId, reqMsg, joinSource, inviterUid) => {
-    return socialApiInstance.post('/v1/social/group/putIn', {
-      group_id: groupId,
+  // 申请进群（统一入口：普通申请、邀请入群、token入群都使用此接口）
+  // 参数说明：
+  // - groupId: 群ID（普通申请/邀请入群时必传）
+  // - reqMsg: 申请消息
+  // - joinSource: 1=申请入群, 2=邀请入群, 3=邀请链接/二维码入群
+  // - inviterUid: 邀请人UID（邀请入群/token入群时必传）
+  // - token: 邀请链接token（token入群时必传，此时groupId可为空）
+  // - reqId: 申请者/被邀请者ID（邀请入群时必传，普通申请时为空则使用当前用户ID）
+  groupPutIn: (groupId, reqMsg, joinSource, inviterUid, token, reqId) => {
+    const payload = {
       req_msg: reqMsg || '',
       req_time: Math.floor(Date.now() / 1000),
-      // 后端常量：1=申请入群，2=邀请入群；这里默认按“申请入群”处理
       join_source: joinSource || 1,
-      inviter_uid: inviterUid || '' // 邀请人 UID，如果是主动申请则为空
-    })
+      inviter_uid: inviterUid || ''
+    }
+    // 如果有 token，使用 token 入群（后端会通过 token 获取 groupId）
+    if (token) {
+      payload.token = token
+    } else {
+      // 普通申请/邀请入群需要 groupId
+      payload.group_id = groupId
+    }
+    // 如果传了 reqId（邀请入群场景），添加到 payload
+    if (reqId) {
+      payload.req_id = reqId
+    }
+    return socialApiInstance.post('/v1/social/group/putIn', payload)
   },
+
+  // 已废弃：邀请入群现在统一使用 groupPutIn API（joinSource=2）
+  // groupInvite: (groupId, friendIds) => {
+  //   return socialApiInstance.post('/v1/social/group/invite', { 
+  //     group_id: groupId,
+  //     friend_ids: friendIds
+  //   })
+  // },
   
   // 申请进群处理
   groupPutInHandle: (groupReqId, groupId, handleResult) => {
@@ -462,13 +487,13 @@ export const socialApi = {
     })
   },
 
-  // 通过 token 入群（链接/二维码）
-  groupJoinByToken: (token, reqMsg = '') => {
-    return socialApiInstance.post('/v1/social/group/joinByToken', {
-      token,
-      req_msg: reqMsg
-    })
-  },
+  // 已废弃：通过 token 入群现在统一使用 groupPutIn API
+  // groupJoinByToken: (token, reqMsg = '') => {
+  //   return socialApiInstance.post('/v1/social/group/joinByToken', {
+  //     token,
+  //     req_msg: reqMsg
+  //   })
+  // },
 
   // 获取我的群成员资料（群内昵称/群备注）
   getMyGroupMemberSetting: (groupId) => {

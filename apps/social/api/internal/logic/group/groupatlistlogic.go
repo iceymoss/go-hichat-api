@@ -53,10 +53,10 @@ func (l *GroupAtListLogic) GroupAtList(req *types.GroupAtListReq) (resp *types.G
 		}
 	}
 
-	list := make([]*types.AtMember, 0, len(rpcResp.List))
+	list := make([]types.AtMember, 0, len(rpcResp.List))
 	for _, m := range rpcResp.List {
 		u := userBind[m.UserId]
-		list = append(list, &types.AtMember{
+		list = append(list, types.AtMember{
 			UserId:        m.UserId,
 			Nickname:      u.Nickname,
 			GroupNickname: m.GroupNickname,

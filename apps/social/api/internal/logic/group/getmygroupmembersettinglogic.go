@@ -35,9 +35,9 @@ func (l *GetMyGroupMemberSettingLogic) GetMyGroupMemberSetting(req *types.GetMyG
 		return nil, err
 	}
 
-	var setting *types.GroupMemberSetting
+	var setting types.GroupMemberSetting
 	if rpcResp.Setting != nil {
-		setting = &types.GroupMemberSetting{
+		setting = types.GroupMemberSetting{
 			GroupId:       rpcResp.Setting.GroupId,
 			UserId:        rpcResp.Setting.UserId,
 			GroupNickname: rpcResp.Setting.GroupNickname,

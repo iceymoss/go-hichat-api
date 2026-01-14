@@ -54,10 +54,10 @@ func (l *GroupDetailLogic) GroupDetail(req *types.GroupDetailReq) (resp *types.G
 	for _, m := range rpcResp.Members {
 		u := userBindUid[m.UserId]
 		members = append(members, &types.GroupMembers{
-			Id:            int64(m.Id),
-			GroupId:       m.GroupId,
-			UserId:        m.UserId,
-			Nickname:      u.Nickname,
+			Id:          int64(m.Id),
+			GroupId:     m.GroupId,
+			UserId:      m.UserId,
+			Nickname:    u.Nickname,
 			UserAvatarUrl: u.Avatar,
 			User: types.User{
 				Id:           u.Id,

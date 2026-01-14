@@ -119,10 +119,16 @@
             <div class="friend-list">
               <div v-for="group in groupedFriends" :key="group.letter" class="friend-group">
                 <div class="group-header">{{ group.letter }}</div>
-                <div v-for="friend in group.friends" :key="friend.id" class="friend-item">
-                  <input type="checkbox" v-model="selectedFriends" :value="friend.id" />
+                <div v-for="friend in group.friends" :key="friend.id" class="friend-item" :class="{ 'disabled': isMemberInGroup(friend.id) || friend.id === authStore.user?.id }">
+                  <input 
+                    type="checkbox" 
+                    v-model="selectedFriends" 
+                    :value="friend.id"
+                    :disabled="isMemberInGroup(friend.id) || friend.id === authStore.user?.id"
+                  />
                   <img :src="friend.avatar" class="friend-avatar" />
                   <span>{{ friend.remark || friend.name }}</span>
+                  <span v-if="isMemberInGroup(friend.id) || friend.id === authStore.user?.id" class="in-group-badge">已在群聊</span>
                 </div>
               </div>
             </div>
@@ -161,6 +167,28 @@
               </div>
             </div>
             <button class="popover-close" @click="closeInviteLinks">关闭</button>
+          </div>
+        </div>
+
+        <!-- 移除成员弹窗 -->
+        <div v-if="showKickMembers" class="popover-dialog invite-animate" @click.self="closeKickMembers">
+          <div class="popover-content invite-content">
+            <h3>移除成员</h3>
+            <div class="friend-list">
+              <div v-if="kickableMembers.length === 0" class="empty">没有可移除的成员</div>
+              <div v-else v-for="m in kickableMembers" :key="m.user_id || m.userId || m.id" class="friend-item">
+                <input 
+                  type="checkbox" 
+                  v-model="selectedMembersToKick" 
+                  :value="String(m.user_id || m.userId || m.id)"
+                />
+                <img :src="m.user_avatar_url || m.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${m.user_id}`" class="friend-avatar" />
+                <span>{{ m.nickname || m.name || m.user_id }}</span>
+                <span v-if="m.role_level === 1 || m.roleLevel === 1" class="role admin">管理员</span>
+              </div>
+            </div>
+            <button class="popover-confirm" @click="confirmKickMembers" :disabled="selectedMembersToKick.length === 0">确定移除</button>
+            <button class="popover-close" @click="closeKickMembers">取消</button>
           </div>
         </div>
 
@@ -204,26 +232,21 @@
             v-for="m in members" 
             :key="m.user_id || m.id" 
             class="member-item"
-            :class="{ 'shake': isDeleteMode && m.user_id !== authStore.user?.id }"
-            @click="handleMemberClick(m)"
           >
             <div class="avatar-wrapper">
               <img :src="m.user_avatar_url || m.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${m.user_id}`" class="member-avatar" />
-              <div v-if="isDeleteMode && m.user_id !== authStore.user?.id" class="delete-badge">
-                <i class="icon icon-minus"></i>
-              </div>
             </div>
             <div class="member-name">{{ m.nickname || m.name || m.user_id }}</div>
             <span v-if="m.role_level === 2 || m.role==='owner'" class="role owner">群主</span>
             <span v-else-if="m.role_level === 1 || m.role==='admin'" class="role admin">管理员</span>
           </div>
-          <div class="member-item invite-item" v-if="!isDeleteMode">
+          <div class="member-item invite-item">
             <button class="invite-btn" @click="openInvite">+</button>
             <div class="member-name">邀请</div>
           </div>
           <div class="member-item delete-item" v-if="canManage">
-            <button class="invite-btn delete-btn" @click="toggleDeleteMode" :class="{ active: isDeleteMode }">-</button>
-            <div class="member-name">{{ isDeleteMode ? '完成' : '移除' }}</div>
+            <button class="invite-btn delete-btn" @click="openKickMembers">-</button>
+            <div class="member-name">移除</div>
           </div>
         </div>
       </div>
@@ -337,10 +360,11 @@ const showMenu = ref(false)
 const showGroupSettings = ref(false)
 const showInvite = ref(false)
 const selectedFriends = ref([])
-const isDeleteMode = ref(false) // Deletion mode state
 const showTransferOwner = ref(false)
 const showAdminManager = ref(false)
 const showInviteLinks = ref(false)
+const showKickMembers = ref(false)
+const selectedMembersToKick = ref([])
 const showAnnouncements = ref(false)
 const showMySetting = ref(false)
 
@@ -401,7 +425,7 @@ watch(() => props.group.id, async (newId) => {
       toastRef.value?.show('获取群详情失败', 'error')
     }
   }
-  isDeleteMode.value = false // Reset delete mode on change
+  selectedMembersToKick.value = [] // Reset selected members on change
 }, { immediate: true })
 
 const toggleMenu = () => { showMenu.value = !showMenu.value }
@@ -640,27 +664,47 @@ const saveMySetting = async () => {
   }
 }
 
-const toggleDeleteMode = () => {
-  isDeleteMode.value = !isDeleteMode.value
+// 可移除的成员列表（排除自己和群主）
+const kickableMembers = computed(() => {
+  if (!members.value || !authStore.user) return []
+  return members.value.filter(m => {
+    const memberId = m.user_id || m.userId || m.id
+    const memberRole = m.role_level !== undefined ? m.role_level : (m.roleLevel !== undefined ? m.roleLevel : 0)
+    // 排除自己、群主、以及同级或更高级的成员
+    return memberId !== authStore.user.id && 
+           memberRole < currentUserRole.value && 
+           memberRole !== 2 // 不能移除群主
+  })
+})
+
+const openKickMembers = () => {
+  showKickMembers.value = true
+  selectedMembersToKick.value = []
 }
 
-const handleMemberClick = async (member) => {
-  if (!isDeleteMode.value) return
-  
-  // Cannot kick self
-  if (member.user_id === authStore.user.id) return
+const closeKickMembers = () => {
+  showKickMembers.value = false
+  selectedMembersToKick.value = []
+}
 
-  // Cannot kick members with equal or higher role (Simple frontend check, backend also checks)
-  const memberRole = member.role_level || 0
-  if (memberRole >= currentUserRole.value) {
-    toastRef.value?.show('无法移除同级或更高级别的成员', 'warning')
+const confirmKickMembers = async () => {
+  if (selectedMembersToKick.value.length === 0) {
+    toastRef.value?.show('请选择要移除的成员', 'warning')
     return
   }
-
-  if (confirm(`确定要将 ${member.nickname || member.name} 移出群聊吗？`)) {
+  
+  const memberNames = selectedMembersToKick.value.map(memberId => {
+    const member = members.value.find(m => (m.user_id || m.userId || m.id) === memberId)
+    return member ? (member.nickname || member.name || memberId) : memberId
+  }).join('、')
+  
+  if (confirm(`确定要将 ${memberNames} 移出群聊吗？`)) {
     try {
-      await contactsStore.kickGroupMember(props.group.id, [member.user_id])
-      toastRef.value?.show('已移除成员')
+      await contactsStore.kickGroupMember(props.group.id, selectedMembersToKick.value)
+      toastRef.value?.show('已移除 ' + selectedMembersToKick.value.length + ' 位成员')
+      closeKickMembers()
+      // 刷新群详情
+      await contactsStore.fetchGroupDetail(props.group.id)
     } catch (e) {
       toastRef.value?.show('移除成员失败', 'error')
     }
@@ -679,13 +723,31 @@ const onQuitGroup = async () => {
   }
 }
 
+// 检查好友是否已在群里
+const isMemberInGroup = (friendId) => {
+  if (!friendId || !members.value || members.value.length === 0) return false
+  return members.value.some(m => {
+    const memberUserId = m.user_id || m.userId || m.id
+    return String(memberUserId) === String(friendId)
+  })
+}
+
 const sendMessage = () => { toastRef.value?.show('发消息功能开发中...') }
 const startAudioCall = () => { toastRef.value?.show('群音频功能开发中...') }
 const inviteSelected = async () => { 
-  if (selectedFriends.value.length === 0) return
+  // 过滤掉已在群里的好友和自己
+  const validFriends = selectedFriends.value.filter(friendId => {
+    return !isMemberInGroup(friendId) && friendId !== authStore.user?.id
+  })
+  
+  if (validFriends.length === 0) {
+    toastRef.value?.show('请选择未在群里的好友', 'warning')
+    return
+  }
+  
   try {
-    await contactsStore.inviteGroupMembers(props.group.id, selectedFriends.value)
-    toastRef.value?.show('已邀请 ' + selectedFriends.value.length + ' 位好友')
+    await contactsStore.inviteGroupMembers(props.group.id, validFriends)
+    toastRef.value?.show('已邀请 ' + validFriends.length + ' 位好友')
     showInvite.value = false 
     selectedFriends.value = []
   } catch (e) {
@@ -831,6 +893,16 @@ const inviteSelected = async () => {
   font-weight: 600;
 }
 .friend-item { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.friend-item.disabled { opacity: 0.6; cursor: not-allowed; }
+.friend-item.disabled input[type="checkbox"] { cursor: not-allowed; }
+.in-group-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  background: #e0e7ff;
+  color: #4f46e5;
+  border-radius: 4px;
+  font-size: 12px;
+}
 .friend-avatar { width: 36px; height: 36px; border-radius: 8px; }
 .btn-small {
   padding: 6px 12px;

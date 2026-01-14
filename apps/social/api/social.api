@@ -204,14 +204,17 @@ type (
 
 type (
 	GroupPutInReq {
-		GroupId    string `json:"group_id,omitempty"`
-		ReqMsg     string `json:"req_msg,omitempty"`
-		ReqTime    int64  `json:"req_time,omitempty"`
-		JoinSource int64  `json:"join_source,omitempty"`
-		InviterUid string `json:"inviter_uid,omitempty"`
+		GroupId    string `json:"group_id,optional"` // 群ID（普通申请/邀请入群时必传，token入群时可为空）
+		ReqId      string `json:"req_id,optional"` // 申请者/被邀请者ID（邀请入群时必传，普通申请时为空则使用当前用户ID）
+		ReqMsg     string `json:"req_msg,optional"` // 申请消息
+		ReqTime    int64  `json:"req_time,optional"` // 请求时间
+		JoinSource int64  `json:"join_source,optional"` // 1=申请入群, 2=邀请入群, 3=邀请链接/二维码入群
+		InviterUid string `json:"inviter_uid,optional"` // 邀请人UID（邀请入群/token入群时必传）
+		Token      string `json:"token,optional"` // 邀请链接token（token入群时必传，此时groupId可为空）
 	}
 	GroupPutInResp {
 		GroupId int `json:"group_id,omitempty"`
+		IsPass  int `json:"is_pass,omitempty"` // 1=直接进群, 0=进入申请流程
 	}
 )
 
@@ -323,16 +326,14 @@ type (
 		Revoked   bool   `json:"revoked,omitempty"`
 		RevokedAt int64  `json:"revoked_at,omitempty"`
 	}
-
 	GroupInviteLinkCreateReq {
 		GroupId       string `json:"group_id"`
 		ExpireSeconds int64  `json:"expire_seconds,optional"` // 0=永不过期
-		MaxUses       int32  `json:"max_uses,optional"`       // 0=无限
+		MaxUses       int32  `json:"max_uses,optional"` // 0=无限
 	}
 	GroupInviteLinkCreateResp {
 		Link GroupInviteLink `json:"link,omitempty"`
 	}
-
 	GroupInviteLinkListReq {
 		GroupId        string `form:"group_id"`
 		IncludeRevoked bool   `form:"include_revoked,optional"`
@@ -340,13 +341,11 @@ type (
 	GroupInviteLinkListResp {
 		List []GroupInviteLink `json:"list,omitempty"`
 	}
-
 	GroupInviteLinkRevokeReq {
 		GroupId string `json:"group_id"`
 		Token   string `json:"token"`
 	}
-	GroupInviteLinkRevokeResp {}
-
+	GroupInviteLinkRevokeResp  {}
 	GroupJoinByTokenReq {
 		Token  string `json:"token"`
 		ReqMsg string `json:"req_msg,optional"`
@@ -366,21 +365,18 @@ type (
 		GroupRemark   string `json:"group_remark,omitempty"`
 		UpdatedAt     int64  `json:"updated_at,omitempty"`
 	}
-
 	GetMyGroupMemberSettingReq {
 		GroupId string `form:"group_id"`
 	}
 	GetMyGroupMemberSettingResp {
 		Setting GroupMemberSetting `json:"setting,omitempty"`
 	}
-
 	UpdateMyGroupMemberSettingReq {
 		GroupId       string `json:"group_id"`
 		GroupNickname string `json:"group_nickname,optional"`
 		GroupRemark   string `json:"group_remark,optional"`
 	}
-	UpdateMyGroupMemberSettingResp {}
-
+	UpdateMyGroupMemberSettingResp  {}
 	AtMember {
 		UserId        string `json:"user_id,omitempty"`
 		Nickname      string `json:"nickname,omitempty"`
@@ -388,10 +384,9 @@ type (
 		Avatar        string `json:"avatar,omitempty"`
 		RoleLevel     int32  `json:"role_level,omitempty"`
 	}
-
 	GroupAtListReq {
-		GroupId  string `form:"group_id"`
-		Keyword  string `form:"keyword,optional"`
+		GroupId string `form:"group_id"`
+		Keyword string `form:"keyword,optional"`
 	}
 	GroupAtListResp {
 		List []AtMember `json:"list,omitempty"`
@@ -409,7 +404,6 @@ type (
 		Pinned    bool   `json:"pinned,omitempty"`
 		PinnedAt  int64  `json:"pinned_at,omitempty"`
 	}
-
 	GroupAnnouncementCreateReq {
 		GroupId string `json:"group_id"`
 		Content string `json:"content"`
@@ -417,7 +411,6 @@ type (
 	GroupAnnouncementCreateResp {
 		Id int64 `json:"id,omitempty"`
 	}
-
 	GroupAnnouncementListReq {
 		GroupId        string `form:"group_id"`
 		IncludeDeleted bool   `form:"include_deleted,optional"`
@@ -425,13 +418,12 @@ type (
 	GroupAnnouncementListResp {
 		List []GroupAnnouncement `json:"list,omitempty"`
 	}
-
 	GroupAnnouncementPinReq {
 		GroupId        string `json:"group_id"`
 		AnnouncementId int64  `json:"announcement_id"`
 		Pinned         bool   `json:"pinned"`
 	}
-	GroupAnnouncementPinResp {}
+	GroupAnnouncementPinResp  {}
 )
 
 type (

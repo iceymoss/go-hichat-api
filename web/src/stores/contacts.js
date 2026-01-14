@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { socialApi } from '../utils/api'
+import { useAuthStore } from './auth'
 
 export const useContactsStore = defineStore('contacts', () => {
   // 好友列表
@@ -491,10 +492,23 @@ export const useContactsStore = defineStore('contacts', () => {
     }
   }
 
-  // 邀请成员
+  // 邀请成员（统一使用 groupPutIn API）
   const inviteGroupMembers = async (groupId, friendIds) => {
     try {
-      await socialApi.groupInvite(groupId, friendIds)
+      const authStore = useAuthStore()
+      const inviterUid = authStore.user?.id
+      if (!inviterUid) {
+        throw new Error('未登录，无法邀请成员')
+      }
+      
+      // 为每个被邀请的好友调用 groupPutIn，joinSource=2（邀请入群）
+      // reqId 是被邀请者的ID，inviterUid 是当前用户ID（邀请者）
+      const promises = friendIds.map(friendId => 
+        socialApi.groupPutIn(groupId, 'invited', 2, inviterUid, null, friendId)
+      )
+      
+      await Promise.all(promises)
+      
       // Refresh group detail to see new members
       if (currentGroup.value && currentGroup.value.id === groupId) {
         await fetchGroupDetail(groupId)
@@ -583,9 +597,10 @@ export const useContactsStore = defineStore('contacts', () => {
     await fetchInviteLinks(groupId, true)
   }
 
-  // 通过 token 入群（链接/二维码）
+  // 通过 token 入群（链接/二维码）- 统一使用 groupPutIn API
   const joinGroupByToken = async (token, reqMsg = '') => {
-    const resp = await socialApi.groupJoinByToken(token, reqMsg)
+    // 使用统一的 groupPutIn API，传入 token 和 joinSource=3（邀请链接/二维码入群）
+    const resp = await socialApi.groupPutIn(null, reqMsg, 3, '', token)
     // 成功直入群则刷新群列表
     if (resp?.is_pass === 1 || resp?.isPass === 1) {
       await fetchGroups()

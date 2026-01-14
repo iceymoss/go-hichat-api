@@ -69,7 +69,7 @@ func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social
 		Where("user_id in (?)", filtered).
 		Where("role_level <> ?", int(constants.CreatorGroupRoleLevel)).
 		Updates(map[string]any{
-			"role_level":   role,
+			"role_level":  role,
 			"operator_uid": in.UserId,
 		}).Error; err != nil {
 		tx.Rollback()
