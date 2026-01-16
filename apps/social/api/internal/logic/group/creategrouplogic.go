@@ -3,6 +3,7 @@ package group
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
@@ -47,14 +48,17 @@ func (l *CreateGroupLogic) CreateGroup(req *types.GroupCreateReq) (resp *types.G
 		return nil, err
 	}
 
-	_, err = l.svcCtx.Im.CreateGroupConversation(l.ctx, &im.CreateGroupConversationReq{
-		GroupId:  res.GroupId,
-		CreateId: uid,
-	})
-	if err != nil {
-		zLog.Error("CreateGroup.CreateGroupConversation: create conversation failed", zap.Error(err))
-		return nil, err
-	}
+	// Best-effort: do NOT block or fail group creation if im-rpc is down.
+	go func(groupId, createId string) {
+		ctx, cancel := context.WithTimeout(context.Background(), 800*time.Millisecond)
+		defer cancel()
+		if _, err := l.svcCtx.Im.CreateGroupConversation(ctx, &im.CreateGroupConversationReq{
+			GroupId:  groupId,
+			CreateId: createId,
+		}); err != nil {
+			zLog.Error("CreateGroup.CreateGroupConversation: best-effort failed", zap.Error(err))
+		}
+	}(res.GroupId, uid)
 
-	return
+	return &types.GroupCreateResp{GroupId: res.GroupId}, nil
 }

@@ -141,9 +141,10 @@ type (
 
 type (
     SearchUserReq {
-        Name  string `form:"name,optional"`  // 用户昵称（模糊匹配）
-        Phone string `form:"phone,optional"` // 手机号（精准匹配）
-        Email string `form:"email,optional"` // 邮箱（精准匹配）
+        Name  string   `form:"name,optional"`  // 用户昵称（模糊匹配）
+        Phone string   `form:"phone,optional"` // 手机号（精准匹配）
+        Email string   `form:"email,optional"` // 邮箱（精准匹配）
+        Ids   []string `form:"ids,optional"`   // 用户ID列表（精准匹配）
     }
     SearchUserResp {
         Users []User `json:"users"` // 用户列表

@@ -3,119 +3,83 @@
     <div class="settings-modal" @click.stop>
       <!-- 头部 -->
       <div class="modal-header">
-        <h3>好友设置</h3>
+        <h3>资料设置</h3>
         <button class="btn-close" @click="closeSettings">
           <i class="icon icon-x"></i>
         </button>
       </div>
 
-      <!-- 好友信息 -->
-      <div class="friend-info">
-        <img :src="friend.avatar" alt="头像" class="avatar">
-        <div class="info">
-          <h4>{{ friend.remark || friend.name }}</h4>
-          <p>账号ID: {{ friend.id }}</p>
-        </div>
-      </div>
-
-      <!-- 设置选项 -->
-      <div class="settings-options">
-        <!-- 备注设置 -->
-        <div class="setting-item">
-          <div class="setting-label">
-            <i class="icon icon-edit"></i>
-            <span>好友备注</span>
-          </div>
-          <div class="setting-content">
+      <div class="modal-body">
+        <!-- 基础信息设置 -->
+        <div class="settings-group">
+          <div class="setting-item input-item">
+            <span class="label">备注名</span>
             <input 
               v-model="remark" 
               type="text" 
-              placeholder="设置好友备注"
-              class="remark-input"
+              placeholder="添加备注名"
+              class="clean-input"
               @blur="updateRemark"
             >
           </div>
-        </div>
-
-        <!-- 标签设置 -->
-        <div class="setting-item">
-          <div class="setting-label">
-            <i class="icon icon-tag"></i>
-            <span>好友标签</span>
-          </div>
-          <div class="setting-content">
-            <div class="tags-display">
-              <span v-for="tag in friend.tags" :key="tag" class="tag">
-                {{ tag }}
-                <button class="tag-remove" @click="removeTag(tag)">
-                  <i class="icon icon-x"></i>
-                </button>
-              </span>
-            </div>
-            <div class="add-tag">
-              <input 
-                v-model="newTag" 
-                type="text" 
-                placeholder="添加标签"
-                class="tag-input"
-                @keyup.enter="addTag"
-              >
-              <button class="btn-add-tag" @click="addTag">
-                <i class="icon icon-plus"></i>
+          
+          <div class="setting-item tags-item">
+            <div class="tags-header">
+              <span class="label">标签</span>
+              <button class="btn-add-tag-text" @click="showTagInput = !showTagInput" v-if="!showTagInput">
+                <i class="icon icon-plus"></i> 添加
               </button>
             </div>
+            
+            <div class="tags-wrapper">
+              <span v-for="tag in displayTags" :key="tag" class="tag-chip">
+                {{ tag }}
+                <i class="icon icon-x remove-icon" @click="removeTag(tag)"></i>
+              </span>
+              
+              <input 
+                v-if="showTagInput"
+                v-model="newTag"
+                ref="tagInputRef"
+                type="text"
+                class="tag-input-inline"
+                placeholder="输入后回车"
+                @keyup.enter="addTag"
+                @blur="handleTagInputBlur"
+              >
+            </div>
           </div>
         </div>
 
-        <!-- 消息设置 -->
-        <div class="setting-item">
-          <div class="setting-label">
-            <i class="icon icon-bell"></i>
-            <span>消息通知</span>
+        <!-- 权限与开关 -->
+        <div class="settings-group">
+          <div class="setting-item">
+            <span class="label">朋友权限</span>
+            <select v-model="momentsPermission" class="clean-select" @change="updatePermission">
+              <option value="all">聊天、朋友圈</option>
+              <option value="limited">仅聊天</option>
+              <option value="none">屏蔽</option>
+            </select>
           </div>
-          <div class="setting-content">
+          
+          <div class="setting-item switch-item">
+            <span class="label">消息免打扰</span>
             <label class="switch">
               <input type="checkbox" v-model="notifications" @change="updateNotifications">
               <span class="slider"></span>
             </label>
           </div>
-        </div>
-
-        <!-- 置顶聊天 -->
-        <div class="setting-item">
-          <div class="setting-label">
-            <i class="icon icon-pin"></i>
-            <span>置顶聊天</span>
-          </div>
-          <div class="setting-content">
+          
+          <div class="setting-item switch-item">
+            <span class="label">置顶聊天</span>
             <label class="switch">
               <input type="checkbox" v-model="pinned" @change="updatePinned">
               <span class="slider"></span>
             </label>
           </div>
-        </div>
-
-        <!-- 静音设置 -->
-        <div class="setting-item">
-          <div class="setting-label">
-            <i class="icon icon-volume-off"></i>
-            <span>静音消息</span>
-          </div>
-          <div class="setting-content">
-            <label class="switch">
-              <input type="checkbox" v-model="muted" @change="updateMuted">
-              <span class="slider"></span>
-            </label>
-          </div>
-        </div>
-
-        <!-- 黑名单 -->
-        <div class="setting-item">
-          <div class="setting-label">
-            <i class="icon icon-shield"></i>
-            <span>加入黑名单</span>
-          </div>
-          <div class="setting-content">
+          
+          <div class="setting-item switch-item">
+            <span class="label">加入黑名单</span>
             <label class="switch">
               <input type="checkbox" v-model="blacklisted" @change="updateBlacklist">
               <span class="slider"></span>
@@ -123,148 +87,197 @@
           </div>
         </div>
 
-        <!-- 分享好友 -->
-        <div class="setting-item clickable" @click="shareFriend">
-          <div class="setting-label">
-            <i class="icon icon-share"></i>
-            <span>分享好友</span>
-          </div>
-          <div class="setting-content">
+        <!-- 操作类 -->
+        <div class="settings-group actions-group">
+          <button class="action-row" @click="shareFriend">
+            <span class="label">把该好友推荐给...</span>
             <i class="icon icon-chevron-right"></i>
-          </div>
-        </div>
-
-        <!-- 举报 -->
-        <div class="setting-item clickable" @click="reportFriend">
-          <div class="setting-label">
-            <i class="icon icon-warning"></i>
-            <span>举报好友</span>
-          </div>
-          <div class="setting-content">
+          </button>
+          <button class="action-row" @click="reportFriend">
+            <span class="label">投诉</span>
             <i class="icon icon-chevron-right"></i>
-          </div>
+          </button>
         </div>
-      </div>
-
-      <!-- 危险操作 -->
-      <div class="danger-zone">
-        <h4>危险操作</h4>
         
-        <!-- 删除好友 -->
-        <div class="danger-item" @click="showDeleteConfirm = true">
-          <div class="danger-label">
-            <i class="icon icon-trash"></i>
-            <span>删除好友</span>
-          </div>
-          <div class="danger-content">
-            <i class="icon icon-chevron-right"></i>
-          </div>
-        </div>
-      </div>
-
-      <!-- 删除确认弹窗 -->
-      <div v-if="showDeleteConfirm" class="delete-overlay" @click="showDeleteConfirm = false">
-        <div class="delete-modal" @click.stop>
-          <div class="delete-header">
-            <i class="icon icon-warning"></i>
-            <h4>删除好友</h4>
-          </div>
-          <div class="delete-content">
-            <p>确定要删除好友 "{{ friend.remark || friend.name }}" 吗？</p>
-            <p class="warning-text">删除后将无法恢复，聊天记录也会被删除。</p>
-          </div>
-          <div class="delete-actions">
-            <button class="btn-cancel" @click="showDeleteConfirm = false">
-              取消
-            </button>
-            <button class="btn-delete" @click="confirmDelete">
-              删除
-            </button>
-          </div>
+        <div class="settings-group danger-group">
+          <button class="action-row danger" @click="showDeleteConfirm = true">
+            <span class="label">删除好友</span>
+          </button>
         </div>
       </div>
     </div>
+
+    <!-- 删除确认弹窗 -->
+    <div v-if="showDeleteConfirm" class="confirm-overlay" @click="showDeleteConfirm = false">
+      <div class="confirm-modal" @click.stop>
+        <h3>删除好友</h3>
+        <p>将联系人“{{ friend.remark || friend.name }}”删除，同时删除与该联系人的聊天记录。</p>
+        <div class="confirm-actions">
+          <button class="btn-cancel" @click="showDeleteConfirm = false">取消</button>
+          <button class="btn-confirm-delete" @click="confirmDelete">删除</button>
+        </div>
+      </div>
+    </div>
+    
+    <Toast ref="toastRef" />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
+import { useContactsStore } from '../stores/contacts'
+import Toast from './ui/Toast.vue'
 
 const props = defineProps({
-  friend: {
-    type: Object,
-    required: true
+  friend: { type: Object, required: true }
+})
+
+const emit = defineEmits(['close', 'delete-friend', 'share-friend'])
+
+const contactsStore = useContactsStore()
+const toastRef = ref(null)
+
+// 本地状态
+const remark = ref('')
+const newTag = ref('')
+const localTags = ref([]) // 新增：本地标签状态
+const showTagInput = ref(false)
+const tagInputRef = ref(null)
+const notifications = ref(true)
+const pinned = ref(false)
+const blacklisted = ref(false)
+const momentsPermission = ref('all')
+const showDeleteConfirm = ref(false)
+
+const friendUid = computed(() => props.friend?.friend_uid || props.friend?.id)
+
+// 辅助函数：权限转换
+const getPermissionValue = (p) => {
+  if (p === 0 || p === 'all') return 'all'
+  if (p === 1 || p === 'limited') return 'limited'
+  if (p === 2 || p === 'none') return 'none'
+  return 'all'
+}
+const getPermissionBackend = (p) => {
+  if (p === 'all') return 0
+  if (p === 'limited') return 1
+  if (p === 'none') return 2
+  return 0
+}
+
+const displayTags = computed(() => localTags.value) // 修改：使用本地状态
+
+// 初始化数据
+watch(() => props.friend, (f) => {
+  if (f) {
+    remark.value = f.remark || ''
+    localTags.value = [...(f.friend_tags || f.tags || [])] // 初始化本地标签
+    notifications.value = f.notify_enabled !== undefined ? f.notify_enabled : true
+    pinned.value = f.pinned || false
+    blacklisted.value = f.blacklisted || false
+    momentsPermission.value = getPermissionValue(f.moments_permission)
+  }
+}, { immediate: true })
+
+// 聚焦标签输入框
+watch(showTagInput, (val) => {
+  if (val) {
+    nextTick(() => tagInputRef.value?.focus())
   }
 })
 
-const emit = defineEmits(['close', 'update-friend', 'delete-friend'])
+const closeSettings = () => emit('close')
 
-// 响应式数据
-const remark = ref(props.friend.remark || '')
-const newTag = ref('')
-const notifications = ref(true)
-const pinned = ref(false)
-const muted = ref(false)
-const blacklisted = ref(false)
-const showDeleteConfirm = ref(false)
+// --- Actions ---
 
-// 方法
-const closeSettings = () => {
-  emit('close')
-}
-
-const updateRemark = () => {
-  const updatedFriend = { ...props.friend, remark: remark.value }
-  emit('update-friend', updatedFriend)
-}
-
-const addTag = () => {
-  if (newTag.value.trim()) {
-    const updatedFriend = { 
-      ...props.friend, 
-      tags: [...(props.friend.tags || []), newTag.value.trim()]
+const updateRemark = async () => {
+  if (remark.value !== props.friend.remark) {
+    try {
+      await contactsStore.updateFriendRemark(friendUid.value, remark.value)
+      toastRef.value?.show('备注已更新')
+    } catch (e) {
+      toastRef.value?.show('更新失败', 'error')
     }
-    emit('update-friend', updatedFriend)
+  }
+}
+
+const addTag = async () => {
+  if (!newTag.value.trim()) {
+    showTagInput.value = false
+    return
+  }
+  // 使用本地 localTags
+  const tags = [...localTags.value, newTag.value.trim()]
+  try {
+    await contactsStore.updateFriendTags(friendUid.value, tags)
+    localTags.value = tags // 立即更新本地状态
     newTag.value = ''
+    // showTagInput.value = false 
+  } catch (e) {
+    toastRef.value?.show('添加标签失败', 'error')
   }
 }
 
-const removeTag = (tagToRemove) => {
-  const updatedFriend = {
-    ...props.friend,
-    tags: props.friend.tags.filter(tag => tag !== tagToRemove)
+const handleTagInputBlur = () => {
+  if (newTag.value) addTag()
+  else showTagInput.value = false
+}
+
+const removeTag = async (tag) => {
+  // 使用本地 localTags
+  const tags = localTags.value.filter(t => t !== tag)
+  try {
+    await contactsStore.updateFriendTags(friendUid.value, tags)
+    localTags.value = tags // 立即更新本地状态
+  } catch (e) {
+    toastRef.value?.show('删除标签失败', 'error')
   }
-  emit('update-friend', updatedFriend)
 }
 
-const updateNotifications = () => {
-  const updatedFriend = { ...props.friend, notifications: notifications.value }
-  emit('update-friend', updatedFriend)
+const updatePermission = async () => {
+  try {
+    await contactsStore.updateMomentsPermission(friendUid.value, getPermissionBackend(momentsPermission.value))
+    toastRef.value?.show('权限已更新')
+  } catch (e) {
+    toastRef.value?.show('操作失败', 'error')
+  }
 }
 
-const updatePinned = () => {
-  const updatedFriend = { ...props.friend, pinned: pinned.value }
-  emit('update-friend', updatedFriend)
+const updateNotifications = async () => {
+  try {
+    await contactsStore.updateFriendNotification(friendUid.value, notifications.value)
+  } catch (e) {
+    notifications.value = !notifications.value
+    toastRef.value?.show('操作失败', 'error')
+  }
 }
 
-const updateMuted = () => {
-  const updatedFriend = { ...props.friend, muted: muted.value }
-  emit('update-friend', updatedFriend)
+const updatePinned = async () => {
+  try {
+    await contactsStore.updateFriendPin(friendUid.value, pinned.value)
+  } catch (e) {
+    pinned.value = !pinned.value
+    toastRef.value?.show('操作失败', 'error')
+  }
 }
 
-const updateBlacklist = () => {
-  const updatedFriend = { ...props.friend, blacklisted: blacklisted.value }
-  emit('update-friend', updatedFriend)
+const updateBlacklist = async () => {
+  try {
+    await contactsStore.blockFriend(friendUid.value, blacklisted.value)
+    toastRef.value?.show(blacklisted.value ? '已加入黑名单' : '已移出黑名单')
+  } catch (e) {
+    blacklisted.value = !blacklisted.value
+    toastRef.value?.show('操作失败', 'error')
+  }
 }
 
 const shareFriend = () => {
-  // 实现分享好友功能
-  console.log('分享好友:', props.friend)
+  emit('share-friend', props.friend)
+  closeSettings()
 }
 
 const reportFriend = () => {
-  // 实现举报好友功能
-  console.log('举报好友:', props.friend)
+  toastRef.value?.show('举报功能开发中...', 'warning')
 }
 
 const confirmDelete = () => {
@@ -276,387 +289,216 @@ const confirmDelete = () => {
 <style scoped>
 .settings-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
+  z-index: 2000;
+  backdrop-filter: blur(2px);
 }
 
 .settings-modal {
-  background: white;
-  border-radius: 16px;
-  width: 90%;
-  max-width: 480px;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  width: 380px;
+  background: #f9f9f9;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
 .modal-header {
+  background: white;
+  padding: 16px 20px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e2e8f0;
+  align-items: center;
+  border-bottom: 1px solid #f3f4f6;
 }
-
 .modal-header h3 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.btn-close {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #64748b;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.btn-close:hover {
-  background: #e2e8f0;
-  color: #475569;
-}
-
-.friend-info {
-  display: flex;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
-}
-
-.friend-info .avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  object-fit: cover;
-  margin-right: 16px;
-}
-
-.friend-info .info h4 {
-  margin: 0 0 4px 0;
   font-size: 16px;
-  font-weight: 600;
-  color: #1e293b;
+  color: #111827;
+}
+.btn-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #9ca3af;
 }
 
-.friend-info .info p {
-  margin: 0;
-  font-size: 14px;
-  color: #64748b;
+.modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.settings-options {
-  padding: 0;
+.settings-group {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .setting-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid #f1f5f9;
-  transition: background-color 0.2s;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+}
+.setting-item:last-child { border-bottom: none; }
+
+.label { color: #111827; font-weight: 500; }
+
+.clean-input {
+  border: none;
+  text-align: right;
+  outline: none;
+  font-size: 14px;
+  color: #6b7280;
+  width: 150px;
+}
+.clean-select {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: #6b7280;
+  text-align: right;
+  direction: rtl; /* 让select箭头在左侧或者靠右对齐内容 */
 }
 
-.setting-item:hover {
-  background-color: #f8fafc;
+/* 标签样式 */
+.tags-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
 }
-
-.setting-item.clickable {
+.tags-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.btn-add-tag-text {
+  border: none;
+  background: none;
+  color: #4a8cff;
+  font-size: 13px;
   cursor: pointer;
 }
-
-.setting-label {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 15px;
-  color: #1e293b;
-}
-
-.setting-label .icon {
-  font-size: 18px;
-  color: #64748b;
-}
-
-.setting-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.remark-input, .tag-input {
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.remark-input:focus, .tag-input:focus {
-  border-color: #4a8cff;
-}
-
-.tags-display {
+.tags-wrapper {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 8px;
 }
-
-.tag {
+.tag-chip {
+  background: #f3f4f6;
+  color: #4b5563;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  color: white;
-  border-radius: 12px;
+}
+.remove-icon {
   font-size: 12px;
-  font-weight: 500;
-}
-
-.tag-remove {
-  background: none;
-  border: none;
-  color: white;
   cursor: pointer;
-  padding: 2px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
+  color: #9ca3af;
 }
-
-.tag-remove:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.add-tag {
-  display: flex;
-  gap: 8px;
-}
-
-.tag-input {
-  flex: 1;
-}
-
-.btn-add-tag {
-  padding: 8px 12px;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.btn-add-tag:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+.tag-input-inline {
+  border: 1px solid #4a8cff;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  outline: none;
+  width: 80px;
 }
 
 /* 开关样式 */
 .switch {
   position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
+  width: 40px;
+  height: 22px;
 }
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
+.switch input { opacity: 0; width: 0; height: 0; }
 .slider {
   position: absolute;
   cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #cbd5e1;
-  transition: 0.3s;
-  border-radius: 24px;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #e5e7eb;
+  transition: .3s;
+  border-radius: 22px;
 }
-
 .slider:before {
   position: absolute;
   content: "";
   height: 18px;
   width: 18px;
-  left: 3px;
-  bottom: 3px;
+  left: 2px;
+  bottom: 2px;
   background-color: white;
-  transition: 0.3s;
+  transition: .3s;
   border-radius: 50%;
 }
+input:checked + .slider { background-color: #10b981; }
+input:checked + .slider:before { transform: translateX(18px); }
 
-input:checked + .slider {
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-}
-
-input:checked + .slider:before {
-  transform: translateX(20px);
-}
-
-.danger-zone {
-  padding: 20px 24px;
-  border-top: 1px solid #e2e8f0;
-  background: #fef2f2;
-}
-
-.danger-zone h4 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #dc2626;
-}
-
-.danger-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.danger-item:hover {
-  background-color: #fee2e2;
-  margin: 0 -12px;
-  padding: 12px;
-  border-radius: 8px;
-}
-
-.danger-label {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 15px;
-  color: #dc2626;
-}
-
-.danger-label .icon {
-  font-size: 18px;
-}
-
-.danger-content .icon {
-  color: #dc2626;
-}
-
-/* 删除确认弹窗 */
-.delete-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1100;
-}
-
-.delete-modal {
+/* 操作按钮组 */
+.action-row {
+  width: 100%;
   background: white;
-  border-radius: 12px;
-  padding: 24px;
-  max-width: 400px;
-  width: 90%;
-  text-align: center;
+  border: none;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+  border-bottom: 1px solid #f3f4f6;
+}
+.action-row:last-child { border-bottom: none; }
+.action-row:hover { background: #f9fafb; }
+.action-row .icon { color: #d1d5db; }
+.action-row.danger { 
+  justify-content: center; 
+  color: #ef4444; 
+  font-weight: 500;
 }
 
-.delete-header {
+/* 确认弹窗 */
+.confirm-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  z-index: 2100;
 }
-
-.delete-header .icon {
-  font-size: 24px;
-  color: #dc2626;
+.confirm-modal {
+  background: white;
+  width: 280px;
+  padding: 24px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
 }
-
-.delete-header h4 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #dc2626;
-}
-
-.delete-content {
-  margin-bottom: 24px;
-}
-
-.delete-content p {
-  margin: 0 0 8px 0;
-  font-size: 14px;
-  color: #475569;
-}
-
-.warning-text {
-  color: #dc2626 !important;
-  font-size: 12px !important;
-}
-
-.delete-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.btn-cancel, .btn-delete {
+.confirm-modal h3 { margin: 0 0 12px 0; font-size: 16px; color: #111827; }
+.confirm-modal p { margin: 0 0 24px 0; font-size: 13px; color: #6b7280; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 12px; }
+.confirm-actions button {
   flex: 1;
-  padding: 10px 16px;
+  padding: 8px;
+  border-radius: 6px;
   border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  font-size: 14px;
 }
-
-.btn-cancel {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.btn-cancel:hover {
-  background: #e2e8f0;
-}
-
-.btn-delete {
-  background: #dc2626;
-  color: white;
-}
-
-.btn-delete:hover {
-  background: #b91c1c;
-}
-</style> 
+.btn-cancel { background: white; border: 1px solid #d1d5db; color: #374151; }
+.btn-confirm-delete { background: #ef4444; color: white; }
+</style>

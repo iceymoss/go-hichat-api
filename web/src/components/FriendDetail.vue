@@ -1,223 +1,422 @@
 <template>
-  <div class="friend-detail-container">
+  <div class="friend-detail-wrapper">
     <!-- 空状态 -->
     <div v-if="!friend" class="empty-state">
-      <div class="empty-content">
-        <i class="icon icon-users"></i>
-        <h3>选择好友</h3>
-        <p>从左侧列表中选择一个好友查看详情</p>
+      <div class="empty-icon-circle">
+        <i class="icon icon-message-square"></i>
       </div>
+      <p class="empty-text">选择联系人查看详情</p>
     </div>
 
-    <!-- 好友详情 -->
-    <div v-else class="friend-detail">
-      <!-- 头部信息 -->
-      <div class="detail-header">
-        <div class="header-content">
-          <div class="avatar-section">
-            <img :src="friend.avatar" alt="头像" class="avatar">
-            <div class="status-indicator" :class="friend.status">
-              <span class="status-dot"></span>
-              <span class="status-text">{{ getStatusText(friend.status) }}</span>
+    <!-- 个人资料主内容 -->
+    <div v-else class="profile-container">
+      <div class="profile-inner">
+        <!-- 1. 头部区域：头像 | 信息 | 设置 -->
+        <div class="profile-header">
+          <div class="avatar-box">
+            <img :src="friend.avatar" alt="头像" class="avatar" @error="handleAvatarError">
+          </div>
+          <div class="header-info">
+            <div class="primary-name">
+              <span class="remark">{{ friend.remark || friend.nickname || '未设置昵称' }}</span>
+              <i v-if="friend.sex" class="gender-icon" :class="friend.sex === 1 ? 'icon-male' : 'icon-female'"></i>
             </div>
+            <div class="sub-info" v-if="friend.remark && friend.remark.trim()">昵称：{{ friend.nickname }}</div>
+            <div class="sub-info">微信号：{{ friend.friend_uid || friend.id }}</div>
+            <div class="sub-info" v-if="friend.phone">手机号：{{ friend.phone }}</div>
           </div>
-          <div class="info-section">
-            <h2 class="display-name">{{ friend.remark || friend.name }}</h2>
-            <p class="nickname" v-if="friend.remark">昵称：{{ friend.name }}</p>
-            <p class="account-id">账号ID：{{ friend.id }}</p>
-            <p class="gender" v-if="friend.gender">性别：{{ getGenderText(friend.gender) }}</p>
-            <p class="email" v-if="friend.email">邮箱：{{ friend.email }}</p>
-            <p class="phone" v-if="friend.phone">手机号：{{ friend.phone }}</p>
-            <p class="signature" v-if="friend.signature">个性签名：{{ friend.signature }}</p>
-            <p class="location" v-if="friend.location">地区：{{ friend.location }}</p>
-          </div>
-        </div>
-        <!-- 设置按钮 -->
-        <button class="btn-settings" @click="showSettings = true" title="设置">
-          <i class="icon icon-settings"></i>
-        </button>
-      </div>
-
-      <!-- 标签 -->
-      <div class="tags-section" v-if="friend.tags && friend.tags.length > 0">
-        <h4>标签</h4>
-        <div class="tags-list">
-          <span v-for="tag in friend.tags" :key="tag" class="tag">{{ tag }}</span>
-        </div>
-      </div>
-
-      <!-- 朋友圈区块 -->
-      <div class="moments-section">
-        <div class="moments-header">
-          <div class="moments-title">
-            <i class="icon icon-feed"></i>
-            <span>朋友圈</span>
-          </div>
-          <button class="btn-view-moments" @click="viewMoments">
-            <span>查看</span>
-            <i class="icon icon-chevron-right"></i>
+          <button class="btn-settings" @click="showSettings = true" title="资料设置">
+            <i class="icon icon-settings"></i>
           </button>
         </div>
-        <div class="moments-preview">
-          <div class="moments-gallery" v-if="friendMoments.length > 0">
-            <div v-for="(moment, index) in friendMoments.slice(0, 3)" :key="moment.id" class="moment-thumbnail" :style="{ backgroundImage: `url(${moment.image})` }">
-              <div class="moment-overlay">
-                <span class="moment-time">{{ moment.time }}</span>
-              </div>
+
+        <div class="divider"></div>
+
+        <!-- 2. 信息列表区域 -->
+        <div class="info-list">
+          <!-- 备注 -->
+          <div class="info-item clickable" @click="handleSetRemark">
+            <span class="label">备注</span>
+            <div class="content">{{ friend.remark || '点击设置备注' }}</div>
+            <i class="icon icon-chevron-right arrow"></i>
+          </div>
+
+          <!-- 标签 & 地区 -->
+          <div class="info-item">
+            <span class="label">标签</span>
+            <div class="content tags-wrapper">
+              <template v-if="friend.tags && friend.tags.length">
+                <span v-for="tag in friend.tags" :key="tag" class="tag-badge">{{ tag }}</span>
+              </template>
+              <span v-else class="placeholder">无标签</span>
             </div>
           </div>
-          <div v-else class="no-moments">
-            <i class="icon icon-feed"></i>
-            <p>暂无动态</p>
+          
+          <div class="info-item" v-if="friend.location">
+            <span class="label">地区</span>
+            <div class="content">{{ friend.location }}</div>
+          </div>
+
+          <div class="info-item" v-if="friend.signature">
+            <span class="label">个性签名</span>
+            <div class="content signature">{{ friend.signature }}</div>
+          </div>
+
+          <!-- 朋友圈 -->
+          <div class="info-item clickable moments-item" @click="viewMoments">
+            <span class="label">朋友圈</span>
+            <div class="content moments-preview">
+              <div class="thumbs">
+                <div v-for="i in 3" :key="i" class="thumb-img"></div>
+              </div>
+            </div>
+            <i class="icon icon-chevron-right arrow"></i>
           </div>
         </div>
-      </div>
 
-      <!-- 操作按钮 -->
-      <div class="action-buttons">
-        <button class="btn-action btn-message" @click="sendMessage">
-          <i class="icon icon-message"></i>
-          <span>发消息</span>
-        </button>
-        <button class="btn-action btn-call" @click="audioCall">
-          <i class="icon icon-phone"></i>
-          <span>语音通话</span>
-        </button>
-        <button class="btn-action btn-video" @click="videoCall">
-          <i class="icon icon-video"></i>
-          <span>视频通话</span>
-        </button>
-      </div>
+        <div class="divider"></div>
 
-      <!-- 最近活跃 -->
-      <div class="activity-section">
-        <h4>最近活跃</h4>
-        <p class="last-active">{{ friend.lastActive }}</p>
+        <!-- 3. 底部操作按钮区域 -->
+        <div class="action-footer">
+          <button class="btn-block btn-primary" @click="sendMessage">
+            <i class="icon icon-message-circle"></i>
+            <span>发消息</span>
+          </button>
+          
+          <button class="btn-block btn-default" @click="audioCall">
+            <i class="icon icon-phone"></i>
+            <span>语音通话</span>
+          </button>
+          
+          <button class="btn-block btn-default" @click="videoCall">
+            <i class="icon icon-video"></i>
+            <span>视频通话</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- 好友设置弹窗 -->
+    <!-- 弹窗组件 -->
     <FriendSettings 
       v-if="showSettings" 
       :friend="friend"
       @close="showSettings = false"
-      @update-friend="updateFriend"
-      @delete-friend="deleteFriend"
+      @update-friend="handleUpdateFriend"
+      @delete-friend="handleDeleteFriend"
+      @share-friend="handleShareFriend"
     />
+    
+    <Toast ref="toastRef" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useContactsStore } from '../stores/contacts'
 import FriendSettings from './FriendSettings.vue'
+import Toast from './ui/Toast.vue'
+
 const props = defineProps({
-  friend: {
-    type: Object,
-    default: null
-  }
+  friend: { type: Object, default: null }
 })
+
 const emit = defineEmits(['send-message', 'audio-call', 'video-call', 'view-moments'])
+
+const contactsStore = useContactsStore()
 const showSettings = ref(false)
-// 模拟朋友圈数据
-const friendMoments = computed(() => {
-  if (!props.friend) return []
-  return [
-    { id: 1, content: '周末愉快！', time: '2小时前', image: 'https://picsum.photos/seed/friend1/200/200' },
-    { id: 2, content: '美食分享', time: '1天前', image: 'https://picsum.photos/seed/friend2/200/200' },
-    { id: 3, content: '旅行记录', time: '3天前', image: 'https://picsum.photos/seed/friend3/200/200' }
-  ]
-})
-const getStatusText = (status) => {
-  const statusMap = { online: '在线', away: '离开', offline: '离线' }
-  return statusMap[status] || '离线'
+const toastRef = ref(null)
+
+const handleAvatarError = (event) => {
+  const seed = props.friend?.friend_uid || props.friend?.id || 'default'
+  event.target.src = `https://api.dicebear.com/7.x/personas/svg?seed=${seed}`
 }
-const getGenderText = (gender) => {
-  const genderMap = { male: '男', female: '女', other: '其他' }
-  return genderMap[gender] || gender
+
+const handleSetRemark = async () => {
+  if (!props.friend) return
+  const currentRemark = props.friend.remark || ''
+  const newRemark = prompt('设置备注名', currentRemark)
+  if (newRemark !== null && newRemark !== currentRemark) {
+    try {
+      const uid = props.friend.friend_uid || props.friend.id
+      await contactsStore.updateFriendRemark(uid, newRemark)
+      toastRef.value?.show('备注已更新')
+    } catch (e) {
+      toastRef.value?.show('更新失败', 'error')
+    }
+  }
 }
-const sendMessage = () => { emit('send-message', props.friend) }
-const audioCall = () => { emit('audio-call', props.friend) }
-const videoCall = () => { emit('video-call', props.friend) }
-const viewMoments = () => { emit('view-moments', props.friend) }
-const updateFriend = (updatedFriend) => { /* 可补充更新逻辑 */ }
-const deleteFriend = (friendId) => { showSettings.value = false }
+
+const sendMessage = () => emit('send-message', props.friend)
+const audioCall = () => emit('audio-call', props.friend)
+const videoCall = () => emit('video-call', props.friend)
+const viewMoments = () => emit('view-moments', props.friend)
+
+const handleUpdateFriend = () => {}
+const handleDeleteFriend = async (friendId) => {
+  const uid = friendId || props.friend?.friend_uid || props.friend?.id
+  if (!uid) return
+  await contactsStore.deleteFriend(uid)
+  showSettings.value = false
+}
+const handleShareFriend = async (f) => {
+  const uid = f?.friend_uid || f?.id
+  if (!uid) return
+  try {
+    await navigator.clipboard.writeText(`[好友推荐] ${f.nickname} (${uid})`)
+    toastRef.value?.show('已复制推荐信息')
+  } catch (e) {}
+}
 </script>
 
 <style scoped>
-.friend-detail-container {
-  width: 80%;
-  min-width: 600px;
-  max-width: 900px;
-  margin: 48px auto 0 auto;
-  padding: 24px;
-  background: #fff;
-  border-radius: 20px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+.friend-detail-wrapper {
+  height: 100%;
+  width: 100%;
+  background: #f5f5f5; /* 整体背景微灰，突出中间内容 */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 空状态 */
+.empty-state {
   height: 100%;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #999;
 }
-.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); height: 100%; }
-.empty-content { text-align: center; color: #64748b; }
-.empty-content .icon { font-size: 80px; margin-bottom: 20px; opacity: 0.5; }
-.empty-content h3 { font-size: 24px; font-weight: 600; margin: 0 0 12px 0; color: #475569; }
-.empty-content p { font-size: 16px; margin: 0; color: #94a3b8; }
-.friend-detail { flex: 1; overflow-y: auto; padding: 0; }
-.detail-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid #e2e8f0; }
-.header-content { display: flex; align-items: flex-start; gap: 24px; }
-.avatar-section { position: relative; }
-.avatar { width: 100px; height: 100px; border-radius: 20px; object-fit: cover; border: 4px solid #f1f5f9; }
-.status-indicator { position: absolute; bottom: -6px; right: -6px; background: #fff; border-radius: 16px; padding: 6px 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
-.status-dot { width: 10px; height: 10px; border-radius: 50%; }
-.status-indicator.online .status-dot { background-color: #10b981; }
-.status-indicator.away .status-dot { background-color: #f59e0b; }
-.status-indicator.offline .status-dot { background-color: #6b7280; }
-.status-indicator.online .status-text { color: #10b981; }
-.status-indicator.away .status-text { color: #f59e0b; }
-.status-indicator.offline .status-text { color: #6b7280; }
-.info-section { flex: 1; }
-.display-name { font-size: 28px; font-weight: 700; color: #1e293b; margin: 0 0 12px 0; }
-.nickname, .account-id, .gender, .email, .phone, .location { font-size: 16px; color: #64748b; margin: 6px 0; }
-.signature { font-size: 16px; color: #475569; margin: 12px 0 0 0; font-style: italic; line-height: 1.5; }
-.btn-settings { width: 48px; height: 48px; border: none; border-radius: 12px; background: #f8fafc; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-.btn-settings:hover { background: #e2e8f0; color: #475569; }
-.tags-section { margin-bottom: 32px; }
-.tags-section h4 { font-size: 18px; font-weight: 600; color: #1e293b; margin: 0 0 16px 0; }
-.tags-list { display: flex; flex-wrap: wrap; gap: 12px; }
-.tag { padding: 8px 16px; background: linear-gradient(135deg, #4a8cff, #8a69ff); color: white; border-radius: 20px; font-size: 14px; font-weight: 500; }
-.moments-section {
-  margin-bottom: 32px;
-  background: #f8fafc;
-  border-radius: 16px;
-  padding: 20px;
-  max-width: 864px;
-  min-height: 110px;
-  margin-left: auto;
-  margin-right: auto;
+.empty-icon-circle {
+  width: 80px;
+  height: 80px;
+  background: #e5e7eb;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
 }
-.moments-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-.moments-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; color: #1e293b; }
-.moments-title .icon { font-size: 20px; color: #4a8cff; }
-.btn-view-moments { background: none; border: none; color: #4a8cff; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 16px; font-weight: 500; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
-.btn-view-moments:hover { background: #e0f2fe; }
-.moments-preview { display: flex; flex-direction: column; gap: 20px; }
-.moments-gallery { display: flex; gap: 12px; }
-.moment-thumbnail { border-radius: 12px; background-size: cover; background-position: center; position: relative; overflow: hidden; width: 80px; height: 80px; }
-.moment-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0, 0, 0, 0.6)); padding: 10px; }
-.moment-time { color: white; font-size: 12px; font-weight: 500; }
-.no-moments { text-align: center; color: #94a3b8; padding: 24px 0; }
-.no-moments .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
-.no-moments p { font-size: 16px; margin: 0; }
-.action-buttons { display: flex; flex-direction: column; gap: 16px; margin-bottom: 32px; }
-.btn-action { width: 100%; padding: 20px 24px; border: none; border-radius: 16px; font-size: 18px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 16px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
-.btn-message { background: linear-gradient(135deg, #4a8cff, #8a69ff); color: white; }
-.btn-message:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(74, 140, 255, 0.3); }
-.btn-call { background: linear-gradient(135deg, #10b981, #059669); color: white; }
-.btn-call:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(16, 185, 129, 0.3); }
-.btn-video { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
-.btn-video:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(245, 158, 11, 0.3); }
-.btn-action .icon { font-size: 24px; }
-.activity-section { padding-top: 24px; border-top: 1px solid #e2e8f0; }
-.activity-section h4 { font-size: 18px; font-weight: 600; color: #1e293b; margin: 0 0 12px 0; }
-.last-active { font-size: 16px; color: #64748b; margin: 0; }
-</style> 
+.empty-icon-circle .icon { font-size: 32px; color: #9ca3af; }
+
+/* 资料容器：居中，限制最大宽度 */
+.profile-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0; /* 移除外边距 */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* 让内容居中 */
+}
+
+.profile-inner {
+  width: 100%;
+  max-width: 800px; /* 内容最大宽度 */
+  background: #fff;
+  padding: 40px 60px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%; /* 撑满高度 */
+  /* justify-content: center; 可选：如果希望内容垂直居中就保留，否则移除让其从顶部开始 */
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* 1. 头部区域 */
+.profile-header {
+  display: flex;
+  margin-bottom: 30px;
+  position: relative;
+}
+
+.avatar-box {
+  width: 100px;
+  height: 100px;
+  flex-shrink: 0;
+  margin-right: 30px;
+}
+
+.avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #f0f0f0;
+}
+
+.header-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.primary-name {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.remark {
+  font-size: 26px;
+  font-weight: 600;
+  color: #333;
+  margin-right: 10px;
+}
+
+.gender-icon { font-size: 16px; }
+.icon-male { color: #1890ff; }
+.icon-female { color: #eb2f96; }
+
+.sub-info {
+  font-size: 14px;
+  color: #999;
+  line-height: 1.6;
+}
+
+.btn-settings {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #999;
+}
+.btn-settings:hover { color: #666; }
+.btn-settings .icon { font-size: 20px; }
+
+.divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 20px 0;
+}
+
+/* 2. 信息列表区域 */
+.info-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-item {
+  display: flex;
+  padding: 16px 0;
+  align-items: flex-start; /* 对齐顶部 */
+  min-height: 24px;
+}
+
+.info-item.clickable {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.info-item.clickable:hover {
+  background: #fafafa;
+}
+
+.label {
+  width: 80px;
+  color: #999;
+  font-size: 14px;
+  flex-shrink: 0;
+  padding-top: 2px; /* 视觉微调 */
+}
+
+.content {
+  flex: 1;
+  font-size: 14px;
+  color: #333;
+  line-height: 1.5;
+}
+
+.placeholder { color: #ccc; }
+
+.tags-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-badge {
+  background: #f5f5f5;
+  color: #666;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.signature {
+  color: #666;
+}
+
+.arrow {
+  color: #ccc;
+  font-size: 16px;
+  margin-left: 8px;
+  margin-top: 2px;
+}
+
+.moments-item {
+  align-items: center;
+}
+
+.moments-preview {
+  display: flex;
+}
+
+.thumbs {
+  display: flex;
+  gap: 8px;
+}
+
+.thumb-img {
+  width: 40px;
+  height: 40px;
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+/* 3. 底部操作按钮区域 */
+.action-footer {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.btn-block {
+  width: 100%;
+  height: 56px;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #07c160;
+  color: white;
+  border: none;
+}
+.btn-primary:hover {
+  background: #06ad56;
+}
+
+.btn-default {
+  background: #fff;
+  color: #333;
+  border: 1px solid #e5e5e5;
+}
+.btn-default:hover {
+  background: #f9f9f9;
+}
+
+.btn-block .icon {
+  font-size: 20px;
+}
+</style>

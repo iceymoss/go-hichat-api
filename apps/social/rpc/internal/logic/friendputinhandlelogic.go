@@ -3,12 +3,13 @@ package logic
 import (
 	"context"
 	"database/sql"
-	"time"
+	"encoding/json"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/utils"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/pkg/errors"
@@ -50,9 +51,14 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 		return nil, errors.WithStack(ErrFriendReqBeforePass)
 	case constants.RefuseHandlerResult: //已经拒绝直接返回
 		return nil, errors.WithStack(ErrFriendReqBeforeRefuse)
+	case constants.IgnoreHandlerResult: //已经忽略直接返回
+		return nil, errors.WithStack(ErrFriendReqBeforeRefuse) // 使用相同的错误，因为忽略和拒绝都是不可再处理
 	}
 
 	firendReq.HandleResult = int(in.HandleResult)
+	// 使用中国时区更新处理时间
+	chinaNow := utils.NowInChina()
+	firendReq.HandledAt = chinaNow
 
 	// 修改申请结果 -> 通过【建立两条好友关系记录】 -> 事务
 	err = l.svcCtx.FriendRequestsModel.Trans(l.ctx, func(ctx context.Context, session sqlx.Session) error {
@@ -64,25 +70,39 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 			return nil
 		}
 
+		// 使用中国时区创建好友关系
 		friend1 := &socialmodels.Friends{
 			UserId:    firendReq.UserId,
 			FriendUid: firendReq.ReqUid,
-			Remark:    string(firendReq.ReqUid),
+			Remark:    string(firendReq.ReqUid), // 默认使用对方UID作为备注，或者使用昵称（如果能获取到）
 			AddSource: 1,
 			CreatedAt: sql.NullTime{
-				Time:  time.Now(),
-				Valid: false,
+				Time:  chinaNow,
+				Valid: true,
 			},
+		}
+
+		// 对方视角（friend2）：我是他的好友。
+		// 这里 in.Remark 是我给对方设置的备注，所以应该设置在 friend1 中。
+		// 如果前端传递了 Remark，则更新 friend1 的 Remark。
+		if in.Remark != "" {
+			friend1.Remark = in.Remark
+		}
+
+		// 处理标签
+		if len(in.Tags) > 0 {
+			tagBytes, _ := json.Marshal(in.Tags)
+			friend1.FriendTags = sql.NullString{String: string(tagBytes), Valid: true}
 		}
 
 		friend2 := &socialmodels.Friends{
 			UserId:    firendReq.ReqUid,
 			FriendUid: firendReq.UserId,
-			Remark:    string(firendReq.UserId),
+			Remark:    string(firendReq.UserId), // 对方给我的备注，默认是我的UID
 			AddSource: 1,
 			CreatedAt: sql.NullTime{
-				Time:  time.Now(),
-				Valid: false,
+				Time:  chinaNow,
+				Valid: true,
 			},
 		}
 

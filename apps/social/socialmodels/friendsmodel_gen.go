@@ -46,12 +46,18 @@ type (
 	}
 
 	Friends struct {
-		Id        uint64       `db:"id"`         // 自增主键
-		UserId    uint64       `db:"user_id"`    // 用户ID
-		FriendUid uint64       `db:"friend_uid"` // 好友的用户ID
-		Remark    string       `db:"remark"`     // 好友备注名（用户自定义）
-		AddSource int          `db:"add_source"` // 添加来源（0:未知 1:搜索 2:群组 3:二维码...）
-		CreatedAt sql.NullTime `db:"created_at"` // 好友关系建立时间
+		Id                uint64         `db:"id"`                 // 自增主键
+		UserId            uint64         `db:"user_id"`            // 用户ID
+		FriendUid         uint64         `db:"friend_uid"`         // 好友的用户ID
+		Remark            string         `db:"remark"`             // 好友备注名（用户自定义）
+		AddSource         int            `db:"add_source"`         // 添加来源（0:未知 1:搜索 2:群组 3:二维码...）
+		Blacklisted       int            `db:"blacklisted"`        // 是否拉黑 0否 1是
+		MomentsPermission int            `db:"moments_permission"` // 朋友圈权限 0允许 1仅聊天 2屏蔽朋友圈
+		NotifyEnabled     int            `db:"notify_enabled"`     // 消息通知 1开 0关
+		Pinned            int            `db:"pinned"`             // 置顶聊天 0否 1是
+		Muted             int            `db:"muted"`              // 静音 0否 1是
+		FriendTags        sql.NullString `db:"friend_tags"`        // 好友标签(JSON数组)
+		CreatedAt         sql.NullTime   `db:"created_at"`         // 好友关系建立时间
 	}
 )
 
@@ -127,8 +133,8 @@ func (m *defaultFriendsModel) Inserts(ctx context.Context, session sqlx.Session,
 	sql.WriteString(fmt.Sprintf("insert into %s (%s) values ", m.table, friendsRowsExpectAutoSet))
 
 	for i, v := range data {
-		sql.WriteString("(?, ?, ?, ?, ?)")
-		args = append(args, v.UserId, v.FriendUid, v.Remark, v.AddSource, v.CreatedAt)
+		sql.WriteString("(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		args = append(args, v.UserId, v.FriendUid, v.Remark, v.AddSource, v.Blacklisted, v.MomentsPermission, v.NotifyEnabled, v.Pinned, v.Muted, v.FriendTags)
 		if i == len(data)-1 {
 			break
 		}
@@ -142,8 +148,8 @@ func (m *defaultFriendsModel) Inserts(ctx context.Context, session sqlx.Session,
 func (m *defaultFriendsModel) Insert(ctx context.Context, data *Friends) (sql.Result, error) {
 	friendsIdKey := fmt.Sprintf("%s%v", cacheFriendsIdPrefix, data.Id)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?)", m.table, friendsRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.UserId, data.FriendUid, data.Remark, data.AddSource)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, friendsRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.UserId, data.FriendUid, data.Remark, data.AddSource, data.Blacklisted, data.MomentsPermission, data.NotifyEnabled, data.Pinned, data.Muted, data.FriendTags)
 	}, friendsIdKey)
 	return ret, err
 }
@@ -152,7 +158,7 @@ func (m *defaultFriendsModel) Update(ctx context.Context, data *Friends) error {
 	friendsIdKey := fmt.Sprintf("%s%v", cacheFriendsIdPrefix, data.Id)
 	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, friendsRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, data.UserId, data.FriendUid, data.Remark, data.AddSource, data.Id)
+		return conn.ExecCtx(ctx, query, data.UserId, data.FriendUid, data.Remark, data.AddSource, data.Blacklisted, data.MomentsPermission, data.NotifyEnabled, data.Pinned, data.Muted, data.FriendTags, data.Id)
 	}, friendsIdKey)
 	return err
 }

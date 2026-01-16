@@ -37,6 +37,11 @@ const routes = [
         component: () => import('../views/ContactsView.vue')
       },
       {
+        path: 'group-requests',
+        name: 'GroupRequests',
+        component: () => import('../views/GroupRequestsView.vue')
+      },
+      {
         path: 'discover',
         name: 'Discover',
         component: () => import('../views/DiscoverView.vue')

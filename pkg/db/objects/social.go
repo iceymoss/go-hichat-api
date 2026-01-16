@@ -6,12 +6,18 @@ import (
 
 // Friend 好友关系表
 type Friend struct {
-	ID        uint64     `gorm:"primaryKey;column:id;type:INT UNSIGNED;autoIncrement;comment:自增主键"`
-	UserID    uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;index:idx_user;comment:用户ID"`
-	FriendUID uint64     `gorm:"column:friend_uid;type:INT UNSIGNED;not null;comment:好友的用户ID"`
-	Remark    string     `gorm:"column:remark;type:VARCHAR(255);comment:好友备注名（用户自定义）"`
-	AddSource *int       `gorm:"column:add_source;type:TINYINT;comment:添加来源（0:未知 1:搜索 2:群组 3:二维码...）"`
-	CreatedAt *time.Time `gorm:"column:created_at;type:TIMESTAMP;comment:好友关系建立时间"`
+	ID                uint64     `gorm:"primaryKey;column:id;type:INT UNSIGNED;autoIncrement;comment:自增主键"`
+	UserID            uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;index:idx_user;comment:用户ID"`
+	FriendUID         uint64     `gorm:"column:friend_uid;type:INT UNSIGNED;not null;comment:好友的用户ID"`
+	Remark            string     `gorm:"column:remark;type:VARCHAR(255);comment:好友备注名（用户自定义）"`
+	AddSource         *int       `gorm:"column:add_source;type:TINYINT;comment:添加来源（0:未知 1:搜索 2:群组 3:二维码...）"`
+	Blacklisted       bool       `gorm:"column:blacklisted;type:TINYINT(1);default:0;not null;comment:是否拉黑 0否 1是"`
+	MomentsPermission int        `gorm:"column:moments_permission;type:TINYINT;default:0;not null;comment:朋友圈权限 0允许 1仅聊天 2屏蔽朋友圈"`
+	NotifyEnabled     bool       `gorm:"column:notify_enabled;type:TINYINT(1);default:1;not null;comment:消息通知 1开 0关"`
+	Pinned            bool       `gorm:"column:pinned;type:TINYINT(1);default:0;not null;comment:置顶聊天 0否 1是"`
+	Muted             bool       `gorm:"column:muted;type:TINYINT(1);default:0;not null;comment:静音 0否 1是"`
+	FriendTags        string     `gorm:"column:friend_tags;type:TEXT;comment:好友标签(JSON数组)"`
+	CreatedAt         *time.Time `gorm:"column:created_at;type:TIMESTAMP;comment:好友关系建立时间"`
 }
 
 func (Friend) TableName() string {
@@ -28,6 +34,8 @@ type FriendRequest struct {
 	HandleResult *int       `gorm:"column:handle_result;type:TINYINT;comment:处理结果（0:待处理 1:同意 2:拒绝）"`
 	HandleMsg    string     `gorm:"column:handle_msg;type:VARCHAR(255);comment:处理结果备注"`
 	HandledAt    *time.Time `gorm:"column:handled_at;type:TIMESTAMP;comment:处理操作时间"`
+	Status       *int       `gorm:"column:status;type:INT;comment:消息状态（0:已删除 1:正常显示 2:忽略不显示）"`
+	ReadState    int        `gorm:"column:read_state;type:TINYINT;default:0;not null;comment:读取状态（0:未读 1:已读）"`
 }
 
 func (FriendRequest) TableName() string {
@@ -85,4 +93,65 @@ type GroupRequest struct {
 
 func (GroupRequest) TableName() string {
 	return "group_requests"
+}
+
+// GroupInviteLink 群邀请链接表（链接/二维码统一）
+type GroupInviteLink struct {
+	ID        uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
+	GroupID   uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;index:idx_group;comment:群ID"`
+	Token     string     `gorm:"column:token;type:VARCHAR(64);not null;uniqueIndex:uk_token;comment:邀请token（唯一）"`
+	CreatedBy uint64     `gorm:"column:created_by;type:INT UNSIGNED;not null;index:idx_creator;comment:创建人"`
+	ExpireAt  *time.Time `gorm:"column:expire_at;type:TIMESTAMP;comment:过期时间（NULL=永不过期）"`
+	MaxUses   uint       `gorm:"column:max_uses;type:INT UNSIGNED;not null;default:0;comment:最大可用次数（0=无限）"`
+	UsedCount uint       `gorm:"column:used_count;type:INT UNSIGNED;not null;default:0;comment:已使用次数"`
+	Revoked   bool       `gorm:"column:revoked;type:TINYINT(1);not null;default:0;comment:是否撤销 0否 1是"`
+	RevokedAt *time.Time `gorm:"column:revoked_at;type:TIMESTAMP;comment:撤销时间"`
+	CreatedAt *time.Time `gorm:"column:created_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP;comment:创建时间"`
+}
+
+func (GroupInviteLink) TableName() string {
+	return "group_invite_links"
+}
+
+// GroupMemberSetting 群成员资料/设置
+type GroupMemberSetting struct {
+	ID           uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
+	GroupID      uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:1;comment:群ID"`
+	UserID       uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:2;index:idx_user;comment:用户ID"`
+	GroupNick    string     `gorm:"column:group_nickname;type:VARCHAR(64);comment:我在本群的昵称"`
+	GroupRemark  string     `gorm:"column:group_remark;type:VARCHAR(255);comment:群备注（仅自己可见）"`
+	UpdatedAt    *time.Time `gorm:"column:updated_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;comment:更新时间"`
+}
+
+func (GroupMemberSetting) TableName() string {
+	return "group_member_settings"
+}
+
+// GroupAnnouncement 群公告历史
+type GroupAnnouncement struct {
+	ID        uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
+	GroupID   uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;index:idx_group;comment:群ID"`
+	Content   string     `gorm:"column:content;type:VARCHAR(1024);not null;comment:公告内容"`
+	CreatedBy uint64     `gorm:"column:created_by;type:INT UNSIGNED;not null;index:idx_creator;comment:发布人"`
+	CreatedAt *time.Time `gorm:"column:created_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP;comment:发布时间"`
+	Pinned    bool       `gorm:"column:pinned;type:TINYINT(1);not null;default:0;comment:是否置顶"`
+	PinnedAt  *time.Time `gorm:"column:pinned_at;type:TIMESTAMP;comment:置顶时间"`
+	Deleted   bool       `gorm:"column:deleted;type:TINYINT(1);not null;default:0;comment:是否删除"`
+}
+
+func (GroupAnnouncement) TableName() string {
+	return "group_announcements"
+}
+
+// FriendReport 好友举报表
+type FriendReport struct {
+	ID          uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
+	ReporterUID uint64     `gorm:"column:reporter_uid;type:BIGINT UNSIGNED;not null;index:idx_reporter;comment:举报人"`
+	TargetUID   uint64     `gorm:"column:target_uid;type:BIGINT UNSIGNED;not null;index:idx_target;comment:被举报人"`
+	Reason      string     `gorm:"column:reason;type:VARCHAR(512);comment:举报原因"`
+	CreatedAt   *time.Time `gorm:"column:created_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP;comment:创建时间"`
+}
+
+func (FriendReport) TableName() string {
+	return "friend_reports"
 }

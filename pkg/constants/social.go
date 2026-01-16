@@ -1,13 +1,14 @@
 package constants
 
-// HandlerResult 处理结果 1. 未处理，2. 处理， 3. 拒绝
+// HandlerResult 处理结果
 type HandlerResult int
 
 const (
-	NoHandlerResult     HandlerResult = iota // 未处理
-	PassHandlerResult                        // 通过
-	RefuseHandlerResult                      // 拒绝
-	CancelHandlerResult
+	NoHandlerResult     HandlerResult = iota // 0-待处理
+	PassHandlerResult                        // 1-已同意
+	RefuseHandlerResult                      // 2-已拒绝
+	IgnoreHandlerResult                      // 3-已忽略
+	CancelHandlerResult                      // 4-已取消（保留，暂未使用）
 )
 
 // GroupRoleLevel 群等级 2. 创建者，1. 管理者，0. 普通
@@ -35,6 +36,9 @@ const (
 
 	// InviteGroupJoinSource 邀请入群
 	InviteGroupJoinSource
+
+	// InviteLinkGroupJoinSource 邀请链接/二维码入群（本质是链接）
+	InviteLinkGroupJoinSource
 )
 
 const GroupRequests = "group_requests"

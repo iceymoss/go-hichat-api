@@ -5,6 +5,12 @@ CREATE TABLE `friends` (
                            `friend_uid` int(11) unsigned NOT NULL COMMENT '好友的用户ID',
                            `remark` varchar(255) DEFAULT NULL COMMENT '好友备注名（用户自定义）',
                            `add_source` tinyint DEFAULT NULL COMMENT '添加来源（0:未知 1:搜索 2:群组 3:二维码...）',
+                           `blacklisted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否拉黑 0否 1是',
+                           `moments_permission` tinyint NOT NULL DEFAULT '0' COMMENT '朋友圈权限 0允许 1仅聊天 2屏蔽朋友圈',
+                           `notify_enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '消息通知开关 1开 0关',
+                           `pinned` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否置顶 0否 1是',
+                           `muted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否静音 0否 1是',
+                           `friend_tags` text COMMENT '好友标签(JSON数组)',
                            `created_at` timestamp NULL DEFAULT NULL COMMENT '好友关系建立时间',
                            PRIMARY KEY (`id`),
                            KEY `idx_user` (`user_id`) COMMENT '用户维度查询索引'
@@ -23,6 +29,18 @@ CREATE TABLE `friend_requests` (
                                    PRIMARY KEY (`id`),
                                    KEY `idx_user` (`user_id`) COMMENT '申请人维度索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='好友请求表';
+
+-- 好友举报表
+CREATE TABLE IF NOT EXISTS `friend_reports` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+  `reporter_uid` bigint unsigned NOT NULL COMMENT '举报人',
+  `target_uid` bigint unsigned NOT NULL COMMENT '被举报人',
+  `reason` varchar(512) DEFAULT NULL COMMENT '举报原因',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_reporter` (`reporter_uid`),
+  KEY `idx_target` (`target_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='好友举报记录';
 
 -- 群组信息表（群基础信息）
 CREATE TABLE `groups` (
@@ -69,3 +87,50 @@ CREATE TABLE `group_requests` (
                                   PRIMARY KEY (`id`),
                                   KEY `idx_group` (`group_id`) COMMENT '群组维度查询索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='加群请求表';
+
+-- 群邀请链接表（链接/二维码统一用 token 表示）
+CREATE TABLE IF NOT EXISTS `group_invite_links` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+  `group_id` int(11) unsigned NOT NULL COMMENT '群ID',
+  `token` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '邀请token（唯一）',
+  `created_by` int(11) unsigned NOT NULL COMMENT '创建人（群成员ID）',
+  `expire_at` timestamp NULL DEFAULT NULL COMMENT '过期时间（NULL=永不过期）',
+  `max_uses` int unsigned NOT NULL DEFAULT '0' COMMENT '最大可用次数（0=无限）',
+  `used_count` int unsigned NOT NULL DEFAULT '0' COMMENT '已使用次数',
+  `revoked` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否撤销 0否 1是',
+  `revoked_at` timestamp NULL DEFAULT NULL COMMENT '撤销时间',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_token` (`token`),
+  KEY `idx_group` (`group_id`),
+  KEY `idx_creator` (`created_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='群邀请链接表';
+
+-- 群成员资料/设置（群内昵称、群备注等）
+CREATE TABLE IF NOT EXISTS `group_member_settings` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+  `group_id` int(11) unsigned NOT NULL COMMENT '群ID',
+  `user_id` int(11) unsigned NOT NULL COMMENT '用户ID',
+  `group_nickname` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '我在本群的昵称',
+  `group_remark` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '群备注（仅自己可见）',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_group_user` (`group_id`,`user_id`),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='群成员资料/设置';
+
+-- 群公告历史表（支持置顶）
+CREATE TABLE IF NOT EXISTS `group_announcements` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+  `group_id` int(11) unsigned NOT NULL COMMENT '群ID',
+  `content` varchar(1024) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '公告内容',
+  `created_by` int(11) unsigned NOT NULL COMMENT '发布人',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
+  `pinned` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否置顶 0否 1是',
+  `pinned_at` timestamp NULL DEFAULT NULL COMMENT '置顶时间',
+  `deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除 0否 1是',
+  PRIMARY KEY (`id`),
+  KEY `idx_group` (`group_id`),
+  KEY `idx_group_pinned` (`group_id`,`pinned`),
+  KEY `idx_creator` (`created_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='群公告历史';

@@ -20,3 +20,5 @@ node_modules
 
 # ignore debug log
 npm-debug.log
+
+.DS_Store

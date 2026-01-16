@@ -33,6 +33,8 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(req *types.FriendPutInHandleR
 		FriendReqId:  req.FriendReqId,
 		UserId:       curUid,
 		HandleResult: req.HandleResult,
+		Remark:       req.Remark,
+		Tags:         req.Tags,
 	})
 	if err != nil {
 		zLog.Error("friend req handle err", zap.Error(err))

@@ -41,6 +41,8 @@ type (
 		Trans(ctx context.Context, fn func(ctx context.Context, session sqlx.Session) error) error
 		ListAllHandler(ctx context.Context, userId string) ([]*FriendRequests, error)
 		ListFilterHandler(ctx context.Context, userId string, typeList int32, putType string) ([]*FriendRequests, error)
+		MarkAsRead(ctx context.Context, id int32, userId string) error
+		MarkAllAsRead(ctx context.Context, userId string) error
 	}
 
 	defaultFriendRequestsModel struct {
@@ -53,10 +55,12 @@ type (
 		UserId       uint64    `db:"user_id"`       // 申请人用户ID
 		ReqUid       uint64    `db:"req_uid"`       // 被申请人用户ID
 		ReqMsg       string    `db:"req_msg"`       // 好友申请留言
+		Status       int       `db:"status"`        // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
 		ReqTime      time.Time `db:"req_time"`      // 申请发起时间
-		HandleResult int       `db:"handle_result"` // 处理结果（0:待处理 1:同意 2:拒绝）
+		HandleResult int       `db:"handle_result"` // 处理结果（0:待处理 1:同意 2:拒绝 3:忽略）
 		HandleMsg    string    `db:"handle_msg"`    // 处理结果备注
 		HandledAt    time.Time `db:"handled_at"`    // 处理操作时间
+		ReadState    int       `db:"read_state"`    // 读取状态（0:未读 1:已读）
 	}
 )
 
@@ -91,6 +95,8 @@ func (m *defaultFriendRequestsModel) ListFilterHandler(ctx context.Context, user
 	var reqList []*FriendRequests
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	query := mysqlConn.Table(m.table)
+	// 过滤掉已删除的记录（status = 0）
+	query = query.Where("status != ?", 0)
 	if typeTag != 0 {
 		query.Where("handle_result = ?", typeTag)
 	}
@@ -164,7 +170,7 @@ func (m *defaultFriendRequestsModel) Update(ctx context.Context, session sqlx.Se
 	friendRequestsIdKey := fmt.Sprintf("%s%v", cacheFriendRequestsIdPrefix, data.Id)
 	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, friendRequestsRowsWithPlaceHolder)
-		return session.ExecCtx(ctx, query, data.UserId, data.ReqUid, data.ReqMsg, data.ReqTime, data.HandleResult, data.HandleMsg, data.HandledAt, data.Id)
+		return session.ExecCtx(ctx, query, data.UserId, data.ReqUid, data.ReqMsg, data.Status, data.ReqTime, data.HandleResult, data.HandleMsg, data.HandledAt, data.ReadState, data.Id)
 	}, friendRequestsIdKey)
 	return err
 }
@@ -172,10 +178,26 @@ func (m *defaultFriendRequestsModel) Update(ctx context.Context, session sqlx.Se
 func (m *defaultFriendRequestsModel) Insert(ctx context.Context, data *FriendRequests) (sql.Result, error) {
 	friendRequestsIdKey := fmt.Sprintf("%s%v", cacheFriendRequestsIdPrefix, data.Id)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?)", m.table, friendRequestsRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.UserId, data.ReqUid, data.ReqMsg, data.ReqTime, data.HandleResult, data.HandleMsg, data.HandledAt)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, friendRequestsRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.UserId, data.ReqUid, data.ReqMsg, data.Status, data.ReqTime, data.HandleResult, data.HandleMsg, data.HandledAt, data.ReadState)
 	}, friendRequestsIdKey)
 	return ret, err
+}
+
+func (m *defaultFriendRequestsModel) MarkAsRead(ctx context.Context, id int32, userId string) error {
+	query := fmt.Sprintf("update %s set read_state = 1 where id = ? and user_id = ?", m.table)
+	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
+		return conn.ExecCtx(ctx, query, id, userId)
+	})
+	return err
+}
+
+func (m *defaultFriendRequestsModel) MarkAllAsRead(ctx context.Context, userId string) error {
+	query := fmt.Sprintf("update %s set read_state = 1 where user_id = ?", m.table)
+	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
+		return conn.ExecCtx(ctx, query, userId)
+	})
+	return err
 }
 
 func (m *defaultFriendRequestsModel) formatPrimary(primary any) string {

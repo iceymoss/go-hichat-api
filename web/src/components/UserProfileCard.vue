@@ -1,326 +1,400 @@
 <template>
-  <Transition name="profile-card" appear>
-    <div 
-      v-if="visible && user" 
-      class="user-profile-card"
-      :style="cardStyle"
-      @mouseenter="handleMouseEnter"
-      @mouseleave="handleMouseLeave"
-    >
-      <!-- 背景装饰 -->
-      <div class="card-background">
-        <div class="bg-pattern"></div>
-        <div class="bg-glow"></div>
+  <div class="modal-overlay" @click.self="close">
+    <div class="modal-container user-profile-card">
+      <div class="modal-header">
+        <h2>用户资料</h2>
+        <button class="btn-close" @click="close">
+          <i class="icon icon-x"></i>
+        </button>
       </div>
       
-      <!-- 卡片内容 -->
-      <div class="card-content">
+      <div class="modal-body" v-if="loading">
+        <div class="loading-state">
+          <i class="icon icon-spinner"></i>
+          <span>加载中...</span>
+        </div>
+      </div>
+      
+      <div class="modal-body" v-else-if="user">
         <!-- 用户头像和基本信息 -->
         <div class="user-header">
           <div class="avatar-container">
-            <img :src="user.avatar" :alt="user.name" class="user-avatar" />
-            <div class="avatar-ring"></div>
-            <div class="online-status" v-if="user.isOnline"></div>
+            <img :src="user.avatar" alt="头像" class="avatar" />
           </div>
-          
           <div class="user-info">
-            <h3 class="user-name">{{ user.name }}</h3>
-            <p class="user-description" v-if="user.description">
-              {{ user.description }}
-            </p>
-            <p class="user-description" v-else>
-              这个人很懒，什么都没写...
-            </p>
+            <h3 class="name">{{ user.name }}</h3>
+            <div class="account">ID: {{ user.account }}</div>
+            <div class="signature" v-if="user.signature">{{ user.signature }}</div>
+            <div v-else class="signature placeholder">这个人很懒，什么都没写</div>
           </div>
         </div>
         
-        <!-- 用户统计 -->
-        <div class="user-stats">
-          <div class="stat-item">
-            <span class="stat-number">{{ user.feedCount || 0 }}</span>
-            <span class="stat-label">动态</span>
+        <!-- 用户详细信息 -->
+        <div class="user-details">
+          <div class="detail-section">
+            <h4>基础资料</h4>
+            <div class="detail-item">
+              <span class="label">性别</span>
+              <span class="value">{{ user.gender === 'male' ? '男' : user.gender === 'female' ? '女' : '未知' }}</span>
+            </div>
+            <div class="detail-item" v-if="user.region">
+              <span class="label">地区</span>
+              <span class="value">{{ user.region }}</span>
+            </div>
+            <div class="detail-item" v-if="user.occupation">
+              <span class="label">职业</span>
+              <span class="value">{{ user.occupation }}</span>
+            </div>
           </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-number">{{ user.friendCount || 0 }}</span>
-            <span class="stat-label">好友</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-number">{{ user.likeCount || 0 }}</span>
-            <span class="stat-label">获赞</span>
+          
+          <div class="detail-section" v-if="user.tags && user.tags.length > 0">
+            <h4>个人标签</h4>
+            <div class="tags">
+              <span v-for="tag in user.tags" :key="tag" class="tag">{{ tag }}</span>
+            </div>
           </div>
         </div>
         
         <!-- 操作按钮 -->
-        <div class="action-buttons">
-          <button class="action-btn primary" @click="viewProfile">
-            <i class="icon icon-user"></i>
-            <span>个人资料</span>
+        <div class="user-actions">
+          <button 
+            v-if="user.isFriend"
+            class="btn-chat" 
+            @click="startChat"
+          >
+            <i class="icon icon-chat"></i>
+            发消息
           </button>
-          <button class="action-btn secondary" @click="viewSpace">
-            <i class="icon icon-grid"></i>
-            <span>个人空间</span>
+          <button 
+            v-else
+            class="btn-add-friend" 
+            @click="showAddFriendDialog = true"
+            :disabled="sendingFriendRequest"
+          >
+            <i v-if="sendingFriendRequest" class="icon icon-spinner"></i>
+            <i v-else class="icon icon-add"></i>
+            {{ sendingFriendRequest ? '发送中...' : '添加好友' }}
           </button>
         </div>
       </div>
       
-      <!-- 卡片箭头 -->
-      <div class="card-arrow" :class="arrowPosition"></div>
+      <div class="modal-body" v-else>
+        <div class="error-state">
+          <i class="icon icon-error"></i>
+          <p>用户不存在或无法访问</p>
+        </div>
+      </div>
     </div>
-  </Transition>
+    
+    <!-- 申请好友对话框 -->
+    <div v-if="showAddFriendDialog" class="modal-overlay add-friend-overlay" @click.self="showAddFriendDialog = false">
+      <div class="modal-container add-friend-dialog">
+        <div class="modal-header">
+          <h3>发送好友申请</h3>
+          <button type="button" class="modal-close" @click="showAddFriendDialog = false">×</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="user-preview">
+            <img :src="user?.avatar" alt="头像" class="avatar" />
+            <div class="user-name">{{ user?.name }}</div>
+          </div>
+          <div class="message-input">
+            <label>申请消息（可选）</label>
+            <textarea 
+              v-model="requestMessage" 
+              placeholder="请输入申请消息..."
+              rows="3"
+              maxlength="100"
+            ></textarea>
+            <div class="char-count">{{ requestMessage.length }}/100</div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel-modal" @click="showAddFriendDialog = false">取消</button>
+          <button 
+            type="button"
+            class="btn-confirm-send"
+            @click="sendFriendRequest"
+            :disabled="sendingFriendRequest"
+          >
+            <span v-if="sendingFriendRequest" class="loading-spinner"></span>
+            <span v-else>发送</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import { useContactsStore } from '../stores/contacts'
+import { userApi, socialApi } from '../utils/api'
 
 const props = defineProps({
-  visible: {
-    type: Boolean,
-    default: false
-  },
-  user: {
-    type: Object,
-    default: null
-  },
-  position: {
-    type: Object,
-    default: () => ({ x: 0, y: 0 })
-  },
-  arrowPosition: {
+  userId: {
     type: String,
-    default: 'top' // top, bottom, left, right
+    required: true
   }
 })
 
-const emit = defineEmits(['close', 'view-profile', 'view-space', 'mouse-enter-card', 'mouse-leave-card'])
+const emit = defineEmits(['close'])
+
 const router = useRouter()
+const authStore = useAuthStore()
+const contactsStore = useContactsStore()
 
-// 计算卡片位置样式
-const cardStyle = computed(() => {
-  if (!props.visible || !props.position) return {}
+const loading = ref(false)
+const user = ref(null)
+const showAddFriendDialog = ref(false)
+const requestMessage = ref('')
+const sendingFriendRequest = ref(false)
+
+// 加载用户信息
+const loadUserInfo = async () => {
+  if (!props.userId) return
   
-  const { x, y } = props.position
-  const offset = 10 // 箭头偏移量
-  
-  let transform = ''
-  let top = ''
-  let left = ''
-  
-  switch (props.arrowPosition) {
-    case 'top':
-      top = `${y + offset}px`
-      left = `${x}px`
-      transform = 'translateX(-50%)'
-      break
-    case 'bottom':
-      top = `${y - offset}px`
-      left = `${x}px`
-      transform = 'translateX(-50%) translateY(-100%)'
-      break
-    case 'left':
-      top = `${y}px`
-      left = `${x + offset}px`
-      transform = 'translateY(-50%)'
-      break
-    case 'right':
-      top = `${y}px`
-      left = `${x - offset}px`
-      transform = 'translateY(-50%) translateX(-100%)'
-      break
+  loading.value = true
+  try {
+    const userData = await userApi.getUserById(props.userId)
+    
+    if (!userData) {
+      user.value = null
+      return
+    }
+    
+    // 解析标签
+    let tags = []
+    if (userData.tags) {
+      try {
+        tags = typeof userData.tags === 'string' ? JSON.parse(userData.tags) : userData.tags
+      } catch (e) {
+        tags = []
+      }
+    }
+    
+    user.value = {
+      id: userData.id,
+      name: userData.nickname || userData.name || '未设置昵称',
+      account: userData.id,
+      avatar: userData.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${userData.id}`,
+      signature: userData.introduction || '',
+      gender: userData.sex === 1 ? 'male' : userData.sex === 2 ? 'female' : 'unknown',
+      region: userData.region || '',
+      occupation: userData.occupation || '',
+      tags: tags,
+      isFriend: false
+    }
+    
+    // 检查是否是好友
+    await checkFriendStatus()
+    
+    // 允许重复发送好友申请（不检查是否已发送）
+  } catch (error) {
+    console.error('加载用户信息失败:', error)
+    user.value = null
+  } finally {
+    loading.value = false
   }
-  
-  return {
-    position: 'fixed',
-    top,
-    left,
-    transform,
-    zIndex: 1000
+}
+
+// 检查好友关系
+const checkFriendStatus = async () => {
+  try {
+    await contactsStore.fetchFriends()
+    const isFriend = contactsStore.friends.some(
+      friend => friend.friend_uid === props.userId || friend.id === props.userId
+    )
+    if (user.value) {
+      user.value.isFriend = isFriend
+    }
+  } catch (error) {
+    console.error('检查好友关系失败:', error)
   }
+}
+
+// 发送好友申请
+const sendFriendRequest = async () => {
+  if (!user.value || sendingFriendRequest.value) return
+  
+  sendingFriendRequest.value = true
+  
+  try {
+    await contactsStore.sendFriendRequest(props.userId, requestMessage.value.trim())
+    
+    showAddFriendDialog.value = false
+    requestMessage.value = ''
+    
+    alert('好友申请已发送')
+  } catch (error) {
+    console.error('发送好友申请失败:', error)
+    alert(error.message || '发送失败，请稍后重试')
+  } finally {
+    sendingFriendRequest.value = false
+  }
+}
+
+// 发消息
+const startChat = () => {
+  close()
+  router.push(`/app/chat?userId=${user.value.id}`)
+}
+
+// 关闭弹窗
+const close = () => {
+  emit('close')
+}
+
+// 监听 userId 变化
+watch(() => props.userId, (newUserId) => {
+  if (newUserId) {
+    loadUserInfo()
+  }
+}, { immediate: true })
+
+onMounted(() => {
+  loadUserInfo()
 })
-
-const handleMouseEnter = () => {
-  // 鼠标进入卡片时不关闭，清除关闭定时器
-  emit('mouse-enter-card')
-}
-
-const handleMouseLeave = () => {
-  // 鼠标离开卡片时延迟关闭
-  emit('mouse-leave-card')
-}
-
-const viewProfile = () => {
-  emit('view-profile', props.user)
-  emit('close')
-}
-
-const viewSpace = () => {
-  emit('view-space', props.user)
-  emit('close')
-}
 </script>
 
 <style scoped>
-/* 进入/退出动画 */
-.profile-card-enter-active {
-  transition: all 0.4s cubic-bezier(0.23, 1, 0.320, 1);
-}
-
-.profile-card-leave-active {
-  transition: all 0.3s cubic-bezier(0.755, 0.05, 0.855, 0.06);
-}
-
-.profile-card-enter-from {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-10px) scale(0.9);
-  filter: blur(5px);
-}
-
-.profile-card-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(10px) scale(0.95);
-  filter: blur(3px);
-}
-
-.user-profile-card {
-  width: 320px;
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.98) 0%, 
-    rgba(252, 253, 255, 0.95) 100%);
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 
-    0 25px 60px rgba(0, 0, 0, 0.15),
-    0 8px 32px rgba(74, 140, 255, 0.1),
-    0 0 0 1px rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(229, 231, 235, 0.3);
-  backdrop-filter: blur(25px) saturate(1.5);
-  position: relative;
-  overflow: hidden;
-  animation: cardFloat 6s ease-in-out infinite;
-}
-
-@keyframes cardFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-2px); }
-}
-
-.card-background {
-  position: absolute;
+.modal-overlay {
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  pointer-events: none;
-  overflow: hidden;
-  border-radius: 20px;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s;
 }
 
-.bg-pattern {
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  right: -50%;
-  bottom: -50%;
-  background: 
-    radial-gradient(circle at 20% 20%, rgba(74, 140, 255, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(138, 105, 255, 0.06) 0%, transparent 50%);
-  animation: patternRotate 20s linear infinite;
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-@keyframes patternRotate {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.modal-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s;
 }
 
-.bg-glow {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 200px;
-  height: 200px;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(circle, 
-    rgba(74, 140, 255, 0.1) 0%, 
-    transparent 70%);
-  filter: blur(20px);
-  animation: glowPulse 4s ease-in-out infinite alternate;
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
-@keyframes glowPulse {
-  0% { opacity: 0.3; transform: translate(-50%, -50%) scale(0.8); }
-  100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.2); }
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.card-content {
-  position: relative;
-  z-index: 1;
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.btn-close, .modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  color: #999;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-close:hover, .modal-close:hover {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.loading-state, .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #999;
+  gap: 12px;
+}
+
+.loading-state .icon {
+  font-size: 32px;
+  animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-state .icon {
+  font-size: 48px;
+  color: #dc3545;
 }
 
 .user-header {
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .avatar-container {
-  position: relative;
   flex-shrink: 0;
 }
 
-.user-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 
-    0 8px 24px rgba(0, 0, 0, 0.12),
-    0 0 0 2px rgba(74, 140, 255, 0.2);
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.user-avatar:hover {
-  transform: scale(1.05);
-  box-shadow: 
-    0 12px 32px rgba(0, 0, 0, 0.16),
-    0 0 0 3px rgba(74, 140, 255, 0.3);
-}
-
-.avatar-ring {
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  background: linear-gradient(45deg, #4a8cff, #8a69ff, #4a8cff);
-  background-size: 300% 300%;
-  opacity: 0;
-  animation: ringPulse 3s ease-in-out infinite;
-  z-index: -1;
-}
-
-@keyframes ringPulse {
-  0%, 100% { opacity: 0; background-position: 0% 50%; }
-  50% { opacity: 0.6; background-position: 100% 50%; }
-}
-
-.online-status {
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 16px;
-  height: 16px;
-  background: linear-gradient(135deg, #10b981, #059669);
-  border: 3px solid white;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-  animation: onlinePulse 2s ease-in-out infinite;
-}
-
-@keyframes onlinePulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+.avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid #f0f0f0;
 }
 
 .user-info {
@@ -328,230 +402,255 @@ const viewSpace = () => {
   min-width: 0;
 }
 
-.user-name {
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0 0 6px 0;
-  color: #1e293b;
-  background: linear-gradient(135deg, #1e293b 0%, #4a8cff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  line-height: 1.3;
+.name {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
 }
 
-.user-description {
+.account {
   font-size: 14px;
-  color: #64748b;
-  margin: 0;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  color: #999;
+  margin-bottom: 8px;
 }
 
-.user-stats {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.signature {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.signature.placeholder {
+  color: #999;
+  font-style: italic;
+}
+
+.user-details {
+  margin-bottom: 24px;
+}
+
+.detail-section {
   margin-bottom: 20px;
-  padding: 16px;
-  background: linear-gradient(135deg, 
-    rgba(248, 250, 252, 0.8) 0%, 
-    rgba(241, 245, 249, 0.6) 100%);
-  border-radius: 12px;
-  border: 1px solid rgba(229, 231, 235, 0.4);
-  backdrop-filter: blur(10px);
 }
 
-.stat-item {
+.detail-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.detail-item {
   display: flex;
-  flex-direction: column;
+  margin-bottom: 12px;
   align-items: center;
-  flex: 1;
 }
 
-.stat-number {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1e293b;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  line-height: 1;
-  margin-bottom: 4px;
+.detail-item .label {
+  flex: 0 0 80px;
+  font-size: 14px;
+  color: #999;
 }
 
-.stat-label {
-  font-size: 12px;
-  color: #64748b;
-  font-weight: 500;
+.detail-item .value {
+  font-size: 14px;
+  color: #333;
 }
 
-.stat-divider {
-  width: 1px;
-  height: 24px;
-  background: linear-gradient(to bottom, 
-    transparent 0%, 
-    rgba(229, 231, 235, 0.6) 50%, 
-    transparent 100%);
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.action-buttons {
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background-color: #eef5ff;
+  color: #4a8cff;
+  border-radius: 16px;
+  font-size: 13px;
+}
+
+.user-actions {
   display: flex;
   gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
 }
 
-.action-btn {
+.btn-chat,
+.btn-add-friend,
+.btn-request-sent {
   flex: 1;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
+  transition: all 0.2s;
 }
 
-.action-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.2) 0%, 
-    transparent 50%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.action-btn:hover::before {
-  opacity: 1;
-}
-
-.action-btn.primary {
-  background: linear-gradient(135deg, #4a8cff 0%, #8a69ff 100%);
+.btn-chat {
+  background: linear-gradient(135deg, #4a8cff, #8a69ff);
   color: white;
-  box-shadow: 
-    0 4px 15px rgba(74, 140, 255, 0.3),
-    0 2px 8px rgba(138, 105, 255, 0.2);
 }
 
-.action-btn.primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 
-    0 6px 20px rgba(74, 140, 255, 0.4),
-    0 4px 12px rgba(138, 105, 255, 0.3);
-}
-
-.action-btn.secondary {
-  background: rgba(248, 250, 252, 0.8);
-  color: #4a8cff;
-  border: 1px solid rgba(74, 140, 255, 0.2);
-  backdrop-filter: blur(10px);
-}
-
-.action-btn.secondary:hover {
-  background: rgba(74, 140, 255, 0.1);
-  border-color: rgba(74, 140, 255, 0.3);
+.btn-chat:hover {
   transform: translateY(-1px);
-  box-shadow: 
-    0 4px 12px rgba(74, 140, 255, 0.2),
-    0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
 }
 
-.action-btn .icon {
+.btn-add-friend {
+  background: linear-gradient(135deg, #4a8cff, #8a69ff);
+  color: white;
+}
+
+.btn-add-friend:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+}
+
+.btn-add-friend:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-request-sent {
+  background: #d4edda;
+  color: #155724;
+  cursor: default;
+}
+
+.add-friend-overlay {
+  z-index: 1001;
+}
+
+.add-friend-dialog {
+  max-width: 400px;
+}
+
+.user-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.user-preview .avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+}
+
+.user-preview .user-name {
   font-size: 16px;
+  font-weight: 600;
 }
 
-/* 卡片箭头 */
-.card-arrow {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.98) 0%, 
-    rgba(252, 253, 255, 0.95) 100%);
-  border: 1px solid rgba(229, 231, 235, 0.3);
-  transform: rotate(45deg);
-  z-index: -1;
+.message-input {
+  margin-top: 16px;
 }
 
-.card-arrow.top {
-  top: -6px;
-  left: 50%;
-  transform: translateX(-50%) rotate(45deg);
-  border-bottom: none;
-  border-right: none;
+.message-input label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
 }
 
-.card-arrow.bottom {
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%) rotate(45deg);
-  border-top: none;
-  border-left: none;
+.message-input textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
 }
 
-.card-arrow.left {
-  left: -6px;
-  top: 50%;
-  transform: translateY(-50%) rotate(45deg);
-  border-top: none;
-  border-right: none;
+.message-input textarea:focus {
+  border-color: #4a8cff;
 }
 
-.card-arrow.right {
-  right: -6px;
-  top: 50%;
-  transform: translateY(-50%) rotate(45deg);
-  border-bottom: none;
-  border-left: none;
+.char-count {
+  text-align: right;
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .user-profile-card {
-    width: 280px;
-    padding: 20px;
-  }
-  
-  .user-header {
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-  
-  .user-avatar {
-    width: 56px;
-    height: 56px;
-  }
-  
-  .user-name {
-    font-size: 16px;
-  }
-  
-  .user-description {
-    font-size: 13px;
-  }
-  
-  .action-buttons {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .action-btn {
-    padding: 10px 14px;
-    font-size: 13px;
-  }
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #f0f0f0;
+  justify-content: flex-end;
 }
-</style> 
+
+.btn-cancel-modal {
+  padding: 10px 20px;
+  background: white;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel-modal:hover {
+  border-color: #999;
+  color: #333;
+}
+
+.btn-confirm-send {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #4a8cff, #8a69ff);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-confirm-send:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+}
+
+.btn-confirm-send:disabled {
+  background: #d0d0d0;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+</style>

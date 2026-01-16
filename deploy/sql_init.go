@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
 	"time"
 
+	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
+
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -72,9 +73,13 @@ func RunAutoMigrate(dbName string) error {
 		// 社交模块
 		&objects.Friend{},
 		&objects.FriendRequest{},
+		&objects.FriendReport{},
 		&objects.Group{},
 		&objects.GroupMember{},
 		&objects.GroupRequest{},
+		&objects.GroupInviteLink{},
+		&objects.GroupMemberSetting{},
+		&objects.GroupAnnouncement{},
 
 		// 可以在这里添加更多表结构
 	}
@@ -191,9 +196,13 @@ func RunAutoMigrateInTx(tx *gorm.DB) error {
 		// 社交模块
 		&objects.Friend{},
 		&objects.FriendRequest{},
+		&objects.FriendReport{},
 		&objects.Group{},
 		&objects.GroupMember{},
 		&objects.GroupRequest{},
+		&objects.GroupInviteLink{},
+		&objects.GroupMemberSetting{},
+		&objects.GroupAnnouncement{},
 
 		// 可以在这里添加更多表结构
 	}

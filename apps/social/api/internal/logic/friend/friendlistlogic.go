@@ -2,11 +2,14 @@ package friend
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
+	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,7 +30,10 @@ func NewFriendListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Friend
 }
 
 func (l *FriendListLogic) FriendList(req *types.FriendListReq) (resp *types.FriendListResp, err error) {
-	uid := l.ctx.Value(Identify).(string)
+	uid := ctxdata.GetUId(l.ctx)
+	if uid == "" {
+		return nil, fmt.Errorf("user id not found in context")
+	}
 	res, err := l.svcCtx.Social.FriendList(l.ctx, &social.FriendListReq{
 		UserId: uid,
 	})
@@ -54,22 +60,54 @@ func (l *FriendListLogic) FriendList(req *types.FriendListReq) (resp *types.Frie
 		uidBindInfo[v.Id] = v
 	}
 
+	// 去重用户id
+	dup := make(map[string]struct{}, len(res.List))
 	list := make([]*types.Friends, 0, len(userList.User))
-	for _, v := range res.List {
+	for _, item := range res.List {
+		v := item
 		if user, ok := uidBindInfo[v.FriendUid]; ok {
-			if v.Remark == "" {
-				v.Remark = user.Nickname
+			// 删除原来自动填充备注的逻辑，保持数据的真实性
+			// if v.Remark == "" {
+			// 	v.Remark = user.Nickname
+			// }
+
+			key := fmt.Sprintf("%s_%s", v.UserId, v.FriendUid)
+			if _, ok := dup[key]; ok {
+				continue
 			}
+
+			// 将用户ID作为id返回（而不是关系表的id）
+			// 同时返回完整的用户信息
 			item := &types.Friends{
-				Id:        v.Id,
-				FriendUid: v.FriendUid,
-				Nickname:  user.Nickname,
-				Avatar:    user.Avatar,
-				Remark:    v.Remark,
+				Id:                strconv.Itoa(int(v.Id)),
+				FriendUid:         user.Id, // 好友用户ID
+				Nickname:          user.Nickname,
+				Avatar:            user.Avatar,
+				Remark:            v.Remark,
+				Sex:               user.Sex,
+				Email:             user.Email,
+				Phone:             user.Phone,
+				Introduction:      user.Introduction,
+				Region:            user.Region,
+				Occupation:        user.Occupation,
+				Tags:              user.Tags,
+				Status:            user.Status,
+				Type:              user.Type,
+				LastLogin:         user.LastLogin,
+				Blacklisted:       v.Blacklisted,
+				MomentsPermission: v.MomentsPermission,
+				NotifyEnabled:     v.NotifyEnabled,
+				Pinned:            v.Pinned,
+				Muted:             v.Muted,
+				FriendTags:        v.FriendTags,
 			}
 			list = append(list, item)
+			dup[key] = struct{}{}
 		}
 	}
+
+	// 不在这里排序，由前端按拼音排序和分组（类似微信）
+	// 前端会使用 sortFriendsByPinyin 和 groupFriendsByPinyin 进行正确的拼音排序
 
 	resp = &types.FriendListResp{List: list}
 

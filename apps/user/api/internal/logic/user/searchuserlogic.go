@@ -29,8 +29,8 @@ func NewSearchUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Search
 
 func (l *SearchUserLogic) SearchUser(req *types.SearchUserReq) (resp *types.SearchUserResp, err error) {
 	// 验证至少提供一个搜索条件
-	if req.Name == "" && req.Phone == "" && req.Email == "" {
-		return nil, errors.New(xerr.ErrBadRequest, "请至少提供一个搜索条件（名称、手机号或邮箱）")
+	if req.Name == "" && req.Phone == "" && req.Email == "" && len(req.Ids) == 0 {
+		return nil, errors.New(xerr.ErrBadRequest, "请至少提供一个搜索条件（名称、手机号、邮箱或用户ID）")
 	}
 
 	// 调用 RPC 搜索用户
@@ -38,6 +38,7 @@ func (l *SearchUserLogic) SearchUser(req *types.SearchUserReq) (resp *types.Sear
 		Name:  req.Name,
 		Phone: req.Phone,
 		Email: req.Email,
+		Ids:   req.Ids,
 	})
 	if err != nil {
 		return nil, errors.New(xerr.ErrInternalServer, "搜索用户失败，请稍后重试")
@@ -69,4 +70,3 @@ func (l *SearchUserLogic) SearchUser(req *types.SearchUserReq) (resp *types.Sear
 		Users: users,
 	}, nil
 }
-

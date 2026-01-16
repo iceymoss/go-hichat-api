@@ -2,7 +2,6 @@ package friend
 
 import (
 	"context"
-	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
@@ -10,6 +9,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	libErr "github.com/iceymoss/go-hichat-api/pkg/errors"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"github.com/iceymoss/go-hichat-api/pkg/utils"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -47,11 +47,13 @@ func (l *FriendPutInLogic) FriendPutIn(req *types.FriendPutInReq) (resp *types.F
 	}
 
 	uid := l.ctx.Value(Identify).(string)
+	// 使用中国时区的当前时间
+	chinaNow := utils.NowInChina()
 	_, err = l.svcCtx.Social.FriendPutIn(l.ctx, &social.FriendPutInReq{
 		UserId:  uid,
 		ReqUid:  req.UserId,
 		ReqMsg:  req.ReqMsg,
-		ReqTime: time.Now().Unix(),
+		ReqTime: utils.TimeToChinaUnix(chinaNow),
 	})
 	if err != nil {
 		zLog.Error("req friend err", zap.Error(err))

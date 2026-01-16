@@ -68,7 +68,7 @@ service user {
 	@handler bindEmail
 	post /email/bind (BindEmailReq) returns (BindEmailResp)
 
-	@doc "搜索用户（支持名称模糊匹配，手机号和邮箱精准匹配）"
+	@doc "搜索用户（支持名称模糊匹配，手机号、邮箱和用户ID精准匹配）"
 	@handler searchUser
 	get /search (SearchUserReq) returns (SearchUserResp)
 
