@@ -17,7 +17,10 @@
       </div>
     </div>
     <div class="detail-panel">
-      <NewFriends v-if="selectedFriendId === 'new-friends'" />
+      <NewFriends 
+        v-if="selectedFriendId === 'new-friends'" 
+        @select-friend="handleSelectFriendFromNewFriends"
+      />
       <FriendDetail v-else-if="tab==='friends' && selectedFriend" :friend="selectedFriend" />
       <div v-else-if="tab==='groups' && selectedGroup" class="group-detail-center">
         <GroupDetail :group="selectedGroup" />
@@ -57,7 +60,17 @@ const selectedFriend = computed(() => {
 onMounted(async () => {
   await contactsStore.fetchFriends()
   await contactsStore.fetchGroups()
-  await contactsStore.fetchFriendRequests(0, '1') // 获取待处理的我收到的申请
+  // 同时请求两类申请的所有 type 数据
+  const requests = []
+  // 我收到的申请（class=1）：请求所有 type
+  for (let type = 0; type <= 3; type++) {
+    requests.push(contactsStore.fetchFriendRequests(type, '1'))
+  }
+  // 我发起的申请（class=0）：请求所有 type
+  for (let type = 0; type <= 3; type++) {
+    requests.push(contactsStore.fetchFriendRequests(type, '0'))
+  }
+  await Promise.all(requests)
 })
 
 const selectNewFriends = () => {
@@ -83,6 +96,12 @@ const selectedGroup = computed(() => {
 const selectFriend = (friend) => {
   selectedFriendId.value = friend.friend_uid || friend.id
 }
+
+// 处理从 NewFriends 组件选择好友
+const handleSelectFriendFromNewFriends = (friend) => {
+  selectedFriendId.value = friend.friend_uid || friend.id
+}
+
 const selectGroup = (group) => {
   selectedGroupId.value = group.id
 }

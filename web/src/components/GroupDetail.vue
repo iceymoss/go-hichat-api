@@ -119,16 +119,18 @@
             <div class="friend-list">
               <div v-for="group in groupedFriends" :key="group.letter" class="friend-group">
                 <div class="group-header">{{ group.letter }}</div>
-                <div v-for="friend in group.friends" :key="friend.id" class="friend-item" :class="{ 'disabled': isMemberInGroup(friend.id) || friend.id === authStore.user?.id }">
-                  <input 
-                    type="checkbox" 
-                    v-model="selectedFriends" 
-                    :value="friend.id"
-                    :disabled="isMemberInGroup(friend.id) || friend.id === authStore.user?.id"
+
+                <div v-for="friend in group.friends" :key="friend.id" class="friend-item"
+                     :class="{ 'disabled': isMemberInGroup(friend.friend_uid) || friend.friend_uid === authStore.user?.id }">
+
+                  <input
+                    type="checkbox"
+                    v-model="selectedFriends"
+                    :value="friend.friend_uid"
+                    :disabled="isMemberInGroup(friend.friend_uid) || friend.friend_uid === authStore.user?.id"
                   />
                   <img :src="friend.avatar" class="friend-avatar" />
-                  <span>{{ friend.remark || friend.name }}</span>
-                  <span v-if="isMemberInGroup(friend.id) || friend.id === authStore.user?.id" class="in-group-badge">已在群聊</span>
+                  <span>{{ friend.remark || friend.nickname }}</span> <span v-if="isMemberInGroup(friend.friend_uid) || friend.friend_uid === authStore.user?.id" class="in-group-badge">已在群聊</span>
                 </div>
               </div>
             </div>
@@ -737,7 +739,7 @@ const startAudioCall = () => { toastRef.value?.show('群音频功能开发中...
 const inviteSelected = async () => { 
   // 过滤掉已在群里的好友和自己
   const validFriends = selectedFriends.value.filter(friendId => {
-    return !isMemberInGroup(friendId) && friendId !== authStore.user?.id
+    return !isMemberInGroup(friendId) && friendId !== authStore.user?.friend_uid
   })
   
   if (validFriends.length === 0) {

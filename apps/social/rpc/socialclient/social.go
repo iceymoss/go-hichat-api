@@ -134,7 +134,6 @@ type (
 		FindGroupList(ctx context.Context, in *FindGroupListReq, opts ...grpc.CallOption) (*FindGroupListResp, error)
 		GroupQuit(ctx context.Context, in *GroupQuitReq, opts ...grpc.CallOption) (*GroupQuitResp, error)
 		GroupKick(ctx context.Context, in *GroupKickReq, opts ...grpc.CallOption) (*GroupKickResp, error)
-		GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error)
 		GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error)
 		GroupDetail(ctx context.Context, in *GroupDetailReq, opts ...grpc.CallOption) (*GroupDetailResp, error)
 		GroupDisband(ctx context.Context, in *GroupDisbandReq, opts ...grpc.CallOption) (*GroupDisbandResp, error)
@@ -291,11 +290,6 @@ func (m *defaultSocial) GroupQuit(ctx context.Context, in *GroupQuitReq, opts ..
 func (m *defaultSocial) GroupKick(ctx context.Context, in *GroupKickReq, opts ...grpc.CallOption) (*GroupKickResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.GroupKick(ctx, in, opts...)
-}
-
-func (m *defaultSocial) GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error) {
-	client := social.NewSocialClient(m.cli.Conn())
-	return client.GroupInvite(ctx, in, opts...)
 }
 
 func (m *defaultSocial) GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error) {

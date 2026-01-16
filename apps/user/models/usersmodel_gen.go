@@ -14,11 +14,12 @@ import (
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 
+	"github.com/pkg/errors"
+	"github.com/zeromicro/go-
 	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
-	"github.com/zeromicro/go-zero/core/stringx"
 	"github.com/pkg/errors"
 )
 
@@ -170,16 +171,14 @@ func (m *defaultUsersModel) ListByName(ctx context.Context, name string) ([]*Use
 }
 
 func (m *defaultUsersModel) ListByIds(ctx context.Context, ids []string) ([]*Users, error) {
-	query := fmt.Sprintf("select %s from %s where `id` in ('%s') ", usersRows, m.table, strings.Join(ids, "','"))
-
-	var resp []*Users
-	err := m.QueryRowsNoCacheCtx(ctx, &resp, query)
-	switch err {
-	case nil:
-		return resp, nil
-	default:
-		return nil, err
+	var users []*Users
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	resp := mysqlConn.Table(m.table).Where("id in (?)", ids).Find(&users)
+	if resp.Error != nil {
+		return nil, resp.Error
 	}
+
+	return users, nil
 }
 
 func (m *defaultUsersModel) FindOneByEmail(ctx context.Context, email sql.NullString) (*Users, error) {

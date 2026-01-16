@@ -8,6 +8,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -70,6 +71,36 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 		return nil, err
 	}
 
+	// 收集需要获取用户信息的用户ID列表
+	// 根据数据库schema：user_id是申请人，req_uid是被申请人
+	// class=1（我收到的申请）：req_uid是我，user_id是对方（申请人），应该获取user_id的用户信息
+	// class=0（我发起的申请）：user_id是我，req_uid是对方（被申请人），应该获取req_uid的用户信息
+	userIds := make([]string, 0, len(res.List))
+	for _, v := range res.List {
+		if class == "1" {
+			// 我收到的申请，获取申请人的信息（user_id，对方的信息）
+			userIds = append(userIds, v.UserId)
+		} else {
+			// 我发起的申请，获取被申请人的信息（req_uid，对方的信息）
+			userIds = append(userIds, v.ReqUid)
+		}
+	}
+
+	// 批量获取用户信息
+	uidBindInfo := make(map[string]*user.UserEntity)
+	if len(userIds) > 0 {
+		userList, err := l.svcCtx.User.FindUser(l.ctx, &user.FindUserReq{
+			Name:  "",
+			Phone: "",
+			Ids:   userIds,
+		})
+		if err == nil && userList != nil {
+			for _, u := range userList.User {
+				uidBindInfo[u.Id] = u
+			}
+		}
+	}
+
 	list := make([]*types.FriendRequests, 0, len(res.List))
 	for _, v := range res.List {
 		// 根据 HandleResult 设置状态文本
@@ -98,8 +129,25 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 			reqMsg = "" // status=2 时不显示消息
 		}
 
+		// 确定需要获取的用户ID
+		// 根据数据库schema：user_id是申请人，req_uid是被申请人
+		// class=1（我收到的申请）：应该获取user_id的用户信息（申请人的信息，对方）
+		// class=0（我发起的申请）：应该获取req_uid的用户信息（被申请人的信息，对方）
+		var targetUserId string
+		if class == "1" {
+			targetUserId = v.UserId // 我收到的申请，获取申请人的信息（user_id，对方）
+		} else {
+			targetUserId = v.ReqUid // 我发起的申请，获取被申请人的信息（req_uid，对方）
+		}
+
+		// 获取用户信息
+		var userInfo *user.UserEntity
+		if u, ok := uidBindInfo[targetUserId]; ok {
+			userInfo = u
+		}
+
 		handleResult := int(v.HandleResult)
-		list = append(list, &types.FriendRequests{
+		item := &types.FriendRequests{
 			Id:            int64(v.Id),
 			UserId:        v.UserId,
 			ReqUid:        v.ReqUid,
@@ -111,7 +159,25 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 			StatusText:    statusText,
 			HandleMsg:     "",
 			ReadState:     int(v.ReadState),
-		})
+		}
+
+		// 填充用户信息
+		if userInfo != nil {
+			item.Nickname = userInfo.Nickname
+			item.Avatar = userInfo.Avatar
+			item.Sex = userInfo.Sex
+			item.Email = userInfo.Email
+			item.Phone = userInfo.Phone
+			item.Introduction = userInfo.Introduction
+			item.Region = userInfo.Region
+			item.Occupation = userInfo.Occupation
+			item.Tags = userInfo.Tags
+			item.UserStatus = userInfo.Status
+			item.UserType = userInfo.Type
+			item.LastLogin = userInfo.LastLogin
+		}
+
+		list = append(list, item)
 	}
 
 	resp = &types.FriendPutInListResp{List: list}

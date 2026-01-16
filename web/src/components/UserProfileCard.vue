@@ -65,6 +65,15 @@
             <i class="icon icon-chat"></i>
             发消息
           </button>
+          <!-- 如果有待处理的好友申请（我收到的），显示接受申请按钮 -->
+          <button 
+            v-else-if="pendingFriendRequest"
+            class="btn-accept-request" 
+            @click="handleAcceptRequest"
+          >
+            <i class="icon icon-check"></i>
+            接受申请
+          </button>
           <button 
             v-else
             class="btn-add-friend" 
@@ -139,10 +148,15 @@ const props = defineProps({
   userId: {
     type: String,
     required: true
+  },
+  // 可选：好友申请信息（用于显示接受申请按钮）
+  friendRequest: {
+    type: Object,
+    default: null
   }
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'accepted', 'open-accept-dialog'])
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -153,6 +167,14 @@ const user = ref(null)
 const showAddFriendDialog = ref(false)
 const requestMessage = ref('')
 const sendingFriendRequest = ref(false)
+
+// 计算是否有待处理的好友申请（我收到的申请）
+const pendingFriendRequest = computed(() => {
+  if (!props.friendRequest) return false
+  return props.friendRequest.status === 'pending' && 
+         props.friendRequest.requestType === 'received' &&
+         props.friendRequest.handleResult === 0
+})
 
 // 加载用户信息
 const loadUserInfo = async () => {
@@ -215,6 +237,17 @@ const checkFriendStatus = async () => {
   } catch (error) {
     console.error('检查好友关系失败:', error)
   }
+}
+
+// 接受好友申请 - 打开处理申请的弹窗
+const handleAcceptRequest = () => {
+  if (!props.friendRequest) return
+  
+  // 关闭用户资料卡片
+  emit('close')
+  
+  // 通知父组件打开处理申请的弹窗
+  emit('open-accept-dialog', props.friendRequest)
 }
 
 // 发送好友申请
@@ -483,6 +516,7 @@ onMounted(() => {
 
 .btn-chat,
 .btn-add-friend,
+.btn-accept-request,
 .btn-request-sent {
   flex: 1;
   padding: 12px 20px;
@@ -506,6 +540,21 @@ onMounted(() => {
 .btn-chat:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+}
+
+.btn-accept-request {
+  background: linear-gradient(135deg, #07c160, #06ad56);
+  color: white;
+}
+
+.btn-accept-request:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(7, 193, 96, 0.3);
+}
+
+.btn-accept-request:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-add-friend {

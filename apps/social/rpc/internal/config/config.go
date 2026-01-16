@@ -15,4 +15,6 @@ type Config struct {
 	Cache cache.CacheConf
 
 	ImRpc zrpc.RpcClientConf
+
+	UserRpc zrpc.RpcClientConf
 }

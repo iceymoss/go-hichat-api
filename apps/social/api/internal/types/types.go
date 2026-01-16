@@ -141,7 +141,19 @@ type FriendRequests struct {
 	Status        string `json:"status,omitempty"`      // 状态文本: pending-待处理, accepted-已同意, rejected-已拒绝, ignored-已忽略
 	StatusText    string `json:"status_text,omitempty"` // 状态中文文本: 待处理, 已同意, 已拒绝, 已忽略
 	HandleMsg     string `json:"handle_msg,omitempty"`
-	ReadState     int    `json:"read_state,omitempty"` // 读取状态 0未读 1已读
+	ReadState     int    `json:"read_state,omitempty"`   // 读取状态 0未读 1已读
+	Nickname      string `json:"nickname,omitempty"`     // 昵称
+	Avatar        string `json:"avatar,omitempty"`       // 头像
+	Sex           int32  `json:"sex,omitempty"`          // 性别（0-未知 1-男 2-女）
+	Email         string `json:"email,omitempty"`        // 邮箱
+	Phone         string `json:"phone,omitempty"`        // 手机号
+	Introduction  string `json:"introduction,omitempty"` // 个性签名
+	Region        string `json:"region,omitempty"`       // 地区
+	Occupation    string `json:"occupation,omitempty"`   // 职业
+	Tags          string `json:"tags,omitempty"`         // 个人标签（JSON数组字符串）
+	UserStatus    int32  `json:"user_status,omitempty"`  // 用户状态（0-禁用 1-正常）
+	UserType      int32  `json:"user_type,omitempty"`    // 用户类型（0-普通用户 1-管理员）
+	LastLogin     int64  `json:"last_login,omitempty"`   // 最后登录时间（时间戳）
 }
 
 type FriendShareReq struct {
