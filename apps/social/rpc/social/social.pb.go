@@ -5827,7 +5827,7 @@ var file_social_proto_rawDesc = []byte{
 	0x22, 0x37, 0x0a, 0x11, 0x46, 0x69, 0x6e, 0x64, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x4c, 0x69, 0x73,
 	0x74, 0x52, 0x65, 0x73, 0x70, 0x12, 0x22, 0x0a, 0x04, 0x6c, 0x69, 0x73, 0x74, 0x18, 0x01, 0x20,
 	0x03, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x73, 0x6f, 0x63, 0x69, 0x61, 0x6c, 0x2e, 0x47, 0x72, 0x6f,
-	0x75, 0x70, 0x73, 0x52, 0x04, 0x6c, 0x69, 0x73, 0x74, 0x32, 0x90, 0x18, 0x0a, 0x06, 0x73, 0x6f,
+	0x75, 0x70, 0x73, 0x52, 0x04, 0x6c, 0x69, 0x73, 0x74, 0x32, 0xd0, 0x17, 0x0a, 0x06, 0x73, 0x6f,
 	0x63, 0x69, 0x61, 0x6c, 0x12, 0x3e, 0x0a, 0x0b, 0x46, 0x72, 0x69, 0x65, 0x6e, 0x64, 0x50, 0x75,
 	0x74, 0x49, 0x6e, 0x12, 0x16, 0x2e, 0x73, 0x6f, 0x63, 0x69, 0x61, 0x6c, 0x2e, 0x46, 0x72, 0x69,
 	0x65, 0x6e, 0x64, 0x50, 0x75, 0x74, 0x49, 0x6e, 0x52, 0x65, 0x71, 0x1a, 0x17, 0x2e, 0x73, 0x6f,
@@ -5938,10 +5938,6 @@ var file_social_proto_rawDesc = []byte{
 	0x12, 0x14, 0x2e, 0x73, 0x6f, 0x63, 0x69, 0x61, 0x6c, 0x2e, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x4b,
 	0x69, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x1a, 0x15, 0x2e, 0x73, 0x6f, 0x63, 0x69, 0x61, 0x6c, 0x2e,
 	0x47, 0x72, 0x6f, 0x75, 0x70, 0x4b, 0x69, 0x63, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x12, 0x3e, 0x0a,
-	0x0b, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x49, 0x6e, 0x76, 0x69, 0x74, 0x65, 0x12, 0x16, 0x2e, 0x73,
-	0x6f, 0x63, 0x69, 0x61, 0x6c, 0x2e, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x49, 0x6e, 0x76, 0x69, 0x74,
-	0x65, 0x52, 0x65, 0x71, 0x1a, 0x17, 0x2e, 0x73, 0x6f, 0x63, 0x69, 0x61, 0x6c, 0x2e, 0x47, 0x72,
-	0x6f, 0x75, 0x70, 0x49, 0x6e, 0x76, 0x69, 0x74, 0x65, 0x52, 0x65, 0x73, 0x70, 0x12, 0x3e, 0x0a,
 	0x0b, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x12, 0x16, 0x2e, 0x73,
 	0x6f, 0x63, 0x69, 0x61, 0x6c, 0x2e, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x55, 0x70, 0x64, 0x61, 0x74,
 	0x65, 0x52, 0x65, 0x71, 0x1a, 0x17, 0x2e, 0x73, 0x6f, 0x63, 0x69, 0x61, 0x6c, 0x2e, 0x47, 0x72,
@@ -6169,65 +6165,63 @@ var file_social_proto_depIdxs = []int32{
 	89, // 35: social.social.FindGroupList:input_type -> social.FindGroupListReq
 	5,  // 36: social.social.GroupQuit:input_type -> social.GroupQuitReq
 	7,  // 37: social.social.GroupKick:input_type -> social.GroupKickReq
-	9,  // 38: social.social.GroupInvite:input_type -> social.GroupInviteReq
-	11, // 39: social.social.GroupUpdate:input_type -> social.GroupUpdateReq
-	13, // 40: social.social.GroupDetail:input_type -> social.GroupDetailReq
-	39, // 41: social.social.GroupDisband:input_type -> social.GroupDisbandReq
-	41, // 42: social.social.GroupTransferOwner:input_type -> social.GroupTransferOwnerReq
-	43, // 43: social.social.GroupSetAdmin:input_type -> social.GroupSetAdminReq
-	16, // 44: social.social.GroupInviteLinkCreate:input_type -> social.GroupInviteLinkCreateReq
-	18, // 45: social.social.GroupInviteLinkList:input_type -> social.GroupInviteLinkListReq
-	20, // 46: social.social.GroupInviteLinkRevoke:input_type -> social.GroupInviteLinkRevokeReq
-	22, // 47: social.social.GroupJoinByToken:input_type -> social.GroupJoinByTokenReq
-	25, // 48: social.social.GetMyGroupMemberSetting:input_type -> social.GetMyGroupMemberSettingReq
-	27, // 49: social.social.UpdateMyGroupMemberSetting:input_type -> social.UpdateMyGroupMemberSettingReq
-	30, // 50: social.social.GroupAtList:input_type -> social.GroupAtListReq
-	33, // 51: social.social.GroupAnnouncementCreate:input_type -> social.GroupAnnouncementCreateReq
-	35, // 52: social.social.GroupAnnouncementList:input_type -> social.GroupAnnouncementListReq
-	37, // 53: social.social.GroupAnnouncementPin:input_type -> social.GroupAnnouncementPinReq
-	46, // 54: social.social.FriendPutIn:output_type -> social.FriendPutInResp
-	48, // 55: social.social.FriendPutInHandle:output_type -> social.FriendPutInHandleResp
-	50, // 56: social.social.FriendPutInRead:output_type -> social.FriendPutInReadResp
-	52, // 57: social.social.FriendPutInList:output_type -> social.FriendPutInListResp
-	54, // 58: social.social.FriendPutInMessageCount:output_type -> social.FriendPutInMessageCountResp
-	56, // 59: social.social.FriendList:output_type -> social.FriendListResp
-	58, // 60: social.social.FriendUpdateRemark:output_type -> social.FriendUpdateRemarkResp
-	60, // 61: social.social.FriendDelete:output_type -> social.FriendDeleteResp
-	62, // 62: social.social.FriendBlock:output_type -> social.FriendBlockResp
-	64, // 63: social.social.FriendMomentsPermission:output_type -> social.FriendMomentsPermissionResp
-	66, // 64: social.social.FriendNotification:output_type -> social.FriendNotificationResp
-	68, // 65: social.social.FriendPin:output_type -> social.FriendPinResp
-	70, // 66: social.social.FriendMute:output_type -> social.FriendMuteResp
-	72, // 67: social.social.FriendTags:output_type -> social.FriendTagsResp
-	74, // 68: social.social.FriendReport:output_type -> social.FriendReportResp
-	76, // 69: social.social.FriendShare:output_type -> social.FriendShareResp
-	78, // 70: social.social.GroupCreate:output_type -> social.GroupCreateResp
-	80, // 71: social.social.GroupPutin:output_type -> social.GroupPutinResp
-	82, // 72: social.social.GroupPutinList:output_type -> social.GroupPutinListResp
-	84, // 73: social.social.GroupPutInHandle:output_type -> social.GroupPutInHandleResp
-	86, // 74: social.social.GroupList:output_type -> social.GroupListResp
-	88, // 75: social.social.GroupUsers:output_type -> social.GroupUsersResp
-	90, // 76: social.social.FindGroupList:output_type -> social.FindGroupListResp
-	6,  // 77: social.social.GroupQuit:output_type -> social.GroupQuitResp
-	8,  // 78: social.social.GroupKick:output_type -> social.GroupKickResp
-	10, // 79: social.social.GroupInvite:output_type -> social.GroupInviteResp
-	12, // 80: social.social.GroupUpdate:output_type -> social.GroupUpdateResp
-	14, // 81: social.social.GroupDetail:output_type -> social.GroupDetailResp
-	40, // 82: social.social.GroupDisband:output_type -> social.GroupDisbandResp
-	42, // 83: social.social.GroupTransferOwner:output_type -> social.GroupTransferOwnerResp
-	44, // 84: social.social.GroupSetAdmin:output_type -> social.GroupSetAdminResp
-	17, // 85: social.social.GroupInviteLinkCreate:output_type -> social.GroupInviteLinkCreateResp
-	19, // 86: social.social.GroupInviteLinkList:output_type -> social.GroupInviteLinkListResp
-	21, // 87: social.social.GroupInviteLinkRevoke:output_type -> social.GroupInviteLinkRevokeResp
-	23, // 88: social.social.GroupJoinByToken:output_type -> social.GroupJoinByTokenResp
-	26, // 89: social.social.GetMyGroupMemberSetting:output_type -> social.GetMyGroupMemberSettingResp
-	28, // 90: social.social.UpdateMyGroupMemberSetting:output_type -> social.UpdateMyGroupMemberSettingResp
-	31, // 91: social.social.GroupAtList:output_type -> social.GroupAtListResp
-	34, // 92: social.social.GroupAnnouncementCreate:output_type -> social.GroupAnnouncementCreateResp
-	36, // 93: social.social.GroupAnnouncementList:output_type -> social.GroupAnnouncementListResp
-	38, // 94: social.social.GroupAnnouncementPin:output_type -> social.GroupAnnouncementPinResp
-	54, // [54:95] is the sub-list for method output_type
-	13, // [13:54] is the sub-list for method input_type
+	11, // 38: social.social.GroupUpdate:input_type -> social.GroupUpdateReq
+	13, // 39: social.social.GroupDetail:input_type -> social.GroupDetailReq
+	39, // 40: social.social.GroupDisband:input_type -> social.GroupDisbandReq
+	41, // 41: social.social.GroupTransferOwner:input_type -> social.GroupTransferOwnerReq
+	43, // 42: social.social.GroupSetAdmin:input_type -> social.GroupSetAdminReq
+	16, // 43: social.social.GroupInviteLinkCreate:input_type -> social.GroupInviteLinkCreateReq
+	18, // 44: social.social.GroupInviteLinkList:input_type -> social.GroupInviteLinkListReq
+	20, // 45: social.social.GroupInviteLinkRevoke:input_type -> social.GroupInviteLinkRevokeReq
+	22, // 46: social.social.GroupJoinByToken:input_type -> social.GroupJoinByTokenReq
+	25, // 47: social.social.GetMyGroupMemberSetting:input_type -> social.GetMyGroupMemberSettingReq
+	27, // 48: social.social.UpdateMyGroupMemberSetting:input_type -> social.UpdateMyGroupMemberSettingReq
+	30, // 49: social.social.GroupAtList:input_type -> social.GroupAtListReq
+	33, // 50: social.social.GroupAnnouncementCreate:input_type -> social.GroupAnnouncementCreateReq
+	35, // 51: social.social.GroupAnnouncementList:input_type -> social.GroupAnnouncementListReq
+	37, // 52: social.social.GroupAnnouncementPin:input_type -> social.GroupAnnouncementPinReq
+	46, // 53: social.social.FriendPutIn:output_type -> social.FriendPutInResp
+	48, // 54: social.social.FriendPutInHandle:output_type -> social.FriendPutInHandleResp
+	50, // 55: social.social.FriendPutInRead:output_type -> social.FriendPutInReadResp
+	52, // 56: social.social.FriendPutInList:output_type -> social.FriendPutInListResp
+	54, // 57: social.social.FriendPutInMessageCount:output_type -> social.FriendPutInMessageCountResp
+	56, // 58: social.social.FriendList:output_type -> social.FriendListResp
+	58, // 59: social.social.FriendUpdateRemark:output_type -> social.FriendUpdateRemarkResp
+	60, // 60: social.social.FriendDelete:output_type -> social.FriendDeleteResp
+	62, // 61: social.social.FriendBlock:output_type -> social.FriendBlockResp
+	64, // 62: social.social.FriendMomentsPermission:output_type -> social.FriendMomentsPermissionResp
+	66, // 63: social.social.FriendNotification:output_type -> social.FriendNotificationResp
+	68, // 64: social.social.FriendPin:output_type -> social.FriendPinResp
+	70, // 65: social.social.FriendMute:output_type -> social.FriendMuteResp
+	72, // 66: social.social.FriendTags:output_type -> social.FriendTagsResp
+	74, // 67: social.social.FriendReport:output_type -> social.FriendReportResp
+	76, // 68: social.social.FriendShare:output_type -> social.FriendShareResp
+	78, // 69: social.social.GroupCreate:output_type -> social.GroupCreateResp
+	80, // 70: social.social.GroupPutin:output_type -> social.GroupPutinResp
+	82, // 71: social.social.GroupPutinList:output_type -> social.GroupPutinListResp
+	84, // 72: social.social.GroupPutInHandle:output_type -> social.GroupPutInHandleResp
+	86, // 73: social.social.GroupList:output_type -> social.GroupListResp
+	88, // 74: social.social.GroupUsers:output_type -> social.GroupUsersResp
+	90, // 75: social.social.FindGroupList:output_type -> social.FindGroupListResp
+	6,  // 76: social.social.GroupQuit:output_type -> social.GroupQuitResp
+	8,  // 77: social.social.GroupKick:output_type -> social.GroupKickResp
+	12, // 78: social.social.GroupUpdate:output_type -> social.GroupUpdateResp
+	14, // 79: social.social.GroupDetail:output_type -> social.GroupDetailResp
+	40, // 80: social.social.GroupDisband:output_type -> social.GroupDisbandResp
+	42, // 81: social.social.GroupTransferOwner:output_type -> social.GroupTransferOwnerResp
+	44, // 82: social.social.GroupSetAdmin:output_type -> social.GroupSetAdminResp
+	17, // 83: social.social.GroupInviteLinkCreate:output_type -> social.GroupInviteLinkCreateResp
+	19, // 84: social.social.GroupInviteLinkList:output_type -> social.GroupInviteLinkListResp
+	21, // 85: social.social.GroupInviteLinkRevoke:output_type -> social.GroupInviteLinkRevokeResp
+	23, // 86: social.social.GroupJoinByToken:output_type -> social.GroupJoinByTokenResp
+	26, // 87: social.social.GetMyGroupMemberSetting:output_type -> social.GetMyGroupMemberSettingResp
+	28, // 88: social.social.UpdateMyGroupMemberSetting:output_type -> social.UpdateMyGroupMemberSettingResp
+	31, // 89: social.social.GroupAtList:output_type -> social.GroupAtListResp
+	34, // 90: social.social.GroupAnnouncementCreate:output_type -> social.GroupAnnouncementCreateResp
+	36, // 91: social.social.GroupAnnouncementList:output_type -> social.GroupAnnouncementListResp
+	38, // 92: social.social.GroupAnnouncementPin:output_type -> social.GroupAnnouncementPinResp
+	53, // [53:93] is the sub-list for method output_type
+	13, // [13:53] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name
 	13, // [13:13] is the sub-list for extension extendee
 	0,  // [0:13] is the sub-list for field type_name

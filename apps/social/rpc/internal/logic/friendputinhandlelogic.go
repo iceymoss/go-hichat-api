@@ -74,7 +74,7 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 		friend1 := &socialmodels.Friends{
 			UserId:    firendReq.UserId,
 			FriendUid: firendReq.ReqUid,
-			Remark:    string(firendReq.ReqUid), // 默认使用对方UID作为备注，或者使用昵称（如果能获取到）
+			Remark:    in.Remark, // 默认使用对方UID作为备注，或者使用昵称（如果能获取到）
 			AddSource: 1,
 			CreatedAt: sql.NullTime{
 				Time:  chinaNow,

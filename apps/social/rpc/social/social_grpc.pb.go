@@ -44,7 +44,6 @@ const (
 	Social_FindGroupList_FullMethodName              = "/social.social/FindGroupList"
 	Social_GroupQuit_FullMethodName                  = "/social.social/GroupQuit"
 	Social_GroupKick_FullMethodName                  = "/social.social/GroupKick"
-	Social_GroupInvite_FullMethodName                = "/social.social/GroupInvite"
 	Social_GroupUpdate_FullMethodName                = "/social.social/GroupUpdate"
 	Social_GroupDetail_FullMethodName                = "/social.social/GroupDetail"
 	Social_GroupDisband_FullMethodName               = "/social.social/GroupDisband"
@@ -96,7 +95,6 @@ type SocialClient interface {
 	FindGroupList(ctx context.Context, in *FindGroupListReq, opts ...grpc.CallOption) (*FindGroupListResp, error)
 	GroupQuit(ctx context.Context, in *GroupQuitReq, opts ...grpc.CallOption) (*GroupQuitResp, error)
 	GroupKick(ctx context.Context, in *GroupKickReq, opts ...grpc.CallOption) (*GroupKickResp, error)
-	GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error)
 	GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error)
 	GroupDetail(ctx context.Context, in *GroupDetailReq, opts ...grpc.CallOption) (*GroupDetailResp, error)
 	GroupDisband(ctx context.Context, in *GroupDisbandReq, opts ...grpc.CallOption) (*GroupDisbandResp, error)
@@ -375,16 +373,6 @@ func (c *socialClient) GroupKick(ctx context.Context, in *GroupKickReq, opts ...
 	return out, nil
 }
 
-func (c *socialClient) GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GroupInviteResp)
-	err := c.cc.Invoke(ctx, Social_GroupInvite_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *socialClient) GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GroupUpdateResp)
@@ -569,7 +557,6 @@ type SocialServer interface {
 	FindGroupList(context.Context, *FindGroupListReq) (*FindGroupListResp, error)
 	GroupQuit(context.Context, *GroupQuitReq) (*GroupQuitResp, error)
 	GroupKick(context.Context, *GroupKickReq) (*GroupKickResp, error)
-	GroupInvite(context.Context, *GroupInviteReq) (*GroupInviteResp, error)
 	GroupUpdate(context.Context, *GroupUpdateReq) (*GroupUpdateResp, error)
 	GroupDetail(context.Context, *GroupDetailReq) (*GroupDetailResp, error)
 	GroupDisband(context.Context, *GroupDisbandReq) (*GroupDisbandResp, error)
@@ -672,9 +659,6 @@ func (UnimplementedSocialServer) GroupQuit(context.Context, *GroupQuitReq) (*Gro
 }
 func (UnimplementedSocialServer) GroupKick(context.Context, *GroupKickReq) (*GroupKickResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupKick not implemented")
-}
-func (UnimplementedSocialServer) GroupInvite(context.Context, *GroupInviteReq) (*GroupInviteResp, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GroupInvite not implemented")
 }
 func (UnimplementedSocialServer) GroupUpdate(context.Context, *GroupUpdateReq) (*GroupUpdateResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupUpdate not implemented")
@@ -1192,24 +1176,6 @@ func _Social_GroupKick_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Social_GroupInvite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GroupInviteReq)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SocialServer).GroupInvite(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Social_GroupInvite_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SocialServer).GroupInvite(ctx, req.(*GroupInviteReq))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Social_GroupUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GroupUpdateReq)
 	if err := dec(in); err != nil {
@@ -1586,10 +1552,6 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GroupKick",
 			Handler:    _Social_GroupKick_Handler,
-		},
-		{
-			MethodName: "GroupInvite",
-			Handler:    _Social_GroupInvite_Handler,
 		},
 		{
 			MethodName: "GroupUpdate",

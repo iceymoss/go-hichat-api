@@ -39,6 +39,14 @@ func (l *GroupDetailLogic) GroupDetail(in *social.GroupDetailReq) (*social.Group
 		return nil, errors.Wrapf(xerr.NewDBErr(), "list members err %v", err)
 	}
 
+	// 记录rpc服务调用rpc服务
+	//l.svcCtx.User.FindUser(l.ctx, &user.FindUserReq{
+	//	Name:  "",
+	//	Phone: "",
+	//	Ids:   nil,
+	//	Email: "",
+	//})
+
 	// 3. Convert to proto types
 	groupProto := &social.Groups{
 		Id:              strconv.Itoa(group.Id),

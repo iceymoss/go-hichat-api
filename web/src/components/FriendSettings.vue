@@ -281,7 +281,9 @@ const reportFriend = () => {
 }
 
 const confirmDelete = () => {
-  emit('delete-friend', props.friend.id)
+  // 使用 friend_uid 而不是 id，因为 id 是好友关系ID，friend_uid 才是用户ID
+  const friendUid = props.friend.friend_uid || props.friend.id
+  emit('delete-friend', friendUid)
   showDeleteConfirm.value = false
 }
 </script>

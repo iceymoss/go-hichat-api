@@ -453,55 +453,54 @@ message FindGroupListResp {
 // svc
 service social {
   // 好友业务：请求好友、通过或拒绝申请、好友列表
-  rpc FriendPutIn(FriendPutInReq) returns(FriendPutInResp);
-  rpc FriendPutInHandle(FriendPutInHandleReq) returns(FriendPutInHandleResp);
-  rpc FriendPutInRead(FriendPutInReadReq) returns(FriendPutInReadResp);
-  rpc FriendPutInList(FriendPutInListReq) returns(FriendPutInListResp);
-  rpc FriendPutInMessageCount(FriendPutInMessageCountReq) returns(FriendPutInMessageCountResp);
-  rpc FriendList(FriendListReq) returns (FriendListResp);
-  rpc FriendUpdateRemark(FriendUpdateRemarkReq) returns (FriendUpdateRemarkResp);
-  rpc FriendDelete(FriendDeleteReq) returns (FriendDeleteResp);
-  rpc FriendBlock(FriendBlockReq) returns (FriendBlockResp);
-  rpc FriendMomentsPermission(FriendMomentsPermissionReq) returns (FriendMomentsPermissionResp);
-  rpc FriendNotification(FriendNotificationReq) returns (FriendNotificationResp);
-  rpc FriendPin(FriendPinReq) returns (FriendPinResp);
-  rpc FriendMute(FriendMuteReq) returns (FriendMuteResp);
-  rpc FriendTags(FriendTagsReq) returns (FriendTagsResp);
-  rpc FriendReport(FriendReportReq) returns (FriendReportResp);
-  rpc FriendShare(FriendShareReq) returns (FriendShareResp);
+  rpc FriendPutIn(FriendPutInReq) returns(FriendPutInResp); // 请求好友申请
+  rpc FriendPutInHandle(FriendPutInHandleReq) returns(FriendPutInHandleResp); // 申请好友处理
+  rpc FriendPutInRead(FriendPutInReadReq) returns(FriendPutInReadResp); // 标记申请消息已读
+  rpc FriendPutInList(FriendPutInListReq) returns(FriendPutInListResp); // 获取好友申请列表,包括：1.我发起的申请列表；2. 获取我接受到的申请列表
+  rpc FriendPutInMessageCount(FriendPutInMessageCountReq) returns(FriendPutInMessageCountResp); // 获取申请消息数量
+  rpc FriendList(FriendListReq) returns (FriendListResp); // 获取好友列表
+  rpc FriendUpdateRemark(FriendUpdateRemarkReq) returns (FriendUpdateRemarkResp); // 修改好友备注
+  rpc FriendDelete(FriendDeleteReq) returns (FriendDeleteResp); // 删除好友
+  rpc FriendBlock(FriendBlockReq) returns (FriendBlockResp); // 屏蔽好友
+  rpc FriendMomentsPermission(FriendMomentsPermissionReq) returns (FriendMomentsPermissionResp); // 朋友圈权限
+  rpc FriendNotification(FriendNotificationReq) returns (FriendNotificationResp); // 推荐好友
+  rpc FriendPin(FriendPinReq) returns (FriendPinResp); // 好友置顶
+  rpc FriendMute(FriendMuteReq) returns (FriendMuteResp); // 拉黑
+  rpc FriendTags(FriendTagsReq) returns (FriendTagsResp); // 标签
+  rpc FriendReport(FriendReportReq) returns (FriendReportResp); // 举报
+  rpc FriendShare(FriendShareReq) returns (FriendShareResp); // 分享
 
   // 群业务：创建群，修改群，群公告，申请群，用户群列表，群成员，申请群，群退出..
   // 群要求
-  rpc GroupCreate(GroupCreateReq) returns (GroupCreateResp);
-  rpc GroupPutin(GroupPutinReq) returns (GroupPutinResp);
-  rpc GroupPutinList(GroupPutinListReq) returns (GroupPutinListResp);
-  rpc GroupPutInHandle(GroupPutInHandleReq) returns(GroupPutInHandleResp);
-  rpc GroupList(GroupListReq) returns (GroupListResp);
-  rpc GroupUsers(GroupUsersReq) returns (GroupUsersResp);
-  rpc FindGroupList(FindGroupListReq) returns (FindGroupListResp);
+  rpc GroupCreate(GroupCreateReq) returns (GroupCreateResp); // 创建群
+  rpc GroupPutin(GroupPutinReq) returns (GroupPutinResp); // 申请群:1.发起加群申请；2.群主或者管理员邀请加入；3.群成员邀请加入
+  rpc GroupPutinList(GroupPutinListReq) returns (GroupPutinListResp); // 获取群申请列表，包括：1.我发起的申请列表；2. 获取我接受到的申请列表
+  rpc GroupPutInHandle(GroupPutInHandleReq) returns(GroupPutInHandleResp); // 处理群申请
+  rpc GroupList(GroupListReq) returns (GroupListResp); // 获取群列表
+  rpc GroupUsers(GroupUsersReq) returns (GroupUsersResp); // 获取群成员列表
+  rpc FindGroupList(FindGroupListReq) returns (FindGroupListResp); // 获取多个用户的群列表
   
-  rpc GroupQuit(GroupQuitReq) returns (GroupQuitResp);
-  rpc GroupKick(GroupKickReq) returns (GroupKickResp);
-  rpc GroupInvite(GroupInviteReq) returns (GroupInviteResp);
-  rpc GroupUpdate(GroupUpdateReq) returns (GroupUpdateResp);
-  rpc GroupDetail(GroupDetailReq) returns (GroupDetailResp);
-  rpc GroupDisband(GroupDisbandReq) returns (GroupDisbandResp);
-  rpc GroupTransferOwner(GroupTransferOwnerReq) returns (GroupTransferOwnerResp);
-  rpc GroupSetAdmin(GroupSetAdminReq) returns (GroupSetAdminResp);
+  rpc GroupQuit(GroupQuitReq) returns (GroupQuitResp); // 退出群
+  rpc GroupKick(GroupKickReq) returns (GroupKickResp); // 踢群成员
+  rpc GroupUpdate(GroupUpdateReq) returns (GroupUpdateResp); // 修改群信息
+  rpc GroupDetail(GroupDetailReq) returns (GroupDetailResp); // 获取群详情
+  rpc GroupDisband(GroupDisbandReq) returns (GroupDisbandResp); // 解散群
+  rpc GroupTransferOwner(GroupTransferOwnerReq) returns (GroupTransferOwnerResp); // 转移群主
+  rpc GroupSetAdmin(GroupSetAdminReq) returns (GroupSetAdminResp); // 设置群管理员
 
   // 邀请链接/二维码入群
-  rpc GroupInviteLinkCreate(GroupInviteLinkCreateReq) returns (GroupInviteLinkCreateResp);
-  rpc GroupInviteLinkList(GroupInviteLinkListReq) returns (GroupInviteLinkListResp);
-  rpc GroupInviteLinkRevoke(GroupInviteLinkRevokeReq) returns (GroupInviteLinkRevokeResp);
-  rpc GroupJoinByToken(GroupJoinByTokenReq) returns (GroupJoinByTokenResp);
+  rpc GroupInviteLinkCreate(GroupInviteLinkCreateReq) returns (GroupInviteLinkCreateResp); // 创建群邀请链接
+  rpc GroupInviteLinkList(GroupInviteLinkListReq) returns (GroupInviteLinkListResp); // 获取群邀请链接
+  rpc GroupInviteLinkRevoke(GroupInviteLinkRevokeReq) returns (GroupInviteLinkRevokeResp); // 撤销群邀请链接
+  rpc GroupJoinByToken(GroupJoinByTokenReq) returns (GroupJoinByTokenResp); // 通过邀请链接入群
 
   // 群成员资料（群内昵称/群备注/@列表）
-  rpc GetMyGroupMemberSetting(GetMyGroupMemberSettingReq) returns (GetMyGroupMemberSettingResp);
-  rpc UpdateMyGroupMemberSetting(UpdateMyGroupMemberSettingReq) returns (UpdateMyGroupMemberSettingResp);
-  rpc GroupAtList(GroupAtListReq) returns (GroupAtListResp);
+  rpc GetMyGroupMemberSetting(GetMyGroupMemberSettingReq) returns (GetMyGroupMemberSettingResp); // 获取群成员资料
+  rpc UpdateMyGroupMemberSetting(UpdateMyGroupMemberSettingReq) returns (UpdateMyGroupMemberSettingResp); // 修改群成员资料
+  rpc GroupAtList(GroupAtListReq) returns (GroupAtListResp); // 获取群@列表
 
   // 公告历史/置顶
-  rpc GroupAnnouncementCreate(GroupAnnouncementCreateReq) returns (GroupAnnouncementCreateResp);
-  rpc GroupAnnouncementList(GroupAnnouncementListReq) returns (GroupAnnouncementListResp);
-  rpc GroupAnnouncementPin(GroupAnnouncementPinReq) returns (GroupAnnouncementPinResp);
+  rpc GroupAnnouncementCreate(GroupAnnouncementCreateReq) returns (GroupAnnouncementCreateResp); // 创建群公告
+  rpc GroupAnnouncementList(GroupAnnouncementListReq) returns (GroupAnnouncementListResp); // 获取群公告
+  rpc GroupAnnouncementPin(GroupAnnouncementPinReq) returns (GroupAnnouncementPinResp); // 置顶群公告
 }

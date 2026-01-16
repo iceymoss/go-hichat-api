@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -14,7 +15,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
-	"github.com/pkg/errors"
+	libErr "github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
 )
@@ -53,8 +54,8 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 
 	//查询用户是否已加入群
 	userGroupMember, err = l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.ReqId, in.GroupId)
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "find group member by groud id and  req id err %v, req %v, %v", err, in.GroupId, in.ReqId)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, libErr.Wrapf(xerr.NewDBErr(), "find group member by groud id and  req id err %v, req %v, %v", err, in.GroupId, in.ReqId)
 	}
 
 	// 如果已经加入
@@ -64,14 +65,15 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 
 	//查询用户是否已经申请过加入群聊
 	groupReq, err := l.svcCtx.GroupRequestsModel.FindByGroupIdAndReqId(l.ctx, in.GroupId, in.ReqId)
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "find group req by groud id and user id err %v, req %v, %v", err,
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, libErr.Wrapf(xerr.NewDBErr(), "find group req by groud id and user id err %v, req %v, %v", err,
 			in.GroupId, in.ReqId)
 	}
 
 	// 如果已经申请过
 	if groupReq.Id != 0 {
-		return &social.GroupPutinResp{}, nil
+		// 删除之前的记录，重新创建申请：删除之前的记录，重新创建申请
+		err = l.svcCtx.GroupRequestsModel.Delete(l.ctx, groupReq.Id)
 	}
 
 	// 构建申请
@@ -114,7 +116,7 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 	//获取群信息
 	groupInfo, err = l.svcCtx.GroupsModel.FindOne(l.ctx, in.GroupId)
 	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "find group by groud id err %v, req %v", err, in.GroupId)
+		return nil, libErr.Wrapf(xerr.NewDBErr(), "find group by groud id err %v, req %v", err, in.GroupId)
 	}
 
 	// 不需要验证，直接加入群聊
@@ -140,7 +142,7 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 	// 获取邀请人的群成员信息
 	inviteGroupMember, err = l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.InviterUid, in.GroupId)
 	if err != nil && err != gorm.ErrRecordNotFound {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "inviter uid not find: %v, groupid: %v", in.InviterUid, in.GroupId)
+		return nil, libErr.Wrapf(xerr.NewDBErr(), "inviter uid not find: %v, groupid: %v", in.InviterUid, in.GroupId)
 	}
 
 	//验证是否为管理员或者群主
@@ -180,7 +182,7 @@ func (l *GroupPutinLogic) createGroupReq(groupReq *socialmodels.GroupRequests, i
 	if isPass {
 		groupIdInt, err := strconv.Atoi(groupReq.GroupId)
 		if err != nil {
-			return nil, errors.Wrapf(xerr.NewMsg("群id不合法"), "find group by groud id err %v, req %v", err, groupReq)
+			return nil, libErr.Wrapf(xerr.NewMsg("群id不合法"), "find group by groud id err %v, req %v", err, groupReq)
 		}
 		return &social.GroupPutinResp{GroupId: int32(groupIdInt), IsPass: 1}, nil
 	}
@@ -205,7 +207,7 @@ func (l *GroupPutinLogic) createGroupMember(in *social.GroupPutinReq, tx *gorm.D
 	res := tx.Table(Group_Members).Create(&groupMember)
 	if res.Error != nil || res.RowsAffected == 0 {
 		tx.Rollback()
-		return errors.Wrapf(xerr.NewDBErr(), "insert friend err %v req %v", res.Error, groupMember)
+		return libErr.Wrapf(xerr.NewDBErr(), "insert friend err %v req %v", res.Error, groupMember)
 	}
 
 	//为新成员添加会话

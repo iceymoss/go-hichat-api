@@ -2,7 +2,7 @@ package group
 
 import (
 	"context"
-
+	"fmt"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -39,25 +39,29 @@ func (l *GroupDetailLogic) GroupDetail(req *types.GroupDetailReq) (resp *types.G
 		userIdList = append(userIdList, m.UserId)
 	}
 
-	userBindUid := make(map[string]user.UserEntity, len(userIdList))
+	userBindUid := make(map[string]*user.UserEntity)
 	if len(userIdList) > 0 {
 		userRes, err := l.svcCtx.User.FindUser(l.ctx, &user.FindUserReq{Ids: userIdList})
 		if err != nil {
 			return nil, err
 		}
 		for _, u := range userRes.User {
-			userBindUid[u.Id] = *u
+			userInfo := u
+			userBindUid[u.Id] = userInfo
 		}
+
+		fmt.Printf("userRes: %+v\n", userRes.User)
+		fmt.Printf("userBindUid: %+v\n", userBindUid)
 	}
 
-	members := make([]*types.GroupMembers, 0)
+	members := make([]*types.GroupMembers, 0, len(rpcResp.Members))
 	for _, m := range rpcResp.Members {
 		u := userBindUid[m.UserId]
 		members = append(members, &types.GroupMembers{
-			Id:          int64(m.Id),
-			GroupId:     m.GroupId,
-			UserId:      m.UserId,
-			Nickname:    u.Nickname,
+			Id:            int64(m.Id),
+			GroupId:       m.GroupId,
+			UserId:        m.UserId,
+			Nickname:      u.Nickname,
 			UserAvatarUrl: u.Avatar,
 			User: types.User{
 				Id:           u.Id,
