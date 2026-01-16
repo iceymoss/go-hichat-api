@@ -3,8 +3,10 @@ package svc
 import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/apps/user/rpc/userclient"
 
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"github.com/zeromicro/go-zero/zrpc"
 )
 
 type ServiceContext struct {
@@ -16,6 +18,7 @@ type ServiceContext struct {
 	socialmodels.GroupRequestsModel  //群申请表
 	socialmodels.GroupMembersModel   //群成员表
 
+	User userclient.User
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -29,5 +32,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		GroupsModel:         socialmodels.NewGroupsModel(sqlConn, c.Cache),
 		GroupRequestsModel:  socialmodels.NewGroupRequestsModel(sqlConn, c.Cache),
 		GroupMembersModel:   socialmodels.NewGroupMembersModel(sqlConn, c.Cache),
+		User:                userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),
 	}
 }

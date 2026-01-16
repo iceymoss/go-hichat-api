@@ -85,7 +85,9 @@ const searchKeyword = ref('')
 
 // 直接从 Store 计算未读数，移除冗余的轮询
 const unreadCount = computed(() => {
-  return contactsStore.friendRequests.filter(req => req.read_state === 0).length
+  // 只统计待处理（type=0）且未读的申请
+  const pendingRequests = contactsStore.friendRequests['0'] || []
+  return pendingRequests.filter(req => req.read_state === 0).length
 })
 
 const handleAvatarError = (event) => {

@@ -74,12 +74,8 @@ func (m *defaultGroupRequestsModel) Trans(ctx context.Context, fn func(context.C
 }
 
 func (m *defaultGroupRequestsModel) Delete(ctx context.Context, id int64) error {
-	groupRequestsIdKey := fmt.Sprintf("%s%v", cacheGroupRequestsIdPrefix, id)
-	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("delete from %s where `id` = ?", m.table)
-		return conn.ExecCtx(ctx, query, id)
-	}, groupRequestsIdKey)
-	return err
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	return mysqlConn.Table(m.table).Delete(&GroupRequests{}, id).Error
 }
 
 func (m *defaultGroupRequestsModel) FindOne(ctx context.Context, id int64) (*GroupRequests, error) {

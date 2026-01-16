@@ -150,11 +150,6 @@ func (s *SocialServer) GroupKick(ctx context.Context, in *social.GroupKickReq) (
 	return l.GroupKick(in)
 }
 
-func (s *SocialServer) GroupInvite(ctx context.Context, in *social.GroupInviteReq) (*social.GroupInviteResp, error) {
-	l := logic.NewGroupInviteLogic(ctx, s.svcCtx)
-	return l.GroupInvite(in)
-}
-
 func (s *SocialServer) GroupUpdate(ctx context.Context, in *social.GroupUpdateReq) (*social.GroupUpdateResp, error) {
 	l := logic.NewGroupUpdateLogic(ctx, s.svcCtx)
 	return l.GroupUpdate(in)

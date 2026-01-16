@@ -88,7 +88,9 @@ const processing = ref(false)
 // 获取当前标签页的请求列表
 const requests = computed(() => {
   if (activeTab.value === 'received') {
-    return contactsStore.friendRequests.filter(req => req.status === 'pending' || req.status === 'accepted' || req.status === 'rejected')
+    // 合并所有 type 的数据
+    const allRequests = contactsStore.getAllFriendRequests
+    return allRequests.filter(req => req.status === 'pending' || req.status === 'accepted' || req.status === 'rejected')
   } else {
     // 我发起的申请需要单独获取
     return sentRequests.value
@@ -100,7 +102,9 @@ const sentRequests = ref([])
 
 // 统计数量
 const receivedCount = computed(() => {
-  return contactsStore.friendRequests.filter(req => req.status === 'pending').length
+  // 只统计待处理（type=0）的申请
+  const pendingRequests = contactsStore.friendRequests['0'] || []
+  return pendingRequests.length
 })
 
 const sentCount = computed(() => {

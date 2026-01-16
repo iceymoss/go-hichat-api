@@ -4,16 +4,40 @@
       <div class="header">
         <div class="title-group">
           <div class="title">新的朋友</div>
-          <div class="filter-tabs">
+          <!-- Class 分类：我收到的申请 vs 我发起的申请 -->
+          <div class="class-tabs">
             <span 
-              :class="{ active: filter === 'all' }" 
-              @click="filter = 'all'"
-            >全部</span>
+              :class="{ active: classFilter === 'received' }" 
+              @click="classFilter = 'received'"
+            >申请添加</span>
             <span 
-              :class="{ active: filter === 'pending' }" 
-              @click="filter = 'pending'"
-            >待处理</span>
+              :class="{ active: classFilter === 'sent' }" 
+              @click="classFilter = 'sent'"
+            >我发起的</span>
           </div>
+        </div>
+        <!-- Type 分类：全部、待处理、已通过、已拒绝、已忽略 -->
+        <div class="type-tabs">
+          <span 
+            :class="{ active: typeFilter === 'all' }" 
+            @click="typeFilter = 'all'"
+          >全部</span>
+          <span 
+            :class="{ active: typeFilter === '0' }" 
+            @click="typeFilter = '0'"
+          >待处理</span>
+          <span 
+            :class="{ active: typeFilter === '1' }" 
+            @click="typeFilter = '1'"
+          >已通过</span>
+          <span 
+            :class="{ active: typeFilter === '2' }" 
+            @click="typeFilter = '2'"
+          >已拒绝</span>
+          <span 
+            :class="{ active: typeFilter === '3' }" 
+            @click="typeFilter = '3'"
+          >已忽略</span>
         </div>
       </div>
 
@@ -35,12 +59,16 @@
           <div class="info">
             <div class="name-row">
               <span class="name">{{ req.name }}</span>
-              <span class="tag-label" v-if="req.status === 'pending'">申请中</span>
+              <span class="tag-label" v-if="req.status === 'pending' && req.requestType === 'received'">申请中</span>
+              <span class="tag-label sent" v-if="req.requestType === 'sent'">我发起的</span>
             </div>
-            <div class="message">{{ req.req_msg || '请求添加你为好友' }}</div>
+            <div class="message">
+              <span v-if="req.requestType === 'sent'">我：{{ req.req_msg || '请求添加为好友' }}</span>
+              <span v-else>{{ req.req_msg || '请求添加你为好友' }}</span>
+            </div>
           </div>
           <div class="action-area">
-            <button v-if="req.status === 'pending'" class="btn-accept" @click.stop="handleAccept(req)">
+            <button v-if="req.status === 'pending' && req.requestType === 'received'" class="btn-accept" @click.stop="handleAccept(req)">
               接受
             </button>
             <span v-else class="status-text">{{ req.statusText }}</span>
@@ -102,6 +130,15 @@
         </div>
       </div>
     </div>
+
+    <!-- 用户资料卡片 -->
+    <UserProfileCard
+      v-if="showProfileCard && profileCardUserId"
+      :userId="profileCardUserId"
+      :friendRequest="currentFriendRequest"
+      @close="closeProfileCard"
+      @open-accept-dialog="handleOpenAcceptDialog"
+    />
   </div>
 </template>
 
@@ -109,9 +146,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { useContactsStore } from '../stores/contacts'
 import { socialApi } from '../utils/api'
+import UserProfileCard from './UserProfileCard.vue'
+
+const emit = defineEmits(['select-friend'])
 
 const contactsStore = useContactsStore()
-const filter = ref('all')
+// Class 分类：'received' 表示我收到的申请，'sent' 表示我发起的申请
+const classFilter = ref('received')
+// Type 分类：'all' 表示全部，'0' 表示待处理，'1' 表示已通过，'2' 表示已拒绝，'3' 表示已忽略
+const typeFilter = ref('all')
 const showHandleModal = ref(false)
 const currentReq = ref(null)
 const newTag = ref('')
@@ -119,6 +162,11 @@ const handleForm = ref({
   remark: '',
   tags: []
 })
+
+// 用户资料卡片相关
+const showProfileCard = ref(false)
+const profileCardUserId = ref(null)
+const currentFriendRequest = ref(null)
 
 // 组件挂载时，将所有申请标记为已读
 onMounted(async () => {
@@ -145,11 +193,39 @@ onMounted(async () => {
 })
 
 const filteredRequests = computed(() => {
-  const list = contactsStore.friendRequests
-  if (filter.value === 'pending') {
-    return list.filter(req => req.status === 'pending')
+  // 根据 classFilter 选择对应的数据源
+  let sourceData = {}
+  if (classFilter.value === 'received') {
+    // 我收到的申请
+    sourceData = contactsStore.friendRequests || {}
+  } else {
+    // 我发起的申请
+    sourceData = contactsStore.sentFriendRequests || {}
   }
-  return list
+  
+  // 根据 typeFilter 获取对应的数据
+  let sourceList = []
+  if (typeFilter.value === 'all') {
+    // 全部：合并所有 type 的数据
+    sourceList = [
+      ...(sourceData['0'] || []),
+      ...(sourceData['1'] || []),
+      ...(sourceData['2'] || []),
+      ...(sourceData['3'] || [])
+    ]
+  } else {
+    // 特定 type：只获取对应 type 的数据
+    sourceList = sourceData[typeFilter.value] || []
+  }
+  
+  // 添加 requestType 标识
+  const requestType = classFilter.value === 'received' ? 'received' : 'sent'
+  sourceList = sourceList.map(req => ({ ...req, requestType }))
+  
+  // 按时间倒序排序（最新的在前）
+  sourceList.sort((a, b) => (b.req_time || 0) - (a.req_time || 0))
+  
+  return sourceList
 })
 
 const formatTime = (timestamp) => {
@@ -164,10 +240,53 @@ const formatTime = (timestamp) => {
 }
 
 const showDetail = (req) => {
-  // 如果是待处理状态，可以直接打开处理弹窗
+  // 如果是待处理状态，显示用户资料卡片
   if (req.status === 'pending') {
-    handleAccept(req)
+    showUserProfileCard(req)
+  } 
+  // 如果是已同意状态，跳转到好友详情页
+  else if (req.status === 'accepted') {
+    // 确定用户ID：
+    // 根据数据库schema：user_id是申请人，req_uid是被申请人
+    // - 如果是"我收到的申请"（requestType='received'）：req_uid是我，user_id是对方，应该使用user_id
+    // - 如果是"我发起的申请"（requestType='sent'）：user_id是我，req_uid是对方，应该使用req_uid
+    const friendId = req.requestType === 'received' ? req.user_id : req.req_uid
+    if (friendId) {
+      // 通知父组件选择该好友
+      emit('select-friend', { friend_uid: friendId, id: friendId })
+    }
   }
+}
+
+// 显示用户资料卡片
+const showUserProfileCard = (req) => {
+  // 确定用户ID：
+  // 根据数据库schema：user_id是申请人，req_uid是被申请人
+  // - 如果是"我收到的申请"（requestType='received'）：req_uid是我，user_id是对方，应该使用user_id
+  // - 如果是"我发起的申请"（requestType='sent'）：user_id是我，req_uid是对方，应该使用req_uid
+  const userId = req.requestType === 'received' ? req.user_id : req.req_uid
+  
+  if (userId) {
+    profileCardUserId.value = userId
+    currentFriendRequest.value = req // 保存申请信息，用于显示接受申请按钮
+    showProfileCard.value = true
+  }
+}
+
+// 关闭用户资料卡片
+const closeProfileCard = () => {
+  showProfileCard.value = false
+  profileCardUserId.value = null
+  currentFriendRequest.value = null
+}
+
+// 处理打开接受申请弹窗事件（从用户资料卡片触发）
+const handleOpenAcceptDialog = (friendRequest) => {
+  // 关闭用户资料卡片
+  closeProfileCard()
+  
+  // 打开处理申请的弹窗
+  handleAccept(friendRequest)
 }
 
 const handleAccept = (req) => {
@@ -253,14 +372,15 @@ const confirmAccept = async () => {
   color: #333;
 }
 
-.filter-tabs {
+.class-tabs {
   display: flex;
   background: #f5f5f5;
   padding: 2px;
   border-radius: 4px;
+  margin-left: 20px;
 }
 
-.filter-tabs span {
+.class-tabs span {
   font-size: 13px;
   color: #666;
   cursor: pointer;
@@ -269,11 +389,34 @@ const confirmAccept = async () => {
   transition: all 0.2s;
 }
 
-.filter-tabs span.active {
+.class-tabs span.active {
   color: #333;
   background: #fff;
   font-weight: 500;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.type-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 30px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+}
+
+.type-tabs span {
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.type-tabs span.active {
+  color: #4a8cff;
+  background: #e6f7ff;
+  font-weight: 500;
 }
 
 .request-list {
@@ -353,6 +496,11 @@ const confirmAccept = async () => {
   color: #faad14;
   padding: 1px 4px;
   border-radius: 2px;
+}
+
+.tag-label.sent {
+  background: #e6f7ff;
+  color: #1890ff;
 }
 
 .message {

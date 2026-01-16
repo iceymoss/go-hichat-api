@@ -7,8 +7,23 @@ export const useContactsStore = defineStore('contacts', () => {
   // 好友列表
   const friends = ref([])
   
-  // 好友请求列表
-  const friendRequests = ref([])
+  // 好友请求列表（我收到的申请，class=1）
+  // 按 type 分类存储：0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
+  const friendRequests = ref({
+    '0': [], // 待处理
+    '1': [], // 已通过
+    '2': [], // 已拒绝
+    '3': []  // 已忽略
+  })
+  
+  // 我发起的申请列表（class=0）
+  // 按 type 分类存储：0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
+  const sentFriendRequests = ref({
+    '0': [], // 待处理
+    '1': [], // 已通过
+    '2': [], // 已拒绝
+    '3': []  // 已忽略
+  })
 
   // 群组列表
   const groups = ref([])
@@ -311,29 +326,53 @@ export const useContactsStore = defineStore('contacts', () => {
           status_text: req.status_text || (req.handle_result === 0 ? '待处理' : req.handle_result === 1 ? '已同意' : '已拒绝'), // 兼容字段
           message_status: req.message_status !== undefined && req.message_status !== null ? req.message_status : 1, // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
           read_state: req.read_state !== undefined ? req.read_state : 0, // 读取状态 0未读 1已读
-          // 这些字段会在组件中通过用户信息填充
-          name: req.req_uid, // 临时使用，组件中会替换
-          avatar: `https://api.dicebear.com/7.x/personas/svg?seed=${req.req_uid}`, // 临时使用
-          message: req.req_msg || '申请添加你为好友'
+          // 使用后端返回的用户信息字段
+          name: req.nickname || req.req_uid, // 优先使用昵称，如果没有则使用用户ID
+          avatar: req.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${req.req_uid}`, // 优先使用后端返回的头像，如果没有则使用默认头像
+          nickname: req.nickname, // 昵称
+          sex: req.sex, // 性别
+          email: req.email, // 邮箱
+          phone: req.phone, // 手机号
+          introduction: req.introduction, // 个性签名
+          region: req.region, // 地区
+          occupation: req.occupation, // 职业
+          tags: req.tags, // 个人标签
+          user_status: req.user_status, // 用户状态
+          user_type: req.user_type, // 用户类型
+          last_login: req.last_login, // 最后登录时间
+          message: req.req_msg || '申请添加你为好友',
+          // 添加申请类型标识：'received' 表示我收到的申请，'sent' 表示我发起的申请
+          requestType: classType === '1' ? 'received' : 'sent'
         }))
         
-        // 如果是"我收到的申请"，更新 friendRequests
+        // 根据 classType 和 type 分别存储到不同的列表
+        const typeKey = String(type)
         if (classType === '1') {
-          friendRequests.value = formattedList
+          // 我收到的申请，按 type 分类存储
+          friendRequests.value[typeKey] = formattedList
+        } else if (classType === '0') {
+          // 我发起的申请，按 type 分类存储
+          sentFriendRequests.value[typeKey] = formattedList
         }
         
         // 返回格式化后的列表
         return formattedList
       } else {
+        const typeKey = String(type)
         if (classType === '1') {
-          friendRequests.value = []
+          friendRequests.value[typeKey] = []
+        } else if (classType === '0') {
+          sentFriendRequests.value[typeKey] = []
         }
         return []
       }
     } catch (error) {
       console.error('获取好友申请列表失败:', error)
+      const typeKey = String(type)
       if (classType === '1') {
-        friendRequests.value = []
+        friendRequests.value[typeKey] = []
+      } else if (classType === '0') {
+        sentFriendRequests.value[typeKey] = []
       }
       return []
     } finally {
@@ -380,9 +419,34 @@ export const useContactsStore = defineStore('contacts', () => {
     }
   }
       
+  // 获取所有我收到的申请（合并所有 type）
+  const getAllFriendRequests = computed(() => {
+    return [
+      ...(friendRequests.value['0'] || []),
+      ...(friendRequests.value['1'] || []),
+      ...(friendRequests.value['2'] || []),
+      ...(friendRequests.value['3'] || [])
+    ]
+  })
+  
+  // 获取所有我发起的申请（合并所有 type）
+  const getAllSentFriendRequests = computed(() => {
+    return [
+      ...(sentFriendRequests.value['0'] || []),
+      ...(sentFriendRequests.value['1'] || []),
+      ...(sentFriendRequests.value['2'] || []),
+      ...(sentFriendRequests.value['3'] || [])
+    ]
+  })
+  
   // 添加好友请求（用于本地添加，通常不需要）
   const addFriendRequest = (request) => {
-    friendRequests.value.unshift(request)
+    // 根据 handleResult 确定 type，默认为待处理（type=0）
+    const typeKey = String(request.handleResult || 0)
+    if (!friendRequests.value[typeKey]) {
+      friendRequests.value[typeKey] = []
+    }
+    friendRequests.value[typeKey].unshift(request)
   }
   
   // 获取群组列表
@@ -680,6 +744,9 @@ export const useContactsStore = defineStore('contacts', () => {
   return {
     friends,
     friendRequests,
+    sentFriendRequests,
+    getAllFriendRequests,
+    getAllSentFriendRequests,
     groups,
     currentGroup,
     groupRequests,

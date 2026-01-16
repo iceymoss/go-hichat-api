@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"gorm.io/gorm"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -30,6 +31,9 @@ func (l *GroupKickLogic) GroupKick(in *social.GroupKickReq) (*social.GroupKickRe
 	// 1. Check if operator is admin/creator
 	operator, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.UserId, in.GroupId)
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, errors.Wrapf(xerr.NewMsg("group not found"), "group %s not found", in.GroupId)
+		}
 		return nil, errors.Wrapf(xerr.NewDBErr(), "operator not found")
 	}
 
