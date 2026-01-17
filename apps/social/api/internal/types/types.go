@@ -203,6 +203,16 @@ type FriendsOnlineResp struct {
 	OnlineList map[string]bool `json:"onLineList"`
 }
 
+type GetGroupPutListByUidReq struct {
+	Ids   []string `json:"ids,optional"`   // 用户id列表
+	Class string   `json:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
+	Type  string   `json:"type,optional"`  // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
+}
+
+type GetGroupPutListByUidResp struct {
+	List []*GroupRequests `json:"list,omitempty"`
+}
+
 type GetMyGroupMemberSettingReq struct {
 	GroupId string `form:"group_id"`
 }

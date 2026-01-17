@@ -38,6 +38,7 @@ const (
 	Social_GroupCreate_FullMethodName                = "/social.social/GroupCreate"
 	Social_GroupPutin_FullMethodName                 = "/social.social/GroupPutin"
 	Social_GroupPutinList_FullMethodName             = "/social.social/GroupPutinList"
+	Social_GetGroupPutListByUid_FullMethodName       = "/social.social/GetGroupPutListByUid"
 	Social_GroupPutInHandle_FullMethodName           = "/social.social/GroupPutInHandle"
 	Social_GroupList_FullMethodName                  = "/social.social/GroupList"
 	Social_GroupUsers_FullMethodName                 = "/social.social/GroupUsers"
@@ -89,6 +90,7 @@ type SocialClient interface {
 	GroupCreate(ctx context.Context, in *GroupCreateReq, opts ...grpc.CallOption) (*GroupCreateResp, error)
 	GroupPutin(ctx context.Context, in *GroupPutinReq, opts ...grpc.CallOption) (*GroupPutinResp, error)
 	GroupPutinList(ctx context.Context, in *GroupPutinListReq, opts ...grpc.CallOption) (*GroupPutinListResp, error)
+	GetGroupPutListByUid(ctx context.Context, in *GetGroupPutListByUidReq, opts ...grpc.CallOption) (*GroupPutinListResp, error)
 	GroupPutInHandle(ctx context.Context, in *GroupPutInHandleReq, opts ...grpc.CallOption) (*GroupPutInHandleResp, error)
 	GroupList(ctx context.Context, in *GroupListReq, opts ...grpc.CallOption) (*GroupListResp, error)
 	GroupUsers(ctx context.Context, in *GroupUsersReq, opts ...grpc.CallOption) (*GroupUsersResp, error)
@@ -307,6 +309,16 @@ func (c *socialClient) GroupPutinList(ctx context.Context, in *GroupPutinListReq
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GroupPutinListResp)
 	err := c.cc.Invoke(ctx, Social_GroupPutinList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GetGroupPutListByUid(ctx context.Context, in *GetGroupPutListByUidReq, opts ...grpc.CallOption) (*GroupPutinListResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupPutinListResp)
+	err := c.cc.Invoke(ctx, Social_GetGroupPutListByUid_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -551,6 +563,7 @@ type SocialServer interface {
 	GroupCreate(context.Context, *GroupCreateReq) (*GroupCreateResp, error)
 	GroupPutin(context.Context, *GroupPutinReq) (*GroupPutinResp, error)
 	GroupPutinList(context.Context, *GroupPutinListReq) (*GroupPutinListResp, error)
+	GetGroupPutListByUid(context.Context, *GetGroupPutListByUidReq) (*GroupPutinListResp, error)
 	GroupPutInHandle(context.Context, *GroupPutInHandleReq) (*GroupPutInHandleResp, error)
 	GroupList(context.Context, *GroupListReq) (*GroupListResp, error)
 	GroupUsers(context.Context, *GroupUsersReq) (*GroupUsersResp, error)
@@ -641,6 +654,9 @@ func (UnimplementedSocialServer) GroupPutin(context.Context, *GroupPutinReq) (*G
 }
 func (UnimplementedSocialServer) GroupPutinList(context.Context, *GroupPutinListReq) (*GroupPutinListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupPutinList not implemented")
+}
+func (UnimplementedSocialServer) GetGroupPutListByUid(context.Context, *GetGroupPutListByUidReq) (*GroupPutinListResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetGroupPutListByUid not implemented")
 }
 func (UnimplementedSocialServer) GroupPutInHandle(context.Context, *GroupPutInHandleReq) (*GroupPutInHandleResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupPutInHandle not implemented")
@@ -1064,6 +1080,24 @@ func _Social_GroupPutinList_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SocialServer).GroupPutinList(ctx, req.(*GroupPutinListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GetGroupPutListByUid_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetGroupPutListByUidReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GetGroupPutListByUid(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GetGroupPutListByUid_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GetGroupPutListByUid(ctx, req.(*GetGroupPutListByUidReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1528,6 +1562,10 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GroupPutinList",
 			Handler:    _Social_GroupPutinList_Handler,
+		},
+		{
+			MethodName: "GetGroupPutListByUid",
+			Handler:    _Social_GetGroupPutListByUid_Handler,
 		},
 		{
 			MethodName: "GroupPutInHandle",

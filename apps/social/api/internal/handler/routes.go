@@ -240,6 +240,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: group.GroupPutInListHandler(serverCtx),
 			},
 			{
+				// 用户角度的群申请列表
+				Method:  http.MethodGet,
+				Path:    "/group/putInsByUid",
+				Handler: group.GetGroupPutListByUidHandler(serverCtx),
+			},
+			{
 				// 退出群组
 				Method:  http.MethodPost,
 				Path:    "/group/quit",

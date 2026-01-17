@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-var configFile = flag.String("f", "etc/user-local.yaml", "the config file")
+var configFile = flag.String("f", "apps/user/rpc/etc/user-sample.yaml", "the config file")
 
 func main() {
 	pkcCfg.InitConfig("local", "", "config")

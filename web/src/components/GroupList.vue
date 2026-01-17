@@ -1,5 +1,15 @@
 <template>
   <div class="group-list-container">
+    <!-- 顶部操作区 -->
+    <div class="action-section">
+      <button class="list-entry-btn" @click="emit('select-new-groups')">
+        <div class="icon-wrapper orange">
+          <i class="icon icon-users"></i>
+        </div>
+        <span class="text">新的群聊</span>
+      </button>
+    </div>
+    
     <div class="search-section">
       <input v-model="keyword" placeholder="搜索群聊/群号" />
       <button class="add-group-btn" title="Join by token" @click="showJoinModal = true">
@@ -46,7 +56,7 @@ const props = defineProps({
     default: null
   }
 })
-const emit = defineEmits(['select-group'])
+const emit = defineEmits(['select-group', 'select-new-groups'])
 const contactsStore = useContactsStore()
 const keyword = ref('')
 const showCreateModal = ref(false)
@@ -76,6 +86,37 @@ const handleJoinSuccess = (resp) => {
 </script>
 <style scoped>
 .group-list-container { height: 100%; display: flex; flex-direction: column; background: #fff; }
+
+/* 操作入口 */
+.action-section {
+  background: white;
+}
+.list-entry-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.list-entry-btn:hover { background: #f3f3f3; }
+
+.icon-wrapper {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-wrapper.orange { background: #fa9d3b; }
+.icon-wrapper .icon { color: white; font-size: 20px; }
+
+.text { font-size: 14px; color: #111827; font-weight: 500; }
+
 .search-section { padding: 16px 20px; border-bottom: 1px solid #f0f2f5; display: flex; gap: 10px; }
 .search-section input { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #ddd; }
 .add-group-btn {

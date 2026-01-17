@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-var configFile = flag.String("f", "etc/social-local.yaml", "the config file")
+var configFile = flag.String("f", "apps/social/rpc/etc/social-sample.yaml", "the config file")
 
 func main() {
 	flag.Parse()

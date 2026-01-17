@@ -40,6 +40,7 @@ type (
 		Delete(ctx context.Context, id int64) error
 		ListHandlerByGroup(ctx context.Context, groupId string, handleResult []int32) ([]*GroupRequests, error)
 		ListReqByUser(ctx context.Context, userId string) ([]*GroupRequests, error)
+		GetGroupReqListByUid(ctx context.Context, userIds []string, class string, status string) ([]*GroupRequests, error)
 	}
 
 	defaultGroupRequestsModel struct {
@@ -96,6 +97,25 @@ func (m *defaultGroupRequestsModel) FindByGroupIdAndReqId(ctx context.Context, g
 	if err != nil && err == gorm.ErrRecordNotFound {
 		return resp, err
 	}
+
+	return resp, err
+}
+
+func (m *defaultGroupRequestsModel) GetGroupReqListByUid(ctx context.Context, userIds []string, class string, status string) ([]*GroupRequests, error) {
+	var resp []*GroupRequests
+	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	query := mysqlConn.Table(m.table).Where("req_id in ?", userIds)
+	if class != "apply" {
+		query = query.Where("join_source in ?", []int{1, 3})
+	} else {
+		query = query.Where("join_source in ?", []int{2})
+	}
+
+	if status != "all" {
+		query = query.Where("handle_result = ?", status)
+	}
+
+	err := query.Find(&resp).Error
 
 	return resp, err
 }
