@@ -392,6 +392,15 @@ export const socialApi = {
     return socialApiInstance.get('/v1/social/group/putIns', { params })
   },
   
+  // 用户角度的群申请列表
+  getGroupPutListByUid: (ids, classType, type) => {
+    const params = {}
+    if (Array.isArray(ids) && ids.length > 0) params.ids = ids
+    if (classType !== undefined && classType !== null) params.class = classType
+    if (type !== undefined && type !== null) params.type = type
+    return socialApiInstance.get('/v1/social/group/putInsByUid', { params })
+  },
+  
   // 用户群列表
   groupList: () => {
     return socialApiInstance.get('/v1/social/groups')

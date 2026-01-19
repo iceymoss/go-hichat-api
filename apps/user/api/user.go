@@ -17,7 +17,7 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 )
 
-var configFile = flag.String("f", "etc/user-local.yaml", "the config file")
+var configFile = flag.String("f", "apps/user/api/etc/user-sample.yaml", "the config file")
 
 func main() {
 	flag.Parse()
@@ -32,10 +32,10 @@ func main() {
 		absConfigFile, err := filepath.Abs(*configFile)
 		if err == nil {
 			configDir := filepath.Dir(absConfigFile) // apps/user/api/etc
-			configDir = filepath.Dir(configDir)       // apps/user/api
-			configDir = filepath.Dir(configDir)       // apps/user
-			configDir = filepath.Dir(configDir)       // apps
-			configDir = filepath.Dir(configDir)       // 项目根目录
+			configDir = filepath.Dir(configDir)      // apps/user/api
+			configDir = filepath.Dir(configDir)      // apps/user
+			configDir = filepath.Dir(configDir)      // apps
+			configDir = filepath.Dir(configDir)      // 项目根目录
 			configPath = filepath.Join(configDir, "config")
 		} else {
 			configPath = "./config"
@@ -56,10 +56,10 @@ func main() {
 		absStaticPath = staticPath
 	}
 	fmt.Printf("Static files absolute path: %s\n", absStaticPath)
-	
+
 	// 使用 go-zero 的 WithFileServer 选项配置静态文件服务
 	staticDir := http.Dir(absStaticPath)
-	server := rest.MustNewServer(c.RestConf, 
+	server := rest.MustNewServer(c.RestConf,
 		rest.WithCors("*"),
 		rest.WithFileServer("/static", staticDir),
 	)

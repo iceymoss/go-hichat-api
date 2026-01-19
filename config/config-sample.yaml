@@ -2,8 +2,8 @@ mysql:         #MySQL config
   host: '127.0.0.1'
   port: '3306'
   name: 'hichat2'
-  user: 'root'
-  password: '123456789'
+  user: 'iceymoss'
+  password: 'Yk?1233456'
 redis:
   host: 'localhost'
   port: '6379'

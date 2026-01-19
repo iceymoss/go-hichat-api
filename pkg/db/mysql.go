@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	dbLogger "gorm.io/gorm/logger"
 	gormLogger "gorm.io/gorm/logger"
 	"gorm.io/gorm/utils"
 )
@@ -61,20 +62,25 @@ func GetMysqlConn(db string) *gorm.DB {
 		case "dpanic":
 			gormlevel = gormLogger.Error
 		default:
-			gormlevel = gormLogger.Warn
+			gormlevel = gormLogger.Info
 		}
 		dsn := userName + ":" + userPwd + "@tcp(" + host + ":" + port + ")/" + db + "?charset=utf8mb4&parseTime=True&loc=Local"
-		fmt.Printf("dsn:%s\n", dsn)
+		fmt.Printf("dsn:%s\n", dsn, gormlevel)
 		dbConn, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-			Logger: &CustomMySqlLogger{
-				Logger: logger,
-				Config: gormLogger.Config{
-					LogLevel:                  gormlevel,
-					Colorful:                  false,
-					IgnoreRecordNotFoundError: true,
-					SlowThreshold:             500 * time.Millisecond,
-				},
-			},
+			//Logger: &CustomMySqlLogger{
+			//	Logger: logger,
+			//	Config: gormLogger.Config{
+			//		LogLevel:                  gormlevel,
+			//		Colorful:                  false,
+			//		IgnoreRecordNotFoundError: true,
+			//		SlowThreshold:             500 * time.Millisecond,
+			//	},
+			//},
+			Logger: dbLogger.Default.LogMode(dbLogger.Info),
+			// 命名策略
+			NamingStrategy: nil, // 使用默认策略
+			// 禁用外键约束（由应用层维护）
+
 		})
 
 		pool, pollErr := dbConn.DB()

@@ -449,6 +449,12 @@ message FindGroupListResp {
   repeated Groups list = 1;
 }
 
+message GetGroupPutListByUidReq {
+  repeated string ids = 1;  // 用户id
+  string class = 2;         // 类别： 1：我发起的申请， 2：我接受到的申请
+  string type = 3;          // 状态： 0未处理，1已通过，2已拒绝，3忽略
+}
+
 
 // svc
 service social {
@@ -474,7 +480,8 @@ service social {
   // 群要求
   rpc GroupCreate(GroupCreateReq) returns (GroupCreateResp); // 创建群
   rpc GroupPutin(GroupPutinReq) returns (GroupPutinResp); // 申请群:1.发起加群申请；2.群主或者管理员邀请加入；3.群成员邀请加入
-  rpc GroupPutinList(GroupPutinListReq) returns (GroupPutinListResp); // 获取群申请列表，包括：1.我发起的申请列表；2. 获取我接受到的申请列表
+  rpc GroupPutinList(GroupPutinListReq) returns (GroupPutinListResp); // 群的角度：获取群申请列表，包括：1.我发起的申请列表；2. 获取我接受到的申请列表
+  rpc GetGroupPutListByUid(GetGroupPutListByUidReq) returns (GroupPutinListResp); // 用户的角度：获取群申请列表
   rpc GroupPutInHandle(GroupPutInHandleReq) returns(GroupPutInHandleResp); // 处理群申请
   rpc GroupList(GroupListReq) returns (GroupListResp); // 获取群列表
   rpc GroupUsers(GroupUsersReq) returns (GroupUsersResp); // 获取群成员列表

@@ -120,6 +120,11 @@ func (s *SocialServer) GroupPutinList(ctx context.Context, in *social.GroupPutin
 	return l.GroupPutinList(in)
 }
 
+func (s *SocialServer) GetGroupPutListByUid(ctx context.Context, in *social.GetGroupPutListByUidReq) (*social.GroupPutinListResp, error) {
+	l := logic.NewGetGroupPutListByUidLogic(ctx, s.svcCtx)
+	return l.GetGroupPutListByUid(in)
+}
+
 func (s *SocialServer) GroupPutInHandle(ctx context.Context, in *social.GroupPutInHandleReq) (*social.GroupPutInHandleResp, error) {
 	l := logic.NewGroupPutInHandleLogic(ctx, s.svcCtx)
 	return l.GroupPutInHandle(in)

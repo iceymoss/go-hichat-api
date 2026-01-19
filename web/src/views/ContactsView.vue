@@ -13,13 +13,22 @@
           @add-friend="showAddFriendModal = true"
           @select-new-friends="selectNewFriends"
         />
-        <GroupList v-if="tab==='groups'" :selectedGroupId="selectedGroupId" @select-group="selectGroup" />
+        <GroupList 
+          v-if="tab==='groups'" 
+          :selectedGroupId="selectedGroupId" 
+          @select-group="selectGroup"
+          @select-new-groups="selectNewGroups"
+        />
       </div>
     </div>
     <div class="detail-panel">
       <NewFriends 
         v-if="selectedFriendId === 'new-friends'" 
         @select-friend="handleSelectFriendFromNewFriends"
+      />
+      <NewGroups
+        v-else-if="selectedGroupId === 'new-groups'"
+        @select-group="handleSelectGroupFromNewGroups"
       />
       <FriendDetail v-else-if="tab==='friends' && selectedFriend" :friend="selectedFriend" />
       <div v-else-if="tab==='groups' && selectedGroup" class="group-detail-center">
@@ -43,6 +52,7 @@ import AddFriendModal from '../components/AddFriendModal.vue'
 import GroupDetail from '../components/GroupDetail.vue'
 import GroupList from '../components/GroupList.vue'
 import NewFriends from '../components/NewFriends.vue'
+import NewGroups from '../components/NewGroups.vue'
 
 const tab = ref('friends')
 const selectedFriendId = ref(null)
@@ -60,17 +70,7 @@ const selectedFriend = computed(() => {
 onMounted(async () => {
   await contactsStore.fetchFriends()
   await contactsStore.fetchGroups()
-  // 同时请求两类申请的所有 type 数据
-  const requests = []
-  // 我收到的申请（class=1）：请求所有 type
-  for (let type = 0; type <= 3; type++) {
-    requests.push(contactsStore.fetchFriendRequests(type, '1'))
-  }
-  // 我发起的申请（class=0）：请求所有 type
-  for (let type = 0; type <= 3; type++) {
-    requests.push(contactsStore.fetchFriendRequests(type, '0'))
-  }
-  await Promise.all(requests)
+  // 不再一次性请求所有数据，改为按需请求（由NewFriends组件控制）
 })
 
 const selectNewFriends = () => {
@@ -90,6 +90,7 @@ const handleSendRequest = async (userId) => {
 }
 
 const selectedGroup = computed(() => {
+  if (selectedGroupId.value === 'new-groups') return null
   return contactsStore.groups.find(g => g.id === selectedGroupId.value) || null
 })
 
@@ -102,7 +103,17 @@ const handleSelectFriendFromNewFriends = (friend) => {
   selectedFriendId.value = friend.friend_uid || friend.id
 }
 
+const selectNewGroups = () => {
+  selectedGroupId.value = 'new-groups'
+  selectedFriendId.value = null
+}
+
 const selectGroup = (group) => {
+  selectedGroupId.value = group.id
+}
+
+// 处理从 NewGroups 组件选择群组
+const handleSelectGroupFromNewGroups = (group) => {
   selectedGroupId.value = group.id
 }
 </script>

@@ -51,6 +51,7 @@ type (
 	FriendUpdateRemarkReq          = social.FriendUpdateRemarkReq
 	FriendUpdateRemarkResp         = social.FriendUpdateRemarkResp
 	Friends                        = social.Friends
+	GetGroupPutListByUidReq        = social.GetGroupPutListByUidReq
 	GetMyGroupMemberSettingReq     = social.GetMyGroupMemberSettingReq
 	GetMyGroupMemberSettingResp    = social.GetMyGroupMemberSettingResp
 	GroupAnnouncement              = social.GroupAnnouncement
@@ -128,6 +129,7 @@ type (
 		GroupCreate(ctx context.Context, in *GroupCreateReq, opts ...grpc.CallOption) (*GroupCreateResp, error)
 		GroupPutin(ctx context.Context, in *GroupPutinReq, opts ...grpc.CallOption) (*GroupPutinResp, error)
 		GroupPutinList(ctx context.Context, in *GroupPutinListReq, opts ...grpc.CallOption) (*GroupPutinListResp, error)
+		GetGroupPutListByUid(ctx context.Context, in *GetGroupPutListByUidReq, opts ...grpc.CallOption) (*GroupPutinListResp, error)
 		GroupPutInHandle(ctx context.Context, in *GroupPutInHandleReq, opts ...grpc.CallOption) (*GroupPutInHandleResp, error)
 		GroupList(ctx context.Context, in *GroupListReq, opts ...grpc.CallOption) (*GroupListResp, error)
 		GroupUsers(ctx context.Context, in *GroupUsersReq, opts ...grpc.CallOption) (*GroupUsersResp, error)
@@ -260,6 +262,11 @@ func (m *defaultSocial) GroupPutin(ctx context.Context, in *GroupPutinReq, opts 
 func (m *defaultSocial) GroupPutinList(ctx context.Context, in *GroupPutinListReq, opts ...grpc.CallOption) (*GroupPutinListResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.GroupPutinList(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GetGroupPutListByUid(ctx context.Context, in *GetGroupPutListByUidReq, opts ...grpc.CallOption) (*GroupPutinListResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GetGroupPutListByUid(ctx, in, opts...)
 }
 
 func (m *defaultSocial) GroupPutInHandle(ctx context.Context, in *GroupPutInHandleReq, opts ...grpc.CallOption) (*GroupPutInHandleResp, error) {

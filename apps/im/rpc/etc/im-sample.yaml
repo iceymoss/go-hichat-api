@@ -16,3 +16,9 @@ SocialRpc:
     RetryInterval: 500 # 每次重试间隔500ms
     NonBlock: true     # 非阻塞模式
 
+Log:
+  #  Mode: file      # 改为 file，控制台就清净了
+  #  Path: logs      # 日志文件存放在 logs 目录下
+  #  Stat: false     # 同时关掉统计日志
+  Level: error  # 【关键】只打印 error 级别，info 和 stat 都会被屏蔽
+

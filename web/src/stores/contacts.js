@@ -32,6 +32,25 @@ export const useContactsStore = defineStore('contacts', () => {
   // 加群申请列表（仅管理员/群主在某群内可看）
   const groupRequests = ref([])
   
+  // 群聊申请列表（我发起的申请，class=1）
+  // 按 type 分类存储：0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
+  const sentGroupRequests = ref({
+    '0': [], // 待处理
+    '1': [], // 已通过
+    '2': [], // 已拒绝
+    '3': []  // 已忽略
+  })
+  
+  // 群聊申请列表（我收到的申请，class=2）
+  // 按 type 分类存储：0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
+  // 注意：我收到的申请通常需要groupId，但也可以不传groupId查看所有群
+  const receivedGroupRequests = ref({
+    '0': [], // 待处理
+    '1': [], // 已通过
+    '2': [], // 已拒绝
+    '3': []  // 已忽略
+  })
+  
   // 在线状态映射
   const onlineStatus = ref({})
   
@@ -469,7 +488,79 @@ export const useContactsStore = defineStore('contacts', () => {
     }
   }
 
-  // 获取加群申请列表
+  // 获取群聊申请列表（使用用户角度的API）
+  // type: 0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
+  // classType: 1=我发起的申请, 2=我收到的申请
+  // groupId: 已废弃，不再使用（新API从用户角度获取，不需要groupId）
+  const fetchGroupRequestsByType = async (type = 0, classType = 1, groupId = null) => {
+    try {
+      requestsLoading.value = true
+      // 使用新的用户角度API
+      // classType: 1=我发起的申请, 2=我收到的申请
+      // type: 0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
+      const response = await socialApi.getGroupPutListByUid(null, String(classType), String(type))
+      
+      if (response && response.list) {
+        const formattedList = response.list.map(req => ({
+          id: req.id,
+          group_req_id: req.id,
+          group_id: req.group_id,
+          user_id: req.user_id || req.req_id, // 申请者的UID
+          req_msg: req.req_msg || '',
+          req_time: req.req_time,
+          handle_result: req.handle_result !== undefined && req.handle_result !== null ? req.handle_result : 0,
+          join_source: req.join_source,
+          inviter_user_id: req.inviter_user_id,
+          // 后端已经带 user / group
+          user: req.user,
+          group: req.group,
+          // 便捷字段（UI 展示）
+          name: req.user?.nickname || req.user_id || '未知用户',
+          avatar: req.user?.avatar || `https://api.dicebear.com/7.x/personas/svg?seed=${req.user_id || req.req_id}`,
+          group_name: req.group?.name || '未知群组',
+          group_avatar: req.group?.icon || `https://api.dicebear.com/7.x/identicon/svg?seed=${req.group_id}`,
+          message: req.req_msg || '申请加入群聊',
+          // 状态字段
+          status: req.handle_result === 0 ? 'pending' : req.handle_result === 1 ? 'accepted' : req.handle_result === 2 ? 'rejected' : req.handle_result === 3 ? 'ignored' : 'pending',
+          statusText: req.handle_result === 0 ? '待处理' : req.handle_result === 1 ? '已同意' : req.handle_result === 2 ? '已拒绝' : req.handle_result === 3 ? '已忽略' : '待处理',
+          requestType: classType === 1 ? 'sent' : 'received'
+        }))
+        
+        // 根据 classType 和 type 分别存储到不同的列表
+        const typeKey = String(type)
+        if (classType === 1) {
+          // 我发起的申请，按 type 分类存储
+          sentGroupRequests.value[typeKey] = formattedList
+        } else if (classType === 2) {
+          // 我收到的申请，按 type 分类存储
+          receivedGroupRequests.value[typeKey] = formattedList
+        }
+        
+        return formattedList
+      } else {
+        const typeKey = String(type)
+        if (classType === 1) {
+          sentGroupRequests.value[typeKey] = []
+        } else if (classType === 2) {
+          receivedGroupRequests.value[typeKey] = []
+        }
+        return []
+      }
+    } catch (error) {
+      console.error('获取群聊申请列表失败:', error)
+      const typeKey = String(type)
+      if (classType === 1) {
+        sentGroupRequests.value[typeKey] = []
+      } else if (classType === 2) {
+        receivedGroupRequests.value[typeKey] = []
+      }
+      return []
+    } finally {
+      requestsLoading.value = false
+    }
+  }
+
+  // 获取加群申请列表（保留原有方法，用于特定群的管理）
   // classType: 1=我发起的申请, 2=我收到的申请(需要传 groupId 且需要管理员/群主权限)
   const fetchGroupRequests = async (groupId, types = [0], classType = 2) => {
     try {
@@ -750,6 +841,8 @@ export const useContactsStore = defineStore('contacts', () => {
     groups,
     currentGroup,
     groupRequests,
+    sentGroupRequests,
+    receivedGroupRequests,
     onlineStatus,
     loading,
     requestsLoading,
@@ -763,6 +856,7 @@ export const useContactsStore = defineStore('contacts', () => {
     fetchGroups,
     fetchGroupDetail,
     fetchGroupRequests,
+    fetchGroupRequestsByType,
     handleGroupRequest,
     quitGroup,
     inviteGroupMembers,

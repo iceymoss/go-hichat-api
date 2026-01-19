@@ -83,7 +83,7 @@ func (m *defaultFriendRequestsModel) Delete(ctx context.Context, id uint64) erro
 func (m *defaultFriendRequestsModel) FindOne(ctx context.Context, id uint64, uid string) (*FriendRequests, error) {
 	var resp FriendRequests
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
-	res := mysqlConn.Table(m.table).Where("id = ?", id).Where("req_uid = ?", uid).First(&resp)
+	res := mysqlConn.Table(m.table).Where("user_id = ?", id).Where("req_uid = ?", uid).First(&resp)
 	if res.Error != nil && res.Error != gorm.ErrRecordNotFound {
 		return nil, res.Error
 	}
@@ -97,9 +97,9 @@ func (m *defaultFriendRequestsModel) ListFilterHandler(ctx context.Context, user
 	query := mysqlConn.Table(m.table)
 	// 过滤掉已删除的记录（status = 0）
 	query = query.Where("status != ?", 0)
-	if typeTag != 0 {
-		query.Where("handle_result = ?", typeTag)
-	}
+	// typeTag: 0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
+	// 当typeTag为0时，也应该添加筛选条件，只返回待处理的记录
+	query = query.Where("handle_result = ?", typeTag)
 	if putType == "1" {
 		query = query.Where("req_uid = ?", userId)
 	} else {
