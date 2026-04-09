@@ -175,20 +175,17 @@ onUnmounted(() => {
   width: 100%;
   box-sizing: border-box;
   background: #fff;
-  border-radius: 20px 20px 0 0; /* 只保留上边圆角，底部与消息气泡连接 */
+  border-radius: 12px 12px 0 0;
   overflow: hidden;
-  box-shadow: 
-    0 20px 40px rgba(74, 140, 255, 0.08),
-    0 8px 16px rgba(138, 105, 255, 0.05);
-  border: 1px solid rgba(229, 231, 235, 0.2);
-  backdrop-filter: blur(20px);
-  margin: 0; /* 去除所有边距 */
-  position: relative; /* 为绝对定位的按钮提供参考 */
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
+  margin: 0;
+  position: relative;
 }
 
 .cover-background {
   position: relative;
-  height: 200px;
+  height: 180px;
   overflow: hidden;
 }
 
@@ -196,11 +193,6 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.cover-background:hover .cover-image {
-  transform: scale(1.05);
 }
 
 .cover-overlay {
@@ -209,13 +201,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(
-    135deg, 
-    rgba(74, 140, 255, 0.7) 0%, 
-    rgba(138, 105, 255, 0.6) 50%,
-    rgba(74, 140, 255, 0.8) 100%
-  );
-  backdrop-filter: blur(2px);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.45));
 }
 
 .cover-content {
@@ -224,7 +210,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 24px 32px;
+  padding: 20px 28px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -234,7 +220,7 @@ onUnmounted(() => {
 .user-main-info {
   display: flex;
   align-items: flex-end;
-  gap: 20px;
+  gap: 16px;
 }
 
 .user-avatar-container {
@@ -242,68 +228,46 @@ onUnmounted(() => {
 }
 
 .user-avatar {
-  width: 80px;
-  height: 80px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
-  border: 4px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 
-    0 8px 24px rgba(0, 0, 0, 0.15),
-    0 0 0 2px rgba(74, 140, 255, 0.3);
-  transition: all 0.3s ease;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   cursor: pointer;
+  transition: opacity 0.15s;
 }
 
 .user-avatar:hover {
-  transform: scale(1.1);
-  border-color: rgba(255, 255, 255, 1);
-  box-shadow: 
-    0 12px 32px rgba(0, 0, 0, 0.2),
-    0 0 0 3px rgba(74, 140, 255, 0.5);
+  opacity: 0.9;
 }
 
 .avatar-glow {
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  right: -4px;
-  bottom: -4px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: -1;
-  filter: blur(8px);
-}
-
-.user-avatar:hover + .avatar-glow {
-  opacity: 0.6;
+  display: none;
 }
 
 .user-details {
   color: white;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .user-name {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 4px 0;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  letter-spacing: 0.5px;
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 2px 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .user-signature {
-  font-size: 14px;
+  font-size: 13px;
   opacity: 0.9;
   margin: 0;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .user-stats {
   display: flex;
-  gap: 24px;
-  margin-bottom: 8px;
+  gap: 20px;
+  margin-bottom: 6px;
 }
 
 .stat-item {
@@ -313,88 +277,73 @@ onUnmounted(() => {
 
 .stat-number {
   display: block;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .stat-label {
   display: block;
-  font-size: 12px;
-  opacity: 0.9;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-  font-weight: 500;
+  font-size: 11px;
+  opacity: 0.85;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   margin-top: 2px;
 }
 
 .action-buttons {
   position: absolute;
-  top: 20px;
-  right: 24px;
+  top: 16px;
+  right: 20px;
   display: flex;
-  gap: 12px;
-  z-index: 10; /* 确保按钮在其他元素之上 */
+  gap: 8px;
+  z-index: 10;
 }
 
 .action-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
+  gap: 5px;
+  padding: 7px 14px;
   border: none;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  position: relative;
-  z-index: 5; /* 确保按钮本身可以被点击 */
-  pointer-events: auto; /* 确保指针事件正常工作 */
+  transition: background-color 0.15s;
+  pointer-events: auto;
 }
 
 .action-btn.primary {
   background: rgba(255, 255, 255, 0.95);
-  color: #4a8cff;
-  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+  color: #374151;
 }
 
 .action-btn.primary:hover {
-  background: rgba(255, 255, 255, 1);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3);
+  background: #fff;
 }
 
 .action-btn.secondary {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.2);
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .action-btn.secondary:hover {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .action-btn .icon {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .quick-nav {
-  background: rgba(248, 250, 252, 0.8);
-  backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(229, 231, 235, 0.3);
-  border-radius: 0; /* 去除圆角，与消息气泡连接 */
-  border-bottom: none; /* 移除底部边框 */
+  background: #fafbfc;
+  border-top: 1px solid #f3f4f6;
 }
-
-
 
 .nav-tabs {
   display: flex;
-  padding: 0 32px;
-  position: relative;
+  padding: 0 28px;
 }
 
 .nav-tab {
@@ -402,150 +351,118 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 16px 12px;
+  gap: 6px;
+  padding: 12px 8px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  color: #64748b;
-  border-bottom: 3px solid transparent;
+  transition: color 0.15s;
+  color: #6b7280;
+  border-bottom: 2px solid transparent;
 }
 
 .nav-tab:hover {
-  color: #4a8cff;
-  background: rgba(74, 140, 255, 0.05);
+  color: #111827;
 }
 
 .nav-tab.active {
-  color: #4a8cff;
-  border-bottom-color: #4a8cff;
-  background: rgba(74, 140, 255, 0.08);
+  color: #6366f1;
+  border-bottom-color: #6366f1;
 }
 
 .tab-icon {
-  font-size: 18px;
-}
-
-.tab-label {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.tab-count {
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  color: white;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 12px;
-  min-width: 20px;
-  text-align: center;
-  box-shadow: 0 2px 6px rgba(74, 140, 255, 0.3);
-}
-
-.nav-tab.active .tab-count {
-  background: linear-gradient(135deg, #5a9cff, #9a79ff);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-}
-
-
-
-/* 返回顶部按钮 */
-.back-to-top-btn {
-  position: absolute;
-  top: 20px;
-  left: 20px; /* 移到用户卡片左上角 */
-  background: linear-gradient(135deg, rgba(74, 140, 255, 0.9), rgba(138, 105, 255, 0.9));
-  color: white;
-  border: none;
-  border-radius: 50px;
-  padding: 10px 16px;
-  cursor: pointer;
-  box-shadow: 
-    0 4px 16px rgba(74, 140, 255, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(20px);
-  transition: all 0.3s ease;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  opacity: 0.95; /* 稍微透明，避免过于突出 */
-}
-
-.back-to-top-btn:hover {
-  transform: translateY(-2px) scale(1.05);
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  opacity: 1; /* 悬浮时完全不透明 */
-  box-shadow: 
-    0 6px 20px rgba(74, 140, 255, 0.4),
-    0 0 0 2px rgba(255, 255, 255, 0.4);
-}
-
-.back-to-top-btn:active {
-  transform: translateY(0) scale(1.02);
-  box-shadow: 
-    0 4px 12px rgba(74, 140, 255, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.15);
-}
-
-.back-to-top-btn .icon {
   font-size: 16px;
 }
 
+.tab-label {
+  font-size: 13px;
+  font-weight: 500;
+}
 
+.tab-count {
+  background-color: #e5e7eb;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}
 
-/* 响应式设计 */
+.nav-tab.active .tab-count {
+  background-color: #eef2ff;
+  color: #6366f1;
+}
+
+/* Back to top */
+.back-to-top-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #374151;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.15s;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.back-to-top-btn:hover {
+  background: #fff;
+}
+
+.back-to-top-btn .icon {
+  font-size: 14px;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
   .cover-content {
-    padding: 16px 20px;
+    padding: 14px 16px;
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
+    gap: 12px;
   }
-  
+
   .user-main-info {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .user-stats {
-    gap: 16px;
+    gap: 14px;
   }
-  
+
   .action-buttons {
     position: static;
-    margin-top: 12px;
+    margin-top: 8px;
   }
-  
+
   .nav-tabs {
-    padding: 0 16px;
+    padding: 0 12px;
   }
-  
+
   .nav-tab {
-    padding: 12px 8px;
+    padding: 10px 6px;
     gap: 4px;
   }
-  
+
   .tab-label {
     font-size: 12px;
   }
-  
 
-  
   .back-to-top-btn {
-    top: 16px;
-    left: 16px; /* 移动端保持在左上角 */
-    padding: 8px 12px;
+    top: 12px;
+    left: 12px;
+    padding: 6px 10px;
     font-size: 11px;
-    gap: 4px;
   }
 }
 </style> 

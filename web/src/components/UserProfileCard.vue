@@ -301,62 +301,44 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.2s;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .modal-container {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   width: 90%;
-  max-width: 500px;
+  max-width: 460px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  animation: slideUp 0.3s;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 18px 24px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: #111827;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
-  color: #333;
+  color: #111827;
 }
 
 .btn-close, .modal-close {
@@ -364,25 +346,25 @@ onMounted(() => {
   height: 32px;
   border: none;
   background: transparent;
-  font-size: 20px;
-  color: #999;
+  font-size: 18px;
+  color: #9ca3af;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: background-color 0.15s;
 }
 
 .btn-close:hover, .modal-close:hover {
-  background-color: #f5f5f5;
-  color: #333;
+  background-color: #f3f4f6;
+  color: #374151;
 }
 
 .modal-body {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 20px 24px;
 }
 
 .loading-state, .error-state {
@@ -390,14 +372,14 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
-  color: #999;
-  gap: 12px;
+  padding: 48px 20px;
+  color: #9ca3af;
+  gap: 10px;
 }
 
 .loading-state .icon {
-  font-size: 32px;
-  animation: spin 1s infinite linear;
+  font-size: 28px;
+  animation: spin 0.8s infinite linear;
 }
 
 @keyframes spin {
@@ -405,17 +387,17 @@ onMounted(() => {
 }
 
 .error-state .icon {
-  font-size: 48px;
-  color: #dc3545;
+  font-size: 40px;
+  color: #ef4444;
 }
 
 .user-header {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #f0f0f0;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .avatar-container {
@@ -423,11 +405,11 @@ onMounted(() => {
 }
 
 .avatar {
-  width: 80px;
-  height: 80px;
+  width: 72px;
+  height: 72px;
   border-radius: 12px;
   object-fit: cover;
-  border: 2px solid #f0f0f0;
+  border: 1px solid #e5e7eb;
 }
 
 .user-info {
@@ -436,82 +418,84 @@ onMounted(() => {
 }
 
 .name {
-  margin: 0 0 8px 0;
-  font-size: 20px;
+  margin: 0 0 4px 0;
+  font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: #111827;
 }
 
 .account {
-  font-size: 14px;
-  color: #999;
-  margin-bottom: 8px;
+  font-size: 13px;
+  color: #9ca3af;
+  margin-bottom: 6px;
 }
 
 .signature {
   font-size: 14px;
-  color: #666;
+  color: #6b7280;
   line-height: 1.5;
 }
 
 .signature.placeholder {
-  color: #999;
+  color: #9ca3af;
   font-style: italic;
 }
 
 .user-details {
-  margin-bottom: 24px;
-}
-
-.detail-section {
   margin-bottom: 20px;
 }
 
+.detail-section {
+  margin-bottom: 16px;
+}
+
 .detail-section h4 {
-  margin: 0 0 12px 0;
-  font-size: 16px;
+  margin: 0 0 10px 0;
+  font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: #111827;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .detail-item {
   display: flex;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   align-items: center;
 }
 
 .detail-item .label {
-  flex: 0 0 80px;
-  font-size: 14px;
-  color: #999;
+  flex: 0 0 72px;
+  font-size: 13px;
+  color: #9ca3af;
 }
 
 .detail-item .value {
   font-size: 14px;
-  color: #333;
+  color: #374151;
 }
 
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .tag {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
-  background-color: #eef5ff;
-  color: #4a8cff;
-  border-radius: 16px;
+  padding: 3px 10px;
+  background-color: #f3f4f6;
+  color: #374151;
+  border-radius: 6px;
   font-size: 13px;
 }
 
 .user-actions {
   display: flex;
-  gap: 12px;
-  padding-top: 20px;
-  border-top: 1px solid #f0f0f0;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
 }
 
 .btn-chat,
@@ -519,62 +503,59 @@ onMounted(() => {
 .btn-accept-request,
 .btn-request-sent {
   flex: 1;
-  padding: 12px 20px;
+  padding: 10px 16px;
   border-radius: 8px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  transition: all 0.2s;
+  gap: 6px;
+  transition: background-color 0.15s;
 }
 
 .btn-chat {
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
+  background-color: #6366f1;
   color: white;
 }
 
 .btn-chat:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+  background-color: #4f46e5;
 }
 
 .btn-accept-request {
-  background: linear-gradient(135deg, #07c160, #06ad56);
+  background-color: #22c55e;
   color: white;
 }
 
 .btn-accept-request:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(7, 193, 96, 0.3);
+  background-color: #16a34a;
 }
 
 .btn-accept-request:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .btn-add-friend {
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
+  background-color: #6366f1;
   color: white;
 }
 
 .btn-add-friend:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+  background-color: #4f46e5;
 }
 
 .btn-add-friend:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .btn-request-sent {
-  background: #d4edda;
-  color: #155724;
+  background-color: #f3f4f6;
+  color: #6b7280;
   cursor: default;
 }
 
@@ -583,115 +564,113 @@ onMounted(() => {
 }
 
 .add-friend-dialog {
-  max-width: 400px;
+  max-width: 380px;
 }
 
 .user-preview {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding: 16px;
-  background: #f8f9fa;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px;
+  background: #f9fafb;
   border-radius: 8px;
 }
 
 .user-preview .avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
 }
 
 .user-preview .user-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
+  color: #111827;
 }
 
 .message-input {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .message-input label {
   display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #666;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #6b7280;
   font-weight: 500;
 }
 
 .message-input textarea {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #e0e0e0;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
   resize: vertical;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.15s;
 }
 
 .message-input textarea:focus {
-  border-color: #4a8cff;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .char-count {
   text-align: right;
   font-size: 12px;
-  color: #999;
+  color: #9ca3af;
   margin-top: 4px;
 }
 
 .modal-footer {
   display: flex;
-  gap: 12px;
-  padding: 20px 24px;
-  border-top: 1px solid #f0f0f0;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid #f3f4f6;
   justify-content: flex-end;
 }
 
 .btn-cancel-modal {
-  padding: 10px 20px;
-  background: white;
-  color: #666;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  padding: 8px 16px;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
   font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.15s;
 }
 
 .btn-cancel-modal:hover {
-  border-color: #999;
-  color: #333;
+  background-color: #f9fafb;
 }
 
 .btn-confirm-send {
-  padding: 10px 24px;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
+  padding: 8px 20px;
+  background-color: #6366f1;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.15s;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .btn-confirm-send:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+  background-color: #4f46e5;
 }
 
 .btn-confirm-send:disabled {
-  background: #d0d0d0;
+  background-color: #d1d5db;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .loading-spinner {

@@ -17,6 +17,7 @@
 # bun node_modules
 node_modules
 /dist
+web/dist
 
 # ignore debug log
 npm-debug.log

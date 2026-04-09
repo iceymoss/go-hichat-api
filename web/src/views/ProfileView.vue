@@ -858,8 +858,9 @@ const handleLogout = async () => {
 }
 
 .profile-banner {
-  height: 180px;
+  height: 160px;
   overflow: hidden;
+  background-color: #e5e7eb;
 }
 
 .banner-image {
@@ -870,29 +871,29 @@ const handleLogout = async () => {
 
 .profile-card {
   position: relative;
-  margin: -60px 20px 20px;
+  margin: -48px 20px 20px;
   background-color: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
 }
 
 .profile-header {
   display: flex;
-  margin-bottom: 25px;
+  margin-bottom: 20px;
 }
 
 .avatar-container {
   position: relative;
-  margin-top: -50px;
+  margin-top: -44px;
 }
 
 .avatar {
-  width: 100px;
-  height: 100px;
+  width: 88px;
+  height: 88px;
   border-radius: 12px;
-  border: 4px solid white;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  border: 3px solid white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   object-fit: cover;
   display: block;
 }
@@ -903,7 +904,7 @@ const handleLogout = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.45);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -911,7 +912,7 @@ const handleLogout = async () => {
   justify-content: center;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.3s;
+  transition: opacity 0.15s;
   color: white;
   font-size: 12px;
 }
@@ -921,113 +922,135 @@ const handleLogout = async () => {
 }
 
 .avatar-overlay i {
-  font-size: 24px;
-  margin-bottom: 5px;
+  font-size: 20px;
+  margin-bottom: 4px;
 }
 
 .edit-name {
-  margin: 5px 0;
+  margin: 4px 0;
 }
 
 .name-input {
   width: 100%;
-  font-size: 24px;
-  font-weight: bold;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  font-size: 20px;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
   padding: 8px 12px;
   font-family: inherit;
+  color: #111827;
 }
 
 .name-input:focus {
   outline: none;
-  border-color: #4a8cff;
-  box-shadow: 0 0 0 2px rgba(74, 140, 255, 0.2);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .profile-info {
   flex: 1;
-  padding: 0 20px;
+  padding: 0 16px;
 }
 
 .name {
-  margin: 5px 0 5px;
+  margin: 4px 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
 }
 
 .account {
-  color: #999;
-  font-size: 14px;
-  margin-bottom: 10px;
+  color: #9ca3af;
+  font-size: 13px;
+  margin-bottom: 8px;
 }
 
 .signature {
-  color: #666;
+  color: #6b7280;
   font-size: 14px;
   line-height: 1.5;
-  background-color: #f9f9f9;
-  padding: 10px;
+  background-color: #f9fafb;
+  padding: 10px 12px;
   border-radius: 8px;
 }
 
 .edit-signature textarea {
   width: 100%;
-  border: 1px solid #ddd;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
-  padding: 10px;
+  padding: 10px 12px;
   font-size: 14px;
   font-family: inherit;
   resize: none;
+  color: #111827;
+}
+
+.edit-signature textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .profile-details {
-  border-top: 1px solid #f0f2f5;
-  padding-top: 20px;
+  border-top: 1px solid #f3f4f6;
+  padding-top: 16px;
 }
 
 .section {
-  margin-bottom: 25px;
+  margin-bottom: 20px;
 }
 
 .section h3 {
-  padding-bottom: 10px;
-  margin-bottom: 15px;
-  border-bottom: 1px solid #f0f2f5;
-  font-size: 16px;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .detail-item {
   display: flex;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
   align-items: flex-start;
 }
 
 .label {
-  flex: 0 0 80px;
-  font-size: 14px;
-  color: #999;
+  flex: 0 0 72px;
+  font-size: 13px;
+  color: #9ca3af;
 }
 
 .value {
   font-size: 14px;
-  color: #333;
+  color: #374151;
   word-break: break-all;
 }
 
 .value-input {
   flex: 1;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
   padding: 8px 12px;
   font-size: 14px;
+  color: #111827;
+}
+
+.value-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .value-note {
   font-size: 12px;
-  color: #999;
-  margin-left: 10px;
+  color: #9ca3af;
+  margin-left: 8px;
 }
 
-/* 邮箱绑定样式 */
+/* Email */
 .email-item {
   flex-direction: column;
   align-items: flex-start;
@@ -1041,7 +1064,7 @@ const handleLogout = async () => {
 
 .bind-hint {
   font-size: 12px;
-  color: #999;
+  color: #9ca3af;
 }
 
 .email-bind-wrapper {
@@ -1050,8 +1073,8 @@ const handleLogout = async () => {
 }
 
 .current-email-info {
-  padding: 12px;
-  background-color: #f5f5f5;
+  padding: 10px 12px;
+  background-color: #f9fafb;
   border-radius: 8px;
   margin-bottom: 16px;
   display: flex;
@@ -1061,19 +1084,19 @@ const handleLogout = async () => {
 
 .current-email-label {
   font-size: 13px;
-  color: #666;
+  color: #6b7280;
 }
 
 .current-email-value {
   font-size: 14px;
-  color: #333;
+  color: #111827;
   font-weight: 500;
 }
 
 .email-bind-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .form-step {
@@ -1084,15 +1107,15 @@ const handleLogout = async () => {
 
 .step-number {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-color: #6366f1;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -1100,144 +1123,135 @@ const handleLogout = async () => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .step-label {
   font-size: 13px;
-  color: #666;
+  color: #6b7280;
   font-weight: 500;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .email-input-wrapper {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-start;
 }
 
 .email-input {
   flex: 1;
-  padding: 10px 14px;
-  border: 2px solid #e0e0e0;
+  padding: 9px 12px;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 14px;
-  transition: all 0.3s;
+  transition: border-color 0.15s;
   background-color: #fff;
+  color: #111827;
 }
 
 .email-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .email-input:disabled {
-  background-color: #f5f5f5;
+  background-color: #f9fafb;
   cursor: not-allowed;
 }
 
 .email-input.input-error {
-  border-color: #ff4d4f;
+  border-color: #ef4444;
 }
 
 .btn-send-code {
   flex-shrink: 0;
-  padding: 10px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 9px 16px;
+  background-color: #6366f1;
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.15s;
   white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: 120px;
+  min-width: 110px;
   justify-content: center;
 }
 
 .btn-send-code:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  background-color: #4f46e5;
 }
 
 .btn-send-code:disabled {
-  background: #d0d0d0;
+  background-color: #d1d5db;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .code-input-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .code-input {
   width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #e0e0e0;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 16px;
   text-align: center;
-  letter-spacing: 8px;
+  letter-spacing: 6px;
   font-weight: 600;
-  transition: all 0.3s;
+  transition: border-color 0.15s;
   background-color: #fff;
+  color: #111827;
 }
 
 .code-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .code-input:disabled {
-  background-color: #f5f5f5;
+  background-color: #f9fafb;
   cursor: not-allowed;
 }
 
 .code-input.input-error {
-  border-color: #ff4d4f;
+  border-color: #ef4444;
 }
 
 .code-hint {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   font-size: 12px;
 }
 
 .hint-text {
-  color: #999;
+  color: #9ca3af;
 }
 
 .hint-success {
-  color: #52c41a;
+  color: #22c55e;
   font-weight: 500;
 }
 
 .error-message {
-  color: #ff4d4f;
+  color: #ef4444;
   font-size: 12px;
   margin-top: 4px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.error-message::before {
-  content: "⚠";
-  font-size: 14px;
 }
 
 .success-message {
-  color: #52c41a;
+  color: #22c55e;
   font-size: 13px;
   margin-top: 4px;
   font-weight: 500;
@@ -1245,31 +1259,28 @@ const handleLogout = async () => {
 
 .btn-bind-email {
   width: 100%;
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
+  padding: 10px 20px;
+  background-color: #22c55e;
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .btn-bind-email:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(82, 196, 26, 0.3);
+  background-color: #16a34a;
 }
 
 .btn-bind-email:disabled {
-  background: #d0d0d0;
+  background-color: #d1d5db;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .loading-spinner {
@@ -1287,73 +1298,50 @@ const handleLogout = async () => {
   }
 }
 
-/* 邮箱显示和编辑按钮 */
+/* Email edit button */
 .email-display {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .btn-edit-email {
-  padding: 4px 12px;
-  background-color: #4a8cff;
+  padding: 3px 10px;
+  background-color: #6366f1;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.15s;
 }
 
 .btn-edit-email:hover {
-  background-color: #357abd;
-  transform: translateY(-1px);
+  background-color: #4f46e5;
 }
 
-/* 模态框样式 */
+/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.2s;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 .modal-container {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  max-width: 500px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  max-width: 460px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  animation: slideUp 0.3s;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
 
 .email-modal {
@@ -1364,15 +1352,15 @@ const handleLogout = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 18px 24px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
-  color: #333;
+  color: #111827;
 }
 
 .modal-close {
@@ -1380,130 +1368,137 @@ const handleLogout = async () => {
   height: 32px;
   border: none;
   background: transparent;
-  font-size: 24px;
-  color: #999;
+  font-size: 20px;
+  color: #9ca3af;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: background-color 0.15s;
 }
 
 .modal-close:hover {
-  background-color: #f5f5f5;
-  color: #333;
+  background-color: #f3f4f6;
+  color: #374151;
 }
 
 .modal-body {
-  padding: 24px;
+  padding: 20px 24px;
 }
 
 .modal-footer {
   display: flex;
-  gap: 12px;
-  padding: 20px 24px;
-  border-top: 1px solid #f0f0f0;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid #f3f4f6;
   justify-content: flex-end;
 }
 
 .btn-cancel-modal {
-  padding: 10px 20px;
-  background: white;
-  color: #666;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  padding: 8px 16px;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
   font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.15s;
 }
 
 .btn-cancel-modal:hover {
-  border-color: #999;
-  color: #333;
+  background-color: #f9fafb;
 }
 
 .btn-confirm-bind {
-  padding: 10px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 8px 20px;
+  background-color: #6366f1;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.15s;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .btn-confirm-bind:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  background-color: #4f46e5;
 }
 
 .btn-confirm-bind:disabled {
-  background: #d0d0d0;
+  background-color: #d1d5db;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .tag {
   display: inline-flex;
   align-items: center;
-  padding: 5px 12px;
-  background-color: #eef5ff;
-  color: #4a8cff;
-  border-radius: 16px;
+  padding: 4px 10px;
+  background-color: #f3f4f6;
+  color: #374151;
+  border-radius: 6px;
   font-size: 13px;
 }
 
 .edit-tags {
-  padding: 5px 0;
+  padding: 4px 0;
 }
 
 .tag-input-container {
   display: flex;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
 }
 
 .tag-input {
   flex: 1;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px 0 0 8px;
   padding: 8px 12px;
   font-size: 14px;
   border-right: none;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
+  color: #111827;
+}
+
+.tag-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .btn-add-tag {
-  padding: 0 15px;
-  background-color: #4a8cff;
+  padding: 0 14px;
+  background-color: #6366f1;
   color: white;
   border: none;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 8px 8px 0;
   cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.15s;
+}
+
+.btn-add-tag:hover {
+  background-color: #4f46e5;
 }
 
 .selected-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .selected-tags .tag {
   position: relative;
-  padding-right: 28px;
+  padding-right: 26px;
 }
 
 .selected-tags .icon-close {
@@ -1513,7 +1508,7 @@ const handleLogout = async () => {
   transform: translateY(-50%);
   font-size: 12px;
   cursor: pointer;
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 .selected-tags .icon-close:hover {
@@ -1522,176 +1517,183 @@ const handleLogout = async () => {
 
 .profile-actions {
   display: flex;
-  justify-content: center;
-  padding-top: 15px;
-  border-top: 1px solid #f0f2f5;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
 }
 
 .btn-edit, .btn-chat {
-  padding: 10px 30px;
-  background: linear-gradient(to right, #4a8cff, #8a69ff);
+  padding: 9px 24px;
+  background-color: #6366f1;
   color: white;
   border: none;
-  border-radius: 24px;
-  font-size: 16px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
+  transition: background-color 0.15s;
+}
+
+.btn-edit:hover, .btn-chat:hover {
+  background-color: #4f46e5;
 }
 
 .btn-chat.btn-gray {
-  background: #f0f2f5;
-  color: #666;
+  background-color: #f3f4f6;
+  color: #6b7280;
 }
 
 .edit-actions {
   display: flex;
-  gap: 15px;
+  gap: 10px;
 }
 
 .btn-cancel, .btn-save {
-  padding: 10px 25px;
-  border-radius: 6px;
+  padding: 9px 20px;
+  border-radius: 8px;
   border: none;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
+  transition: background-color 0.15s;
 }
 
 .btn-cancel {
-  background: #f5f5f5;
-  color: #666;
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.btn-cancel:hover {
+  background-color: #e5e7eb;
 }
 
 .btn-save {
-  background: linear-gradient(to right, #4a8cff, #8a69ff);
+  background-color: #6366f1;
   color: white;
 }
 
-.profile-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: center;
+.btn-save:hover {
+  background-color: #4f46e5;
 }
 
 .profile-actions-buttons {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
   justify-content: center;
 }
 
 .btn-add-friend,
 .btn-request-sent {
-  padding: 10px 30px;
-  background: linear-gradient(to right, #4a8cff, #8a69ff);
+  padding: 9px 24px;
+  background-color: #6366f1;
   color: white;
   border: none;
-  border-radius: 24px;
-  font-size: 16px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  transition: all 0.2s;
+  gap: 6px;
+  transition: background-color 0.15s;
 }
 
 .btn-add-friend:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+  background-color: #4f46e5;
 }
 
 .btn-add-friend:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .btn-request-sent {
-  background: #d4edda;
-  color: #155724;
+  background-color: #f3f4f6;
+  color: #6b7280;
   cursor: default;
 }
 
-.btn-request-sent .icon {
-  color: #28a745;
-}
-
 .add-friend-modal {
-  max-width: 400px;
+  max-width: 380px;
 }
 
 .add-friend-modal .user-preview {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding: 16px;
-  background: #f8f9fa;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px;
+  background: #f9fafb;
   border-radius: 8px;
 }
 
 .add-friend-modal .user-preview .avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
 }
 
 .add-friend-modal .user-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
+  color: #111827;
 }
 
 .add-friend-modal .message-input {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .add-friend-modal .message-input label {
   display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #666;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #6b7280;
   font-weight: 500;
 }
 
 .add-friend-modal .message-input textarea {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #e0e0e0;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
   resize: vertical;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.15s;
 }
 
 .add-friend-modal .message-input textarea:focus {
-  border-color: #4a8cff;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .add-friend-modal .char-count {
   text-align: right;
   font-size: 12px;
-  color: #999;
+  color: #9ca3af;
   margin-top: 4px;
 }
 
 .btn-logout {
-  padding: 10px 30px;
+  padding: 9px 24px;
   background: transparent;
-  color: #ff4d4f;
-  border: 1px solid #ff4d4f;
-  border-radius: 24px;
-  font-size: 14px;
+  color: #ef4444;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.15s;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1700,30 +1702,29 @@ const handleLogout = async () => {
 }
 
 .btn-logout:hover {
-  background: #fff1f0;
-  border-color: #ff7875;
+  background-color: #fef2f2;
 }
 
 .btn-logout i {
-  font-size: 16px;
+  font-size: 14px;
 }
 
-/* 加载状态 */
+/* Loading */
 .loading-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100vh;
-  gap: 16px;
-  color: #666;
+  gap: 12px;
+  color: #9ca3af;
 }
 
 .loading-spinner-large {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #f0f0f0;
-  border-top-color: #4a8cff;
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #6366f1;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

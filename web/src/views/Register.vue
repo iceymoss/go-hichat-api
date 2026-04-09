@@ -1,14 +1,19 @@
 <template>
   <div class="register-page">
-    <div class="form-wrapper">
-      <h1 class="app-title">HiChat<span>2.0</span></h1>
-      
-      <AuthForm mode="register" title="创建新账号" />
-      
+    <div class="register-container">
+      <div class="app-info">
+        <div class="app-logo">
+          <span class="logo-text">HiChat</span>
+          <span class="logo-version">2.0</span>
+        </div>
+      </div>
+
+      <AuthForm mode="register" title="Create Account" />
+
       <div class="terms">
-        注册即表示您同意我们的
-        <a href="#" class="terms-link">用户协议</a>和
-        <a href="#" class="terms-link">隐私政策</a>
+        By registering, you agree to our
+        <a href="#" class="terms-link">Terms of Service</a> and
+        <a href="#" class="terms-link">Privacy Policy</a>
       </div>
     </div>
   </div>
@@ -21,48 +26,56 @@ import AuthForm from '../components/AuthForm.vue'
 <style scoped>
 .register-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #ff7e5f, #feb47b);
-  padding: 50px 20px;
+  background-color: #f8f9fa;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 20px;
 }
 
-.form-wrapper {
+.register-container {
   width: 100%;
-  max-width: 450px;
-  background-color: #fff;
-  border-radius: 12px;
-  padding: 30px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  max-width: 420px;
 }
 
-.app-title {
+.app-info {
   text-align: center;
-  font-size: 32px;
-  color: #ff7e5f;
-  margin-bottom: 30px;
-  font-weight: bold;
+  margin-bottom: 32px;
 }
 
-.app-title span {
-  font-size: 24px;
-  position: relative;
-  top: -3px;
-  margin-left: 3px;
-  color: #feb47b;
+.app-logo {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.logo-text {
+  font-size: 36px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.5px;
+}
+
+.logo-version {
+  font-size: 16px;
+  font-weight: 600;
+  color: #6366f1;
+  background-color: #eef2ff;
+  padding: 2px 8px;
+  border-radius: 6px;
 }
 
 .terms {
-  margin-top: 25px;
+  margin-top: 20px;
   text-align: center;
-  color: #666;
+  color: #9ca3af;
   font-size: 13px;
+  line-height: 1.6;
 }
 
 .terms-link {
-  color: #ff7e5f;
+  color: #6366f1;
   text-decoration: none;
   font-weight: 500;
 }
