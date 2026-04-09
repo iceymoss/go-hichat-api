@@ -205,10 +205,10 @@ export const useContactsStore = defineStore('contacts', () => {
   const updateFriendRemark = async (friendUid, remark) => {
     try {
       await socialApi.friendUpdateRemark(friendUid, remark)
+      patchFriendLocal(friendUid, { remark })
     } catch (error) {
       console.error('更新好友备注失败:', error)
-    } finally {
-      patchFriendLocal(friendUid, { remark })
+      throw error
     }
   }
 
@@ -216,10 +216,10 @@ export const useContactsStore = defineStore('contacts', () => {
   const deleteFriend = async (friendUid) => {
     try {
       await socialApi.friendDelete(friendUid)
+      friends.value = friends.value.filter(friend => (friend.friend_uid || friend.id) !== friendUid)
     } catch (error) {
       console.error('删除好友失败:', error)
-    } finally {
-      friends.value = friends.value.filter(friend => (friend.friend_uid || friend.id) !== friendUid)
+      throw error
     }
   }
 
@@ -227,10 +227,10 @@ export const useContactsStore = defineStore('contacts', () => {
   const blockFriend = async (friendUid, blocked = true) => {
     try {
       await socialApi.friendBlock(friendUid, blocked)
+      patchFriendLocal(friendUid, { blacklisted: blocked })
     } catch (error) {
       console.error('更新拉黑状态失败:', error)
-    } finally {
-      patchFriendLocal(friendUid, { blacklisted: blocked })
+      throw error
     }
   }
 
@@ -238,10 +238,10 @@ export const useContactsStore = defineStore('contacts', () => {
   const updateMomentsPermission = async (friendUid, permission) => {
     try {
       await socialApi.friendMomentsPermission(friendUid, permission)
+      patchFriendLocal(friendUid, { momentsPermission: permission, moments_permission: permission })
     } catch (error) {
       console.error('更新朋友圈权限失败:', error)
-    } finally {
-      patchFriendLocal(friendUid, { momentsPermission: permission })
+      throw error
     }
   }
 
@@ -249,7 +249,7 @@ export const useContactsStore = defineStore('contacts', () => {
   const updateFriendTags = async (friendUid, tags) => {
     try {
       await socialApi.friendTags(friendUid, tags)
-      patchFriendLocal(friendUid, { tags })
+      patchFriendLocal(friendUid, { friend_tags: tags })
     } catch (error) {
       console.error('更新好友标签失败:', error)
       throw error

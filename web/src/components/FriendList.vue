@@ -120,41 +120,40 @@ const selectFriend = (friend) => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #f7f7f7;
-  border-right: 1px solid #e5e5e5;
+  background: #fff;
   user-select: none;
 }
 
 /* 操作入口 */
 .action-section {
-  background: white;
+  border-bottom: 1px solid #f1f5f9;
 }
 .list-entry-btn {
   width: 100%;
-  padding: 12px 16px;
+  padding: 10px 16px;
   background: transparent;
   border: none;
   display: flex;
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
-.list-entry-btn:hover { background: #f3f3f3; }
+.list-entry-btn:hover { background: #f8fafc; }
 
 .icon-wrapper {
-  width: 36px;
-  height: 36px;
-  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.icon-wrapper.orange { background: #fa9d3b; }
-.icon-wrapper.green { background: #07c160; }
-.icon-wrapper .icon { color: white; font-size: 20px; }
+.icon-wrapper.orange { background: #f59e0b; }
+.icon-wrapper.green { background: #2563eb; }
+.icon-wrapper .icon { color: white; font-size: 16px; }
 
-.text { font-size: 14px; color: #111827; font-weight: 500; }
+.text { font-size: 13px; color: #334155; font-weight: 500; }
 
 .badge {
   margin-left: auto;
@@ -169,27 +168,29 @@ const selectFriend = (friend) => {
 
 /* 搜索框 */
 .search-section {
-  padding: 10px;
-  background: #f7f7f7;
+  padding: 8px 12px;
 }
 .search-box {
-  background: #e2e2e2;
-  border-radius: 6px;
-  padding: 6px 8px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 7px 10px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  transition: all 0.2s;
+  gap: 8px;
+  transition: all 0.15s;
+  border: 1px solid transparent;
 }
-.search-box:focus-within { background: white; border: 1px solid #d1d5db; }
+.search-box:focus-within { background: #fff; border-color: #cbd5e1; }
 .search-box input {
   border: none;
   background: transparent;
   width: 100%;
   font-size: 13px;
   outline: none;
+  color: #334155;
 }
-.search-box .icon { color: #9ca3af; font-size: 14px; }
+.search-box input::placeholder { color: #94a3b8; }
+.search-box .icon { color: #94a3b8; font-size: 14px; }
 .clear-btn { cursor: pointer; }
 
 /* 列表区域 */
@@ -199,32 +200,37 @@ const selectFriend = (friend) => {
 }
 .empty-list {
   text-align: center;
-  color: #9ca3af;
+  color: #94a3b8;
   padding-top: 40px;
   font-size: 13px;
 }
 
 .group-header {
-  padding: 4px 16px;
-  font-size: 12px;
-  color: #9ca3af;
-  background: #f7f7f7;
+  padding: 6px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: #fafbfc;
 }
 
 .friend-row {
   display: flex;
   align-items: center;
-  padding: 10px 16px;
+  padding: 8px 16px;
   gap: 12px;
   cursor: pointer;
+  transition: background 0.1s;
 }
-.friend-row:hover { background: #eaeaeb; }
-.friend-row.active { background: #c6c6c6; }
+.friend-row:hover { background: #f8fafc; }
+.friend-row.active { background: #eff6ff; }
 
 .friend-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 4px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .friend-info {
@@ -236,20 +242,15 @@ const selectFriend = (friend) => {
 
 .friend-name {
   font-size: 14px;
-  color: #111827;
+  color: #1e293b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.friend-name.is-remark {
-  /* color: #111827; */ /* 移除颜色区分，保持一致 */
-  /* font-weight: 500; */ /* 移除字重区分，保持一致 */
-}
-
 .friend-nickname {
   font-size: 12px;
-  color: #9ca3af;
+  color: #94a3b8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

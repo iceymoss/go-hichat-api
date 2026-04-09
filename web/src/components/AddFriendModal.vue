@@ -514,7 +514,7 @@ const viewUserProfile = (user) => {
 }
 
 .btn-add {
-  background: #4a8cff;
+  background: #2563eb;
   border: none;
   color: white;
   font-size: 14px;
@@ -596,7 +596,7 @@ const viewUserProfile = (user) => {
 
 .tip-item i {
   margin-right: 8px;
-  color: #4a8cff;
+  color: #2563eb;
 }
 
 .user-actions {
@@ -736,7 +736,7 @@ const viewUserProfile = (user) => {
 }
 
 .message-input textarea:focus {
-  border-color: #4a8cff;
+  border-color: #2563eb;
 }
 
 .char-count {
@@ -775,7 +775,7 @@ const viewUserProfile = (user) => {
 }
 
 .btn-confirm {
-  background: #4a8cff;
+  background: #2563eb;
   color: white;
 }
 

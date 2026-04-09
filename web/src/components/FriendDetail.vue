@@ -45,8 +45,8 @@
           <div class="info-item">
             <span class="label">标签</span>
             <div class="content tags-wrapper">
-              <template v-if="friend.tags && friend.tags.length">
-                <span v-for="tag in friend.tags" :key="tag" class="tag-badge">{{ tag }}</span>
+              <template v-if="friend.friend_tags && friend.friend_tags.length">
+                <span v-for="tag in friend.friend_tags" :key="tag" class="tag-badge">{{ tag }}</span>
               </template>
               <span v-else class="placeholder">无标签</span>
             </div>
@@ -172,7 +172,7 @@ const handleShareFriend = async (f) => {
 .friend-detail-wrapper {
   height: 100%;
   width: 100%;
-  background: #f5f5f5; /* 整体背景微灰，突出中间内容 */
+  background: #f8fafc;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -185,92 +185,86 @@ const handleShareFriend = async (f) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: #94a3b8;
 }
 .empty-icon-circle {
-  width: 80px;
-  height: 80px;
-  background: #e5e7eb;
+  width: 72px;
+  height: 72px;
+  background: #f1f5f9;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
-.empty-icon-circle .icon { font-size: 32px; color: #9ca3af; }
+.empty-icon-circle .icon { font-size: 28px; color: #94a3b8; }
+.empty-text { font-size: 14px; }
 
-/* 资料容器：居中，限制最大宽度 */
+/* 资料容器 */
 .profile-container {
   flex: 1;
   overflow-y: auto;
-  padding: 0; /* 移除外边距 */
   display: flex;
   flex-direction: column;
-  align-items: center; /* 让内容居中 */
+  align-items: center;
+  padding: 32px 24px;
 }
 
 .profile-inner {
   width: 100%;
-  max-width: 800px; /* 内容最大宽度 */
-  background: #fff;
-  padding: 40px 60px;
+  max-width: 600px;
   display: flex;
   flex-direction: column;
-  min-height: 100%; /* 撑满高度 */
-  /* justify-content: center; 可选：如果希望内容垂直居中就保留，否则移除让其从顶部开始 */
-  box-shadow: none;
-  border-radius: 0;
+  gap: 24px;
 }
 
 /* 1. 头部区域 */
 .profile-header {
   display: flex;
-  margin-bottom: 30px;
+  align-items: center;
   position: relative;
 }
 
 .avatar-box {
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   flex-shrink: 0;
-  margin-right: 30px;
+  margin-right: 20px;
 }
 
 .avatar {
   width: 100%;
   height: 100%;
-  border-radius: 6px;
+  border-radius: 50%;
   object-fit: cover;
-  border: 1px solid #f0f0f0;
 }
 
 .header-info {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  gap: 2px;
 }
 
 .primary-name {
   display: flex;
   align-items: center;
-  margin-bottom: 6px;
 }
 
 .remark {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 600;
-  color: #333;
-  margin-right: 10px;
+  color: #0f172a;
+  margin-right: 8px;
 }
 
-.gender-icon { font-size: 16px; }
-.icon-male { color: #1890ff; }
-.icon-female { color: #eb2f96; }
+.gender-icon { font-size: 14px; }
+.icon-male { color: #3b82f6; }
+.icon-female { color: #ec4899; }
 
 .sub-info {
-  font-size: 14px;
-  color: #999;
+  font-size: 13px;
+  color: #64748b;
   line-height: 1.6;
 }
 
@@ -281,79 +275,82 @@ const handleShareFriend = async (f) => {
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 4px;
-  color: #999;
+  padding: 6px;
+  color: #94a3b8;
+  border-radius: 6px;
+  transition: all 0.15s;
 }
-.btn-settings:hover { color: #666; }
-.btn-settings .icon { font-size: 20px; }
+.btn-settings:hover { color: #64748b; background: #f1f5f9; }
+.btn-settings .icon { font-size: 18px; }
 
 .divider {
   height: 1px;
-  background: #f0f0f0;
-  margin: 20px 0;
+  background: #e2e8f0;
 }
 
 /* 2. 信息列表区域 */
 .info-list {
-  display: flex;
-  flex-direction: column;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
 }
 
 .info-item {
   display: flex;
-  padding: 16px 0;
-  align-items: flex-start; /* 对齐顶部 */
-  min-height: 24px;
+  padding: 12px 16px;
+  align-items: flex-start;
+  border-bottom: 1px solid #f1f5f9;
 }
+.info-item:last-child { border-bottom: none; }
 
 .info-item.clickable {
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
 .info-item.clickable:hover {
-  background: #fafafa;
+  background: #f8fafc;
 }
 
 .label {
-  width: 80px;
-  color: #999;
-  font-size: 14px;
+  width: 72px;
+  color: #64748b;
+  font-size: 13px;
   flex-shrink: 0;
-  padding-top: 2px; /* 视觉微调 */
+  padding-top: 1px;
 }
 
 .content {
   flex: 1;
-  font-size: 14px;
-  color: #333;
+  font-size: 13px;
+  color: #1e293b;
   line-height: 1.5;
 }
 
-.placeholder { color: #ccc; }
+.placeholder { color: #cbd5e1; }
 
 .tags-wrapper {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .tag-badge {
-  background: #f5f5f5;
-  color: #666;
+  background: #eff6ff;
+  color: #2563eb;
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 12px;
 }
 
 .signature {
-  color: #666;
+  color: #475569;
 }
 
 .arrow {
-  color: #ccc;
-  font-size: 16px;
+  color: #cbd5e1;
+  font-size: 14px;
   margin-left: 8px;
-  margin-top: 2px;
 }
 
 .moments-item {
@@ -366,57 +363,55 @@ const handleShareFriend = async (f) => {
 
 .thumbs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .thumb-img {
-  width: 40px;
-  height: 40px;
-  background: #f0f0f0;
-  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  background: #f1f5f9;
+  border-radius: 6px;
 }
 
 /* 3. 底部操作按钮区域 */
 .action-footer {
-  margin-top: 20px;
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .btn-block {
-  width: 100%;
-  height: 56px;
-  border-radius: 8px;
-  font-size: 18px;
+  flex: 1;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  transition: all 0.2s;
+  gap: 6px;
+  transition: all 0.15s;
 }
 
 .btn-primary {
-  background: #07c160;
+  background: #2563eb;
   color: white;
   border: none;
 }
 .btn-primary:hover {
-  background: #06ad56;
+  background: #1d4ed8;
 }
 
 .btn-default {
   background: #fff;
-  color: #333;
-  border: 1px solid #e5e5e5;
+  color: #334155;
+  border: 1px solid #e2e8f0;
 }
 .btn-default:hover {
-  background: #f9f9f9;
+  background: #f8fafc;
 }
 
 .btn-block .icon {
-  font-size: 20px;
+  font-size: 16px;
 }
 </style>

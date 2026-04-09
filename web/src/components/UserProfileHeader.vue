@@ -364,8 +364,8 @@ onUnmounted(() => {
 }
 
 .nav-tab.active {
-  color: #6366f1;
-  border-bottom-color: #6366f1;
+  color: #2563eb;
+  border-bottom-color: #2563eb;
 }
 
 .tab-icon {
@@ -389,8 +389,8 @@ onUnmounted(() => {
 }
 
 .nav-tab.active .tab-count {
-  background-color: #eef2ff;
-  color: #6366f1;
+  background-color: #eff6ff;
+  color: #2563eb;
 }
 
 /* Back to top */

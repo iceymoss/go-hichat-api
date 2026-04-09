@@ -517,12 +517,12 @@ onMounted(() => {
 }
 
 .btn-chat {
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
 }
 
 .btn-chat:hover {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .btn-accept-request {
@@ -540,12 +540,12 @@ onMounted(() => {
 }
 
 .btn-add-friend {
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
 }
 
 .btn-add-friend:hover:not(:disabled) {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .btn-add-friend:disabled {
@@ -615,7 +615,7 @@ onMounted(() => {
 }
 
 .message-input textarea:focus {
-  border-color: #6366f1;
+  border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -651,7 +651,7 @@ onMounted(() => {
 
 .btn-confirm-send {
   padding: 8px 20px;
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 8px;
@@ -665,7 +665,7 @@ onMounted(() => {
 }
 
 .btn-confirm-send:hover:not(:disabled) {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .btn-confirm-send:disabled {

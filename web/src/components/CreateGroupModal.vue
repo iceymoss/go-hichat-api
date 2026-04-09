@@ -196,7 +196,7 @@ const handleCreate = async () => {
   transition: all 0.2s;
 }
 
-.avatar-preview:hover { border-color: #4a8cff; }
+.avatar-preview:hover { border-color: #2563eb; }
 
 .avatar-preview img {
   width: 100%;
@@ -242,7 +242,7 @@ const handleCreate = async () => {
   box-sizing: border-box;
 }
 
-.input-group input:focus { border-color: #4a8cff; }
+.input-group input:focus { border-color: #2563eb; }
 
 .modal-footer {
   padding: 16px 20px;
@@ -265,7 +265,7 @@ const handleCreate = async () => {
 .btn-create {
   padding: 8px 20px;
   border: none;
-  background: #4a8cff;
+  background: #2563eb;
   border-radius: 6px;
   color: #fff;
   cursor: pointer;

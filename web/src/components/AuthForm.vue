@@ -610,9 +610,9 @@ input {
 }
 
 input:focus {
-  border-color: #6366f1;
+  border-color: #2563eb;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
 }
 
 input::placeholder {
@@ -631,9 +631,9 @@ input::placeholder {
 }
 
 .select-input:focus {
-  border-color: #6366f1;
+  border-color: #2563eb;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
 }
 
 .phone-code-container {
@@ -651,7 +651,7 @@ input::placeholder {
 
 .send-code-btn {
   padding: 10px 16px;
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 8px;
@@ -663,11 +663,11 @@ input::placeholder {
 }
 
 .send-code-btn:hover:not(:disabled) {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .send-code-btn:disabled {
-  background-color: #c7d2fe;
+  background-color: #93c5fd;
   cursor: not-allowed;
 }
 
@@ -690,7 +690,7 @@ input::placeholder {
 .submit-btn {
   width: 100%;
   padding: 11px;
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 8px;
@@ -705,11 +705,11 @@ input::placeholder {
 }
 
 .submit-btn:hover {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .submit-btn:disabled {
-  background-color: #c7d2fe;
+  background-color: #93c5fd;
   cursor: not-allowed;
 }
 
@@ -746,7 +746,7 @@ input::placeholder {
 }
 
 .switch-link {
-  color: #6366f1;
+  color: #2563eb;
   text-decoration: none;
   margin-left: 4px;
   font-weight: 500;
@@ -774,7 +774,7 @@ input::placeholder {
 }
 
 .reset-password-link:hover {
-  color: #6366f1;
+  color: #2563eb;
   text-decoration: underline;
 }
 
@@ -879,7 +879,7 @@ input::placeholder {
 
 .btn-confirm {
   padding: 8px 20px;
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 8px;
@@ -893,7 +893,7 @@ input::placeholder {
 }
 
 .btn-confirm:hover:not(:disabled) {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .btn-confirm:disabled {
@@ -921,24 +921,24 @@ input::placeholder {
 }
 
 .method-option:hover {
-  border-color: #6366f1;
-  background-color: #f5f3ff;
+  border-color: #2563eb;
+  background-color: #eff6ff;
 }
 
 .method-option input[type="radio"] {
   margin: 0;
   cursor: pointer;
-  accent-color: #6366f1;
+  accent-color: #2563eb;
 }
 
 .method-option input[type="radio"]:checked + span {
-  color: #6366f1;
+  color: #2563eb;
   font-weight: 600;
 }
 
 .method-option:has(input[type="radio"]:checked) {
-  border-color: #6366f1;
-  background-color: #f5f3ff;
+  border-color: #2563eb;
+  background-color: #eff6ff;
 }
 
 .method-option span {

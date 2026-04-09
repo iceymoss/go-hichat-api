@@ -241,12 +241,12 @@ onMounted(() => {
 }
 
 .tabs button:hover {
-  color: #4a8cff;
+  color: #2563eb;
 }
 
 .tabs button.active {
-  color: #4a8cff;
-  border-bottom-color: #4a8cff;
+  color: #2563eb;
+  border-bottom-color: #2563eb;
 }
 
 .badge {

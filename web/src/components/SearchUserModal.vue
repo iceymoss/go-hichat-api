@@ -363,7 +363,7 @@ const parseTags = (tags) => {
 }
 
 .result-item:hover {
-  border-color: #4a8cff;
+  border-color: #2563eb;
   box-shadow: 0 2px 8px rgba(74, 140, 255, 0.1);
   transform: translateY(-1px);
 }
@@ -421,7 +421,7 @@ const parseTags = (tags) => {
   padding: 4px 10px;
   background: linear-gradient(135deg, rgba(74, 140, 255, 0.1) 0%, rgba(138, 105, 255, 0.1) 100%);
   border-radius: 12px;
-  color: #4a8cff;
+  color: #2563eb;
   font-weight: 500;
 }
 
@@ -512,7 +512,7 @@ const parseTags = (tags) => {
 
 .tip-item .icon {
   margin-right: 8px;
-  color: #4a8cff;
+  color: #2563eb;
   font-size: 16px;
 }
 

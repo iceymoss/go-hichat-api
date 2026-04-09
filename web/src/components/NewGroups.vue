@@ -228,83 +228,85 @@ const confirmAccept = async () => {
   width: 100%;
   display: flex;
   justify-content: center;
-  background: #f5f5f5;
+  background: #f8fafc;
 }
 
 .new-groups-container {
   width: 100%;
-  max-width: 1000px;
+  max-width: 960px;
   background: #fff;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 0 2px rgba(0,0,0,0.05);
 }
 
 .header {
-  padding: 0 30px;
-  height: 60px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 0 24px;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
+  height: 52px;
+  flex-shrink: 0;
 }
 
 .title-group {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
 }
 
 .title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: #0f172a;
 }
 
 .class-tabs {
   display: flex;
-  background: #f5f5f5;
+  background: #f1f5f9;
   padding: 2px;
-  border-radius: 4px;
-  margin-left: 20px;
+  border-radius: 6px;
 }
 
 .class-tabs span {
-  font-size: 13px;
-  color: #666;
+  font-size: 12px;
+  color: #64748b;
   cursor: pointer;
-  padding: 4px 12px;
+  padding: 4px 14px;
   border-radius: 4px;
-  transition: all 0.2s;
+  transition: all 0.15s;
+  font-weight: 500;
 }
 
 .class-tabs span.active {
-  color: #333;
+  color: #0f172a;
   background: #fff;
-  font-weight: 500;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
 
 .type-tabs {
   display: flex;
-  gap: 8px;
-  padding: 12px 30px;
-  border-bottom: 1px solid #f0f0f0;
-  background: #fff;
+  gap: 4px;
+  padding: 8px 24px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .type-tabs span {
-  font-size: 13px;
-  color: #666;
+  font-size: 12px;
+  color: #64748b;
   cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 4px;
-  transition: all 0.2s;
+  padding: 5px 12px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+
+.type-tabs span:hover {
+  background: #f8fafc;
 }
 
 .type-tabs span.active {
-  color: #4a8cff;
-  background: #e6f7ff;
-  font-weight: 500;
+  color: #2563eb;
+  background: #eff6ff;
 }
 
 .request-list {
@@ -317,44 +319,48 @@ const confirmAccept = async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-top: 100px;
-  color: #999;
+  padding-top: 80px;
+  color: #94a3b8;
 }
 
 .empty-icon-circle {
-  width: 64px;
-  height: 64px;
-  background: #f5f5f5;
+  width: 56px;
+  height: 56px;
+  background: #f1f5f9;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .empty-icon-circle .icon {
-  font-size: 28px;
-  color: #ccc;
+  font-size: 24px;
+  color: #cbd5e1;
+}
+
+.empty-state p {
+  font-size: 13px;
 }
 
 .request-item {
   display: flex;
-  padding: 16px 30px;
-  border-bottom: 1px solid #f9f9f9;
+  padding: 12px 24px;
+  border-bottom: 1px solid #f8fafc;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.1s;
   align-items: center;
 }
 
 .request-item:hover {
-  background: #fbfbfb;
+  background: #f8fafc;
 }
 
 .avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 6px;
-  margin-right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-right: 12px;
   object-fit: cover;
 }
 
@@ -363,7 +369,7 @@ const confirmAccept = async () => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .name-row {
@@ -373,58 +379,61 @@ const confirmAccept = async () => {
 }
 
 .name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: #1e293b;
 }
 
 .tag-label {
-  font-size: 11px;
-  background: #fffbe6;
-  color: #faad14;
-  padding: 1px 4px;
-  border-radius: 2px;
+  font-size: 10px;
+  background: #fef3c7;
+  color: #d97706;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 500;
 }
 
 .tag-label.sent {
-  background: #e6f7ff;
-  color: #1890ff;
+  background: #eff6ff;
+  color: #2563eb;
 }
 
 .message {
-  font-size: 13px;
-  color: #999;
+  font-size: 12px;
+  color: #94a3b8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .group-name, .user-name {
-  color: #666;
+  color: #64748b;
 }
 
 .action-area {
-  margin-left: 20px;
+  margin-left: 16px;
+  flex-shrink: 0;
 }
 
 .btn-accept {
-  background: #07c160;
+  background: #2563eb;
   color: white;
   border: none;
-  padding: 6px 20px;
-  border-radius: 4px;
+  padding: 6px 16px;
+  border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
   font-weight: 500;
+  transition: background 0.15s;
 }
 
 .btn-accept:hover {
-  background: #06ad56;
+  background: #1d4ed8;
 }
 
 .status-text {
-  font-size: 13px;
-  color: #999;
+  font-size: 12px;
+  color: #94a3b8;
 }
 
 /* Modal Styles */
@@ -434,7 +443,7 @@ const confirmAccept = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -443,53 +452,58 @@ const confirmAccept = async () => {
 
 .handle-modal {
   background: white;
-  border-radius: 16px;
+  border-radius: 12px;
   width: 400px;
   padding: 24px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 18px;
-  color: #1e293b;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
 }
 
 .btn-close {
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: 18px;
   color: #94a3b8;
   cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.15s;
 }
+.btn-close:hover { background: #f1f5f9; color: #64748b; }
 
 .user-preview {
   display: flex;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   padding: 12px;
   background: #f8fafc;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .preview-avatar {
   width: 40px;
   height: 40px;
-  border-radius: 6px;
+  border-radius: 50%;
   margin-right: 12px;
 }
 
 .preview-name {
   font-weight: 500;
-  color: #1e293b;
-  margin-bottom: 2px;
+  color: #0f172a;
+  font-size: 14px;
 }
 
 .preview-msg {
@@ -500,28 +514,31 @@ const confirmAccept = async () => {
 
 .modal-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 32px;
+  gap: 10px;
+  margin-top: 24px;
 }
 
 .btn-cancel, .btn-confirm {
   flex: 1;
-  padding: 10px;
+  padding: 9px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   border: none;
+  transition: all 0.15s;
 }
 
 .btn-cancel {
   background: #f1f5f9;
-  color: #64748b;
+  color: #475569;
 }
+.btn-cancel:hover { background: #e2e8f0; }
 
 .btn-confirm {
-  background: #4a8cff;
+  background: #2563eb;
   color: white;
 }
+.btn-confirm:hover { background: #1d4ed8; }
 </style>
 

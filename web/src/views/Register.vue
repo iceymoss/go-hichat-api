@@ -60,8 +60,8 @@ import AuthForm from '../components/AuthForm.vue'
 .logo-version {
   font-size: 16px;
   font-weight: 600;
-  color: #6366f1;
-  background-color: #eef2ff;
+  color: #2563eb;
+  background-color: #eff6ff;
   padding: 2px 8px;
   border-radius: 6px;
 }
@@ -75,7 +75,7 @@ import AuthForm from '../components/AuthForm.vue'
 }
 
 .terms-link {
-  color: #6366f1;
+  color: #2563eb;
   text-decoration: none;
   font-weight: 500;
 }

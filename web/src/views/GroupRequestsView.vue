@@ -99,7 +99,7 @@ h2 { margin: 0; }
 .name { font-size: 16px; font-weight: 600; }
 .message, .time { font-size: 13px; color: #666; margin-top: 2px; }
 .actions { display: flex; flex-direction: column; gap: 8px; }
-.actions button { padding: 6px 16px; border-radius: 8px; border: none; background: #4a8cff; color: #fff; cursor: pointer; }
+.actions button { padding: 6px 16px; border-radius: 8px; border: none; background: #2563eb; color: #fff; cursor: pointer; }
 .actions button:disabled { opacity: .6; cursor: not-allowed; }
 .actions button.danger { background: #e53e3e; }
 </style> 

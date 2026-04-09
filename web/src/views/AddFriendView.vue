@@ -416,7 +416,7 @@ const viewUserProfile = (user) => {
 }
 
 .search-container:focus-within {
-  border-color: #4a8cff;
+  border-color: #2563eb;
 }
 
 .search-container .icon {
@@ -451,7 +451,7 @@ const viewUserProfile = (user) => {
 }
 
 .btn-search {
-  background: #4a8cff;
+  background: #2563eb;
   color: white;
 }
 
@@ -622,7 +622,7 @@ const viewUserProfile = (user) => {
 }
 
 .btn-add {
-  background: #4a8cff;
+  background: #2563eb;
   color: white;
 }
 
@@ -713,7 +713,7 @@ const viewUserProfile = (user) => {
 
 .tip-item .icon {
   font-size: 16px;
-  color: #4a8cff;
+  color: #2563eb;
 }
 
 /* 申请消息对话框样式（与 AddFriendModal 相同） */
@@ -818,7 +818,7 @@ const viewUserProfile = (user) => {
 }
 
 .message-input textarea:focus {
-  border-color: #4a8cff;
+  border-color: #2563eb;
 }
 
 .char-count {
@@ -857,7 +857,7 @@ const viewUserProfile = (user) => {
 }
 
 .btn-confirm {
-  background: #4a8cff;
+  background: #2563eb;
   color: white;
 }
 

@@ -76,7 +76,7 @@ input {
 }
 .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 .btn { border: none; padding: 10px 14px; border-radius: 10px; cursor: pointer; background: #f1f5f9; }
-.btn.primary { background: #4a8cff; color: #fff; }
+.btn.primary { background: #2563eb; color: #fff; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
 

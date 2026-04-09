@@ -171,8 +171,9 @@ const displayTags = computed(() => localTags.value) // 修改：使用本地状�
 watch(() => props.friend, (f) => {
   if (f) {
     remark.value = f.remark || ''
-    localTags.value = [...(f.friend_tags || f.tags || [])] // 初始化本地标签
-    notifications.value = f.notify_enabled !== undefined ? f.notify_enabled : true
+    localTags.value = [...(f.friend_tags || [])] // 使用好友标签（关系维度）
+    // "消息免打扰"开关: true=免打扰(通知关闭), false=正常(通知开启)
+    notifications.value = f.notify_enabled !== undefined ? !f.notify_enabled : false
     pinned.value = f.pinned || false
     blacklisted.value = f.blacklisted || false
     momentsPermission.value = getPermissionValue(f.moments_permission)
@@ -245,7 +246,8 @@ const updatePermission = async () => {
 
 const updateNotifications = async () => {
   try {
-    await contactsStore.updateFriendNotification(friendUid.value, notifications.value)
+    // notifications 是"免打扰"开关，取反后得到 API 需要的 enabled 值
+    await contactsStore.updateFriendNotification(friendUid.value, !notifications.value)
   } catch (e) {
     notifications.value = !notifications.value
     toastRef.value?.show('操作失败', 'error')
@@ -292,92 +294,97 @@ const confirmDelete = () => {
 .settings-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(15, 23, 42, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  backdrop-filter: blur(2px);
 }
 
 .settings-modal {
   width: 380px;
-  background: #f9f9f9;
+  background: #f8fafc;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
 }
 
 .modal-header {
   background: white;
-  padding: 16px 20px;
+  padding: 14px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid #e2e8f0;
 }
 .modal-header h3 {
   margin: 0;
-  font-size: 16px;
-  color: #111827;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
 }
 .btn-close {
   background: transparent;
   border: none;
   cursor: pointer;
   padding: 4px;
-  color: #9ca3af;
+  color: #94a3b8;
+  border-radius: 6px;
+  transition: all 0.15s;
 }
+.btn-close:hover { background: #f1f5f9; color: #64748b; }
 
 .modal-body {
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 .settings-group {
   background: white;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
 }
 
 .setting-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid #f3f4f6;
-  font-size: 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 13px;
 }
 .setting-item:last-child { border-bottom: none; }
 
-.label { color: #111827; font-weight: 500; }
+.label { color: #1e293b; font-weight: 500; }
 
 .clean-input {
   border: none;
   text-align: right;
   outline: none;
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 13px;
+  color: #64748b;
   width: 150px;
 }
 .clean-select {
   border: none;
   outline: none;
   background: transparent;
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 13px;
+  color: #64748b;
   text-align: right;
-  direction: rtl; /* 让select箭头在左侧或者靠右对齐内容 */
+  direction: rtl;
 }
 
 /* 标签样式 */
 .tags-item {
   flex-direction: column;
   align-items: stretch;
-  gap: 12px;
+  gap: 10px;
 }
 .tags-header {
   display: flex;
@@ -387,19 +394,20 @@ const confirmDelete = () => {
 .btn-add-tag-text {
   border: none;
   background: none;
-  color: #4a8cff;
-  font-size: 13px;
+  color: #2563eb;
+  font-size: 12px;
   cursor: pointer;
+  font-weight: 500;
 }
 .tags-wrapper {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 .tag-chip {
-  background: #f3f4f6;
-  color: #4b5563;
-  padding: 4px 8px;
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 3px 8px;
   border-radius: 4px;
   font-size: 12px;
   display: flex;
@@ -409,74 +417,77 @@ const confirmDelete = () => {
 .remove-icon {
   font-size: 12px;
   cursor: pointer;
-  color: #9ca3af;
+  color: #93c5fd;
 }
+.remove-icon:hover { color: #2563eb; }
 .tag-input-inline {
-  border: 1px solid #4a8cff;
+  border: 1px solid #2563eb;
   border-radius: 4px;
-  padding: 2px 6px;
+  padding: 3px 6px;
   font-size: 12px;
   outline: none;
   width: 80px;
+  color: #1e293b;
 }
 
 /* 开关样式 */
 .switch {
   position: relative;
-  width: 40px;
-  height: 22px;
+  width: 36px;
+  height: 20px;
 }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
   position: absolute;
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #e5e7eb;
-  transition: .3s;
-  border-radius: 22px;
+  background-color: #cbd5e1;
+  transition: .2s;
+  border-radius: 20px;
 }
 .slider:before {
   position: absolute;
   content: "";
-  height: 18px;
-  width: 18px;
+  height: 16px;
+  width: 16px;
   left: 2px;
   bottom: 2px;
   background-color: white;
-  transition: .3s;
+  transition: .2s;
   border-radius: 50%;
 }
-input:checked + .slider { background-color: #10b981; }
-input:checked + .slider:before { transform: translateX(18px); }
+input:checked + .slider { background-color: #2563eb; }
+input:checked + .slider:before { transform: translateX(16px); }
 
 /* 操作按钮组 */
 .action-row {
   width: 100%;
   background: white;
   border: none;
-  padding: 14px 16px;
+  padding: 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s;
-  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+  transition: background 0.15s;
+  border-bottom: 1px solid #f1f5f9;
 }
 .action-row:last-child { border-bottom: none; }
-.action-row:hover { background: #f9fafb; }
-.action-row .icon { color: #d1d5db; }
-.action-row.danger { 
-  justify-content: center; 
-  color: #ef4444; 
+.action-row:hover { background: #f8fafc; }
+.action-row .icon { color: #cbd5e1; font-size: 14px; }
+.action-row.danger {
+  justify-content: center;
+  color: #dc2626;
   font-weight: 500;
 }
+.action-row.danger:hover { background: #fef2f2; }
 
 /* 确认弹窗 */
 .confirm-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.2);
+  background: rgba(15, 23, 42, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -488,19 +499,23 @@ input:checked + .slider:before { transform: translateX(18px); }
   padding: 24px;
   border-radius: 12px;
   text-align: center;
-  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.12);
 }
-.confirm-modal h3 { margin: 0 0 12px 0; font-size: 16px; color: #111827; }
-.confirm-modal p { margin: 0 0 24px 0; font-size: 13px; color: #6b7280; line-height: 1.5; }
-.confirm-actions { display: flex; gap: 12px; }
+.confirm-modal h3 { margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: #0f172a; }
+.confirm-modal p { margin: 0 0 20px 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 10px; }
 .confirm-actions button {
   flex: 1;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
 }
-.btn-cancel { background: white; border: 1px solid #d1d5db; color: #374151; }
-.btn-confirm-delete { background: #ef4444; color: white; }
+.btn-cancel { background: #f1f5f9; color: #475569; }
+.btn-cancel:hover { background: #e2e8f0; }
+.btn-confirm-delete { background: #dc2626; color: white; }
+.btn-confirm-delete:hover { background: #b91c1c; }
 </style>

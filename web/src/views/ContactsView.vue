@@ -125,32 +125,37 @@ const handleSelectGroupFromNewGroups = (group) => {
   background: #f8fafc;
 }
 .sidebar {
-  width: 340px;
+  width: 300px;
   min-width: 260px;
-  max-width: 400px;
+  max-width: 360px;
   background: #fff;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
 }
 .tabs {
   display: flex;
-  gap: 8px;
-  padding: 16px 12px 0 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid #e2e8f0;
 }
 .tabs button {
   flex: 1;
-  padding: 8px 0;
+  padding: 12px 0;
   border: none;
-  border-radius: 8px 8px 0 0;
-  background: #f1f5f9;
-  color: #333;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tabs button:hover {
+  color: #334155;
 }
 .tabs button.active {
-  background: #4a8cff;
-  color: #fff;
+  color: #2563eb;
+  border-bottom-color: #2563eb;
 }
 .list-scroll {
   flex: 1;
@@ -158,14 +163,13 @@ const handleSelectGroupFromNewGroups = (group) => {
 }
 .detail-panel {
   flex: 1;
-  background: #fff; /* 改为白色 */
+  background: #fff;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* 防止出现双重滚动条 */
-  /* 移除 align-items: center 和 justify-content: center，让子元素自动撑满 */
+  overflow: hidden;
 }
 .group-detail-center {
-  width: 100%; /* 群组详情也改为撑满，内部自己控制布局 */
+  width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;

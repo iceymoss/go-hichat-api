@@ -787,7 +787,7 @@ const inviteSelected = async () => {
 .group-top-info { flex: 1; }
 .group-name { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
 .group-id, .group-announcement { font-size: 16px; color: #64748b; margin-bottom: 4px; }
-.group-qrcode { font-size: 32px; color: #4a8cff; }
+.group-qrcode { font-size: 32px; color: #2563eb; }
 .btn-settings {
   position: absolute;
   top: 0;
@@ -844,7 +844,7 @@ const inviteSelected = async () => {
 .invite-animate .popover-content {
   animation: popInvite 0.28s cubic-bezier(.4,1.3,.6,1) both;
   box-shadow: 0 12px 48px rgba(74,140,255,0.18), 0 2px 8px rgba(0,0,0,0.08);
-  border: 2.5px solid #4a8cff;
+  border: 2.5px solid #2563eb;
 }
 @keyframes popInvite {
   0% { opacity: 0; transform: scale(0.92) translateY(40px); }
@@ -875,7 +875,7 @@ const inviteSelected = async () => {
   padding: 10px 24px;
   border: none;
   border-radius: 10px;
-  background: #4a8cff;
+  background: #2563eb;
   color: #fff;
   font-size: 16px;
   font-weight: 500;
@@ -900,8 +900,8 @@ const inviteSelected = async () => {
 .in-group-badge {
   margin-left: auto;
   padding: 2px 8px;
-  background: #e0e7ff;
-  color: #4f46e5;
+  background: #eff6ff;
+  color: #1d4ed8;
   border-radius: 4px;
   font-size: 12px;
 }
@@ -910,7 +910,7 @@ const inviteSelected = async () => {
   padding: 6px 12px;
   border: none;
   border-radius: 10px;
-  background: #4a8cff;
+  background: #2563eb;
   color: #fff;
   cursor: pointer;
   font-size: 13px;
@@ -948,7 +948,7 @@ const inviteSelected = async () => {
 .group-top-info { flex: 1; }
 .group-name { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
 .group-id, .group-announcement { font-size: 16px; color: #64748b; margin-bottom: 4px; }
-.group-qrcode { font-size: 32px; color: #4a8cff; }
+.group-qrcode { font-size: 32px; color: #2563eb; }
 .btn-settings {
   position: absolute;
   top: 0;
@@ -990,7 +990,7 @@ const inviteSelected = async () => {
 .settings-popover li.danger { color: #e53e3e; }
 .members-section { margin-bottom: 32px; }
 .members-title { display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-.view-all { color: #4a8cff; font-size: 14px; cursor: pointer; }
+.view-all { color: #2563eb; font-size: 14px; cursor: pointer; }
 .members-list {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -1025,13 +1025,13 @@ const inviteSelected = async () => {
   padding: 2px 8px;
   border-radius: 8px;
   background: #f1f5f9;
-  color: #4a8cff;
+  color: #2563eb;
 }
-.owner { background: #4a8cff; color: #fff; }
+.owner { background: #2563eb; color: #fff; }
 .admin { background: #10b981; color: #fff; }
 .invite-item { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.invite-btn { width: 48px; height: 48px; border-radius: 12px; background: #f1f5f9; color: #4a8cff; font-size: 28px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-bottom: 2px; }
-.invite-btn:hover { background: #e0e7ff; }
+.invite-btn { width: 48px; height: 48px; border-radius: 12px; background: #f1f5f9; color: #2563eb; font-size: 28px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-bottom: 2px; }
+.invite-btn:hover { background: #eff6ff; }
 .delete-btn { color: #ef4444; font-size: 32px; font-weight: 300; }
 .delete-btn.active { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; }
 .avatar-wrapper { position: relative; width: 48px; height: 48px; margin-bottom: 4px; }
@@ -1071,12 +1071,12 @@ const inviteSelected = async () => {
 .group-apps-section h4 { font-size: 18px; font-weight: 600; color: #1e293b; margin: 0 0 12px 0; }
 .apps-list { display: flex; gap: 24px; flex-wrap: wrap; }
 .app-item { display: flex; align-items: center; gap: 8px; font-size: 15px; color: #334155; background: #fff; border-radius: 10px; padding: 10px 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); cursor: pointer; }
-.app-item.more { color: #4a8cff; background: #f1f5f9; }
+.app-item.more { color: #2563eb; background: #f1f5f9; }
 .group-bot-section { background: #f8fafc; border-radius: 12px; padding: 18px; margin-bottom: 24px; }
 .group-bot-section h4 { font-size: 18px; font-weight: 600; color: #1e293b; margin: 0 0 12px 0; }
 .bot-list { display: flex; gap: 24px; }
 .bot-item { display: flex; align-items: center; gap: 8px; font-size: 15px; color: #334155; background: #fff; border-radius: 10px; padding: 10px 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-.icon-robot { font-size: 20px; color: #4a8cff; }
+.icon-robot { font-size: 20px; color: #2563eb; }
 .group-chat-settings { background: #f8fafc; border-radius: 12px; padding: 18px; margin-bottom: 24px; }
 .setting-row { display: flex; justify-content: space-between; align-items: center; font-size: 15px; padding: 10px 0; border-bottom: 1px solid #f0f2f5; }
 .setting-row:last-child { border-bottom: none; }
@@ -1099,7 +1099,7 @@ const inviteSelected = async () => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 .action-btn.message {
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
+  background: linear-gradient(135deg, #2563eb, #8a69ff);
   color: #fff;
 }
 .action-btn.audio {

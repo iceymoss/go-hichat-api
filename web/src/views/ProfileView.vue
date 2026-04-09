@@ -943,7 +943,7 @@ const handleLogout = async () => {
 
 .name-input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -987,7 +987,7 @@ const handleLogout = async () => {
 
 .edit-signature textarea:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -1040,7 +1040,7 @@ const handleLogout = async () => {
 
 .value-input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -1110,7 +1110,7 @@ const handleLogout = async () => {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
   display: flex;
   align-items: center;
@@ -1152,7 +1152,7 @@ const handleLogout = async () => {
 
 .email-input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -1168,7 +1168,7 @@ const handleLogout = async () => {
 .btn-send-code {
   flex-shrink: 0;
   padding: 9px 16px;
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 8px;
@@ -1185,7 +1185,7 @@ const handleLogout = async () => {
 }
 
 .btn-send-code:hover:not(:disabled) {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .btn-send-code:disabled {
@@ -1215,7 +1215,7 @@ const handleLogout = async () => {
 
 .code-input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -1307,7 +1307,7 @@ const handleLogout = async () => {
 
 .btn-edit-email {
   padding: 3px 10px;
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 6px;
@@ -1317,7 +1317,7 @@ const handleLogout = async () => {
 }
 
 .btn-edit-email:hover {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 /* Modal */
@@ -1412,7 +1412,7 @@ const handleLogout = async () => {
 
 .btn-confirm-bind {
   padding: 8px 20px;
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 8px;
@@ -1426,7 +1426,7 @@ const handleLogout = async () => {
 }
 
 .btn-confirm-bind:hover:not(:disabled) {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .btn-confirm-bind:disabled {
@@ -1471,13 +1471,13 @@ const handleLogout = async () => {
 
 .tag-input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .btn-add-tag {
   padding: 0 14px;
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 0 8px 8px 0;
@@ -1487,7 +1487,7 @@ const handleLogout = async () => {
 }
 
 .btn-add-tag:hover {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .selected-tags {
@@ -1526,7 +1526,7 @@ const handleLogout = async () => {
 
 .btn-edit, .btn-chat {
   padding: 9px 24px;
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 8px;
@@ -1541,7 +1541,7 @@ const handleLogout = async () => {
 }
 
 .btn-edit:hover, .btn-chat:hover {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .btn-chat.btn-gray {
@@ -1574,12 +1574,12 @@ const handleLogout = async () => {
 }
 
 .btn-save {
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
 }
 
 .btn-save:hover {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .profile-actions-buttons {
@@ -1592,7 +1592,7 @@ const handleLogout = async () => {
 .btn-add-friend,
 .btn-request-sent {
   padding: 9px 24px;
-  background-color: #6366f1;
+  background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 8px;
@@ -1607,7 +1607,7 @@ const handleLogout = async () => {
 }
 
 .btn-add-friend:hover:not(:disabled) {
-  background-color: #4f46e5;
+  background-color: #1d4ed8;
 }
 
 .btn-add-friend:disabled {
@@ -1673,7 +1673,7 @@ const handleLogout = async () => {
 }
 
 .add-friend-modal .message-input textarea:focus {
-  border-color: #6366f1;
+  border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -1724,7 +1724,7 @@ const handleLogout = async () => {
   width: 36px;
   height: 36px;
   border: 3px solid #e5e7eb;
-  border-top-color: #6366f1;
+  border-top-color: #2563eb;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
