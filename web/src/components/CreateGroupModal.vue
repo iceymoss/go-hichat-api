@@ -136,38 +136,47 @@ const handleCreate = async () => {
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.4);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  backdrop-filter: blur(2px);
 }
 
 .modal-content {
-  background: #fff;
+  background: var(--card);
   width: 360px;
-  border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
   overflow: hidden;
 }
 
 .modal-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.modal-header h3 { margin: 0; font-size: 16px; color: #1e293b; }
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-family: var(--font-display);
+  color: var(--fg);
+}
 
 .close-btn {
   background: none;
   border: none;
   cursor: pointer;
-  color: #94a3b8;
+  color: var(--muted);
   padding: 4px;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: var(--fg);
 }
 
 .modal-body {
@@ -186,17 +195,19 @@ const handleCreate = async () => {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: #f1f5f9;
+  background: var(--input-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   overflow: hidden;
-  border: 2px solid #e2e8f0;
-  transition: all 0.2s;
+  border: 2px dashed var(--border);
+  transition: border-color 0.2s;
 }
 
-.avatar-preview:hover { border-color: #2563eb; }
+.avatar-preview:hover {
+  border-color: var(--accent);
+}
 
 .avatar-preview img {
   width: 100%;
@@ -206,7 +217,7 @@ const handleCreate = async () => {
 
 .avatar-preview .icon {
   font-size: 24px;
-  color: #94a3b8;
+  color: var(--muted);
 }
 
 .upload-hint {
@@ -215,7 +226,16 @@ const handleCreate = async () => {
   width: 100%;
   text-align: center;
   font-size: 12px;
-  color: #64748b;
+  color: var(--muted);
+}
+
+.upload-loading {
+  position: absolute;
+  bottom: -20px;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--accent);
 }
 
 .input-group {
@@ -228,25 +248,35 @@ const handleCreate = async () => {
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #475569;
+  color: var(--muted);
 }
 
 .input-group input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 14px;
+  font-family: var(--font-ui);
+  background: var(--input-bg);
+  color: var(--fg);
   outline: none;
   transition: border-color 0.2s;
   box-sizing: border-box;
 }
 
-.input-group input:focus { border-color: #2563eb; }
+.input-group input::placeholder {
+  color: var(--muted);
+}
+
+.input-group input:focus {
+  border-color: var(--accent);
+}
 
 .modal-footer {
   padding: 16px 20px;
-  background: #f8fafc;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -254,25 +284,40 @@ const handleCreate = async () => {
 
 .btn-cancel {
   padding: 8px 16px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  border-radius: 6px;
-  color: #475569;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
   cursor: pointer;
   font-size: 13px;
+  font-family: var(--font-ui);
+  transition: color 0.2s;
+}
+
+.btn-cancel:hover {
+  color: var(--fg);
 }
 
 .btn-create {
   padding: 8px 20px;
   border: none;
-  background: #2563eb;
-  border-radius: 6px;
-  color: #fff;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--bg);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
+  font-family: var(--font-ui);
+  transition: background-color 0.2s;
 }
 
-.btn-create:disabled { background: #94a3b8; cursor: not-allowed; }
+.btn-create:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-create:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 </style>
 

@@ -764,9 +764,9 @@ const inviteSelected = async () => {
   max-width: 1100px;
   margin: 96px auto 0 auto;
   padding: 32px;
-  background: #fff;
-  border-radius: 20px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -781,13 +781,13 @@ const inviteSelected = async () => {
 .group-avatar {
   width: 80px;
   height: 80px;
-  border-radius: 16px;
-  background: #f8fafc;
+  border-radius: var(--radius-lg);
+  background: var(--input-bg);
 }
 .group-top-info { flex: 1; }
-.group-name { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
-.group-id, .group-announcement { font-size: 16px; color: #64748b; margin-bottom: 4px; }
-.group-qrcode { font-size: 32px; color: #2563eb; }
+.group-name { font-size: 28px; font-weight: 700; margin-bottom: 8px; color: var(--fg); font-family: var(--font-display); }
+.group-id, .group-announcement { font-size: 16px; color: var(--muted); margin-bottom: 4px; }
+.group-qrcode { font-size: 32px; color: var(--accent); }
 .btn-settings {
   position: absolute;
   top: 0;
@@ -795,9 +795,9 @@ const inviteSelected = async () => {
   width: 44px;
   height: 44px;
   border: none;
-  border-radius: 12px;
-  background: #f1f5f9;
-  color: #64748b;
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  color: var(--muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -805,14 +805,14 @@ const inviteSelected = async () => {
   transition: all 0.2s;
   z-index: 2;
 }
-.btn-settings:hover { background: #e2e8f0; color: #475569; }
+.btn-settings:hover { background: var(--border); color: var(--fg); }
 .popover-menu {
   position: absolute;
   top: 54px;
   right: 0;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  background: var(--card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   min-width: 160px;
   z-index: 10;
   padding: 8px 0;
@@ -827,15 +827,15 @@ const inviteSelected = async () => {
   padding: 12px 24px;
   cursor: pointer;
   font-size: 15px;
-  color: #222;
+  color: var(--fg);
   transition: background 0.2s;
 }
-.popover-menu li:hover { background: #f1f5f9; }
-.popover-menu li.danger { color: #e53e3e; }
+.popover-menu li:hover { background: var(--input-bg); }
+.popover-menu li.danger { color: var(--danger); }
 .popover-dialog {
   position: fixed;
   left: 0; top: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.18);
+  background: var(--overlay);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -843,75 +843,75 @@ const inviteSelected = async () => {
 }
 .invite-animate .popover-content {
   animation: popInvite 0.28s cubic-bezier(.4,1.3,.6,1) both;
-  box-shadow: 0 12px 48px rgba(74,140,255,0.18), 0 2px 8px rgba(0,0,0,0.08);
-  border: 2.5px solid #2563eb;
+  border: 2px solid var(--accent);
 }
 @keyframes popInvite {
   0% { opacity: 0; transform: scale(0.92) translateY(40px); }
   100% { opacity: 1; transform: none; }
 }
 .popover-content {
-  background: #fff;
-  border-radius: 18px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
   min-width: 340px;
   max-width: 90vw;
   padding: 32px 24px 24px 24px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
-.popover-content h3 { margin-top: 0; font-size: 22px; font-weight: 700; margin-bottom: 18px; }
+.popover-content h3 { margin-top: 0; font-size: 22px; font-weight: 700; margin-bottom: 18px; color: var(--fg); font-family: var(--font-display); }
 .setting-item { margin-bottom: 18px; display: flex; align-items: center; gap: 12px; }
-.setting-item label { min-width: 80px; color: #64748b; font-size: 15px; }
-.setting-item input[type="text"] { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; }
-.setting-item input[type="text"].disabled { background: #f3f4f6; color: #9ca3af; }
-.setting-item input[type="checkbox"] { width: 18px; height: 18px; }
+.setting-item label { min-width: 80px; color: var(--muted); font-size: 15px; }
+.setting-item input[type="text"],
+.setting-item input[type="number"] { flex: 1; padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); }
+.setting-item input[type="text"].disabled { background: var(--bg); color: var(--muted); }
+.setting-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
 .popover-actions { display: flex; gap: 12px; margin-top: 12px; width: 100%; }
 .popover-close, .popover-confirm {
   margin-top: 0;
   flex: 1;
   padding: 10px 24px;
   border: none;
-  border-radius: 10px;
-  background: #2563eb;
-  color: #fff;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--bg);
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
 }
-.popover-close { background: #e5e7eb; color: #222; margin-right: 0; }
+.popover-close { background: var(--input-bg); color: var(--fg); border: 1px solid var(--border); margin-right: 0; }
 .invite-content { min-width: 400px; }
 .friend-list { max-height: 320px; overflow-y: auto; margin-bottom: 16px; width: 100%; }
 .friend-group { margin-bottom: 16px; }
 .group-header {
   font-size: 14px;
-  color: #888;
+  color: var(--muted);
   padding: 8px 12px;
-  background: #f1f5f9;
-  border-radius: 8px;
+  background: var(--input-bg);
+  border-radius: var(--radius-md);
   margin-bottom: 8px;
   font-weight: 600;
 }
-.friend-item { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.friend-item { display: flex; align-items: center; gap: 12px; padding: 8px 0; color: var(--fg); }
 .friend-item.disabled { opacity: 0.6; cursor: not-allowed; }
 .friend-item.disabled input[type="checkbox"] { cursor: not-allowed; }
 .in-group-badge {
   margin-left: auto;
   padding: 2px 8px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--accent-muted);
+  color: var(--accent);
   border-radius: 4px;
   font-size: 12px;
 }
-.friend-avatar { width: 36px; height: 36px; border-radius: 8px; }
+.friend-avatar { width: 36px; height: 36px; border-radius: var(--radius-md); }
 .btn-small {
   padding: 6px 12px;
   border: none;
-  border-radius: 10px;
-  background: #2563eb;
-  color: #fff;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--bg);
   cursor: pointer;
   font-size: 13px;
 }
@@ -919,78 +919,10 @@ const inviteSelected = async () => {
   opacity: 0.6;
   cursor: not-allowed;
 }
-.group-detail-container {
-  width: 90%;
-  min-width: 700px;
-  max-width: 1100px;
-  margin: 48px auto 0 auto;
-  padding: 32px;
-  background: #fff;
-  border-radius: 20px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.group-top {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-  margin-bottom: 32px;
-  position: relative;
-}
-.group-avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 16px;
-  background: #f8fafc;
-}
-.group-top-info { flex: 1; }
-.group-name { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
-.group-id, .group-announcement { font-size: 16px; color: #64748b; margin-bottom: 4px; }
-.group-qrcode { font-size: 32px; color: #2563eb; }
-.btn-settings {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 12px;
-  background: #f1f5f9;
-  color: #64748b;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  z-index: 2;
-}
-.btn-settings:hover { background: #e2e8f0; color: #475569; }
-.settings-popover {
-  position: absolute;
-  top: 54px;
-  right: 0;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-  min-width: 160px;
-  z-index: 10;
-  padding: 8px 0;
-}
-.settings-popover ul { list-style: none; margin: 0; padding: 0; }
-.settings-popover li {
-  padding: 12px 24px;
-  cursor: pointer;
-  font-size: 15px;
-  color: #222;
-  transition: background 0.2s;
-}
-.settings-popover li:hover { background: #f1f5f9; }
-.settings-popover li.danger { color: #e53e3e; }
+.empty { color: var(--muted); text-align: center; padding: 16px 0; }
 .members-section { margin-bottom: 32px; }
-.members-title { display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-.view-all { color: #2563eb; font-size: 14px; cursor: pointer; }
+.members-title { display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--fg); font-family: var(--font-display); }
+.view-all { color: var(--accent); font-size: 14px; cursor: pointer; }
 .members-list {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -1006,7 +938,7 @@ const inviteSelected = async () => {
 .member-avatar {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   object-fit: cover;
   margin-bottom: 4px;
 }
@@ -1018,22 +950,23 @@ const inviteSelected = async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--fg);
 }
 .role {
   font-size: 11px;
   margin-top: 2px;
   padding: 2px 8px;
-  border-radius: 8px;
-  background: #f1f5f9;
-  color: #2563eb;
+  border-radius: var(--radius-sm);
+  background: var(--accent-muted);
+  color: var(--accent);
 }
-.owner { background: #2563eb; color: #fff; }
-.admin { background: #10b981; color: #fff; }
+.owner { background: var(--accent); color: var(--bg); }
+.admin { background: var(--accent-muted); color: var(--accent); }
 .invite-item { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.invite-btn { width: 48px; height: 48px; border-radius: 12px; background: #f1f5f9; color: #2563eb; font-size: 28px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-bottom: 2px; }
-.invite-btn:hover { background: #eff6ff; }
-.delete-btn { color: #ef4444; font-size: 32px; font-weight: 300; }
-.delete-btn.active { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; }
+.invite-btn { width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--input-bg); color: var(--accent); font-size: 28px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-bottom: 2px; }
+.invite-btn:hover { background: var(--accent-muted); }
+.delete-btn { color: var(--danger); font-size: 32px; font-weight: 300; }
+.delete-btn.active { background: rgba(192, 57, 43, 0.15); color: var(--danger); border: 1px solid var(--danger); }
 .avatar-wrapper { position: relative; width: 48px; height: 48px; margin-bottom: 4px; }
 .delete-badge {
   position: absolute;
@@ -1041,14 +974,14 @@ const inviteSelected = async () => {
   right: -6px;
   width: 18px;
   height: 18px;
-  background: #ef4444;
+  background: var(--danger);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-size: 12px;
-  border: 2px solid #fff;
+  border: 2px solid var(--card);
   z-index: 2;
 }
 .delete-badge .icon { font-size: 10px; }
@@ -1062,32 +995,32 @@ const inviteSelected = async () => {
   75% { transform: rotate(-1deg); }
   100% { transform: rotate(0deg); }
 }
-.group-info-section { background: #f8fafc; border-radius: 12px; padding: 18px 18px 8px 18px; margin-bottom: 24px; }
-.info-row { display: flex; justify-content: space-between; align-items: center; font-size: 15px; padding: 6px 0; border-bottom: 1px solid #f0f2f5; }
+.group-info-section { background: var(--input-bg); border-radius: var(--radius-md); padding: 18px 18px 8px 18px; margin-bottom: 24px; }
+.info-row { display: flex; justify-content: space-between; align-items: center; font-size: 15px; padding: 6px 0; border-bottom: 1px solid var(--border); color: var(--fg); }
 .info-row:last-child { border-bottom: none; }
-.label { color: #888; }
-.value { color: #222; font-weight: 500; }
-.group-apps-section { background: #f8fafc; border-radius: 12px; padding: 18px; margin-bottom: 24px; }
-.group-apps-section h4 { font-size: 18px; font-weight: 600; color: #1e293b; margin: 0 0 12px 0; }
+.label { color: var(--muted); }
+.value { color: var(--fg); font-weight: 500; }
+.group-apps-section { background: var(--input-bg); border-radius: var(--radius-md); padding: 18px; margin-bottom: 24px; }
+.group-apps-section h4 { font-size: 18px; font-weight: 600; color: var(--fg); margin: 0 0 12px 0; font-family: var(--font-display); }
 .apps-list { display: flex; gap: 24px; flex-wrap: wrap; }
-.app-item { display: flex; align-items: center; gap: 8px; font-size: 15px; color: #334155; background: #fff; border-radius: 10px; padding: 10px 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); cursor: pointer; }
-.app-item.more { color: #2563eb; background: #f1f5f9; }
-.group-bot-section { background: #f8fafc; border-radius: 12px; padding: 18px; margin-bottom: 24px; }
-.group-bot-section h4 { font-size: 18px; font-weight: 600; color: #1e293b; margin: 0 0 12px 0; }
+.app-item { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--fg); background: var(--card); border-radius: var(--radius-md); padding: 10px 18px; border: 1px solid var(--border); cursor: pointer; }
+.app-item.more { color: var(--accent); background: var(--accent-muted); border-color: transparent; }
+.group-bot-section { background: var(--input-bg); border-radius: var(--radius-md); padding: 18px; margin-bottom: 24px; }
+.group-bot-section h4 { font-size: 18px; font-weight: 600; color: var(--fg); margin: 0 0 12px 0; font-family: var(--font-display); }
 .bot-list { display: flex; gap: 24px; }
-.bot-item { display: flex; align-items: center; gap: 8px; font-size: 15px; color: #334155; background: #fff; border-radius: 10px; padding: 10px 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-.icon-robot { font-size: 20px; color: #2563eb; }
-.group-chat-settings { background: #f8fafc; border-radius: 12px; padding: 18px; margin-bottom: 24px; }
-.setting-row { display: flex; justify-content: space-between; align-items: center; font-size: 15px; padding: 10px 0; border-bottom: 1px solid #f0f2f5; }
+.bot-item { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--fg); background: var(--card); border-radius: var(--radius-md); padding: 10px 18px; border: 1px solid var(--border); }
+.icon-robot { font-size: 20px; color: var(--accent); }
+.group-chat-settings { background: var(--input-bg); border-radius: var(--radius-md); padding: 18px; margin-bottom: 24px; }
+.setting-row { display: flex; justify-content: space-between; align-items: center; font-size: 15px; padding: 10px 0; border-bottom: 1px solid var(--border); color: var(--fg); }
 .setting-row:last-child { border-bottom: none; }
-.setting-desc { color: #888; font-size: 13px; margin-left: 12px; }
-.group-personal-section { background: #f8fafc; border-radius: 12px; padding: 18px; margin-bottom: 24px; }
+.setting-desc { color: var(--muted); font-size: 13px; margin-left: 12px; }
+.group-personal-section { background: var(--input-bg); border-radius: var(--radius-md); padding: 18px; margin-bottom: 24px; color: var(--fg); }
 .group-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 32px; }
 .action-btn {
   width: 100%;
   padding: 20px 24px;
   border: none;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   font-size: 18px;
   font-weight: 500;
   cursor: pointer;
@@ -1096,14 +1029,20 @@ const inviteSelected = async () => {
   justify-content: center;
   gap: 16px;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 .action-btn.message {
-  background: linear-gradient(135deg, #2563eb, #8a69ff);
-  color: #fff;
+  background: var(--accent);
+  color: var(--bg);
+}
+.action-btn.message:hover {
+  background: var(--accent-hover);
 }
 .action-btn.audio {
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: #fff;
+  background: var(--input-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+.action-btn.audio:hover {
+  background: var(--card-hover);
 }
 </style> 

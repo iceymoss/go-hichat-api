@@ -573,17 +573,19 @@ const handleResetPassword = async () => {
   max-width: 400px;
   margin: 0 auto;
   padding: 32px;
-  background-color: #fff;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  background-color: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  font-family: var(--font-ui);
 }
 
 h2 {
   text-align: center;
   margin-bottom: 24px;
-  color: #111827;
+  color: var(--fg);
   font-size: 20px;
   font-weight: 600;
+  font-family: var(--font-display);
 }
 
 .form-group {
@@ -595,45 +597,48 @@ label {
   margin-bottom: 6px;
   font-weight: 500;
   font-size: 14px;
-  color: #374151;
+  color: var(--muted);
 }
 
 input {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 15px;
-  color: #111827;
-  background-color: #fff;
-  transition: border-color 0.15s;
+  color: var(--fg);
+  background-color: var(--input-bg);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: var(--font-ui);
 }
 
 input:focus {
-  border-color: #2563eb;
+  border-color: var(--accent);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 0 0 3px var(--accent-muted);
 }
 
 input::placeholder {
-  color: #9ca3af;
+  color: var(--muted);
+  opacity: 0.6;
 }
 
 .select-input {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 15px;
-  background-color: #fff;
+  background-color: var(--input-bg);
+  color: var(--fg);
   cursor: pointer;
   transition: border-color 0.15s;
 }
 
 .select-input:focus {
-  border-color: #2563eb;
+  border-color: var(--accent);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 0 0 3px var(--accent-muted);
 }
 
 .phone-code-container {
@@ -651,49 +656,51 @@ input::placeholder {
 
 .send-code-btn {
   padding: 10px 16px;
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
   transition: background-color 0.15s;
+  font-family: var(--font-ui);
 }
 
 .send-code-btn:hover:not(:disabled) {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .send-code-btn:disabled {
-  background-color: #93c5fd;
+  background-color: var(--border);
+  color: var(--muted);
   cursor: not-allowed;
 }
 
 .error-text {
   margin-top: 4px;
-  color: #ef4444;
+  color: var(--danger);
   font-size: 12px;
 }
 
 .success-text {
   margin-top: 4px;
-  color: #22c55e;
+  color: var(--success);
   font-size: 12px;
 }
 
 .required {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .submit-btn {
   width: 100%;
   padding: 11px;
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
@@ -702,14 +709,16 @@ input::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: var(--font-ui);
 }
 
 .submit-btn:hover {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .submit-btn:disabled {
-  background-color: #93c5fd;
+  background-color: var(--border);
+  color: var(--muted);
   cursor: not-allowed;
 }
 
@@ -730,10 +739,10 @@ input::placeholder {
 .error-message {
   margin-top: 12px;
   padding: 10px 12px;
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  color: #dc2626;
+  background-color: rgba(192, 57, 43, 0.1);
+  border: 1px solid rgba(192, 57, 43, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--danger);
   text-align: center;
   font-size: 14px;
 }
@@ -742,17 +751,18 @@ input::placeholder {
   text-align: center;
   margin-top: 20px;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .switch-link {
-  color: #2563eb;
+  color: var(--accent);
   text-decoration: none;
   margin-left: 4px;
   font-weight: 500;
 }
 
 .switch-link:hover {
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
@@ -768,13 +778,13 @@ input::placeholder {
 }
 
 .reset-password-link {
-  color: #6b7280;
+  color: var(--muted);
   text-decoration: none;
   font-size: 13px;
 }
 
 .reset-password-link:hover {
-  color: #2563eb;
+  color: var(--accent);
   text-decoration: underline;
 }
 
@@ -785,7 +795,7 @@ input::placeholder {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -793,9 +803,10 @@ input::placeholder {
 }
 
 .modal-container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
   max-width: 460px;
   width: 90%;
   max-height: 90vh;
@@ -811,14 +822,15 @@ input::placeholder {
   align-items: center;
   justify-content: space-between;
   padding: 18px 24px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
-  color: #111827;
+  color: var(--fg);
+  font-family: var(--font-display);
 }
 
 .modal-close {
@@ -827,18 +839,18 @@ input::placeholder {
   border: none;
   background: transparent;
   font-size: 20px;
-  color: #9ca3af;
+  color: var(--muted);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s;
+  transition: background-color 0.15s, color 0.15s;
 }
 
 .modal-close:hover {
-  background-color: #f3f4f6;
-  color: #374151;
+  background-color: var(--border);
+  color: var(--fg);
 }
 
 .modal-body {
@@ -858,31 +870,33 @@ input::placeholder {
   display: flex;
   gap: 8px;
   padding: 16px 24px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--border);
   justify-content: flex-end;
 }
 
 .btn-cancel {
   padding: 8px 16px;
-  background: #fff;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color 0.15s, border-color 0.15s;
+  font-family: var(--font-ui);
 }
 
 .btn-cancel:hover {
-  background-color: #f9fafb;
+  background-color: var(--card-hover);
+  border-color: var(--accent);
 }
 
 .btn-confirm {
   padding: 8px 20px;
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -890,14 +904,16 @@ input::placeholder {
   display: flex;
   align-items: center;
   gap: 6px;
+  font-family: var(--font-ui);
 }
 
 .btn-confirm:hover:not(:disabled) {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .btn-confirm:disabled {
-  background-color: #d1d5db;
+  background-color: var(--border);
+  color: var(--muted);
   cursor: not-allowed;
 }
 
@@ -914,36 +930,37 @@ input::placeholder {
   gap: 8px;
   cursor: pointer;
   padding: 8px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   transition: border-color 0.15s, background-color 0.15s;
   user-select: none;
 }
 
 .method-option:hover {
-  border-color: #2563eb;
-  background-color: #eff6ff;
+  border-color: var(--accent);
+  background-color: var(--accent-muted);
 }
 
 .method-option input[type="radio"] {
   margin: 0;
   cursor: pointer;
-  accent-color: #2563eb;
+  accent-color: var(--accent);
+  width: auto;
 }
 
 .method-option input[type="radio"]:checked + span {
-  color: #2563eb;
+  color: var(--accent);
   font-weight: 600;
 }
 
 .method-option:has(input[type="radio"]:checked) {
-  border-color: #2563eb;
-  background-color: #eff6ff;
+  border-color: var(--accent);
+  background-color: var(--accent-muted);
 }
 
 .method-option span {
   font-size: 14px;
-  color: #374151;
+  color: var(--fg);
 }
 
 @media (max-width: 480px) {

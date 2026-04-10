@@ -174,10 +174,10 @@ onUnmounted(() => {
 .user-profile-header {
   width: 100%;
   box-sizing: border-box;
-  background: #fff;
-  border-radius: 12px 12px 0 0;
+  background: var(--card);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   border-bottom: none;
   margin: 0;
   position: relative;
@@ -201,7 +201,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.45));
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .cover-content {
@@ -231,8 +231,7 @@ onUnmounted(() => {
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  border: 3px solid #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 3px solid var(--card);
   cursor: pointer;
   transition: opacity 0.15s;
 }
@@ -246,7 +245,7 @@ onUnmounted(() => {
 }
 
 .user-details {
-  color: white;
+  color: var(--fg);
   margin-bottom: 6px;
 }
 
@@ -254,14 +253,15 @@ onUnmounted(() => {
   font-size: 22px;
   font-weight: 600;
   margin: 0 0 2px 0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  font-family: var(--font-display);
+  color: var(--fg);
 }
 
 .user-signature {
   font-size: 13px;
-  opacity: 0.9;
+  opacity: 0.8;
   margin: 0;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  color: var(--muted);
 }
 
 .user-stats {
@@ -272,21 +272,19 @@ onUnmounted(() => {
 
 .stat-item {
   text-align: center;
-  color: white;
 }
 
 .stat-number {
   display: block;
   font-size: 18px;
   font-weight: 700;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  color: var(--fg);
 }
 
 .stat-label {
   display: block;
   font-size: 11px;
-  opacity: 0.85;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  color: var(--muted);
   margin-top: 2px;
 }
 
@@ -305,7 +303,7 @@ onUnmounted(() => {
   gap: 5px;
   padding: 7px 14px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -314,22 +312,22 @@ onUnmounted(() => {
 }
 
 .action-btn.primary {
-  background: rgba(255, 255, 255, 0.95);
-  color: #374151;
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .action-btn.primary:hover {
-  background: #fff;
+  background: var(--accent-hover);
 }
 
 .action-btn.secondary {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--fg);
+  border: 1px solid var(--border);
 }
 
 .action-btn.secondary:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .action-btn .icon {
@@ -337,8 +335,8 @@ onUnmounted(() => {
 }
 
 .quick-nav {
-  background: #fafbfc;
-  border-top: 1px solid #f3f4f6;
+  background: var(--card);
+  border-top: 1px solid var(--border);
 }
 
 .nav-tabs {
@@ -355,17 +353,17 @@ onUnmounted(() => {
   padding: 12px 8px;
   cursor: pointer;
   transition: color 0.15s;
-  color: #6b7280;
+  color: var(--muted);
   border-bottom: 2px solid transparent;
 }
 
 .nav-tab:hover {
-  color: #111827;
+  color: var(--fg);
 }
 
 .nav-tab.active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .tab-icon {
@@ -378,8 +376,8 @@ onUnmounted(() => {
 }
 
 .tab-count {
-  background-color: #e5e7eb;
-  color: #374151;
+  background-color: var(--border);
+  color: var(--fg);
   font-size: 11px;
   font-weight: 600;
   padding: 1px 7px;
@@ -389,8 +387,8 @@ onUnmounted(() => {
 }
 
 .nav-tab.active .tab-count {
-  background-color: #eff6ff;
-  color: #2563eb;
+  background-color: var(--accent-muted);
+  color: var(--accent);
 }
 
 /* Back to top */
@@ -398,13 +396,12 @@ onUnmounted(() => {
   position: absolute;
   top: 16px;
   left: 16px;
-  background: rgba(255, 255, 255, 0.95);
-  color: #374151;
-  border: none;
-  border-radius: 8px;
+  background: var(--card);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   padding: 8px 14px;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   transition: background-color 0.15s;
   z-index: 100;
   display: flex;
@@ -415,7 +412,7 @@ onUnmounted(() => {
 }
 
 .back-to-top-btn:hover {
-  background: #fff;
+  background: var(--card-hover);
 }
 
 .back-to-top-btn .icon {

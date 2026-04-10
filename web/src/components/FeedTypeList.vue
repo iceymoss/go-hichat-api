@@ -822,58 +822,46 @@ function closeProfileCard() {
 </script>
 <style scoped>
 .feed-type-list-main {
-  padding: 0; /* 移除所有padding */
+  padding: 0;
   overflow-y: auto;
   height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: center; /* 确保内容居中 */
+  align-items: center;
   justify-content: flex-start;
-  background: linear-gradient(135deg, rgba(248,250,252,0.95), rgba(241,245,249,0.92));
+  background: var(--bg);
   position: relative;
-  width: 100%; /* 确保占满整个宽度 */
+  width: 100%;
   box-sizing: border-box;
-}
-.feed-type-list-main::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    radial-gradient(circle at 20% 20%, rgba(74,140,255,0.05) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(138,105,255,0.03) 0%, transparent 50%);
-  pointer-events: none;
+  font-family: var(--font-ui);
 }
 .feed-type-list-center {
   width: 100%;
-  max-width: 960px; /* 增加宽度约1/5 (800px * 1.2) */
+  max-width: 960px;
   margin: 0 auto;
-  padding: 0 40px; /* 添加左右内边距 */
+  padding: 0 40px;
   display: flex;
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
 }
 .feed-type-feed-item {
-  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(252,253,255,0.95));
-  border-radius: 12px;
+  background: var(--card);
+  border-radius: var(--radius-md);
   margin: 0 0 24px 0;
   padding: 20px 24px 16px 24px;
   cursor: pointer;
   transition: all 0.3s ease;
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid rgba(203,213,225,0.9);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+  border: 1px solid var(--border);
   position: relative;
 }
 .feed-type-feed-item:hover {
-  background: linear-gradient(135deg, rgba(255,255,255,1), rgba(252,253,255,0.98));
-  border-color: rgba(74,140,255,0.4);
-  box-shadow: 0 10px 28px rgba(74,140,255,0.2);
+  background: var(--card-hover);
+  border-color: var(--accent);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.3);
   transform: translateY(-3px);
 }
 .feed-header {
@@ -884,21 +872,20 @@ function closeProfileCard() {
 .avatar {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   margin-right: 14px;
-  border: 2px solid rgba(255,255,255,0.9);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border: 2px solid var(--border);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .avatar:hover {
   transform: scale(1.05);
-  box-shadow: 0 4px 16px rgba(74, 140, 255, 0.3);
-  border-color: rgba(74, 140, 255, 0.5);
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(200,149,108,0.2);
 }
 .user-info .name {
-  color: #0f172a;
+  color: var(--fg);
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
@@ -909,27 +896,27 @@ function closeProfileCard() {
 }
 
 .user-info .name:hover {
-  color: #4a8cff;
-  background: rgba(74, 140, 255, 0.1);
+  color: var(--accent);
+  background: var(--accent-muted);
   transform: scale(1.02);
 }
 .user-info .time {
-  color: #475569;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 500;
 }
 .feed-content {
-  color: #1e293b;
+  color: var(--fg);
   font-size: 16px;
   line-height: 1.6;
   margin-bottom: 12px;
   cursor: pointer;
   transition: background-color 0.2s ease;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .feed-content:hover {
-  background-color: rgba(37,99,235,0.02);
+  background-color: var(--accent-muted);
 }
 .feed-text {
   margin-bottom: 8px;
@@ -941,17 +928,17 @@ function closeProfileCard() {
 .feed-image img {
   max-width: 100%;
   max-height: 220px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .feed-image img:hover {
   transform: scale(1.02);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  border-color: #cbd5e1;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  border-color: var(--accent);
 }
 
 /* 多图片网格布局 */
@@ -962,7 +949,7 @@ function closeProfileCard() {
 .images-grid {
   display: grid;
   gap: 4px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   max-width: 100%;
 }
@@ -1001,16 +988,16 @@ function closeProfileCard() {
 .image-item {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: #f8fafc;
+  background: var(--input-bg);
 }
 
 .image-item:hover {
   transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .feed-image-item {
@@ -1027,22 +1014,20 @@ function closeProfileCard() {
 .more-images-count {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
+  background: var(--overlay);
+  color: var(--fg);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   font-weight: 700;
-  backdrop-filter: blur(2px);
 }
 .feed-likes {
   margin-bottom: 8px;
   padding: 10px 16px;
-  background: linear-gradient(90deg, #e3f0ff 0%, #f7eaff 100%);
-  border-radius: 12px;
-  border-left: 3px solid #2563eb;
-  box-shadow: 0 2px 8px rgba(37,99,235,0.07);
+  background: var(--accent-muted);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--accent);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1061,10 +1046,9 @@ function closeProfileCard() {
 .like-avatar {
   width: 24px;
   height: 24px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  background: #f8fafc;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border);
+  background: var(--input-bg);
   flex-shrink: 0;
   margin-right: -6px;
   z-index: 1;
@@ -1074,12 +1058,12 @@ function closeProfileCard() {
 
 .like-avatar:hover {
   transform: scale(1.2);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
-  border-color: rgba(74, 140, 255, 0.5);
+  box-shadow: 0 4px 12px rgba(200,149,108,0.3);
+  border-color: var(--accent);
   z-index: 10;
 }
 .like-user-highlight {
-  color: #2563eb;
+  color: var(--accent);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -1089,18 +1073,18 @@ function closeProfileCard() {
 }
 
 .like-user-highlight:hover {
-  color: #8a69ff;
-  background: rgba(138, 105, 255, 0.1);
+  color: var(--accent-hover);
+  background: var(--accent-muted);
   transform: scale(1.05);
 }
 .like-more {
-  color: #2563eb;
+  color: var(--accent);
   font-size: 11px;
   margin-left: 4px;
   font-weight: 600;
-  background: rgba(37,99,235,0.15);
+  background: var(--accent-muted);
   padding: 3px 8px;
-  border-radius: 12px;
+  border-radius: var(--radius-full);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1108,13 +1092,13 @@ function closeProfileCard() {
   height: 24px;
 }
 .likes-text {
-  color: #374151;
+  color: var(--fg);
   font-size: 13px;
   font-weight: 500;
   flex: 1;
 }
 .like-user {
-  color: #2563eb;
+  color: var(--accent);
   font-weight: 600;
   margin-right: 4px;
 }
@@ -1122,22 +1106,22 @@ function closeProfileCard() {
 .feed-comments {
   margin-bottom: 8px;
   padding: 8px 12px;
-  background: rgba(248,250,252,0.8);
-  border-radius: 8px;
-  border-left: 3px solid #64748b;
+  background: var(--input-bg);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--muted);
 }
 /* @用户样式 */
 :deep(.at-user) {
-  color: #2563eb;
+  color: var(--accent);
   font-weight: 600;
 }
 .feed-actions {
   display: flex;
   gap: 0;
-  color: #64748b;
+  color: var(--muted);
   font-size: 15px;
   margin-top: 8px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--border-light);
   padding-top: 12px;
 }
 .action-btn {
@@ -1149,37 +1133,24 @@ function closeProfileCard() {
   padding: 10px 16px;
   background: none;
   border: none;
-  color: #64748b;
+  color: var(--muted);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   position: relative;
   overflow: hidden;
-}
-.action-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(37,99,235,0.05), rgba(37,99,235,0.02));
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-.action-btn:hover::before {
-  opacity: 1;
+  font-family: var(--font-ui);
 }
 .action-btn:hover {
-  color: #2563eb;
+  color: var(--accent);
+  background: var(--accent-muted);
   transform: translateY(-1px);
 }
 .action-btn.active {
-  color: #2563eb;
-  background: rgba(37,99,235,0.1);
-  box-shadow: 0 2px 8px rgba(37,99,235,0.15);
+  color: var(--accent);
+  background: var(--accent-muted);
 }
 .action-btn .icon {
   font-size: 18px;
@@ -1194,9 +1165,9 @@ function closeProfileCard() {
 .feed-comment-input {
   margin-top: 12px;
   padding: 12px;
-  background: rgba(248,250,252,0.8);
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  background: var(--input-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
 }
 .comment-input-container {
   display: flex;
@@ -1206,7 +1177,7 @@ function closeProfileCard() {
 .comment-input-container .comment-avatar {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   flex-shrink: 0;
 }
 .comment-input-wrapper {
@@ -1217,34 +1188,42 @@ function closeProfileCard() {
 .comment-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s ease;
+  background: var(--card);
+  color: var(--fg);
+  font-family: var(--font-ui);
+}
+.comment-input::placeholder {
+  color: var(--muted);
 }
 .comment-input:focus {
-  border-color: #2563eb;
+  border-color: var(--accent);
 }
 .comment-submit-btn {
   padding: 8px 16px;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
+  background: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 20px;
+  border-radius: var(--radius-full);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  font-family: var(--font-ui);
 }
 .comment-submit-btn:hover {
+  background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+  box-shadow: 0 4px 12px rgba(200,149,108,0.3);
 }
 .feed-loading {
   text-align: center;
-  color: #888;
+  color: var(--muted);
   font-size: 14px;
   padding: 12px 0;
   width: 100%;
@@ -1253,7 +1232,7 @@ function closeProfileCard() {
 }
 .feed-nomore {
   text-align: center;
-  color: #b0b0b0;
+  color: var(--muted);
   font-size: 13px;
   padding: 10px 0 20px 0;
   width: 100%;
@@ -1266,99 +1245,55 @@ function closeProfileCard() {
   width: 100%;
   margin: 0;
   position: sticky;
-  /* top值由JavaScript动态设置 */
   z-index: 9;
-  padding: 16px 20px; /* 添加内边距来控制气泡位置 */
-  margin-top: -1px; /* 轻微重叠确保无缝连接 */
+  padding: 16px 20px;
+  margin-top: -1px;
   transition: all 0.3s ease;
-  background: linear-gradient(135deg, rgba(248,250,252,0.98), rgba(241,245,249,0.95));
-  backdrop-filter: blur(25px);
-  border-radius: 0 0 16px 16px; /* 只有下边圆角 */
-  box-shadow: 
-    0 4px 20px rgba(0, 0, 0, 0.08),
-    0 0 0 1px rgba(229, 231, 235, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-top: none; /* 移除上边框，与用户卡片连接 */
+  background: var(--bg);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  border: 1px solid var(--border);
+  border-top: none;
   box-sizing: border-box;
 }
 
 .message-notification-area.sticky-active {
-  /* top值由JavaScript动态设置 */
-  background: linear-gradient(135deg, rgba(248,250,252,0.98), rgba(241,245,249,0.95));
-  backdrop-filter: blur(30px);
-  box-shadow: 
-    0 6px 24px rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(229, 231, 235, 0.3);
-  border-radius: 0 0 16px 16px;
-  border-color: rgba(255, 255, 255, 0.8);
+  background: var(--bg);
+  border-color: var(--border);
   border-top: none;
 }
 
 .message-notification-area.sticky-active .message-badge {
-  box-shadow: 
-    0 6px 20px rgba(239, 68, 68, 0.12),
-    0 4px 12px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  border-color: rgba(239, 68, 68, 0.18);
+  border-color: var(--danger);
 }
 
 .message-badge {
-  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(252,253,255,0.95));
-  backdrop-filter: blur(25px);
-  border: 1px solid rgba(239, 68, 68, 0.12);
-  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
   width: 100%;
   box-sizing: border-box;
-  box-shadow: 
-    0 3px 16px rgba(239, 68, 68, 0.06),
-    0 1px 8px rgba(0, 0, 0, 0.03),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  border-left: 4px solid #ef4444;
-  margin: 0; /* 移除边距，由容器的padding控制 */
-}
-
-.message-badge::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.02), rgba(220, 38, 38, 0.01));
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  border-left: 4px solid var(--danger);
+  margin: 0;
 }
 
 .message-badge:hover {
-  background: linear-gradient(135deg, rgba(255,255,255,1), rgba(252,253,255,0.98));
+  background: var(--card-hover);
   transform: translateY(-1px);
-  box-shadow: 
-    0 4px 20px rgba(239, 68, 68, 0.08),
-    0 2px 10px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
-  border-color: rgba(239, 68, 68, 0.12);
-  border-left-color: #dc2626;
-}
-
-.message-badge:hover::before {
-  opacity: 1;
+  border-color: var(--danger);
+  border-left-color: var(--danger);
 }
 
 .message-badge:active {
   transform: translateY(0);
-  box-shadow: 
-    0 1px 6px rgba(239, 68, 68, 0.05),
-    0 0 4px rgba(0, 0, 0, 0.02),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
   transition: all 0.1s ease;
 }
 
 .message-badge:focus-visible {
-  outline: 2px solid #ef4444;
+  outline: 2px solid var(--danger);
   outline-offset: 2px;
 }
 
@@ -1374,49 +1309,23 @@ function closeProfileCard() {
 .badge-icon {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  border-radius: 50%;
+  background: var(--danger);
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  box-shadow: 
-    0 3px 10px rgba(239, 68, 68, 0.3),
-    0 1px 4px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  color: var(--fg);
   flex-shrink: 0;
   position: relative;
   transition: all 0.3s ease;
 }
 
-.badge-icon::after {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
-  z-index: -1;
-  opacity: 0;
-  transition: all 0.3s ease;
-  transform: scale(0.9);
-}
-
-.message-badge:hover .badge-icon::after {
-  opacity: 1;
-  transform: scale(1);
-}
-
 .message-badge:hover .badge-icon {
   transform: scale(1.05);
-  box-shadow: 
-    0 4px 14px rgba(239, 68, 68, 0.4),
-    0 2px 6px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .badge-icon .icon {
   font-size: 16px;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
   transition: transform 0.3s ease;
 }
 
@@ -1428,13 +1337,13 @@ function closeProfileCard() {
   flex: 1;
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: var(--fg);
   letter-spacing: 0.1px;
   line-height: 1.4;
 }
 
 .badge-arrow {
-  color: #9ca3af;
+  color: var(--muted);
   font-size: 14px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0.7;
@@ -1444,16 +1353,14 @@ function closeProfileCard() {
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
-  background: rgba(156, 163, 175, 0.08);
+  border-radius: var(--radius-full);
+  background: var(--accent-muted);
 }
 
 .message-badge:hover .badge-arrow {
-  color: #ef4444;
+  color: var(--danger);
   transform: translateX(2px);
   opacity: 1;
-  background: rgba(239, 68, 68, 0.12);
-  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.15);
 }
 
 .badge-indicator {
@@ -1466,18 +1373,14 @@ function closeProfileCard() {
 .red-dot {
   min-width: 20px;
   height: 20px;
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  border-radius: 50px;
-  border: 1.5px solid #fff;
-  box-shadow: 
-    0 2px 6px rgba(239, 68, 68, 0.35),
-    0 0 0 0.5px rgba(239, 68, 68, 0.15),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.3);
+  background: var(--danger);
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--card);
   animation: pulse-red 2s infinite;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--fg);
   font-size: 10px;
   font-weight: 700;
   padding: 0 4px;
@@ -1487,113 +1390,80 @@ function closeProfileCard() {
 
 .message-badge:hover .red-dot {
   transform: scale(1.1);
-  box-shadow: 
-    0 3px 8px rgba(239, 68, 68, 0.4),
-    0 0 0 0.5px rgba(239, 68, 68, 0.2),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
 }
 
 @keyframes pulse-red {
-  0%, 100% { 
+  0%, 100% {
     opacity: 1;
     transform: scale(1);
-    box-shadow: 
-      0 2px 6px rgba(239, 68, 68, 0.35),
-      0 0 0 0.5px rgba(239, 68, 68, 0.15),
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.3);
   }
-  50% { 
+  50% {
     opacity: 0.9;
     transform: scale(1.05);
-    box-shadow: 
-      0 3px 8px rgba(239, 68, 68, 0.4),
-      0 0 0 1px rgba(239, 68, 68, 0.2),
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
   }
 }
 
 /* 用户个人信息头部容器样式调整 */
 .feed-type-list-center :deep(.user-profile-header) {
   position: sticky;
-  top: 0; /* 直接贴到页面顶部 */
+  top: 0;
   z-index: 10;
   margin: 0;
   transition: all 0.3s ease;
   overflow: hidden;
-  box-shadow: 
-    0 20px 40px rgba(74, 140, 255, 0.08),
-    0 8px 16px rgba(138, 105, 255, 0.05),
-    0 0 0 1px rgba(229, 231, 235, 0.2);
 }
 
 /* 有消息气泡时的样式 */
 .feed-type-list-center.has-notifications :deep(.user-profile-header) {
-  border-radius: 20px 20px 0 0; /* 上边圆角，底部与消息气泡连接 */
-  border-bottom: none; /* 移除底部边框，与消息气泡连接 */
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: none;
 }
 
 .feed-type-list-center.has-notifications :deep(.user-profile-header .quick-nav) {
-  border-radius: 0; /* 去除圆角，与消息气泡连接 */
-  border-bottom: none; /* 移除底部边框 */
+  border-radius: 0;
+  border-bottom: none;
 }
 
 /* 没有消息气泡时的样式 */
 .feed-type-list-center.no-notifications :deep(.user-profile-header) {
-  border-radius: 20px; /* 完整的圆角 */
-  margin-bottom: 24px; /* 添加底部边距 */
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
 }
 
 .feed-type-list-center.no-notifications :deep(.user-profile-header .quick-nav) {
-  border-radius: 0 0 20px 20px; /* 恢复底部圆角 */
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 /* 调整用户卡片内部的快速导航样式 */
 .feed-type-list-center :deep(.user-profile-header .quick-nav) {
-  border-radius: 0; /* 去除圆角，与消息气泡连接 */
-  border-bottom: none; /* 移除底部边框 */
+  border-radius: 0;
+  border-bottom: none;
 }
 
 /* 滚动时的置顶效果 */
 .feed-type-list-center :deep(.user-profile-header.sticky) {
   top: 0;
-  box-shadow: 
-    0 8px 32px rgba(74, 140, 255, 0.15),
-    0 0 0 1px rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
-  border-radius: 20px 20px 0 0; /* 保持上边圆角 */
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 /* 动态项目间距调整 - 有消息气泡时 */
 .feed-type-list-center.has-notifications .feed-type-feed-item:first-of-type {
-  margin-top: 16px; /* 与消息气泡保持合适间距 */
-  border-radius: 12px;
-  border-top: 1px solid #e2e8f0;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+  margin-top: 16px;
+  border-radius: var(--radius-md);
+  border-top: 1px solid var(--border);
 }
 
 /* 动态项目间距调整 - 没有消息气泡时 */
 .feed-type-list-center.no-notifications .feed-type-feed-item:first-of-type {
-  margin-top: 0; /* 直接紧跟用户卡片 */
-  border-radius: 12px;
-  border-top: 1px solid #e2e8f0;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
-}
-
-/* 连接效果 */
-.feed-type-feed-item:first-of-type::before {
-  content: '';
-  position: absolute;
-  top: -1px;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(203,213,225,0.3), transparent);
+  margin-top: 0;
+  border-radius: var(--radius-md);
+  border-top: 1px solid var(--border);
 }
 
 /* 响应式设计 */
 @media (max-width: 1200px) {
   .feed-type-list-center {
-    max-width: 840px; /* 同比例增加 */
+    max-width: 840px;
     padding: 0 30px;
   }
 }
@@ -1603,69 +1473,64 @@ function closeProfileCard() {
     max-width: 100%;
     padding: 0 20px;
   }
-  
+
   .feed-type-list-main {
     padding: 0;
   }
-  
+
   .feed-type-list-center :deep(.user-profile-header) {
     margin: 0;
   }
-  
+
   .feed-type-list-center.has-notifications .feed-type-feed-item:first-of-type {
-    margin-top: 16px; /* 移动端有消息时的间距 */
+    margin-top: 16px;
   }
-  
+
   .feed-type-list-center.no-notifications .feed-type-feed-item:first-of-type {
-    margin-top: 0; /* 移动端无消息时的间距 */
+    margin-top: 0;
   }
-  
+
   .message-notification-area {
     margin: 0;
-    padding: 16px 16px; /* 移动端调整内边距 */
-    margin-top: -2px; /* 移动端调整负边距 */
-    /* top值由JavaScript动态设置 */
+    padding: 16px 16px;
+    margin-top: -2px;
   }
-  
-  .message-notification-area.sticky-active {
-    /* top值由JavaScript动态设置 */
-  }
-  
+
   .message-badge {
-    margin: 0; /* 移动端也移除边距 */
+    margin: 0;
   }
-  
+
   .badge-content {
     padding: 10px 12px;
     gap: 10px;
   }
-  
+
   .badge-icon {
     width: 28px;
     height: 28px;
   }
-  
+
   .badge-icon .icon {
     font-size: 14px;
   }
-  
+
   .badge-text {
     font-size: 13px;
   }
-  
+
   .badge-arrow {
     font-size: 12px;
     width: 20px;
     height: 20px;
   }
-  
+
   .red-dot {
     min-width: 16px;
     height: 16px;
     font-size: 9px;
     padding: 0 3px;
   }
-  
+
   .badge-indicator {
     top: 6px;
     right: 6px;
@@ -1679,7 +1544,7 @@ function closeProfileCard() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay);
   backdrop-filter: blur(8px);
   z-index: 1000;
   display: flex;
@@ -1689,28 +1554,14 @@ function closeProfileCard() {
 }
 
 .message-panel {
-  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(252,253,255,0.95));
-  backdrop-filter: blur(20px);
-  border-radius: 24px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
   width: 100%;
-  max-width: 700px; /* 增大宽度 */
-  max-height: 85vh; /* 增大高度 */
-  box-shadow: 
-    0 25px 50px rgba(0, 0, 0, 0.15),
-    0 0 0 1px rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  max-width: 700px;
+  max-height: 85vh;
+  border: 1px solid var(--border);
   overflow: hidden;
   position: relative;
-}
-
-.message-panel::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(74,140,255,0.5), transparent);
 }
 
 .message-header {
@@ -1718,8 +1569,8 @@ function closeProfileCard() {
   align-items: center;
   justify-content: space-between;
   padding: 24px 28px;
-  background: linear-gradient(135deg, rgba(74,140,255,0.08), rgba(138,105,255,0.05));
-  border-bottom: 1px solid rgba(229, 231, 235, 0.3);
+  background: var(--input-bg);
+  border-bottom: 1px solid var(--border);
 }
 
 .header-content {
@@ -1731,16 +1582,13 @@ function closeProfileCard() {
 .header-icon {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  border-radius: 50%;
+  background: var(--accent);
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--bg);
   font-size: 20px;
-  box-shadow: 
-    0 8px 20px rgba(74, 140, 255, 0.3),
-    0 0 0 3px rgba(255, 255, 255, 0.3);
 }
 
 .header-text {
@@ -1753,16 +1601,13 @@ function closeProfileCard() {
   font-size: 20px;
   font-weight: 700;
   margin: 0;
-  color: #1e293b;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--accent);
+  font-family: var(--font-display);
 }
 
 .header-subtitle {
   font-size: 13px;
-  color: #64748b;
+  color: var(--muted);
   margin: 0;
   font-weight: 500;
 }
@@ -1780,22 +1625,21 @@ function closeProfileCard() {
   gap: 6px;
   padding: 8px 14px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  font-family: var(--font-ui);
 }
 
 .clear-button {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: white;
+  background: var(--danger);
+  color: var(--fg);
   font-weight: 600;
   font-size: 13px;
   padding: 8px 16px;
-  border-radius: 10px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  box-shadow: 0 3px 8px rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1803,14 +1647,12 @@ function closeProfileCard() {
 }
 
 .clear-button:hover {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  opacity: 0.85;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
 .clear-button:active {
   transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
 }
 
 .close-button {
@@ -1819,30 +1661,27 @@ function closeProfileCard() {
   justify-content: center;
   gap: 6px;
   padding: 8px 14px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.08));
-  color: #dc2626;
+  border-radius: var(--radius-md);
+  background: var(--accent-muted);
+  color: var(--muted);
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 13px;
   font-weight: 600;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1px solid var(--border);
   min-width: 70px;
-  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.1);
+  font-family: var(--font-ui);
 }
 
 .close-button:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.12));
-  color: #b91c1c;
+  background: var(--card-hover);
+  color: var(--fg);
   transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: var(--accent);
 }
 
 .close-button:active {
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.15);
 }
 
 .close-button .icon {
@@ -1854,52 +1693,6 @@ function closeProfileCard() {
 
 .close-button:hover .icon {
   transform: rotate(90deg);
-}
-
-/* 工具提示样式 */
-.close-button {
-  position: relative;
-}
-
-.close-button::before {
-  content: attr(title);
-  position: absolute;
-  top: -35px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.2s ease;
-  z-index: 1001;
-}
-
-.close-button::after {
-  content: '';
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid rgba(0, 0, 0, 0.8);
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.2s ease;
-  z-index: 1001;
-}
-
-.close-button:hover::before,
-.close-button:hover::after {
-  opacity: 1;
-  visibility: visible;
 }
 
 .close-text {
@@ -1915,11 +1708,11 @@ function closeProfileCard() {
     min-width: 36px;
     padding: 8px;
   }
-  
+
   .close-text {
     display: none;
   }
-  
+
   .clear-button {
     font-size: 12px;
     padding: 8px 12px;
@@ -1928,12 +1721,11 @@ function closeProfileCard() {
 
 .message-list {
   overflow-y: auto;
-  max-height: calc(85vh - 120px); /* 调整高度适配新的面板大小 */
-  min-height: calc(85vh - 120px); /* 确保空状态时也保持相同高度 */
+  max-height: calc(85vh - 120px);
+  min-height: calc(85vh - 120px);
   padding: 0;
-  /* 优化滚动条样式 */
   scrollbar-width: thin;
-  scrollbar-color: rgba(74, 140, 255, 0.3) transparent;
+  scrollbar-color: var(--accent-muted) transparent;
 }
 
 .message-list::-webkit-scrollbar {
@@ -1945,19 +1737,19 @@ function closeProfileCard() {
 }
 
 .message-list::-webkit-scrollbar-thumb {
-  background: rgba(74, 140, 255, 0.3);
+  background: var(--border);
   border-radius: 3px;
 }
 
 .message-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(74, 140, 255, 0.5);
+  background: var(--accent);
 }
 
 .notification-item {
   display: flex;
   align-items: center;
-  padding: 18px 28px; /* 稍微减少上下padding以容纳更多消息 */
-  border-bottom: 1px solid rgba(229, 231, 235, 0.3);
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--border-light);
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
@@ -1967,13 +1759,13 @@ function closeProfileCard() {
 }
 
 .notification-item:hover {
-  background: linear-gradient(135deg, rgba(74,140,255,0.04), rgba(138,105,255,0.02));
+  background: var(--card-hover);
   transform: translateX(8px);
 }
 
 .notification-item.unread {
-  background: linear-gradient(135deg, rgba(74,140,255,0.06), rgba(138,105,255,0.03));
-  border-left: 4px solid #4a8cff;
+  background: var(--accent-muted);
+  border-left: 4px solid var(--accent);
 }
 
 .notification-item:last-child {
@@ -1988,17 +1780,16 @@ function closeProfileCard() {
 .notification-avatar img {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .notification-avatar img:hover {
   transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(74, 140, 255, 0.3);
-  border-color: rgba(74, 140, 255, 0.5);
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(200,149,108,0.2);
 }
 
 .notification-type-badge {
@@ -2007,25 +1798,25 @@ function closeProfileCard() {
   right: -2px;
   width: 20px;
   height: 20px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid white;
+  border: 2px solid var(--card);
   font-size: 10px;
-  color: white;
+  color: var(--fg);
 }
 
 .notification-type-badge.like {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
+  background: var(--danger);
 }
 
 .notification-type-badge.comment {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: var(--accent);
 }
 
 .notification-type-badge.reply {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: var(--success);
 }
 
 .notification-content {
@@ -2036,13 +1827,13 @@ function closeProfileCard() {
 .notification-text {
   font-size: 15px;
   line-height: 1.5;
-  color: #374151;
+  color: var(--fg);
   margin-bottom: 6px;
 }
 
 .notification-user {
   font-weight: 700;
-  color: #1e293b;
+  color: var(--fg);
   cursor: pointer;
   transition: all 0.3s ease;
   padding: 2px 4px;
@@ -2051,30 +1842,30 @@ function closeProfileCard() {
 }
 
 .notification-user:hover {
-  color: #4a8cff;
-  background: rgba(74, 140, 255, 0.1);
+  color: var(--accent);
+  background: var(--accent-muted);
   transform: scale(1.05);
 }
 
 .notification-action {
-  color: #64748b;
+  color: var(--muted);
   margin: 0 4px;
 }
 
 .notification-target {
-  color: #374151;
+  color: var(--fg);
   font-weight: 500;
 }
 
 .notification-preview {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--muted);
   line-height: 1.4;
   margin-bottom: 6px;
   padding: 6px 10px;
-  background: rgba(248,250,252,0.8);
-  border-radius: 8px;
-  border-left: 3px solid #e5e7eb;
+  background: var(--input-bg);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--border);
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -2083,7 +1874,7 @@ function closeProfileCard() {
 
 .notification-time {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted);
   font-weight: 500;
 }
 
@@ -2094,8 +1885,8 @@ function closeProfileCard() {
 .unread-dot {
   width: 8px;
   height: 8px;
-  background: #ef4444;
-  border-radius: 50%;
+  background: var(--accent);
+  border-radius: var(--radius-full);
   animation: pulse 2s infinite;
 }
 
@@ -2106,15 +1897,15 @@ function closeProfileCard() {
   justify-content: center;
   padding: 60px 20px;
   text-align: center;
-  min-height: calc(85vh - 180px); /* 确保空状态占用足够高度，与消息列表高度匹配 */
-  height: 100%; /* 占满消息列表区域 */
+  min-height: calc(85vh - 180px);
+  height: 100%;
 }
 
 .empty-icon {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, rgba(100,116,139,0.1), rgba(148,163,184,0.05));
-  border-radius: 50%;
+  background: var(--accent-muted);
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2123,19 +1914,20 @@ function closeProfileCard() {
 
 .empty-icon .icon {
   font-size: 32px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .empty-text {
   font-size: 18px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--fg);
   margin-bottom: 8px;
+  font-family: var(--font-display);
 }
 
 .empty-desc {
   font-size: 14px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 /* 动画效果 */
@@ -2220,53 +2012,53 @@ function closeProfileCard() {
   .message-overlay {
     padding: 8px;
   }
-  
+
   .message-panel {
     max-width: 100%;
-    max-height: 90vh; /* 移动端占用更多高度 */
-    border-radius: 20px;
+    max-height: 90vh;
+    border-radius: var(--radius-lg);
   }
-  
+
   .message-header {
     padding: 20px 20px;
   }
-  
+
   .header-icon {
     width: 40px;
     height: 40px;
     font-size: 18px;
   }
-  
+
   .header-title {
     font-size: 18px;
   }
-  
+
   .message-list {
-    max-height: calc(90vh - 120px); /* 移动端调整高度 */
-    min-height: calc(90vh - 120px); /* 移动端确保空状态时也保持相同高度 */
+    max-height: calc(90vh - 120px);
+    min-height: calc(90vh - 120px);
   }
-  
+
   .notification-item {
     padding: 16px 20px;
   }
-  
+
   .notification-avatar img {
     width: 40px;
     height: 40px;
   }
-  
+
   .notification-avatar img:hover {
     transform: scale(1.15);
   }
-  
+
   .notification-type-badge {
     width: 16px;
     height: 16px;
     font-size: 9px;
   }
-  
+
   .empty-state {
-    min-height: calc(90vh - 180px); /* 移动端空状态高度调整 */
+    min-height: calc(90vh - 180px);
     padding: 40px 20px;
   }
 }

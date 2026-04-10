@@ -294,7 +294,7 @@ const confirmDelete = () => {
 .settings-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -303,36 +303,38 @@ const confirmDelete = () => {
 
 .settings-modal {
   width: 380px;
-  background: #f8fafc;
-  border-radius: 12px;
+  background: var(--bg);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
 }
 
 .modal-header {
-  background: white;
+  background: var(--card);
   padding: 14px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
 }
 .modal-header h3 {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--fg);
+  font-family: var(--font-display);
 }
 .btn-close {
   background: transparent;
   border: none;
   cursor: pointer;
   padding: 4px;
-  color: #94a3b8;
-  border-radius: 6px;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
   transition: all 0.15s;
 }
-.btn-close:hover { background: #f1f5f9; color: #64748b; }
+.btn-close:hover { background: var(--card-hover); color: var(--fg); }
 
 .modal-body {
   padding: 16px;
@@ -344,10 +346,10 @@ const confirmDelete = () => {
 }
 
 .settings-group {
-  background: white;
-  border-radius: 10px;
+  background: var(--card);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
 }
 
 .setting-item {
@@ -355,29 +357,38 @@ const confirmDelete = () => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-light);
   font-size: 13px;
+  font-family: var(--font-ui);
 }
 .setting-item:last-child { border-bottom: none; }
 
-.label { color: #1e293b; font-weight: 500; }
+.label { color: var(--fg); font-weight: 500; }
 
 .clean-input {
   border: none;
   text-align: right;
   outline: none;
   font-size: 13px;
-  color: #64748b;
+  color: var(--muted);
   width: 150px;
+  background: transparent;
+  font-family: var(--font-ui);
 }
+.clean-input::placeholder { color: var(--muted); }
 .clean-select {
   border: none;
   outline: none;
   background: transparent;
   font-size: 13px;
-  color: #64748b;
+  color: var(--muted);
   text-align: right;
   direction: rtl;
+  font-family: var(--font-ui);
+}
+.clean-select option {
+  background: var(--card);
+  color: var(--fg);
 }
 
 /* 标签样式 */
@@ -394,10 +405,11 @@ const confirmDelete = () => {
 .btn-add-tag-text {
   border: none;
   background: none;
-  color: #2563eb;
+  color: var(--accent);
   font-size: 12px;
   cursor: pointer;
   font-weight: 500;
+  font-family: var(--font-ui);
 }
 .tags-wrapper {
   display: flex;
@@ -405,8 +417,8 @@ const confirmDelete = () => {
   gap: 6px;
 }
 .tag-chip {
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--accent-muted);
+  color: var(--accent);
   padding: 3px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -417,17 +429,20 @@ const confirmDelete = () => {
 .remove-icon {
   font-size: 12px;
   cursor: pointer;
-  color: #93c5fd;
+  color: var(--accent);
+  opacity: 0.6;
 }
-.remove-icon:hover { color: #2563eb; }
+.remove-icon:hover { opacity: 1; }
 .tag-input-inline {
-  border: 1px solid #2563eb;
+  border: 1px solid var(--accent);
   border-radius: 4px;
   padding: 3px 6px;
   font-size: 12px;
   outline: none;
   width: 80px;
-  color: #1e293b;
+  color: var(--fg);
+  background: var(--input-bg);
+  font-family: var(--font-ui);
 }
 
 /* 开关样式 */
@@ -441,7 +456,7 @@ const confirmDelete = () => {
   position: absolute;
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #cbd5e1;
+  background-color: var(--border);
   transition: .2s;
   border-radius: 20px;
 }
@@ -452,17 +467,17 @@ const confirmDelete = () => {
   width: 16px;
   left: 2px;
   bottom: 2px;
-  background-color: white;
+  background-color: var(--fg);
   transition: .2s;
   border-radius: 50%;
 }
-input:checked + .slider { background-color: #2563eb; }
+input:checked + .slider { background-color: var(--accent); }
 input:checked + .slider:before { transform: translateX(16px); }
 
 /* 操作按钮组 */
 .action-row {
   width: 100%;
-  background: white;
+  background: var(--card);
   border: none;
   padding: 12px 16px;
   display: flex;
@@ -471,51 +486,55 @@ input:checked + .slider:before { transform: translateX(16px); }
   cursor: pointer;
   font-size: 13px;
   transition: background 0.15s;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-light);
+  font-family: var(--font-ui);
+  color: var(--fg);
 }
 .action-row:last-child { border-bottom: none; }
-.action-row:hover { background: #f8fafc; }
-.action-row .icon { color: #cbd5e1; font-size: 14px; }
+.action-row:hover { background: var(--card-hover); }
+.action-row .icon { color: var(--muted); font-size: 14px; }
 .action-row.danger {
   justify-content: center;
-  color: #dc2626;
+  color: var(--danger);
   font-weight: 500;
 }
-.action-row.danger:hover { background: #fef2f2; }
+.action-row.danger:hover { background: rgba(192, 57, 43, 0.1); }
 
 /* 确认弹窗 */
 .confirm-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(15, 23, 42, 0.3);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2100;
 }
 .confirm-modal {
-  background: white;
+  background: var(--card);
   width: 280px;
   padding: 24px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   text-align: center;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
 }
-.confirm-modal h3 { margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: #0f172a; }
-.confirm-modal p { margin: 0 0 20px 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+.confirm-modal h3 { margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: var(--fg); font-family: var(--font-display); }
+.confirm-modal p { margin: 0 0 20px 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
 .confirm-actions { display: flex; gap: 10px; }
 .confirm-actions button {
   flex: 1;
   padding: 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: none;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
   transition: all 0.15s;
+  font-family: var(--font-ui);
 }
-.btn-cancel { background: #f1f5f9; color: #475569; }
-.btn-cancel:hover { background: #e2e8f0; }
-.btn-confirm-delete { background: #dc2626; color: white; }
-.btn-confirm-delete:hover { background: #b91c1c; }
+.btn-cancel { background: var(--border); color: var(--fg); }
+.btn-cancel:hover { background: var(--card-hover); }
+.btn-confirm-delete { background: var(--danger); color: #fff; }
+.btn-confirm-delete:hover { background: #a93226; }
 </style>

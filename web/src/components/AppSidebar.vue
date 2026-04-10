@@ -41,12 +41,13 @@ defineProps({
 .app-sidebar {
   width: 300px;
   height: 100%;
-  background: linear-gradient(135deg, #4a8cffcc, #8a69ffcc);
-  color: #fff;
+  background: var(--card);
+  color: var(--fg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   transition: transform 0.3s ease;
+  border-right: 1px solid var(--border);
 }
 
 .app-sidebar:not(.open) {
@@ -56,7 +57,7 @@ defineProps({
 .nav-links {
   display: flex;
   padding: 10px 15px;
-  border-bottom: 1px solid #2a2f38;
+  border-bottom: 1px solid var(--border);
 }
 
 .nav-item {
@@ -65,14 +66,21 @@ defineProps({
   align-items: center;
   padding: 10px 15px;
   text-decoration: none;
-  color: #ccc;
+  color: var(--muted);
   font-size: 14px;
-  border-radius: 8px;
+  font-family: var(--font-ui);
+  border-radius: var(--radius-md);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.nav-item:hover {
+  background-color: var(--card-hover);
+  color: var(--fg);
 }
 
 .nav-item.active {
-  background-color: #2e323b;
-  color: #4a8cff;
+  background-color: var(--accent-muted);
+  color: var(--accent);
 }
 
 .nav-item i {
@@ -90,6 +98,8 @@ defineProps({
   margin: 0;
   font-size: 14px;
   font-weight: 500;
-  color: #888;
+  color: var(--muted);
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
 }
 </style>

@@ -85,11 +85,11 @@ const handleJoinSuccess = (resp) => {
 }
 </script>
 <style scoped>
-.group-list-container { height: 100%; display: flex; flex-direction: column; background: #fff; }
+.group-list-container { height: 100%; display: flex; flex-direction: column; background: var(--card); }
 
 /* 操作入口 */
 .action-section {
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border);
 }
 .list-entry-btn {
   width: 100%;
@@ -100,22 +100,22 @@ const handleJoinSuccess = (resp) => {
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.2s;
 }
-.list-entry-btn:hover { background: #f8fafc; }
+.list-entry-btn:hover { background: var(--card-hover); }
 
 .icon-wrapper {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.icon-wrapper.orange { background: #f59e0b; }
-.icon-wrapper .icon { color: white; font-size: 16px; }
+.icon-wrapper.orange { background: var(--accent); }
+.icon-wrapper .icon { color: #fff; font-size: 16px; }
 
-.text { font-size: 13px; color: #334155; font-weight: 500; }
+.text { font-size: 13px; color: var(--fg); font-family: var(--font-ui); font-weight: 500; }
 
 .search-section {
   padding: 8px 12px;
@@ -125,45 +125,46 @@ const handleJoinSuccess = (resp) => {
 .search-section input {
   flex: 1;
   padding: 7px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
-  background: #f1f5f9;
+  background: var(--input-bg);
   font-size: 13px;
-  color: #334155;
+  font-family: var(--font-ui);
+  color: var(--fg);
   outline: none;
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
-.search-section input::placeholder { color: #94a3b8; }
-.search-section input:focus { background: #fff; border-color: #cbd5e1; }
+.search-section input::placeholder { color: var(--muted); }
+.search-section input:focus { background: var(--bg); border-color: var(--border); }
 .add-group-btn {
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f1f5f9;
+  background: var(--input-bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  color: #64748b;
-  transition: all 0.15s;
+  color: var(--muted);
+  transition: all 0.2s;
   flex-shrink: 0;
 }
-.add-group-btn:hover { background: #e2e8f0; color: #2563eb; }
-.empty { color: #94a3b8; text-align: center; margin: 40px 0; font-size: 13px; }
+.add-group-btn:hover { background: var(--card-hover); color: var(--accent); }
+.empty { color: var(--muted); text-align: center; margin: 40px 0; font-size: 13px; }
 .group-item {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 8px 16px;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.15s;
 }
-.group-item:hover { background: #f8fafc; }
-.group-item.active { background: #eff6ff; }
-.avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.group-item:hover { background: var(--card-hover); }
+.group-item.active { background: var(--accent-muted); }
+.avatar { width: 36px; height: 36px; border-radius: var(--radius-full); object-fit: cover; }
 .info { flex: 1; min-width: 0; }
-.name { font-size: 14px; font-weight: 500; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.desc { font-size: 12px; color: #94a3b8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.unread { background: #ef4444; color: #fff; border-radius: 10px; padding: 1px 6px; font-size: 11px; min-width: 18px; text-align: center; }
+.name { font-size: 14px; font-weight: 500; color: var(--fg); font-family: var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desc { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unread { background: var(--accent); color: #fff; border-radius: var(--radius-full); padding: 1px 6px; font-size: 11px; min-width: 18px; text-align: center; font-weight: 600; }
 </style> 

@@ -43,20 +43,106 @@ const group = ref({
 })
 </script>
 <style scoped>
-.group-detail-view { max-width: 700px; margin: 40px auto; }
-.group-header { display: flex; align-items: center; gap: 24px; background: #f8fafc; border-radius: 16px; padding: 24px; margin-bottom: 32px; }
-.avatar { width: 72px; height: 72px; border-radius: 16px; }
-.info { flex: 1; }
-.name { font-size: 22px; font-weight: 700; }
-.id, .desc, .notice { font-size: 14px; color: #666; margin-top: 4px; }
-.members-section { margin-bottom: 32px; }
-.members-list { display: flex; gap: 20px; flex-wrap: wrap; }
-.member-item { display: flex; flex-direction: column; align-items: center; }
-.member-avatar { width: 48px; height: 48px; border-radius: 12px; }
-.member-name { font-size: 14px; margin-top: 4px; }
-.role { font-size: 12px; margin-top: 2px; padding: 2px 8px; border-radius: 8px; }
-.owner { background: #4a8cff; color: #fff; }
-.admin { background: #10b981; color: #fff; }
-.group-actions { display: flex; gap: 16px; justify-content: flex-end; }
-.group-actions button { padding: 8px 20px; border-radius: 8px; border: none; background: #4a8cff; color: #fff; font-weight: 600; }
+.group-detail-view {
+  max-width: 700px;
+  margin: 40px auto;
+  padding: 0 20px;
+  color: var(--fg);
+  font-family: var(--font-ui);
+}
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 32px;
+  border: 1px solid var(--border);
+}
+.avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border);
+}
+.info {
+  flex: 1;
+}
+.name {
+  font-size: 22px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--fg);
+}
+.id, .desc, .notice {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.members-section {
+  margin-bottom: 32px;
+}
+.members-section h3 {
+  font-family: var(--font-display);
+  color: var(--fg);
+  margin-bottom: 16px;
+}
+.members-list {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.member-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.member-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+.member-name {
+  font-size: 14px;
+  margin-top: 4px;
+  color: var(--fg);
+}
+.role {
+  font-size: 12px;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+.owner {
+  background: var(--accent);
+  color: var(--bg);
+}
+.admin {
+  background: var(--success);
+  color: #fff;
+}
+.group-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+}
+.group-actions button {
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.group-actions button:hover {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+}
 </style> 

@@ -120,13 +120,13 @@ const selectFriend = (friend) => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--card);
   user-select: none;
 }
 
 /* 操作入口 */
 .action-section {
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border);
 }
 .list-entry-btn {
   width: 100%;
@@ -137,33 +137,34 @@ const selectFriend = (friend) => {
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.2s;
 }
-.list-entry-btn:hover { background: #f8fafc; }
+.list-entry-btn:hover { background: var(--card-hover); }
 
 .icon-wrapper {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.icon-wrapper.orange { background: #f59e0b; }
-.icon-wrapper.green { background: #2563eb; }
-.icon-wrapper .icon { color: white; font-size: 16px; }
+.icon-wrapper.orange { background: var(--accent); }
+.icon-wrapper.green { background: #a07850; }
+.icon-wrapper .icon { color: #fff; font-size: 16px; }
 
-.text { font-size: 13px; color: #334155; font-weight: 500; }
+.text { font-size: 13px; color: var(--fg); font-family: var(--font-ui); font-weight: 500; }
 
 .badge {
   margin-left: auto;
-  background: #ef4444;
-  color: white;
+  background: var(--accent);
+  color: #fff;
   font-size: 11px;
   padding: 1px 6px;
-  border-radius: 10px;
+  border-radius: var(--radius-full);
   min-width: 18px;
   text-align: center;
+  font-weight: 600;
 }
 
 /* 搜索框 */
@@ -171,27 +172,29 @@ const selectFriend = (friend) => {
   padding: 8px 12px;
 }
 .search-box {
-  background: #f1f5f9;
-  border-radius: 8px;
+  background: var(--input-bg);
+  border-radius: var(--radius-md);
   padding: 7px 10px;
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: all 0.15s;
+  transition: all 0.2s;
   border: 1px solid transparent;
 }
-.search-box:focus-within { background: #fff; border-color: #cbd5e1; }
+.search-box:focus-within { background: var(--bg); border-color: var(--border); }
 .search-box input {
   border: none;
   background: transparent;
   width: 100%;
   font-size: 13px;
+  font-family: var(--font-ui);
   outline: none;
-  color: #334155;
+  color: var(--fg);
 }
-.search-box input::placeholder { color: #94a3b8; }
-.search-box .icon { color: #94a3b8; font-size: 14px; }
-.clear-btn { cursor: pointer; }
+.search-box input::placeholder { color: var(--muted); }
+.search-box .icon { color: var(--muted); font-size: 14px; }
+.clear-btn { cursor: pointer; color: var(--muted); }
+.clear-btn:hover { color: var(--fg); }
 
 /* 列表区域 */
 .scroll-area {
@@ -200,7 +203,7 @@ const selectFriend = (friend) => {
 }
 .empty-list {
   text-align: center;
-  color: #94a3b8;
+  color: var(--muted);
   padding-top: 40px;
   font-size: 13px;
 }
@@ -209,10 +212,10 @@ const selectFriend = (friend) => {
   padding: 6px 16px;
   font-size: 11px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  background: #fafbfc;
+  background: var(--bg);
 }
 
 .friend-row {
@@ -221,15 +224,15 @@ const selectFriend = (friend) => {
   padding: 8px 16px;
   gap: 12px;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.15s;
 }
-.friend-row:hover { background: #f8fafc; }
-.friend-row.active { background: #eff6ff; }
+.friend-row:hover { background: var(--card-hover); }
+.friend-row.active { background: var(--accent-muted); }
 
 .friend-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   object-fit: cover;
 }
 
@@ -242,7 +245,8 @@ const selectFriend = (friend) => {
 
 .friend-name {
   font-size: 14px;
-  color: #1e293b;
+  color: var(--fg);
+  font-family: var(--font-ui);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -250,7 +254,7 @@ const selectFriend = (friend) => {
 
 .friend-nickname {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

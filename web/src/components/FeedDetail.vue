@@ -369,38 +369,20 @@ function closeProfileCard() {
 .feed-detail-container {
   height: 100%;
   overflow-y: auto;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e0e7ff 100%);
+  background: var(--bg);
   padding: 24px;
   position: relative;
-  z-index: 1; /* 确保正确的层级 */
-}
-
-.feed-detail-container::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    radial-gradient(circle at 20% 20%, rgba(74,140,255,0.03) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(138,105,255,0.02) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
+  z-index: 1;
+  font-family: var(--font-ui);
 }
 
 .feed-detail {
   max-width: 800px;
   margin: 0 auto;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
   padding: 36px;
-  box-shadow: 
-    0 20px 40px rgba(74, 140, 255, 0.08),
-    0 8px 16px rgba(138, 105, 255, 0.05),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(229, 231, 235, 0.2);
-  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
   position: relative;
   z-index: 2;
 }
@@ -410,7 +392,7 @@ function closeProfileCard() {
   margin-bottom: 32px;
   gap: 20px;
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(229, 231, 235, 0.3);
+  border-bottom: 1px solid var(--border);
 }
 .back-btn {
   position: relative;
@@ -418,52 +400,29 @@ function closeProfileCard() {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #4a8cff 0%, #8a69ff 100%);
-  color: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--accent-muted);
+  color: var(--accent);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
-  box-shadow: 
-    0 3px 10px rgba(74, 140, 255, 0.25),
-    0 1px 4px rgba(138, 105, 255, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
   min-width: 120px;
   justify-content: center;
-}
-
-.back-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
+  font-family: var(--font-ui);
 }
 
 .back-btn:hover {
-  transform: translateY(-1px) scale(1.02);
-  box-shadow: 
-    0 4px 16px rgba(74, 140, 255, 0.35),
-    0 2px 8px rgba(138, 105, 255, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  background: linear-gradient(135deg, #5a9cff 0%, #9a79ff 100%);
-}
-
-.back-btn:hover::before {
-  opacity: 1;
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  transform: translateY(-1px);
 }
 
 .back-btn:active {
-  transform: translateY(-1px) scale(0.98);
+  transform: translateY(0);
   transition: all 0.1s ease;
 }
 
@@ -474,73 +433,45 @@ function closeProfileCard() {
   width: 18px;
   height: 18px;
   border-radius: 5px;
-  background: rgba(255, 255, 255, 0.15);
   transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
 }
 
 .back-btn:hover .back-btn-icon {
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateX(-2px) rotate(-5deg);
+  transform: translateX(-2px);
 }
 
 .back-btn-icon .icon {
   font-size: 11px;
-  color: #ffffff;
+  color: inherit;
   font-weight: bold;
 }
 
 .back-btn-text {
   white-space: nowrap;
   letter-spacing: 0.3px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .back-btn-ripple {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  border-radius: 12px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
-  opacity: 0;
-  transform: scale(0);
-  transition: all 0.6s ease;
-  pointer-events: none;
+  display: none;
 }
 
-.back-btn:active .back-btn-ripple {
-  opacity: 1;
-  transform: scale(1);
-  transition: all 0.3s ease;
-}
-
-/* 添加聚焦状态的可访问性支持 */
 .back-btn:focus {
   outline: none;
-  box-shadow: 
-    0 3px 10px rgba(74, 140, 255, 0.25),
-    0 1px 4px rgba(138, 105, 255, 0.15),
-    0 0 0 2px rgba(74, 140, 255, 0.3);
+  box-shadow: 0 0 0 2px var(--accent-muted);
 }
 .avatar {
   width: 52px;
   height: 52px;
-  border-radius: 50%;
-  border: 3px solid #fff;
-  box-shadow: 
-    0 4px 12px rgba(0,0,0,0.08),
-    0 0 0 1px rgba(74, 140, 255, 0.1);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border);
   transition: all 0.3s ease;
   cursor: pointer;
 }
 
 .avatar:hover {
   transform: scale(1.05);
-  box-shadow: 
-    0 6px 16px rgba(0,0,0,0.12),
-    0 0 0 2px rgba(74, 140, 255, 0.2);
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(200,149,108,0.2);
 }
 
 .user-info {
@@ -548,32 +479,25 @@ function closeProfileCard() {
 }
 
 .user-info .name {
-  color: #1e293b;
+  color: var(--fg);
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 2px;
-  background: linear-gradient(135deg, #1e293b 0%, #4a8cff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
   cursor: pointer;
   transition: all 0.3s ease;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 4px 6px;
   margin: -4px -6px 2px -6px;
+  font-family: var(--font-display);
 }
 
 .user-info .name:hover {
-  background: linear-gradient(135deg, #4a8cff 0%, #8a69ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  transform: scale(1.02);
-  box-shadow: 0 2px 8px rgba(74, 140, 255, 0.2);
+  color: var(--accent);
+  background: var(--accent-muted);
 }
 
 .user-info .time {
-  color: #64748b;
+  color: var(--muted);
   font-size: 14px;
   font-weight: 500;
   display: flex;
@@ -582,15 +506,14 @@ function closeProfileCard() {
 }
 
 .user-info .time::before {
-  content: '•';
-  color: #94a3b8;
-  font-weight: bold;
+  content: '';
+  display: none;
 }
 .feed-detail-content {
   margin-bottom: 24px;
 }
 .feed-detail-text {
-  color: #222;
+  color: var(--fg);
   font-size: 16px;
   line-height: 1.7;
   margin-bottom: 16px;
@@ -599,17 +522,17 @@ function closeProfileCard() {
 .feed-detail-image img {
   max-width: 100%;
   max-height: 500px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   object-fit: cover;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .feed-detail-image img:hover {
   transform: scale(1.02);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  border-color: #cbd5e1;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  border-color: var(--accent);
 }
 
 /* 多图片网格布局 */
@@ -620,7 +543,7 @@ function closeProfileCard() {
 .images-grid {
   display: grid;
   gap: 8px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   max-width: 100%;
 }
@@ -659,16 +582,16 @@ function closeProfileCard() {
 .image-item {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: #f8fafc;
+  background: var(--input-bg);
 }
 
 .image-item:hover {
   transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 3;
 }
 
@@ -686,27 +609,26 @@ function closeProfileCard() {
 .more-images-count {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
+  background: var(--overlay);
+  color: var(--fg);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   font-weight: 700;
-  backdrop-filter: blur(2px);
 }
 .feed-detail-stats {
   display: flex;
   gap: 32px;
   margin-bottom: 20px;
   padding: 16px 0 0 0;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--border);
 }
 .stat-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #64748b;
+  color: var(--muted);
   font-size: 14px;
 }
 .feed-detail-likes {
@@ -722,30 +644,29 @@ function closeProfileCard() {
 .like-avatar {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  border: 2px solid #fff;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border);
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .like-avatar:hover {
   transform: scale(1.15);
-  box-shadow: 0 4px 16px rgba(74, 140, 255, 0.3);
-  border-color: rgba(74, 140, 255, 0.5);
+  box-shadow: 0 4px 16px rgba(200,149,108,0.3);
+  border-color: var(--accent);
 }
 .more-likes {
-  color: #64748b;
+  color: var(--muted);
   font-size: 12px;
   margin-left: 8px;
 }
 .likes-text {
-  color: #374151;
+  color: var(--fg);
   font-size: 14px;
 }
 .like-user {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--fg);
 }
 
 .like-user-name {
@@ -754,13 +675,13 @@ function closeProfileCard() {
   padding: 2px 4px;
   border-radius: 4px;
   margin: -2px -4px;
-  color: #2563eb;
+  color: var(--accent);
   font-weight: 600;
 }
 
 .like-user-name:hover {
-  color: #8a69ff;
-  background: rgba(138, 105, 255, 0.1);
+  color: var(--accent-hover);
+  background: var(--accent-muted);
   transform: scale(1.05);
 }
 .feed-detail-actions {
@@ -768,72 +689,82 @@ function closeProfileCard() {
   gap: 16px;
   margin-bottom: 24px;
   padding: 16px 0 0 0;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border);
 }
 .action-btn {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #4a8cff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--muted);
   font-size: 15px;
   cursor: pointer;
   transition: all 0.2s;
   font-weight: 500;
+  font-family: var(--font-ui);
 }
 .action-btn:hover {
-  background: #e0e7ef;
-  color: #2563eb;
+  background: var(--accent-muted);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 .action-btn.active {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--accent-muted);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 .comments-title {
   font-size: 18px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--fg);
   margin-bottom: 16px;
+  font-family: var(--font-display);
 }
 .add-comment {
   display: flex;
   gap: 12px;
   margin-bottom: 20px;
   padding: 16px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  background: var(--input-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   align-items: center;
 }
 .add-comment input {
   flex: 1;
   padding: 12px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 15px;
   outline: none;
   transition: border-color 0.2s;
-  background: #fff;
+  background: var(--card);
+  color: var(--fg);
+  font-family: var(--font-ui);
+}
+.add-comment input::placeholder {
+  color: var(--muted);
 }
 .add-comment input:focus {
-  border-color: #4a8cff;
+  border-color: var(--accent);
 }
 .add-comment button {
   padding: 12px 20px;
-  background: #4a8cff;
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 15px;
   cursor: pointer;
   transition: background-color 0.2s;
-  font-weight: 500;
+  font-weight: 600;
+  font-family: var(--font-ui);
 }
 .add-comment button:hover {
-  background: #2563eb;
+  background: var(--accent-hover);
 }
 .feed-detail-empty {
   display: flex;
@@ -841,18 +772,14 @@ function closeProfileCard() {
   justify-content: center;
   flex-direction: column;
   height: 100%;
-  color: #64748b;
+  color: var(--muted);
   font-size: 16px;
   gap: 12px;
   text-align: center;
   padding: 40px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
-  backdrop-filter: blur(20px);
-  box-shadow: 
-    0 20px 40px rgba(74, 140, 255, 0.08),
-    0 8px 16px rgba(138, 105, 255, 0.05);
-  border: 1px solid rgba(229, 231, 235, 0.2);
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
   position: relative;
   z-index: 2;
   max-width: 400px;
@@ -860,12 +787,11 @@ function closeProfileCard() {
 }
 
 .feed-detail-empty::before {
-  content: '📝';
-  font-size: 48px;
-  opacity: 0.6;
+  content: '';
+  display: none;
 }
 .more-comments {
-  color: #4a8cff;
+  color: var(--accent);
   font-size: 14px;
   cursor: pointer;
   margin: 8px 0 0 0;
@@ -875,11 +801,11 @@ function closeProfileCard() {
 }
 .more-comments:hover {
   text-decoration: underline;
-  color: #2563eb;
+  color: var(--accent-hover);
 }
 /* @用户样式 */
 :deep(.at-user) {
-  color: #4a8cff;
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -888,17 +814,17 @@ function closeProfileCard() {
   .feed-detail-container {
     padding: 16px;
   }
-  
+
   .feed-detail {
     padding: 24px;
   }
-  
+
   .feed-detail-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
   }
-  
+
   .back-btn {
     align-self: stretch;
     justify-content: center;
@@ -906,59 +832,59 @@ function closeProfileCard() {
     padding: 10px 14px;
     font-size: 12px;
   }
-  
+
   .back-btn-icon {
     width: 16px;
     height: 16px;
   }
-  
+
   .back-btn-icon .icon {
     font-size: 10px;
   }
-  
+
   .images-grid.grid-single {
     max-width: 100%;
   }
-  
+
   .images-grid.grid-double {
     max-width: 100%;
   }
-  
+
   .images-grid.grid-triple {
     max-width: 100%;
   }
-  
+
   .images-grid.grid-quad {
     max-width: 100%;
   }
-  
+
   .images-grid.grid-multi {
     max-width: 100%;
   }
-  
+
   .feed-detail-stats {
     gap: 16px;
     flex-wrap: wrap;
   }
-  
+
   .feed-detail-actions {
     flex-direction: column;
     gap: 12px;
   }
-  
+
   .action-btn {
     justify-content: center;
   }
-  
+
   .add-comment {
     flex-direction: column;
     gap: 12px;
   }
-  
+
   .add-comment input {
     order: 1;
   }
-  
+
   .add-comment button {
     order: 2;
     align-self: stretch;

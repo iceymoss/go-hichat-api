@@ -185,57 +185,73 @@ const confirmCrop = () => {
 .cropper-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.6);
+  background: var(--overlay);
   z-index: 3000;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .cropper-container {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
   width: 340px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border);
 }
 .cropper-header {
   padding: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
 }
-.cropper-header h3 { margin: 0; font-size: 16px; }
-.close-btn { border: none; background: none; cursor: pointer; padding: 4px; }
+.cropper-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-family: var(--font-display);
+  color: var(--fg);
+}
+.close-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--muted);
+  transition: color 0.2s ease;
+}
+.close-btn:hover {
+  color: var(--fg);
+}
 .cropper-body {
   padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  background: var(--bg);
 }
 .crop-area {
   width: 300px;
   height: 300px;
   position: relative;
-  background: #333;
+  background: #000;
   overflow: hidden;
   cursor: move;
+  border-radius: var(--radius-sm);
 }
 .crop-mask {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
-/* Cutout the circle from the mask visually - using radial gradient on mask is better approach but complex. 
-   Simple way: use a huge border on the circle. */
 .crop-circle {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  border: 1px solid rgba(255,255,255,0.5);
+  border: 1px solid rgba(200, 149, 108, 0.6);
   border-radius: 50%;
   pointer-events: none;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); /* The "mask" */
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
 }
 
 .controls {
@@ -244,25 +260,59 @@ const confirmCrop = () => {
   gap: 10px;
   margin-top: 16px;
   width: 100%;
+  color: var(--muted);
 }
-.controls input { flex: 1; }
-.hint { font-size: 12px; color: #888; margin-top: 8px; }
+.controls i {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.controls i:hover {
+  color: var(--accent);
+}
+.controls input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+.hint {
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--muted);
+  margin-top: 8px;
+}
 
 .cropper-footer {
   padding: 16px;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  background: #f9f9f9;
+  background: var(--card);
+  border-top: 1px solid var(--border);
 }
 .btn-cancel, .btn-confirm {
   padding: 8px 20px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: none;
   cursor: pointer;
   font-size: 14px;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
-.btn-cancel { background: #eee; color: #333; }
-.btn-confirm { background: #4a8cff; color: #fff; }
+.btn-cancel {
+  background: var(--input-bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.btn-cancel:hover {
+  color: var(--fg);
+  border-color: var(--border-light);
+}
+.btn-confirm {
+  background: var(--accent);
+  color: var(--bg);
+}
+.btn-confirm:hover {
+  background: var(--accent-hover);
+}
 </style>
 

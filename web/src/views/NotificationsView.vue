@@ -177,7 +177,7 @@ onMounted(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, rgba(248,250,252,0.95), rgba(241,245,249,0.92));
+  background: var(--bg);
 }
 
 .notifications-header {
@@ -185,10 +185,8 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(252,253,255,0.95));
-  border-bottom: 1px solid rgba(229,231,235,0.8);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
 }
 
 .back-btn {
@@ -198,22 +196,23 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border: none;
-  background: rgba(74,140,255,0.1);
-  border-radius: 50%;
-  color: #4a8cff;
+  background: var(--accent-muted);
+  border-radius: var(--radius-full);
+  color: var(--accent);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .back-btn:hover {
-  background: rgba(74,140,255,0.2);
-  transform: scale(1.05);
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .page-title {
   font-size: 18px;
+  font-family: var(--font-display);
   font-weight: 700;
-  color: #1e293b;
+  color: var(--fg);
   margin: 0;
 }
 
@@ -223,18 +222,18 @@ onMounted(() => {
   gap: 6px;
   padding: 8px 12px;
   border: none;
-  background: rgba(239,68,68,0.1);
-  border-radius: 20px;
-  color: #ef4444;
+  background: rgba(192, 57, 43, 0.12);
+  border-radius: var(--radius-full);
+  color: var(--danger);
   font-size: 14px;
+  font-family: var(--font-ui);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .clear-all-btn:hover {
-  background: rgba(239,68,68,0.2);
-  transform: translateY(-1px);
+  background: rgba(192, 57, 43, 0.22);
 }
 
 .notifications-content {
@@ -254,24 +253,21 @@ onMounted(() => {
   gap: 16px;
   padding: 16px 20px;
   margin-bottom: 12px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(252,253,255,0.95));
-  border-radius: 16px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(229,231,235,0.6);
+  transition: all 0.2s ease;
+  border: 1px solid var(--border);
   position: relative;
 }
 
 .notification-item:hover {
-  background: linear-gradient(135deg, rgba(255,255,255,1), rgba(252,253,255,0.98));
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(74,140,255,0.15);
-  border-color: rgba(74,140,255,0.3);
+  background: var(--card-hover);
+  border-color: var(--accent);
 }
 
 .notification-item.unread {
-  border-left: 4px solid #ef4444;
-  background: linear-gradient(135deg, rgba(255,255,255,1), rgba(255,248,248,0.8));
+  border-left: 3px solid var(--accent);
 }
 
 .notification-avatar {
@@ -282,9 +278,8 @@ onMounted(() => {
 .notification-avatar img {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.9);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border);
 }
 
 .notification-type-badge {
@@ -297,22 +292,21 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  border: 2px solid var(--card);
 }
 
 .notification-type-badge.like {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
+  background: var(--danger);
   color: white;
 }
 
 .notification-type-badge.comment {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .notification-type-badge.reply {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: var(--success);
   color: white;
 }
 
@@ -326,40 +320,42 @@ onMounted(() => {
 
 .notification-text {
   font-size: 15px;
+  font-family: var(--font-ui);
   line-height: 1.5;
-  color: #374151;
+  color: var(--muted);
   margin-bottom: 8px;
 }
 
 .notification-user {
   font-weight: 700;
-  color: #1e293b;
+  color: var(--fg);
 }
 
 .notification-action {
-  color: #64748b;
+  color: var(--muted);
   margin: 0 4px;
 }
 
 .notification-target {
-  color: #374151;
+  color: var(--fg);
   font-weight: 500;
 }
 
 .notification-preview {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--muted);
   line-height: 1.4;
   margin-bottom: 8px;
   padding: 8px 12px;
-  background: rgba(248,250,252,0.8);
-  border-radius: 8px;
-  border-left: 3px solid #e5e7eb;
+  background: var(--input-bg);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--border);
 }
 
 .notification-time {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted);
+  font-family: var(--font-ui);
   font-weight: 500;
 }
 
@@ -372,23 +368,23 @@ onMounted(() => {
 .red-dot {
   width: 8px;
   height: 8px;
-  background: #ef4444;
+  background: var(--accent);
   border-radius: 50%;
-  animation: pulse-red 2s infinite;
+  animation: pulse-dot 2s infinite;
 }
 
-@keyframes pulse-red {
+@keyframes pulse-dot {
   0%, 100% {
     opacity: 1;
     transform: scale(1);
   }
   50% {
-    opacity: 0.7;
+    opacity: 0.6;
     transform: scale(1.2);
   }
 }
 
-/* 空状态样式 */
+/* Empty state */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -401,8 +397,8 @@ onMounted(() => {
 .empty-icon {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, rgba(156,163,175,0.1), rgba(209,213,219,0.1));
-  border-radius: 50%;
+  background: var(--accent-muted);
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -411,46 +407,48 @@ onMounted(() => {
 
 .empty-icon .icon {
   font-size: 32px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .empty-text {
   font-size: 18px;
+  font-family: var(--font-display);
   font-weight: 600;
-  color: #6b7280;
+  color: var(--fg);
   margin-bottom: 8px;
 }
 
 .empty-desc {
   font-size: 14px;
-  color: #9ca3af;
+  font-family: var(--font-ui);
+  color: var(--muted);
 }
 
-/* 响应式设计 */
+/* Responsive */
 @media (max-width: 768px) {
   .notifications-header {
     padding: 12px 16px;
   }
-  
+
   .notifications-content {
     padding: 12px 16px;
   }
-  
+
   .notification-item {
     padding: 12px 16px;
     gap: 12px;
   }
-  
+
   .notification-avatar img {
     width: 40px;
     height: 40px;
   }
-  
+
   .notification-type-badge {
     width: 16px;
     height: 16px;
   }
-  
+
   .notification-type-badge .icon {
     font-size: 8px;
   }

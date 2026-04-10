@@ -168,7 +168,7 @@ watch(() => conversationStore.activeConversation, (newConversation) => {
 .chat-view {
   display: flex;
   height: 100vh;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: var(--bg);
   overflow: hidden;
 }
 
@@ -176,9 +176,8 @@ watch(() => conversationStore.activeConversation, (newConversation) => {
   width: 360px;
   min-width: 300px;
   max-width: 400px;
-  background: rgba(255, 255, 255, 0.95);
-  border-right: 1px solid rgba(229, 231, 235, 0.8);
-  backdrop-filter: blur(20px);
+  background: var(--card);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -190,18 +189,16 @@ watch(() => conversationStore.activeConversation, (newConversation) => {
   align-items: center;
   justify-content: space-between;
   padding: 24px 20px 16px 20px;
-  border-bottom: 1px solid rgba(229, 231, 235, 0.5);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
 }
 
 .sidebar-title {
   font-size: 24px;
   font-weight: 700;
   margin: 0;
-  background: linear-gradient(135deg, #1e293b 0%, #4a8cff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: var(--font-display);
+  color: var(--fg);
 }
 
 .sidebar-actions {
@@ -214,9 +211,9 @@ watch(() => conversationStore.activeConversation, (newConversation) => {
   width: 40px;
   height: 40px;
   border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(74, 140, 255, 0.1) 0%, rgba(138, 105, 255, 0.05) 100%);
-  color: #4a8cff;
+  border-radius: var(--radius-md);
+  background: var(--accent-muted);
+  color: var(--accent);
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -227,60 +224,47 @@ watch(() => conversationStore.activeConversation, (newConversation) => {
   overflow: hidden;
 }
 
-.btn-new-chat::before,
-.btn-search::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(74, 140, 255, 0.15) 0%, rgba(138, 105, 255, 0.1) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
 .btn-new-chat:hover,
 .btn-search:hover {
+  background: var(--accent);
+  color: var(--bg);
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(74, 140, 255, 0.25);
-}
-
-.btn-new-chat:hover::before,
-.btn-search:hover::before {
-  opacity: 1;
+  box-shadow: 0 8px 25px rgba(200, 149, 108, 0.25);
 }
 
 .search-container {
   padding: 0 20px 16px 20px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
-  border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
 }
 
 .search-input {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid rgba(229, 231, 235, 0.6);
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 14px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
+  font-family: var(--font-ui);
+  background: var(--input-bg);
+  color: var(--fg);
   transition: all 0.3s ease;
   outline: none;
 }
 
 .search-input:focus {
-  border-color: #4a8cff;
-  box-shadow: 0 0 0 3px rgba(74, 140, 255, 0.1);
-  background: rgba(255, 255, 255, 1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(200, 149, 108, 0.15);
 }
 
 .search-input::placeholder {
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .chat-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: var(--bg);
   position: relative;
 }
 
@@ -289,24 +273,24 @@ watch(() => conversationStore.activeConversation, (newConversation) => {
   .chat-view {
     flex-direction: column;
   }
-  
+
   .conversation-sidebar {
     width: 100%;
     height: 50vh;
     min-width: unset;
     max-width: unset;
     border-right: none;
-    border-bottom: 1px solid rgba(229, 231, 235, 0.8);
+    border-bottom: 1px solid var(--border);
   }
-  
+
   .chat-main {
     height: 50vh;
   }
-  
+
   .sidebar-header {
     padding: 16px;
   }
-  
+
   .sidebar-title {
     font-size: 20px;
   }
@@ -316,7 +300,7 @@ watch(() => conversationStore.activeConversation, (newConversation) => {
   .conversation-sidebar {
     height: 40vh;
   }
-  
+
   .chat-main {
     height: 60vh;
   }

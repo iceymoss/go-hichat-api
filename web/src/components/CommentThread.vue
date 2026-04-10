@@ -225,13 +225,14 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
 <style scoped>
 .comment-thread {
   margin-top: 8px;
+  font-family: var(--font-ui);
 }
 
 .comment-item {
   display: flex;
   align-items: flex-start;
   padding: 10px 0 6px 0;
-  border-bottom: 1px solid #f3f3f3;
+  border-bottom: 1px solid var(--border-light);
   background: none;
   border-radius: 0;
   box-shadow: none;
@@ -245,7 +246,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
 .comment-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   margin: 0 10px 0 0;
   flex-shrink: 0;
   box-shadow: none;
@@ -256,8 +257,8 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
 
 .comment-avatar:hover {
   transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
-  border: 2px solid rgba(74, 140, 255, 0.5);
+  box-shadow: 0 4px 12px rgba(200,149,108,0.3);
+  border: 2px solid var(--accent);
 }
 .comment-content-wrapper {
   flex: 1;
@@ -272,7 +273,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   gap: 6px;
 }
 .comment-user {
-  color: #222;
+  color: var(--fg);
   font-weight: 600;
   font-size: 14px;
   margin-right: 2px;
@@ -284,12 +285,12 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
 }
 
 .comment-user:hover {
-  color: #4a8cff;
-  background: rgba(74, 140, 255, 0.1);
+  color: var(--accent);
+  background: var(--accent-muted);
   transform: scale(1.05);
 }
 .comment-text {
-  color: #333;
+  color: var(--fg);
   font-size: 14px;
   line-height: 1.6;
   word-break: break-all;
@@ -302,7 +303,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   margin-top: 2px;
 }
 .comment-time {
-  color: #b0b0b0;
+  color: var(--muted);
   font-size: 12px;
 }
 .comment-actions {
@@ -310,7 +311,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   gap: 10px;
 }
 .comment-action {
-  color: #b0b0b0;
+  color: var(--muted);
   font-size: 12px;
   cursor: pointer;
   border-radius: 4px;
@@ -318,14 +319,14 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   transition: color 0.2s;
 }
 .comment-action:hover {
-  color: #2563eb;
+  color: var(--accent);
   background: none;
 }
 .comment-delete-btn {
   margin-left: 8px;
   background: none;
   border: none;
-  color: #f87171;
+  color: var(--danger);
   font-size: 12px;
   cursor: pointer;
   border-radius: 4px;
@@ -333,13 +334,13 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   transition: color 0.2s;
 }
 .comment-delete-btn:hover {
-  color: #d32f2f;
+  color: #e74c3c;
   background: none;
 }
 .comment-replies {
   margin-left: 36px;
   margin-top: 0;
-  border-left: 1.5px solid #f0f0f0;
+  border-left: 1.5px solid var(--border);
   padding-left: 10px;
 }
 .reply-item {
@@ -349,7 +350,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   border-radius: 0;
   margin-bottom: 0;
   padding: 2px 0 2px 0;
-  border-bottom: 1px solid #f3f3f3;
+  border-bottom: 1px solid var(--border-light);
   position: relative;
 }
 .reply-item:last-child {
@@ -358,7 +359,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
 .reply-avatar-small {
   width: 20px;
   height: 20px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   margin: 2px 8px 0 0;
   flex-shrink: 0;
   box-shadow: none;
@@ -368,8 +369,8 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
 
 .reply-avatar-small:hover {
   transform: scale(1.15);
-  box-shadow: 0 3px 10px rgba(74, 140, 255, 0.3);
-  border: 2px solid rgba(74, 140, 255, 0.5);
+  box-shadow: 0 3px 10px rgba(200,149,108,0.3);
+  border: 2px solid var(--accent);
 }
 .reply-content-wrapper {
   flex: 1;
@@ -384,7 +385,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   font-size: 13px;
 }
 .reply-user {
-  color: #2563eb;
+  color: var(--accent);
   font-weight: 600;
   font-size: 13px;
   margin-right: 2px;
@@ -396,12 +397,12 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
 }
 
 .reply-user:hover {
-  color: #8a69ff;
-  background: rgba(138, 105, 255, 0.1);
+  color: var(--accent-hover);
+  background: var(--accent-muted);
   transform: scale(1.05);
 }
 .reply-text {
-  color: #444;
+  color: var(--fg);
   font-size: 13px;
   line-height: 1.5;
   word-break: break-all;
@@ -416,7 +417,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   gap: 8px;
 }
 .reply-time {
-  color: #b0b0b0;
+  color: var(--muted);
   font-size: 11px;
   margin-left: 8px;
 }
@@ -425,7 +426,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   gap: 8px;
 }
 .reply-action {
-  color: #b0b0b0;
+  color: var(--muted);
   font-size: 11px;
   cursor: pointer;
   border-radius: 4px;
@@ -433,14 +434,14 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   transition: color 0.2s;
 }
 .reply-action:hover {
-  color: #2563eb;
+  color: var(--accent);
   background: none;
 }
 .reply-delete-btn {
   margin-left: 8px;
   background: none;
   border: none;
-  color: #f87171;
+  color: var(--danger);
   font-size: 11px;
   cursor: pointer;
   border-radius: 4px;
@@ -448,7 +449,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   transition: color 0.2s;
 }
 .reply-delete-btn:hover {
-  color: #d32f2f;
+  color: #e74c3c;
   background: none;
 }
 
@@ -460,7 +461,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
 .reply-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   flex-shrink: 0;
 }
 .reply-input-wrapper {
@@ -471,38 +472,46 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
 .reply-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   font-size: 13px;
   outline: none;
   transition: border-color 0.2s ease;
+  background: var(--input-bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+}
+.reply-input::placeholder {
+  color: var(--muted);
 }
 .reply-input:focus {
-  border-color: #2563eb;
+  border-color: var(--accent);
 }
 .reply-submit-btn {
   padding: 6px 12px;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
+  background: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-family: var(--font-ui);
 }
 .reply-submit-btn:hover {
+  background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+  box-shadow: 0 2px 8px rgba(200,149,108,0.3);
 }
 
 .at-user {
-  color: #2563eb;
+  color: var(--accent);
   font-weight: 600;
 }
 
 .more-replies {
-  color: #2563eb;
+  color: var(--accent);
   font-size: 12px;
   cursor: pointer;
   margin: 4px 0 4px 36px;
@@ -512,7 +521,7 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
 }
 .more-replies:hover {
   text-decoration: underline;
-  color: #1d4ed8;
+  color: var(--accent-hover);
 }
 
 .more-comments {
@@ -521,10 +530,10 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
   justify-content: center;
   padding: 12px 20px;
   margin: 16px 0;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  color: #2563eb;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -533,9 +542,9 @@ function confirmDelete(commentOrReply, type, parentComment = null) {
 }
 
 .more-comments:hover {
-  background: #e0e7ef;
-  color: #1d4ed8;
-  border-color: #d1d5db;
+  background: var(--card-hover);
+  color: var(--accent-hover);
+  border-color: var(--accent);
 }
 
 .more-comments:active {

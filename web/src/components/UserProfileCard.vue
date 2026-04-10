@@ -301,7 +301,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -309,9 +309,9 @@ onMounted(() => {
 }
 
 .modal-container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
   width: 90%;
   max-width: 460px;
   max-height: 80vh;
@@ -324,21 +324,23 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 18px 24px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border);
 }
 
 .modal-header h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #111827;
+  color: var(--fg);
+  font-family: var(--font-display);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
-  color: #111827;
+  color: var(--fg);
+  font-family: var(--font-display);
 }
 
 .btn-close, .modal-close {
@@ -347,9 +349,9 @@ onMounted(() => {
   border: none;
   background: transparent;
   font-size: 18px;
-  color: #9ca3af;
+  color: var(--muted);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -357,8 +359,8 @@ onMounted(() => {
 }
 
 .btn-close:hover, .modal-close:hover {
-  background-color: #f3f4f6;
-  color: #374151;
+  background-color: var(--border);
+  color: var(--fg);
 }
 
 .modal-body {
@@ -373,7 +375,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 48px 20px;
-  color: #9ca3af;
+  color: var(--muted);
   gap: 10px;
 }
 
@@ -388,7 +390,7 @@ onMounted(() => {
 
 .error-state .icon {
   font-size: 40px;
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .user-header {
@@ -397,7 +399,7 @@ onMounted(() => {
   gap: 14px;
   margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border);
 }
 
 .avatar-container {
@@ -407,9 +409,9 @@ onMounted(() => {
 .avatar {
   width: 72px;
   height: 72px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   object-fit: cover;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
 }
 
 .user-info {
@@ -421,24 +423,26 @@ onMounted(() => {
   margin: 0 0 4px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #111827;
+  color: var(--fg);
+  font-family: var(--font-display);
 }
 
 .account {
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--muted);
   margin-bottom: 6px;
 }
 
 .signature {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--muted);
   line-height: 1.5;
 }
 
 .signature.placeholder {
-  color: #9ca3af;
+  color: var(--muted);
   font-style: italic;
+  opacity: 0.6;
 }
 
 .user-details {
@@ -453,9 +457,10 @@ onMounted(() => {
   margin: 0 0 10px 0;
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: var(--fg);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-family: var(--font-display);
 }
 
 .detail-item {
@@ -467,12 +472,12 @@ onMounted(() => {
 .detail-item .label {
   flex: 0 0 72px;
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .detail-item .value {
   font-size: 14px;
-  color: #374151;
+  color: var(--fg);
 }
 
 .tags {
@@ -485,9 +490,9 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
-  background-color: #f3f4f6;
-  color: #374151;
-  border-radius: 6px;
+  background-color: var(--accent-muted);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
   font-size: 13px;
 }
 
@@ -495,7 +500,7 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   padding-top: 16px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--border);
 }
 
 .btn-chat,
@@ -504,7 +509,7 @@ onMounted(() => {
 .btn-request-sent {
   flex: 1;
   padding: 10px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -517,21 +522,21 @@ onMounted(() => {
 }
 
 .btn-chat {
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
 }
 
 .btn-chat:hover {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .btn-accept-request {
-  background-color: #22c55e;
+  background-color: var(--success);
   color: white;
 }
 
 .btn-accept-request:hover:not(:disabled) {
-  background-color: #16a34a;
+  opacity: 0.9;
 }
 
 .btn-accept-request:disabled {
@@ -540,12 +545,12 @@ onMounted(() => {
 }
 
 .btn-add-friend {
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
 }
 
 .btn-add-friend:hover:not(:disabled) {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .btn-add-friend:disabled {
@@ -554,8 +559,8 @@ onMounted(() => {
 }
 
 .btn-request-sent {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: var(--input-bg);
+  color: var(--muted);
   cursor: default;
 }
 
@@ -574,20 +579,20 @@ onMounted(() => {
   gap: 10px;
   margin-bottom: 16px;
   padding: 14px;
-  background: #f9fafb;
-  border-radius: 8px;
+  background: var(--input-bg);
+  border-radius: var(--radius-md);
 }
 
 .user-preview .avatar {
   width: 56px;
   height: 56px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .user-preview .user-name {
   font-size: 15px;
   font-weight: 600;
-  color: #111827;
+  color: var(--fg);
 }
 
 .message-input {
@@ -598,31 +603,32 @@ onMounted(() => {
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--muted);
   font-weight: 500;
 }
 
 .message-input textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 14px;
-  font-family: inherit;
+  font-family: var(--font-ui);
   resize: vertical;
   outline: none;
   transition: border-color 0.15s;
+  background: var(--input-bg);
+  color: var(--fg);
 }
 
 .message-input textarea:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent);
 }
 
 .char-count {
   text-align: right;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted);
   margin-top: 4px;
 }
 
@@ -630,31 +636,31 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   padding: 16px 24px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--border);
   justify-content: flex-end;
 }
 
 .btn-cancel-modal {
   padding: 8px 16px;
-  background: #fff;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 14px;
   cursor: pointer;
   transition: background-color 0.15s;
 }
 
 .btn-cancel-modal:hover {
-  background-color: #f9fafb;
+  background-color: var(--card-hover);
 }
 
 .btn-confirm-send {
   padding: 8px 20px;
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -665,11 +671,11 @@ onMounted(() => {
 }
 
 .btn-confirm-send:hover:not(:disabled) {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .btn-confirm-send:disabled {
-  background-color: #d1d5db;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 

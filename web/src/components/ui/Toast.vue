@@ -52,23 +52,26 @@ defineExpose({ show })
   top: 40px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 10px 20px;
-  border-radius: 8px;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 14px;
+  font-family: var(--font-ui);
   font-weight: 500;
   z-index: 9999;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  background: white;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--fg);
   min-width: 120px;
   justify-content: center;
 }
 
-.toast-container.success { color: #10b981; }
-.toast-container.error { color: #ef4444; }
-.toast-container.warning { color: #f59e0b; }
+.toast-container.success { color: var(--success); }
+.toast-container.error { color: var(--danger); }
+.toast-container.warning { color: var(--accent); }
 
 .icon { font-size: 18px; }
 

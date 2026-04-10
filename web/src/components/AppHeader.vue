@@ -88,13 +88,13 @@ onUnmounted(() => {
 
 <style scoped>
 .app-header {
-  background: linear-gradient(90deg, #4a8cff, #8a69ff);
-  color: #fff;
+  background: var(--card);
+  color: var(--fg);
   height: 60px;
   display: flex;
   align-items: center;
   padding: 0 32px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  border-bottom: 1px solid var(--border);
 }
 
 .header-left, .header-right {
@@ -105,16 +105,24 @@ onUnmounted(() => {
 .menu-toggle {
   background: none;
   border: none;
-  color: white;
+  color: var(--fg);
   font-size: 24px;
   cursor: pointer;
   margin-right: 15px;
+  transition: color 0.2s;
+}
+
+.menu-toggle:hover {
+  color: var(--accent);
 }
 
 .app-title {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+  font-family: var(--font-display);
+  color: var(--fg);
+  letter-spacing: 0.02em;
 }
 
 .header-center {
@@ -131,10 +139,22 @@ onUnmounted(() => {
 .search-input {
   width: 100%;
   padding: 8px 15px 8px 35px;
-  border-radius: 18px;
-  border: none;
-  background-color: #444a55;
-  color: white;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background-color: var(--input-bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.search-input::placeholder {
+  color: var(--muted);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .icon-search {
@@ -142,16 +162,21 @@ onUnmounted(() => {
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #bbb;
+  color: var(--muted);
 }
 
 .btn-notification {
   background: none;
   border: none;
-  color: white;
+  color: var(--muted);
   font-size: 20px;
   cursor: pointer;
   margin-right: 20px;
+  transition: color 0.2s;
+}
+
+.btn-notification:hover {
+  color: var(--accent);
 }
 
 .btn-user {
@@ -163,8 +188,14 @@ onUnmounted(() => {
 .avatar {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   object-fit: cover;
+  border: 2px solid var(--border);
+  transition: border-color 0.2s;
+}
+
+.avatar:hover {
+  border-color: var(--accent);
 }
 
 .user-menu-container {
@@ -175,9 +206,10 @@ onUnmounted(() => {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   min-width: 160px;
   z-index: 1000;
   overflow: hidden;
@@ -189,30 +221,36 @@ onUnmounted(() => {
   padding: 12px 16px;
   cursor: pointer;
   transition: background-color 0.2s;
-  color: #333;
+  color: var(--fg);
   font-size: 14px;
+  font-family: var(--font-ui);
 }
 
 .user-menu-item:hover {
-  background-color: #f5f5f5;
+  background-color: var(--card-hover);
 }
 
 .user-menu-item i {
   margin-right: 8px;
   font-size: 16px;
+  color: var(--muted);
 }
 
 .logout-item {
-  color: #ff4d4f;
+  color: var(--danger);
+}
+
+.logout-item i {
+  color: var(--danger);
 }
 
 .logout-item:hover {
-  background-color: #fff1f0;
+  background-color: rgba(192, 57, 43, 0.1);
 }
 
 .user-menu-divider {
   height: 1px;
-  background-color: #e8e8e8;
+  background-color: var(--border);
   margin: 4px 0;
 }
 </style>

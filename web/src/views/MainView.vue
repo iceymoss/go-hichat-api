@@ -61,43 +61,46 @@ const tabs = [
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  background: var(--bg);
 }
 .main-nav {
   height: 56px;
-  background: rgba(30,32,40,0.96);
+  background: var(--card);
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  border-bottom: 1px solid #23242a;
+  border-bottom: 1px solid var(--border);
   padding-left: 32px;
 }
 .nav-item {
   margin-right: 36px;
-  color: #b3cfff;
+  color: var(--muted);
   font-size: 16px;
   padding: 8px 0 2px 0;
   cursor: pointer;
-  transition: color 0.2s;
+  transition: color 0.2s, border-color 0.2s;
   display: flex;
   align-items: center;
   font-weight: 500;
+  font-family: var(--font-ui);
   text-decoration: none;
+  border-bottom: 2.5px solid transparent;
 }
 
 .nav-item:hover {
-  color: #4a8cff;
+  color: var(--accent-hover);
 }
 
 .nav-item.active {
-  color: #4a8cff;
+  color: var(--accent);
   font-weight: bold;
-  border-bottom: 2.5px solid #4a8cff;
+  border-bottom: 2.5px solid var(--accent);
 }
 
 .nav-item.router-link-active {
-  color: #4a8cff;
+  color: var(--accent);
   font-weight: bold;
-  border-bottom: 2.5px solid #4a8cff;
+  border-bottom: 2.5px solid var(--accent);
 }
 .nav-item .icon {
   font-size: 22px;
@@ -109,5 +112,6 @@ const tabs = [
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  background: var(--bg);
 }
 </style>

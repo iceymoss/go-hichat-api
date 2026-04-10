@@ -855,12 +855,24 @@ const handleLogout = async () => {
   height: 100%;
   overflow-y: auto;
   position: relative;
+  background: var(--bg);
 }
 
 .profile-banner {
   height: 160px;
   overflow: hidden;
-  background-color: #e5e7eb;
+  background-color: var(--card);
+  position: relative;
+}
+
+.profile-banner::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .banner-image {
@@ -872,10 +884,10 @@ const handleLogout = async () => {
 .profile-card {
   position: relative;
   margin: -48px 20px 20px;
-  background-color: white;
-  border-radius: 12px;
+  background-color: var(--card);
+  border-radius: var(--radius-lg);
   padding: 20px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
 }
 
 .profile-header {
@@ -891,9 +903,8 @@ const handleLogout = async () => {
 .avatar {
   width: 88px;
   height: 88px;
-  border-radius: 12px;
-  border: 3px solid white;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-md);
+  border: 3px solid var(--card);
   object-fit: cover;
   display: block;
 }
@@ -904,8 +915,8 @@ const handleLogout = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.45);
-  border-radius: 12px;
+  background-color: rgba(0, 0, 0, 0.55);
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -913,7 +924,7 @@ const handleLogout = async () => {
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s;
-  color: white;
+  color: var(--fg);
   font-size: 12px;
 }
 
@@ -934,17 +945,17 @@ const handleLogout = async () => {
   width: 100%;
   font-size: 20px;
   font-weight: 600;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   padding: 8px 12px;
-  font-family: inherit;
-  color: #111827;
+  font-family: var(--font-ui);
+  color: var(--fg);
+  background: var(--input-bg);
 }
 
 .name-input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent);
 }
 
 .profile-info {
@@ -956,43 +967,46 @@ const handleLogout = async () => {
   margin: 4px 0 4px;
   font-size: 20px;
   font-weight: 600;
-  color: #111827;
+  color: var(--fg);
+  font-family: var(--font-display);
 }
 
 .account {
-  color: #9ca3af;
+  color: var(--muted);
   font-size: 13px;
   margin-bottom: 8px;
+  font-family: var(--font-ui);
 }
 
 .signature {
-  color: #6b7280;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
-  background-color: #f9fafb;
+  background-color: var(--input-bg);
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-ui);
 }
 
 .edit-signature textarea {
   width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   padding: 10px 12px;
   font-size: 14px;
-  font-family: inherit;
+  font-family: var(--font-ui);
   resize: none;
-  color: #111827;
+  color: var(--fg);
+  background: var(--input-bg);
 }
 
 .edit-signature textarea:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent);
 }
 
 .profile-details {
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--border);
   padding-top: 16px;
 }
 
@@ -1003,12 +1017,13 @@ const handleLogout = async () => {
 .section h3 {
   padding-bottom: 8px;
   margin-bottom: 12px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border);
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: var(--fg);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-family: var(--font-display);
 }
 
 .detail-item {
@@ -1020,33 +1035,33 @@ const handleLogout = async () => {
 .label {
   flex: 0 0 72px;
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .value {
   font-size: 14px;
-  color: #374151;
+  color: var(--fg);
   word-break: break-all;
 }
 
 .value-input {
   flex: 1;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   padding: 8px 12px;
   font-size: 14px;
-  color: #111827;
+  color: var(--fg);
+  background: var(--input-bg);
 }
 
 .value-input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent);
 }
 
 .value-note {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted);
   margin-left: 8px;
 }
 
@@ -1064,7 +1079,7 @@ const handleLogout = async () => {
 
 .bind-hint {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .email-bind-wrapper {
@@ -1074,8 +1089,8 @@ const handleLogout = async () => {
 
 .current-email-info {
   padding: 10px 12px;
-  background-color: #f9fafb;
-  border-radius: 8px;
+  background-color: var(--input-bg);
+  border-radius: var(--radius-md);
   margin-bottom: 16px;
   display: flex;
   align-items: center;
@@ -1084,12 +1099,12 @@ const handleLogout = async () => {
 
 .current-email-label {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .current-email-value {
   font-size: 14px;
-  color: #111827;
+  color: var(--fg);
   font-weight: 500;
 }
 
@@ -1110,8 +1125,8 @@ const handleLogout = async () => {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1128,7 +1143,7 @@ const handleLogout = async () => {
 
 .step-label {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--muted);
   font-weight: 500;
   margin-bottom: 2px;
 }
@@ -1142,36 +1157,36 @@ const handleLogout = async () => {
 .email-input {
   flex: 1;
   padding: 9px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 14px;
   transition: border-color 0.15s;
-  background-color: #fff;
-  color: #111827;
+  background-color: var(--input-bg);
+  color: var(--fg);
 }
 
 .email-input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent);
 }
 
 .email-input:disabled {
-  background-color: #f9fafb;
+  background-color: var(--card);
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .email-input.input-error {
-  border-color: #ef4444;
+  border-color: var(--danger);
 }
 
 .btn-send-code {
   flex-shrink: 0;
   padding: 9px 16px;
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -1185,11 +1200,11 @@ const handleLogout = async () => {
 }
 
 .btn-send-code:hover:not(:disabled) {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .btn-send-code:disabled {
-  background-color: #d1d5db;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -1202,30 +1217,30 @@ const handleLogout = async () => {
 .code-input {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 16px;
   text-align: center;
   letter-spacing: 6px;
   font-weight: 600;
   transition: border-color 0.15s;
-  background-color: #fff;
-  color: #111827;
+  background-color: var(--input-bg);
+  color: var(--fg);
 }
 
 .code-input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent);
 }
 
 .code-input:disabled {
-  background-color: #f9fafb;
+  background-color: var(--card);
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .code-input.input-error {
-  border-color: #ef4444;
+  border-color: var(--danger);
 }
 
 .code-hint {
@@ -1236,22 +1251,22 @@ const handleLogout = async () => {
 }
 
 .hint-text {
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .hint-success {
-  color: #22c55e;
+  color: var(--success);
   font-weight: 500;
 }
 
 .error-message {
-  color: #ef4444;
+  color: var(--danger);
   font-size: 12px;
   margin-top: 4px;
 }
 
 .success-message {
-  color: #22c55e;
+  color: var(--success);
   font-size: 13px;
   margin-top: 4px;
   font-weight: 500;
@@ -1260,10 +1275,10 @@ const handleLogout = async () => {
 .btn-bind-email {
   width: 100%;
   padding: 10px 20px;
-  background-color: #22c55e;
+  background-color: var(--success);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -1275,11 +1290,11 @@ const handleLogout = async () => {
 }
 
 .btn-bind-email:hover:not(:disabled) {
-  background-color: #16a34a;
+  opacity: 0.9;
 }
 
 .btn-bind-email:disabled {
-  background-color: #d1d5db;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -1307,17 +1322,17 @@ const handleLogout = async () => {
 
 .btn-edit-email {
   padding: 3px 10px;
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   cursor: pointer;
   transition: background-color 0.15s;
 }
 
 .btn-edit-email:hover {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 /* Modal */
@@ -1327,7 +1342,7 @@ const handleLogout = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1335,9 +1350,9 @@ const handleLogout = async () => {
 }
 
 .modal-container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
   max-width: 460px;
   width: 90%;
   max-height: 90vh;
@@ -1353,14 +1368,15 @@ const handleLogout = async () => {
   align-items: center;
   justify-content: space-between;
   padding: 18px 24px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
-  color: #111827;
+  color: var(--fg);
+  font-family: var(--font-display);
 }
 
 .modal-close {
@@ -1369,9 +1385,9 @@ const handleLogout = async () => {
   border: none;
   background: transparent;
   font-size: 20px;
-  color: #9ca3af;
+  color: var(--muted);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1379,8 +1395,8 @@ const handleLogout = async () => {
 }
 
 .modal-close:hover {
-  background-color: #f3f4f6;
-  color: #374151;
+  background-color: var(--border);
+  color: var(--fg);
 }
 
 .modal-body {
@@ -1391,31 +1407,31 @@ const handleLogout = async () => {
   display: flex;
   gap: 8px;
   padding: 16px 24px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--border);
   justify-content: flex-end;
 }
 
 .btn-cancel-modal {
   padding: 8px 16px;
-  background: #fff;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 14px;
   cursor: pointer;
   transition: background-color 0.15s;
 }
 
 .btn-cancel-modal:hover {
-  background-color: #f9fafb;
+  background-color: var(--card-hover);
 }
 
 .btn-confirm-bind {
   padding: 8px 20px;
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -1426,11 +1442,11 @@ const handleLogout = async () => {
 }
 
 .btn-confirm-bind:hover:not(:disabled) {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .btn-confirm-bind:disabled {
-  background-color: #d1d5db;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -1444,9 +1460,9 @@ const handleLogout = async () => {
   display: inline-flex;
   align-items: center;
   padding: 4px 10px;
-  background-color: #f3f4f6;
-  color: #374151;
-  border-radius: 6px;
+  background-color: var(--accent-muted);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
   font-size: 13px;
 }
 
@@ -1461,33 +1477,33 @@ const handleLogout = async () => {
 
 .tag-input {
   flex: 1;
-  border: 1px solid #d1d5db;
-  border-radius: 8px 0 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
   padding: 8px 12px;
   font-size: 14px;
   border-right: none;
-  color: #111827;
+  color: var(--fg);
+  background: var(--input-bg);
 }
 
 .tag-input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent);
 }
 
 .btn-add-tag {
   padding: 0 14px;
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   cursor: pointer;
   font-size: 16px;
   transition: background-color 0.15s;
 }
 
 .btn-add-tag:hover {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .selected-tags {
@@ -1521,15 +1537,15 @@ const handleLogout = async () => {
   gap: 10px;
   align-items: center;
   padding-top: 16px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--border);
 }
 
 .btn-edit, .btn-chat {
   padding: 9px 24px;
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -1541,12 +1557,12 @@ const handleLogout = async () => {
 }
 
 .btn-edit:hover, .btn-chat:hover {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .btn-chat.btn-gray {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: var(--input-bg);
+  color: var(--muted);
 }
 
 .edit-actions {
@@ -1556,7 +1572,7 @@ const handleLogout = async () => {
 
 .btn-cancel, .btn-save {
   padding: 9px 20px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: none;
   font-size: 14px;
   font-weight: 500;
@@ -1565,21 +1581,22 @@ const handleLogout = async () => {
 }
 
 .btn-cancel {
-  background-color: #f3f4f6;
-  color: #374151;
+  background-color: var(--input-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
 }
 
 .btn-cancel:hover {
-  background-color: #e5e7eb;
+  background-color: var(--card-hover);
 }
 
 .btn-save {
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
 }
 
 .btn-save:hover {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .profile-actions-buttons {
@@ -1592,10 +1609,10 @@ const handleLogout = async () => {
 .btn-add-friend,
 .btn-request-sent {
   padding: 9px 24px;
-  background-color: #2563eb;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -1607,7 +1624,7 @@ const handleLogout = async () => {
 }
 
 .btn-add-friend:hover:not(:disabled) {
-  background-color: #1d4ed8;
+  background-color: var(--accent-hover);
 }
 
 .btn-add-friend:disabled {
@@ -1616,8 +1633,8 @@ const handleLogout = async () => {
 }
 
 .btn-request-sent {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: var(--input-bg);
+  color: var(--muted);
   cursor: default;
 }
 
@@ -1632,20 +1649,20 @@ const handleLogout = async () => {
   gap: 10px;
   margin-bottom: 16px;
   padding: 14px;
-  background: #f9fafb;
-  border-radius: 8px;
+  background: var(--input-bg);
+  border-radius: var(--radius-md);
 }
 
 .add-friend-modal .user-preview .avatar {
   width: 56px;
   height: 56px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .add-friend-modal .user-name {
   font-size: 15px;
   font-weight: 600;
-  color: #111827;
+  color: var(--fg);
 }
 
 .add-friend-modal .message-input {
@@ -1656,40 +1673,41 @@ const handleLogout = async () => {
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--muted);
   font-weight: 500;
 }
 
 .add-friend-modal .message-input textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 14px;
-  font-family: inherit;
+  font-family: var(--font-ui);
   resize: vertical;
   outline: none;
   transition: border-color 0.15s;
+  background: var(--input-bg);
+  color: var(--fg);
 }
 
 .add-friend-modal .message-input textarea:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent);
 }
 
 .add-friend-modal .char-count {
   text-align: right;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted);
   margin-top: 4px;
 }
 
 .btn-logout {
   padding: 9px 24px;
   background: transparent;
-  color: #ef4444;
-  border: 1px solid #fca5a5;
-  border-radius: 8px;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -1702,7 +1720,7 @@ const handleLogout = async () => {
 }
 
 .btn-logout:hover {
-  background-color: #fef2f2;
+  background-color: rgba(192, 57, 43, 0.1);
 }
 
 .btn-logout i {
@@ -1717,14 +1735,14 @@ const handleLogout = async () => {
   justify-content: center;
   height: 100vh;
   gap: 12px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .loading-spinner-large {
   width: 36px;
   height: 36px;
-  border: 3px solid #e5e7eb;
-  border-top-color: #2563eb;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

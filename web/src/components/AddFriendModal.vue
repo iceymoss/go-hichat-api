@@ -378,7 +378,7 @@ const viewUserProfile = (user) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -386,14 +386,15 @@ const viewUserProfile = (user) => {
 }
 
 .add-friend-modal {
-  background-color: white;
-  border-radius: 12px;
+  background-color: var(--card);
+  border-radius: var(--radius-lg);
   width: 90%;
   max-width: 500px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border: 1px solid var(--border);
 }
 
 .modal-header {
@@ -401,20 +402,27 @@ const viewUserProfile = (user) => {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--border);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
+  font-family: var(--font-display);
+  color: var(--fg);
 }
 
 .btn-close {
   background: none;
   border: none;
   font-size: 20px;
-  color: #999;
+  color: var(--muted);
   cursor: pointer;
+  transition: color 0.2s;
+}
+
+.btn-close:hover {
+  color: var(--fg);
 }
 
 .modal-body {
@@ -427,14 +435,15 @@ const viewUserProfile = (user) => {
   position: relative;
   display: flex;
   align-items: center;
-  background-color: #f0f2f5;
-  border-radius: 10px;
+  background-color: var(--input-bg);
+  border-radius: var(--radius-md);
   padding: 10px 15px;
   margin-bottom: 20px;
+  border: 1px solid var(--border);
 }
 
 .search-container .icon {
-  color: #999;
+  color: var(--muted);
   margin-right: 10px;
 }
 
@@ -443,7 +452,13 @@ const viewUserProfile = (user) => {
   border: none;
   background: none;
   font-size: 14px;
+  font-family: var(--font-ui);
   outline: none;
+  color: var(--fg);
+}
+
+.search-container input::placeholder {
+  color: var(--muted);
 }
 
 .btn-loading {
@@ -455,6 +470,7 @@ const viewUserProfile = (user) => {
 
 .icon-spinner {
   animation: spin 1s infinite linear;
+  color: var(--muted);
 }
 
 @keyframes spin {
@@ -469,19 +485,19 @@ const viewUserProfile = (user) => {
   display: flex;
   align-items: center;
   padding: 12px;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--border-light);
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
 .result-item:hover {
-  background-color: #f8f9fa;
+  background-color: var(--card-hover);
 }
 
 .result-item .avatar {
   width: 50px;
   height: 50px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin-right: 15px;
 }
 
@@ -492,12 +508,13 @@ const viewUserProfile = (user) => {
 .name {
   font-weight: 500;
   margin-bottom: 5px;
+  color: var(--fg);
 }
 
 .account {
   font-weight: normal;
   font-size: 13px;
-  color: #999;
+  color: var(--muted);
 }
 
 .tags {
@@ -508,36 +525,35 @@ const viewUserProfile = (user) => {
 .tag {
   font-size: 12px;
   padding: 3px 8px;
-  background-color: #f0f2f5;
+  background-color: var(--accent-muted);
   border-radius: 4px;
-  color: #666;
+  color: var(--accent);
 }
 
 .btn-add {
-  background: #2563eb;
+  background: var(--accent);
   border: none;
-  color: white;
+  color: var(--bg);
   font-size: 14px;
   font-weight: 500;
+  font-family: var(--font-ui);
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
   white-space: nowrap;
 }
 
 .btn-add:hover:not(:disabled) {
-  background: #357abd;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(74, 140, 255, 0.3);
+  background: var(--accent-hover);
 }
 
 .btn-add:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -548,7 +564,7 @@ const viewUserProfile = (user) => {
 .no-results, .instruction {
   text-align: center;
   padding: 30px 20px;
-  color: #999;
+  color: var(--muted);
 }
 
 .tip {
@@ -559,14 +575,15 @@ const viewUserProfile = (user) => {
 .search-tips {
   margin-top: 16px;
   text-align: left;
-  background: #f9f9f9;
+  background: var(--input-bg);
   padding: 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
 }
 
 .tips-title {
   font-weight: 600;
-  color: #666;
+  color: var(--fg);
   margin-bottom: 8px;
   font-size: 13px;
 }
@@ -574,7 +591,7 @@ const viewUserProfile = (user) => {
 .search-tips ul {
   margin: 0;
   padding-left: 20px;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -592,11 +609,12 @@ const viewUserProfile = (user) => {
   align-items: center;
   margin-bottom: 10px;
   font-size: 13px;
+  color: var(--muted);
 }
 
 .tip-item i {
   margin-right: 8px;
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .user-actions {
@@ -605,12 +623,12 @@ const viewUserProfile = (user) => {
 }
 
 .btn-sending {
-  background: #e9ecef;
+  background: var(--border);
   border: none;
-  color: #666;
+  color: var(--muted);
   font-size: 14px;
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -624,7 +642,7 @@ const viewUserProfile = (user) => {
 }
 
 .btn-sent {
-  color: #28a745;
+  color: var(--success);
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -651,7 +669,7 @@ const viewUserProfile = (user) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--overlay);
 }
 
 .dialog-content {
@@ -659,15 +677,15 @@ const viewUserProfile = (user) => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: white;
-  border-radius: 12px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
   width: 90%;
   max-width: 400px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
 }
 
 .dialog-header {
@@ -675,13 +693,15 @@ const viewUserProfile = (user) => {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--border);
 }
 
 .dialog-header h4 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+  font-family: var(--font-display);
+  color: var(--fg);
 }
 
 .dialog-body {
@@ -696,19 +716,21 @@ const viewUserProfile = (user) => {
   gap: 12px;
   margin-bottom: 20px;
   padding: 12px;
-  background: #f8f9fa;
-  border-radius: 8px;
+  background: var(--input-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
 }
 
 .user-preview .avatar {
   width: 48px;
   height: 48px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .user-name {
   font-size: 16px;
   font-weight: 500;
+  color: var(--fg);
 }
 
 .message-input {
@@ -719,30 +741,37 @@ const viewUserProfile = (user) => {
   display: block;
   margin-bottom: 8px;
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
   font-weight: 500;
 }
 
 .message-input textarea {
   width: 100%;
   padding: 10px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  font-family: inherit;
+  font-family: var(--font-ui);
+  background: var(--input-bg);
+  color: var(--fg);
   resize: vertical;
   outline: none;
   transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.message-input textarea::placeholder {
+  color: var(--muted);
 }
 
 .message-input textarea:focus {
-  border-color: #2563eb;
+  border-color: var(--accent);
 }
 
 .char-count {
   text-align: right;
   font-size: 12px;
-  color: #999;
+  color: var(--muted);
   margin-top: 4px;
 }
 
@@ -751,40 +780,42 @@ const viewUserProfile = (user) => {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid #f0f2f5;
+  border-top: 1px solid var(--border);
 }
 
 .btn-cancel,
 .btn-confirm {
   padding: 8px 20px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-weight: 500;
+  font-family: var(--font-ui);
   cursor: pointer;
   border: none;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
 }
 
 .btn-cancel {
-  background: #f0f2f5;
-  color: #666;
+  background: var(--border);
+  color: var(--muted);
 }
 
 .btn-cancel:hover {
-  background: #e0e0e0;
+  background: var(--card-hover);
+  color: var(--fg);
 }
 
 .btn-confirm {
-  background: #2563eb;
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .btn-confirm:hover:not(:disabled) {
-  background: #357abd;
+  background: var(--accent-hover);
 }
 
 .btn-confirm:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -795,24 +826,24 @@ const viewUserProfile = (user) => {
   left: 50%;
   transform: translateX(-50%);
   padding: 12px 20px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 14px;
+  font-family: var(--font-ui);
   z-index: 3000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   animation: slideDown 0.3s ease-out;
 }
 
 .message-toast.success {
-  background: #28a745;
-  color: white;
+  background: var(--success);
+  color: var(--fg);
 }
 
 .message-toast.error {
-  background: #dc3545;
-  color: white;
+  background: var(--danger);
+  color: var(--fg);
 }
 
 @keyframes slideDown {

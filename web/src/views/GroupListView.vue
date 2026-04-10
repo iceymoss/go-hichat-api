@@ -24,14 +24,79 @@ const groups = ref([
 const filteredGroups = computed(() => groups.value.filter(g => g.name.includes(keyword.value) || g.desc.includes(keyword.value)))
 </script>
 <style scoped>
-.group-list-view { max-width: 600px; margin: 40px auto; }
-.search-bar { margin-bottom: 24px; }
-.search-bar input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ddd; }
-.empty { color: #aaa; text-align: center; margin: 40px 0; }
-.group-item { display: flex; align-items: center; gap: 16px; background: #f8fafc; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-.avatar { width: 48px; height: 48px; border-radius: 10px; }
-.info { flex: 1; }
-.name { font-size: 16px; font-weight: 600; }
-.desc { font-size: 13px; color: #666; margin-top: 2px; }
-.unread { background: #e53e3e; color: #fff; border-radius: 10px; padding: 2px 10px; font-size: 13px; }
+.group-list-view {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 0 20px;
+  font-family: var(--font-ui);
+}
+.search-bar {
+  margin-bottom: 24px;
+}
+.search-bar input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.search-bar input::placeholder {
+  color: var(--muted);
+}
+.search-bar input:focus {
+  border-color: var(--accent);
+}
+.empty {
+  color: var(--muted);
+  text-align: center;
+  margin: 40px 0;
+}
+.group-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--card);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.group-item:hover {
+  background: var(--card-hover);
+  border-color: var(--accent);
+}
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+.info {
+  flex: 1;
+}
+.name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.desc {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.unread {
+  background: var(--danger);
+  color: #fff;
+  border-radius: var(--radius-full);
+  padding: 2px 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
 </style> 

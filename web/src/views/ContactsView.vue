@@ -122,21 +122,21 @@ const handleSelectGroupFromNewGroups = (group) => {
 .contacts-view {
   display: flex;
   height: 100vh;
-  background: #f8fafc;
+  background: var(--bg);
 }
 .sidebar {
   width: 300px;
   min-width: 260px;
   max-width: 360px;
-  background: #fff;
-  border-right: 1px solid #e2e8f0;
+  background: var(--card);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
 }
 .tabs {
   display: flex;
   padding: 0 16px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
 }
 .tabs button {
   flex: 1;
@@ -144,18 +144,19 @@ const handleSelectGroupFromNewGroups = (group) => {
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: #64748b;
+  color: var(--muted);
+  font-family: var(--font-ui);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.2s, border-color 0.2s;
 }
 .tabs button:hover {
-  color: #334155;
+  color: var(--fg);
 }
 .tabs button.active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 .list-scroll {
   flex: 1;
@@ -163,7 +164,7 @@ const handleSelectGroupFromNewGroups = (group) => {
 }
 .detail-panel {
   flex: 1;
-  background: #fff;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;

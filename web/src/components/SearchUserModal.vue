@@ -202,7 +202,7 @@ const parseTags = (tags) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -211,23 +211,20 @@ const parseTags = (tags) => {
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .search-user-modal {
-  background-color: white;
-  border-radius: 12px;
+  background-color: var(--card);
+  border-radius: var(--radius-lg);
   width: 90%;
   max-width: 600px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border: 1px solid var(--border);
   animation: slideUp 0.3s;
 }
 
@@ -247,21 +244,22 @@ const parseTags = (tags) => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--border);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  font-family: var(--font-display);
+  color: var(--fg);
 }
 
 .btn-close {
   background: none;
   border: none;
   font-size: 24px;
-  color: #999;
+  color: var(--muted);
   cursor: pointer;
   width: 32px;
   height: 32px;
@@ -269,12 +267,11 @@ const parseTags = (tags) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: color 0.2s;
 }
 
 .btn-close:hover {
-  background-color: #f5f5f5;
-  color: #333;
+  color: var(--fg);
 }
 
 .modal-body {
@@ -287,15 +284,16 @@ const parseTags = (tags) => {
   position: relative;
   display: flex;
   align-items: center;
-  background-color: #f0f2f5;
-  border-radius: 10px;
+  background-color: var(--input-bg);
+  border-radius: var(--radius-md);
   padding: 12px 16px;
   margin-bottom: 20px;
   gap: 10px;
+  border: 1px solid var(--border);
 }
 
 .search-container .icon {
-  color: #999;
+  color: var(--muted);
   font-size: 18px;
 }
 
@@ -304,29 +302,30 @@ const parseTags = (tags) => {
   border: none;
   background: none;
   font-size: 14px;
+  font-family: var(--font-ui);
   outline: none;
-  color: #333;
+  color: var(--fg);
 }
 
 .search-container input::placeholder {
-  color: #999;
+  color: var(--muted);
 }
 
 .btn-search-action {
   padding: 6px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-weight: 500;
+  font-family: var(--font-ui);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
 }
 
 .btn-search-action:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  background: var(--accent-hover);
 }
 
 .btn-loading {
@@ -338,13 +337,11 @@ const parseTags = (tags) => {
 
 .icon-spinner {
   animation: spin 1s infinite linear;
-  color: #999;
+  color: var(--muted);
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 .search-results {
@@ -355,26 +352,24 @@ const parseTags = (tags) => {
   display: flex;
   align-items: center;
   padding: 16px;
-  border: 1px solid #f0f2f5;
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   margin-bottom: 12px;
-  transition: all 0.2s;
-  background: #fff;
+  transition: background-color 0.2s;
+  background: var(--card);
 }
 
 .result-item:hover {
-  border-color: #2563eb;
-  box-shadow: 0 2px 8px rgba(74, 140, 255, 0.1);
-  transform: translateY(-1px);
+  background: var(--card-hover);
 }
 
 .result-item .avatar {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   margin-right: 16px;
   object-fit: cover;
-  border: 2px solid #f0f2f5;
+  border: 2px solid var(--border);
 }
 
 .user-info {
@@ -385,7 +380,7 @@ const parseTags = (tags) => {
 .name {
   font-weight: 600;
   font-size: 16px;
-  color: #333;
+  color: var(--fg);
   margin-bottom: 6px;
   word-break: break-word;
 }
@@ -402,7 +397,7 @@ const parseTags = (tags) => {
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: #666;
+  color: var(--muted);
 }
 
 .meta-item .icon {
@@ -419,44 +414,43 @@ const parseTags = (tags) => {
 .tag {
   font-size: 12px;
   padding: 4px 10px;
-  background: linear-gradient(135deg, rgba(74, 140, 255, 0.1) 0%, rgba(138, 105, 255, 0.1) 100%);
-  border-radius: 12px;
-  color: #2563eb;
+  background: var(--accent-muted);
+  border-radius: var(--radius-full);
+  color: var(--accent);
   font-weight: 500;
 }
 
 .btn-chat {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
   border: none;
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
   font-size: 18px;
   margin-left: 12px;
 }
 
 .btn-chat:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  background: var(--accent-hover);
 }
 
 .no-results,
 .instruction {
   text-align: center;
   padding: 40px 20px;
-  color: #999;
+  color: var(--muted);
 }
 
 .no-results .icon,
 .instruction .icon {
   font-size: 48px;
-  color: #ddd;
+  color: var(--border);
   margin-bottom: 16px;
 }
 
@@ -469,27 +463,28 @@ const parseTags = (tags) => {
 .tip {
   margin-top: 8px;
   font-size: 13px;
-  color: #bbb;
+  color: var(--muted);
 }
 
 .search-tips {
   margin-top: 24px;
   text-align: left;
-  background: #f9f9f9;
+  background: var(--input-bg);
   padding: 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
 }
 
 .tips-title {
   font-weight: 600;
-  color: #666;
+  color: var(--fg);
   margin-bottom: 8px;
 }
 
 .search-tips ul {
   margin: 0;
   padding-left: 20px;
-  color: #999;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -506,13 +501,13 @@ const parseTags = (tags) => {
   display: flex;
   align-items: center;
   margin-bottom: 12px;
-  color: #666;
+  color: var(--muted);
   font-size: 14px;
 }
 
 .tip-item .icon {
   margin-right: 8px;
-  color: #2563eb;
+  color: var(--accent);
   font-size: 16px;
 }
 
@@ -521,11 +516,11 @@ const parseTags = (tags) => {
     width: 95%;
     max-height: 85vh;
   }
-  
+
   .result-item {
     padding: 12px;
   }
-  
+
   .result-item .avatar {
     width: 48px;
     height: 48px;

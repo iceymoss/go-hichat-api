@@ -301,25 +301,23 @@ const getParticleStyle = (index) => {
 </script>
 
 <style scoped>
-/* 图片查看器进入/退出动画 */
+/* Transition */
 .image-viewer-enter-active {
-  transition: all 0.6s cubic-bezier(0.23, 1, 0.320, 1);
+  transition: all 0.3s ease;
 }
 
 .image-viewer-leave-active {
-  transition: all 0.4s cubic-bezier(0.755, 0.05, 0.855, 0.06);
+  transition: all 0.25s ease;
 }
 
 .image-viewer-enter-from {
   opacity: 0;
-  transform: scale(0.8) rotateY(-15deg);
-  filter: blur(10px);
+  transform: scale(0.95);
 }
 
 .image-viewer-leave-to {
   opacity: 0;
-  transform: scale(1.2) rotateY(15deg);
-  filter: blur(5px);
+  transform: scale(1.02);
 }
 
 .image-viewer-overlay {
@@ -328,71 +326,17 @@ const getParticleStyle = (index) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, 
-    rgba(0, 0, 0, 0.95) 0%, 
-    rgba(17, 24, 39, 0.98) 50%, 
-    rgba(0, 0, 0, 0.95) 100%);
+  background: rgba(0, 0, 0, 0.95);
   z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(20px) saturate(1.5);
 }
 
-/* 背景粒子效果 */
-.background-particles {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.particle {
-  position: absolute;
-  background: linear-gradient(45deg, 
-    rgba(74, 140, 255, 0.6), 
-    rgba(138, 105, 255, 0.4), 
-    rgba(255, 255, 255, 0.3));
-  border-radius: 50%;
-  filter: blur(1px);
-  animation: float linear infinite;
-}
-
-@keyframes float {
-  0% {
-    transform: translateY(100vh) rotate(0deg);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-100vh) rotate(360deg);
-    opacity: 0;
-  }
-}
-
-/* 环境光晕效果 */
+/* Particles and glow removed for flat dark theme */
+.background-particles,
 .ambient-glow {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 800px;
-  height: 800px;
-  transform: translate(-50%, -50%) scale(1);
-  background: radial-gradient(circle, 
-    rgba(74, 140, 255, 0.08) 0%, 
-    rgba(138, 105, 255, 0.05) 30%, 
-    transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
-  opacity: 0.4;
+  display: none;
 }
 
 .image-viewer-container {
@@ -408,54 +352,40 @@ const getParticleStyle = (index) => {
   position: absolute;
   top: 20px;
   right: 20px;
-  width: 50px;
-  height: 50px;
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.2), 
-    rgba(255, 255, 255, 0.1));
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  color: white;
-  font-size: 24px;
+  width: 44px;
+  height: 44px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--muted);
+  font-size: 22px;
   cursor: pointer;
   z-index: 10;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(15px) saturate(1.5);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-btn:hover {
-  background: linear-gradient(135deg, 
-    rgba(239, 68, 68, 0.8), 
-    rgba(220, 38, 38, 0.6));
-  border-color: rgba(239, 68, 68, 0.6);
-  transform: scale(1.15) rotate(90deg);
-  box-shadow: 
-    0 12px 48px rgba(239, 68, 68, 0.4),
-    0 0 20px rgba(239, 68, 68, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  background: rgba(192, 57, 43, 0.15);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .image-counter {
   position: absolute;
   top: 20px;
   left: 20px;
-  background: linear-gradient(135deg, 
-    rgba(0, 0, 0, 0.8), 
-    rgba(17, 24, 39, 0.7));
-  color: white;
-  padding: 10px 18px;
-  border-radius: 25px;
+  background: var(--card);
+  color: var(--muted);
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
   font-size: 14px;
+  font-family: var(--font-ui);
   font-weight: 600;
   z-index: 10;
-  backdrop-filter: blur(15px) saturate(1.3);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--border);
 }
 
 .image-container {
@@ -466,36 +396,17 @@ const getParticleStyle = (index) => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 20px;
-  box-shadow: 
-    0 25px 80px rgba(0, 0, 0, 0.5),
-    0 0 50px rgba(74, 140, 255, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
 }
 
 .main-image {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s ease;
   user-select: none;
   -webkit-user-drag: none;
-  border-radius: 20px;
-  filter: saturate(1.1) contrast(1.05);
-  animation: imageReveal 0.8s cubic-bezier(0.23, 1, 0.320, 1);
-}
-
-@keyframes imageReveal {
-  0% {
-    opacity: 0;
-    transform: scale(0.8) rotateY(-20deg);
-    filter: blur(20px) saturate(0.5);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) rotateY(0deg);
-    filter: saturate(1.1) contrast(1.05);
-  }
+  border-radius: var(--radius-md);
 }
 
 .loading-spinner {
@@ -506,70 +417,41 @@ const getParticleStyle = (index) => {
 }
 
 .spinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid transparent;
-  border-top: 4px solid #4a8cff;
-  border-right: 4px solid #8a69ff;
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--border);
+  border-top: 3px solid var(--accent);
   border-radius: 50%;
-  animation: spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
-  box-shadow: 
-    0 0 30px rgba(74, 140, 255, 0.3),
-    inset 0 0 20px rgba(138, 105, 255, 0.2);
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  0% { 
-    transform: rotate(0deg) scale(1);
-    box-shadow: 
-      0 0 30px rgba(74, 140, 255, 0.3),
-      inset 0 0 20px rgba(138, 105, 255, 0.2);
-  }
-  50% { 
-    transform: rotate(180deg) scale(1.1);
-    box-shadow: 
-      0 0 40px rgba(74, 140, 255, 0.5),
-      inset 0 0 30px rgba(138, 105, 255, 0.4);
-  }
-  100% { 
-    transform: rotate(360deg) scale(1);
-    box-shadow: 
-      0 0 30px rgba(74, 140, 255, 0.3),
-      inset 0 0 20px rgba(138, 105, 255, 0.2);
-  }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .nav-btn {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 60px;
-  height: 60px;
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.2), 
-    rgba(255, 255, 255, 0.1));
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  color: white;
-  font-size: 24px;
+  width: 50px;
+  height: 50px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--fg);
+  font-size: 22px;
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(15px) saturate(1.5);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .nav-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, 
-    rgba(74, 140, 255, 0.8), 
-    rgba(138, 105, 255, 0.6));
-  border-color: rgba(74, 140, 255, 0.6);
-  transform: translateY(-50%) scale(1.2);
-  box-shadow: 
-    0 15px 50px rgba(74, 140, 255, 0.4),
-    0 0 30px rgba(74, 140, 255, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .nav-btn:disabled {
@@ -591,64 +473,36 @@ const getParticleStyle = (index) => {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 12px;
-  background: linear-gradient(135deg, 
-    rgba(0, 0, 0, 0.8), 
-    rgba(17, 24, 39, 0.7));
-  padding: 12px 20px;
-  border-radius: 35px;
-  backdrop-filter: blur(20px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 
-    0 15px 50px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  gap: 10px;
+  background: var(--card);
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
   max-width: 90%;
   overflow-x: auto;
 }
 
 .thumbnail-item {
-  width: 60px;
-  height: 60px;
-  border-radius: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   border: 2px solid transparent;
   flex-shrink: 0;
-  position: relative;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
 .thumbnail-item::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-  background: linear-gradient(135deg, 
-    rgba(74, 140, 255, 0.2), 
-    rgba(138, 105, 255, 0.2));
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  display: none;
 }
 
 .thumbnail-item.active {
-  border-color: #4a8cff;
-  transform: scale(1.15);
-  box-shadow: 
-    0 8px 25px rgba(74, 140, 255, 0.4),
-    0 0 20px rgba(74, 140, 255, 0.3);
-}
-
-.thumbnail-item.active::before {
-  opacity: 1;
+  border-color: var(--accent);
 }
 
 .thumbnail-item:hover {
-  transform: scale(1.08);
-  border-color: rgba(74, 140, 255, 0.5);
-  box-shadow: 
-    0 6px 20px rgba(74, 140, 255, 0.3),
-    0 0 15px rgba(74, 140, 255, 0.2);
+  border-color: var(--border);
 }
 
 .thumbnail-item img {
@@ -663,102 +517,78 @@ const getParticleStyle = (index) => {
   right: 20px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: linear-gradient(135deg, 
-    rgba(0, 0, 0, 0.8), 
-    rgba(17, 24, 39, 0.7));
-  padding: 12px 18px;
-  border-radius: 35px;
-  backdrop-filter: blur(20px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 
-    0 15px 50px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  gap: 10px;
+  background: var(--card);
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
 }
 
 .tool-btn {
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.2), 
-    rgba(255, 255, 255, 0.1));
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  color: white;
+  width: 36px;
+  height: 36px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--muted);
   font-size: 16px;
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 
-    0 4px 15px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tool-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, 
-    rgba(74, 140, 255, 0.8), 
-    rgba(138, 105, 255, 0.6));
-  border-color: rgba(74, 140, 255, 0.6);
-  transform: scale(1.15) rotate(5deg);
-  box-shadow: 
-    0 8px 25px rgba(74, 140, 255, 0.4),
-    0 0 20px rgba(74, 140, 255, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .tool-btn:disabled {
   opacity: 0.2;
   cursor: not-allowed;
-  transform: none;
 }
 
 .zoom-level {
-  color: white;
-  font-size: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-family: var(--font-ui);
   font-weight: 600;
-  min-width: 55px;
+  min-width: 50px;
   text-align: center;
-  background: linear-gradient(135deg, 
-    rgba(74, 140, 255, 0.3), 
-    rgba(138, 105, 255, 0.2));
-  border-radius: 20px;
-  padding: 6px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(10px);
-  box-shadow: 
-    0 2px 10px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-/* 响应式设计 */
+/* Responsive */
 @media (max-width: 768px) {
   .thumbnail-nav {
     bottom: 100px;
     max-width: 95%;
   }
-  
+
   .toolbar {
     bottom: 20px;
     right: 50%;
     transform: translateX(50%);
   }
-  
+
   .nav-btn {
-    width: 50px;
-    height: 50px;
+    width: 44px;
+    height: 44px;
     font-size: 20px;
   }
-  
+
   .prev-btn {
-    left: 20px;
+    left: 16px;
   }
-  
+
   .next-btn {
-    right: 20px;
+    right: 16px;
   }
-  
+
   .thumbnail-item {
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
   }
 }
 </style> 

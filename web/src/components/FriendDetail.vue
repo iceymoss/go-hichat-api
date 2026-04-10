@@ -172,7 +172,7 @@ const handleShareFriend = async (f) => {
 .friend-detail-wrapper {
   height: 100%;
   width: 100%;
-  background: #f8fafc;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -185,20 +185,20 @@ const handleShareFriend = async (f) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: var(--muted);
 }
 .empty-icon-circle {
   width: 72px;
   height: 72px;
-  background: #f1f5f9;
-  border-radius: 50%;
+  background: var(--card);
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 12px;
 }
-.empty-icon-circle .icon { font-size: 28px; color: #94a3b8; }
-.empty-text { font-size: 14px; }
+.empty-icon-circle .icon { font-size: 28px; color: var(--muted); }
+.empty-text { font-size: 14px; font-family: var(--font-ui); }
 
 /* 资料容器 */
 .profile-container {
@@ -235,7 +235,7 @@ const handleShareFriend = async (f) => {
 .avatar {
   width: 100%;
   height: 100%;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   object-fit: cover;
 }
 
@@ -254,18 +254,20 @@ const handleShareFriend = async (f) => {
 .remark {
   font-size: 22px;
   font-weight: 600;
-  color: #0f172a;
+  font-family: var(--font-display);
+  color: var(--fg);
   margin-right: 8px;
 }
 
 .gender-icon { font-size: 14px; }
-.icon-male { color: #3b82f6; }
-.icon-female { color: #ec4899; }
+.icon-male { color: #5b9bd5; }
+.icon-female { color: #d4789c; }
 
 .sub-info {
   font-size: 13px;
-  color: #64748b;
+  color: var(--muted);
   line-height: 1.6;
+  font-family: var(--font-ui);
 }
 
 .btn-settings {
@@ -276,23 +278,23 @@ const handleShareFriend = async (f) => {
   border: none;
   cursor: pointer;
   padding: 6px;
-  color: #94a3b8;
-  border-radius: 6px;
-  transition: all 0.15s;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
 }
-.btn-settings:hover { color: #64748b; background: #f1f5f9; }
+.btn-settings:hover { color: var(--fg); background: var(--card); }
 .btn-settings .icon { font-size: 18px; }
 
 .divider {
   height: 1px;
-  background: #e2e8f0;
+  background: var(--border);
 }
 
 /* 2. 信息列表区域 */
 .info-list {
-  background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
   overflow: hidden;
 }
 
@@ -300,22 +302,23 @@ const handleShareFriend = async (f) => {
   display: flex;
   padding: 12px 16px;
   align-items: flex-start;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-light);
 }
 .info-item:last-child { border-bottom: none; }
 
 .info-item.clickable {
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.2s;
 }
 .info-item.clickable:hover {
-  background: #f8fafc;
+  background: var(--card-hover);
 }
 
 .label {
   width: 72px;
-  color: #64748b;
+  color: var(--muted);
   font-size: 13px;
+  font-family: var(--font-ui);
   flex-shrink: 0;
   padding-top: 1px;
 }
@@ -323,11 +326,12 @@ const handleShareFriend = async (f) => {
 .content {
   flex: 1;
   font-size: 13px;
-  color: #1e293b;
+  color: var(--fg);
+  font-family: var(--font-ui);
   line-height: 1.5;
 }
 
-.placeholder { color: #cbd5e1; }
+.placeholder { color: var(--muted); opacity: 0.5; }
 
 .tags-wrapper {
   display: flex;
@@ -336,21 +340,23 @@ const handleShareFriend = async (f) => {
 }
 
 .tag-badge {
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--accent-muted);
+  color: var(--accent);
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
+  font-weight: 500;
 }
 
 .signature {
-  color: #475569;
+  color: var(--muted);
 }
 
 .arrow {
-  color: #cbd5e1;
+  color: var(--muted);
   font-size: 14px;
   margin-left: 8px;
+  opacity: 0.5;
 }
 
 .moments-item {
@@ -369,8 +375,8 @@ const handleShareFriend = async (f) => {
 .thumb-img {
   width: 36px;
   height: 36px;
-  background: #f1f5f9;
-  border-radius: 6px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
 }
 
 /* 3. 底部操作按钮区域 */
@@ -382,33 +388,34 @@ const handleShareFriend = async (f) => {
 .btn-block {
   flex: 1;
   height: 44px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 500;
+  font-family: var(--font-ui);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
 
 .btn-primary {
-  background: #2563eb;
-  color: white;
+  background: var(--accent);
+  color: #fff;
   border: none;
 }
 .btn-primary:hover {
-  background: #1d4ed8;
+  background: var(--accent-hover);
 }
 
 .btn-default {
-  background: #fff;
-  color: #334155;
-  border: 1px solid #e2e8f0;
+  background: var(--card);
+  color: var(--fg);
+  border: 1px solid var(--border);
 }
 .btn-default:hover {
-  background: #f8fafc;
+  background: var(--card-hover);
 }
 
 .btn-block .icon {

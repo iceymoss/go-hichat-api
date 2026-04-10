@@ -338,20 +338,20 @@ const confirmAccept = async () => {
   width: 100%;
   display: flex;
   justify-content: center;
-  background: #f8fafc;
+  background: var(--bg);
 }
 
 .new-friends-container {
   width: 100%;
   max-width: 960px;
-  background: #fff;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
 }
 
 .header {
   padding: 0 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   height: 52px;
@@ -367,56 +367,59 @@ const confirmAccept = async () => {
 .title {
   font-size: 15px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--fg);
+  font-family: var(--font-display);
 }
 
 .class-tabs {
   display: flex;
-  background: #f1f5f9;
+  background: var(--card);
   padding: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .class-tabs span {
   font-size: 12px;
-  color: #64748b;
+  color: var(--muted);
   cursor: pointer;
   padding: 4px 14px;
   border-radius: 4px;
   transition: all 0.15s;
   font-weight: 500;
+  font-family: var(--font-ui);
 }
 
 .class-tabs span.active {
-  color: #0f172a;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  color: #fff;
+  background: var(--card-hover);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .type-tabs {
   display: flex;
   gap: 4px;
   padding: 8px 24px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .type-tabs span {
   font-size: 12px;
-  color: #64748b;
+  color: var(--muted);
   cursor: pointer;
   padding: 5px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   transition: all 0.15s;
   font-weight: 500;
+  font-family: var(--font-ui);
 }
 
 .type-tabs span:hover {
-  background: #f8fafc;
+  background: var(--card);
 }
 
 .type-tabs span.active {
-  color: #2563eb;
-  background: #eff6ff;
+  color: var(--accent);
+  background: var(--accent-muted);
 }
 
 .request-list {
@@ -430,13 +433,13 @@ const confirmAccept = async () => {
   align-items: center;
   justify-content: center;
   padding-top: 80px;
-  color: #94a3b8;
+  color: var(--muted);
 }
 
 .empty-icon-circle {
   width: 56px;
   height: 56px;
-  background: #f1f5f9;
+  background: var(--card);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -446,24 +449,25 @@ const confirmAccept = async () => {
 
 .empty-icon-circle .icon {
   font-size: 24px;
-  color: #cbd5e1;
+  color: var(--muted);
 }
 
 .empty-state p {
   font-size: 13px;
+  font-family: var(--font-ui);
 }
 
 .request-item {
   display: flex;
   padding: 12px 24px;
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid var(--border-light);
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.15s;
   align-items: center;
 }
 
 .request-item:hover {
-  background: #f8fafc;
+  background: var(--card);
 }
 
 .avatar {
@@ -491,26 +495,27 @@ const confirmAccept = async () => {
 .name {
   font-size: 14px;
   font-weight: 500;
-  color: #1e293b;
+  color: var(--fg);
+  font-family: var(--font-ui);
 }
 
 .tag-label {
   font-size: 10px;
-  background: #fef3c7;
-  color: #d97706;
+  background: var(--accent-muted);
+  color: var(--accent);
   padding: 1px 6px;
   border-radius: 3px;
   font-weight: 500;
 }
 
 .tag-label.sent {
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--accent-muted);
+  color: var(--accent);
 }
 
 .message {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -522,24 +527,25 @@ const confirmAccept = async () => {
 }
 
 .btn-accept {
-  background: #2563eb;
-  color: white;
+  background: var(--accent);
+  color: #fff;
   border: none;
   padding: 6px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   cursor: pointer;
   font-weight: 500;
   transition: background 0.15s;
+  font-family: var(--font-ui);
 }
 
 .btn-accept:hover {
-  background: #1d4ed8;
+  background: var(--accent-hover);
 }
 
 .status-text {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--muted);
 }
 
 /* Modal Styles */
@@ -549,7 +555,7 @@ const confirmAccept = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -557,11 +563,12 @@ const confirmAccept = async () => {
 }
 
 .handle-modal {
-  background: white;
-  border-radius: 12px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
   width: 400px;
   padding: 24px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
 }
 
 .modal-header {
@@ -575,28 +582,30 @@ const confirmAccept = async () => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--fg);
+  font-family: var(--font-display);
 }
 
 .btn-close {
   background: none;
   border: none;
   font-size: 18px;
-  color: #94a3b8;
+  color: var(--muted);
   cursor: pointer;
   padding: 4px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   transition: all 0.15s;
 }
-.btn-close:hover { background: #f1f5f9; color: #64748b; }
+.btn-close:hover { background: var(--card-hover); color: var(--fg); }
 
 .user-preview {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
   padding: 12px;
-  background: #f8fafc;
-  border-radius: 10px;
+  background: var(--input-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
 }
 
 .preview-avatar {
@@ -608,13 +617,14 @@ const confirmAccept = async () => {
 
 .preview-name {
   font-weight: 500;
-  color: #0f172a;
+  color: var(--fg);
   font-size: 14px;
+  font-family: var(--font-ui);
 }
 
 .preview-msg {
   font-size: 12px;
-  color: #64748b;
+  color: var(--muted);
   margin-top: 2px;
 }
 
@@ -626,40 +636,44 @@ const confirmAccept = async () => {
   display: block;
   font-size: 13px;
   font-weight: 500;
-  color: #334155;
+  color: var(--fg);
   margin-bottom: 6px;
+  font-family: var(--font-ui);
 }
 
 .input-field {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 14px;
   outline: none;
   transition: border-color 0.15s;
-  color: #1e293b;
+  color: var(--fg);
+  background: var(--input-bg);
+  font-family: var(--font-ui);
 }
 
 .input-field:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(200, 149, 108, 0.1);
 }
 
 .tags-input-wrapper {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 6px;
   min-height: 38px;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   transition: border-color 0.15s;
+  background: var(--input-bg);
 }
 
 .tags-input-wrapper:focus-within {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(200, 149, 108, 0.1);
 }
 
 .tags-list {
@@ -667,8 +681,8 @@ const confirmAccept = async () => {
 }
 
 .tag-item {
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--accent-muted);
+  color: var(--accent);
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -689,7 +703,13 @@ const confirmAccept = async () => {
   min-width: 100px;
   padding: 4px 8px;
   font-size: 13px;
-  color: #1e293b;
+  color: var(--fg);
+  background: transparent;
+  font-family: var(--font-ui);
+}
+
+.tag-input::placeholder {
+  color: var(--muted);
 }
 
 .modal-actions {
@@ -701,23 +721,24 @@ const confirmAccept = async () => {
 .btn-cancel, .btn-confirm {
   flex: 1;
   padding: 9px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   border: none;
   transition: all 0.15s;
+  font-family: var(--font-ui);
 }
 
 .btn-cancel {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--border);
+  color: var(--fg);
 }
-.btn-cancel:hover { background: #e2e8f0; }
+.btn-cancel:hover { background: var(--card-hover); }
 
 .btn-confirm {
-  background: #2563eb;
-  color: white;
+  background: var(--accent);
+  color: #fff;
 }
-.btn-confirm:hover { background: #1d4ed8; }
+.btn-confirm:hover { background: var(--accent-hover); }
 </style>

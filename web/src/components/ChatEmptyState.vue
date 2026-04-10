@@ -130,10 +130,7 @@ function handleVideoCall() {
   padding: 40px;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, 
-    rgba(248, 250, 252, 0.9) 0%, 
-    rgba(241, 245, 249, 0.8) 50%,
-    rgba(235, 239, 245, 0.9) 100%);
+  background: var(--bg);
 }
 
 /* 背景装饰 */
@@ -147,7 +144,7 @@ function handleVideoCall() {
 .floating-shape {
   position: absolute;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(74, 140, 255, 0.1), rgba(138, 105, 255, 0.05));
+  background: var(--accent-muted);
   animation: float 6s ease-in-out infinite;
 }
 
@@ -186,11 +183,11 @@ function handleVideoCall() {
 @keyframes float {
   0%, 100% {
     transform: translateY(0) rotate(0deg);
-    opacity: 0.3;
+    opacity: 0.15;
   }
   50% {
     transform: translateY(-20px) rotate(180deg);
-    opacity: 0.6;
+    opacity: 0.3;
   }
 }
 
@@ -223,10 +220,10 @@ function handleVideoCall() {
 
 .primary-icon {
   font-size: 48px;
-  color: #4a8cff;
+  color: var(--accent);
   z-index: 3;
   position: relative;
-  filter: drop-shadow(0 8px 16px rgba(74, 140, 255, 0.3));
+  filter: drop-shadow(0 8px 16px rgba(200, 149, 108, 0.3));
   animation: iconPulse 3s ease-in-out infinite;
 }
 
@@ -245,7 +242,7 @@ function handleVideoCall() {
 .ring-1 {
   width: 100px;
   height: 100px;
-  border-color: rgba(74, 140, 255, 0.3);
+  border-color: rgba(200, 149, 108, 0.3);
   animation: ringExpand 4s ease-in-out infinite;
   animation-delay: 0s;
 }
@@ -253,7 +250,7 @@ function handleVideoCall() {
 .ring-2 {
   width: 80px;
   height: 80px;
-  border-color: rgba(138, 105, 255, 0.3);
+  border-color: rgba(200, 149, 108, 0.2);
   animation: ringExpand 4s ease-in-out infinite;
   animation-delay: 1s;
 }
@@ -261,7 +258,7 @@ function handleVideoCall() {
 .ring-3 {
   width: 60px;
   height: 60px;
-  border-color: rgba(74, 140, 255, 0.4);
+  border-color: rgba(200, 149, 108, 0.35);
   animation: ringExpand 4s ease-in-out infinite;
   animation-delay: 2s;
 }
@@ -286,21 +283,13 @@ function handleVideoCall() {
   font-size: 32px;
   font-weight: 700;
   margin: 0 0 12px 0;
-  background: linear-gradient(135deg, #1e293b 0%, #4a8cff 50%, #8a69ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: titleShine 3s ease-in-out infinite;
-}
-
-@keyframes titleShine {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  font-family: var(--font-display);
+  color: var(--fg);
 }
 
 .subtitle {
   font-size: 16px;
-  color: #64748b;
+  color: var(--muted);
   margin: 0 0 32px 0;
   line-height: 1.6;
   max-width: 400px;
@@ -318,28 +307,28 @@ function handleVideoCall() {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 20px;
-  border: 1px solid rgba(74, 140, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: var(--card);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
   transition: all 0.3s ease;
 }
 
 .feature-item:hover {
-  background: rgba(74, 140, 255, 0.1);
-  border-color: rgba(74, 140, 255, 0.3);
+  background: var(--accent-muted);
+  border-color: var(--accent);
   transform: translateY(-2px);
 }
 
 .feature-item .icon {
   font-size: 16px;
-  color: #4a8cff;
+  color: var(--accent);
 }
 
 .feature-item span {
   font-size: 14px;
-  color: #1e293b;
+  color: var(--fg);
   font-weight: 500;
+  font-family: var(--font-ui);
 }
 
 /* 快速操作 */
@@ -357,9 +346,10 @@ function handleVideoCall() {
   gap: 10px;
   padding: 16px 24px;
   border: none;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   font-size: 16px;
   font-weight: 600;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -369,39 +359,35 @@ function handleVideoCall() {
 }
 
 .action-btn.primary {
-  background: linear-gradient(135deg, #4a8cff 0%, #8a69ff 100%);
-  color: white;
-  box-shadow: 
-    0 8px 25px rgba(74, 140, 255, 0.3),
-    0 4px 12px rgba(138, 105, 255, 0.2);
+  background: var(--accent);
+  color: var(--bg);
+  box-shadow: 0 8px 25px rgba(200, 149, 108, 0.3);
 }
 
 .action-btn.primary:hover {
+  background: var(--accent-hover);
   transform: translateY(-3px) scale(1.02);
-  box-shadow: 
-    0 12px 35px rgba(74, 140, 255, 0.4),
-    0 6px 16px rgba(138, 105, 255, 0.3);
+  box-shadow: 0 12px 35px rgba(200, 149, 108, 0.4);
 }
 
 .action-btn.secondary {
-  background: rgba(255, 255, 255, 0.8);
-  color: #4a8cff;
-  border: 1px solid rgba(74, 140, 255, 0.2);
-  backdrop-filter: blur(10px);
+  background: var(--card);
+  color: var(--accent);
+  border: 1px solid var(--border);
 }
 
 .action-btn.secondary:hover {
-  background: rgba(74, 140, 255, 0.1);
-  border-color: rgba(74, 140, 255, 0.3);
+  background: var(--accent-muted);
+  border-color: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(74, 140, 255, 0.2);
+  box-shadow: 0 8px 20px rgba(200, 149, 108, 0.15);
 }
 
 .btn-glow {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -428,26 +414,25 @@ function handleVideoCall() {
   align-items: center;
   gap: 16px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(229, 231, 235, 0.5);
-  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition: all 0.3s ease;
-  backdrop-filter: blur(20px);
 }
 
 .shortcut-item:hover {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(74, 140, 255, 0.3);
+  background: var(--card-hover);
+  border-color: var(--accent);
   transform: translateY(-4px);
-  box-shadow: 0 12px 28px rgba(74, 140, 255, 0.15);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
 }
 
 .shortcut-icon {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(74, 140, 255, 0.1), rgba(138, 105, 255, 0.05));
+  border-radius: var(--radius-md);
+  background: var(--accent-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -456,13 +441,13 @@ function handleVideoCall() {
 }
 
 .shortcut-item:hover .shortcut-icon {
-  background: linear-gradient(135deg, rgba(74, 140, 255, 0.2), rgba(138, 105, 255, 0.1));
+  background: rgba(200, 149, 108, 0.25);
   transform: scale(1.1);
 }
 
 .shortcut-icon .icon {
   font-size: 20px;
-  color: #4a8cff;
+  color: var(--accent);
 }
 
 .shortcut-text {
@@ -473,13 +458,14 @@ function handleVideoCall() {
 .shortcut-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-ui);
+  color: var(--fg);
   margin-bottom: 4px;
 }
 
 .shortcut-desc {
   font-size: 14px;
-  color: #64748b;
+  color: var(--muted);
   line-height: 1.4;
 }
 
@@ -488,32 +474,32 @@ function handleVideoCall() {
   .chat-empty-state {
     padding: 20px;
   }
-  
+
   .main-title {
     font-size: 28px;
   }
-  
+
   .subtitle {
     font-size: 15px;
   }
-  
+
   .features {
     gap: 16px;
   }
-  
+
   .quick-actions {
     flex-direction: column;
     align-items: center;
   }
-  
+
   .action-btn {
     min-width: 200px;
   }
-  
+
   .shortcuts {
     grid-template-columns: 1fr;
   }
-  
+
   .shortcut-item {
     padding: 16px;
   }
@@ -524,15 +510,15 @@ function handleVideoCall() {
     width: 100px;
     height: 100px;
   }
-  
+
   .primary-icon {
     font-size: 40px;
   }
-  
+
   .main-title {
     font-size: 24px;
   }
-  
+
   .features {
     flex-direction: column;
     align-items: center;

@@ -26,11 +26,12 @@ import AuthForm from '../components/AuthForm.vue'
 <style scoped>
 .register-page {
   min-height: 100vh;
-  background-color: #f8f9fa;
+  background-color: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  font-family: var(--font-ui);
 }
 
 .register-container {
@@ -53,34 +54,36 @@ import AuthForm from '../components/AuthForm.vue'
 .logo-text {
   font-size: 36px;
   font-weight: 700;
-  color: #111827;
+  color: var(--fg);
   letter-spacing: -0.5px;
+  font-family: var(--font-display);
 }
 
 .logo-version {
   font-size: 16px;
   font-weight: 600;
-  color: #2563eb;
-  background-color: #eff6ff;
+  color: var(--accent);
+  background-color: var(--accent-muted);
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .terms {
   margin-top: 20px;
   text-align: center;
-  color: #9ca3af;
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
 }
 
 .terms-link {
-  color: #2563eb;
+  color: var(--accent);
   text-decoration: none;
   font-weight: 500;
 }
 
 .terms-link:hover {
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 </style>

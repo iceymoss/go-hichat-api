@@ -60,7 +60,7 @@ const close = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.9);
+  background-color: rgba(0, 0, 0, 0.95);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -80,10 +80,15 @@ const close = () => {
   right: 0;
   background: none;
   border: none;
-  color: white;
+  color: var(--fg);
   font-size: 28px;
   cursor: pointer;
   padding: 5px;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: var(--accent);
 }
 
 .image-container {
@@ -99,6 +104,7 @@ const close = () => {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  border-radius: var(--radius-sm);
 }
 
 .nav-btn {
@@ -107,19 +113,22 @@ const close = () => {
   transform: translateY(-50%);
   width: 50px;
   height: 50px;
-  border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: white;
+  border-radius: var(--radius-full);
+  background-color: var(--accent-muted);
+  border: 1px solid var(--border);
+  color: var(--fg);
   font-size: 24px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s;
 }
 
 .nav-btn:hover {
-  background-color: rgba(255, 255, 255, 0.3);
+  background-color: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
 }
 
 .prev {
@@ -139,11 +148,13 @@ const close = () => {
 }
 
 .image-counter {
-  color: white;
+  color: var(--fg);
   font-size: 16px;
-  background-color: rgba(0, 0, 0, 0.5);
+  font-family: var(--font-ui);
+  background-color: var(--card);
+  border: 1px solid var(--border);
   padding: 5px 15px;
-  border-radius: 20px;
+  border-radius: var(--radius-full);
   display: inline-block;
 }
 </style>

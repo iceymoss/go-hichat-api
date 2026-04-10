@@ -365,7 +365,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -379,9 +379,10 @@ onMounted(() => {
 }
 
 .modal-container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
   width: 90%;
   max-width: 600px;
   max-height: 80vh;
@@ -406,14 +407,15 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border);
 }
 
 .modal-header h2 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: var(--fg);
+  font-family: var(--font-display);
 }
 
 .btn-close {
@@ -422,9 +424,9 @@ onMounted(() => {
   border: none;
   background: transparent;
   font-size: 20px;
-  color: #999;
+  color: var(--muted);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -432,8 +434,8 @@ onMounted(() => {
 }
 
 .btn-close:hover {
-  background-color: #f5f5f5;
-  color: #333;
+  background-color: var(--card-hover);
+  color: var(--fg);
 }
 
 .modal-body {
@@ -444,7 +446,7 @@ onMounted(() => {
 
 .tabs {
   display: flex;
-  border-bottom: 2px solid #f0f2f5;
+  border-bottom: 2px solid var(--border);
   padding: 0 24px;
 }
 
@@ -455,7 +457,7 @@ onMounted(() => {
   background: none;
   font-size: 15px;
   font-weight: 500;
-  color: #666;
+  color: var(--muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
@@ -463,15 +465,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-family: var(--font-ui);
 }
 
 .tabs button:hover {
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .tabs button.active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .badge {
@@ -482,8 +485,8 @@ onMounted(() => {
   height: 20px;
   padding: 0 6px;
   border-radius: 10px;
-  background: #dc3535;
-  color: white;
+  background: var(--danger);
+  color: #fff;
   font-size: 12px;
   font-weight: 600;
 }
@@ -498,7 +501,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #999;
+  color: var(--muted);
   gap: 12px;
 }
 
@@ -517,18 +520,19 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #999;
+  color: var(--muted);
   gap: 12px;
 }
 
 .empty .icon {
   font-size: 48px;
-  color: #ccc;
+  color: var(--border);
 }
 
 .empty p {
   margin: 0;
   font-size: 16px;
+  font-family: var(--font-ui);
 }
 
 .requests-list {
@@ -541,9 +545,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #fff;
+  background: var(--card);
   padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-light);
   transition: background-color 0.2s;
 }
 
@@ -552,29 +556,29 @@ onMounted(() => {
 }
 
 .request-item:hover {
-  background: #f7f7f7;
+  background: var(--card-hover);
 }
 
 .request-item.pending {
-  background: #fffbf0;
+  background: var(--accent-muted);
 }
 
 .request-item.accepted {
-  background: #fff;
+  background: var(--card);
 }
 
 .request-item.rejected {
-  background: #fff;
+  background: var(--card);
 }
 
 .request-item.ignored {
-  background: #fff;
+  background: var(--card);
 }
 
 .avatar {
   width: 48px;
   height: 48px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
   cursor: pointer;
@@ -600,7 +604,8 @@ onMounted(() => {
 .name {
   font-size: 15px;
   font-weight: 500;
-  color: #333;
+  color: var(--fg);
+  font-family: var(--font-ui);
 }
 
 .status-badge {
@@ -611,33 +616,28 @@ onMounted(() => {
 }
 
 .status-badge.pending {
-  background: #ffc107;
+  background: var(--accent);
   color: #fff;
 }
 
 .status-badge.accepted {
-  background: #2563eb;
+  background: var(--success);
   color: #fff;
 }
 
 .status-badge.rejected {
-  background: #fa5151;
+  background: var(--danger);
   color: #fff;
 }
 
 .status-badge.ignored {
-  background: #999;
-  color: #fff;
-}
-
-.status-badge.ignored {
-  background: #999;
+  background: var(--muted);
   color: #fff;
 }
 
 .message {
   font-size: 13px;
-  color: #888;
+  color: var(--muted);
   margin: 2px 0;
   line-height: 1.4;
   overflow: hidden;
@@ -664,7 +664,7 @@ onMounted(() => {
 
 .time {
   font-size: 11px;
-  color: #999;
+  color: var(--muted);
   margin-top: 2px;
 }
 
@@ -678,7 +678,7 @@ onMounted(() => {
 .btn-accept,
 .btn-reject {
   padding: 6px 20px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -686,26 +686,27 @@ onMounted(() => {
   transition: all 0.2s;
   white-space: nowrap;
   min-width: 60px;
+  font-family: var(--font-ui);
 }
 
 .btn-accept {
-  background: #2563eb;
-  color: white;
+  background: var(--accent);
+  color: #fff;
 }
 
 .btn-accept:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: var(--accent-hover);
 }
 
 .btn-reject {
-  background: #fff;
-  color: #666;
-  border: 1px solid #ddd;
+  background: var(--border);
+  color: var(--fg);
+  border: 1px solid var(--border);
 }
 
 .btn-reject:hover:not(:disabled) {
-  background: #f7f7f7;
-  border-color: #bbb;
+  background: var(--card-hover);
+  border-color: var(--muted);
 }
 
 .btn-accept:disabled,
@@ -716,7 +717,7 @@ onMounted(() => {
 
 .status-text-final {
   font-size: 14px;
-  color: #999;
+  color: var(--muted);
   padding: 6px 12px;
 }
 

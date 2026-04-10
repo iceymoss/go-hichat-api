@@ -186,11 +186,12 @@ const showAllComments = () => {
 
 <style scoped>
 .feed-item {
-  background-color: white;
-  border-radius: 12px;
+  background-color: var(--card);
+  border-radius: var(--radius-md);
   padding: 16px;
   margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
+  font-family: var(--font-ui);
 }
 
 .feed-header {
@@ -202,9 +203,10 @@ const showAllComments = () => {
 .avatar {
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   margin-right: 12px;
   object-fit: cover;
+  border: 2px solid var(--border);
 }
 
 .user-info {
@@ -213,20 +215,21 @@ const showAllComments = () => {
 }
 
 .user-name {
-  font-weight: 500;
+  font-weight: 600;
   margin-bottom: 2px;
+  color: var(--fg);
 }
 
 .post-time {
   font-size: 12px;
-  color: #999;
+  color: var(--muted);
 }
 
 .feed-content {
   margin-bottom: 16px;
   font-size: 15px;
   line-height: 1.5;
-  color: #333;
+  color: var(--fg);
 }
 
 .feed-images {
@@ -236,7 +239,7 @@ const showAllComments = () => {
 .image-grid {
   display: grid;
   gap: 4px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -286,8 +289,8 @@ const showAllComments = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  color: white;
+  background-color: var(--overlay);
+  color: var(--fg);
   font-size: 20px;
   font-weight: bold;
   display: flex;
@@ -298,9 +301,9 @@ const showAllComments = () => {
 .feed-stats {
   display: flex;
   padding: 8px 0;
-  border-top: 1px solid #f0f2f5;
-  border-bottom: 1px solid #f0f2f5;
-  color: #666;
+  border-top: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -311,7 +314,7 @@ const showAllComments = () => {
 .feed-actions {
   display: flex;
   padding: 8px 0;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .action-btn {
@@ -324,15 +327,21 @@ const showAllComments = () => {
   border: none;
   padding: 8px;
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   transition: all 0.2s;
+  font-family: var(--font-ui);
 }
 
-.action-btn:hover, .action-btn.active {
-  background-color: #f0f2f5;
-  color: #4a8cff;
+.action-btn:hover {
+  background-color: var(--accent-muted);
+  color: var(--accent);
+}
+
+.action-btn.active {
+  background-color: var(--accent-muted);
+  color: var(--accent);
 }
 
 .feed-comments {
@@ -351,7 +360,7 @@ const showAllComments = () => {
 .comment-avatar {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   margin-right: 8px;
   flex-shrink: 0;
   object-fit: cover;
@@ -359,38 +368,40 @@ const showAllComments = () => {
 
 .comment-content {
   flex: 1;
-  background-color: #f0f2f5;
-  border-radius: 16px;
+  background-color: var(--input-bg);
+  border-radius: var(--radius-lg);
   padding: 8px 12px;
+  border: 1px solid var(--border-light);
 }
 
 .comment-user {
-  font-weight: 500;
+  font-weight: 600;
   font-size: 13px;
   margin-bottom: 2px;
+  color: var(--fg);
 }
 
 .comment-text {
   font-size: 14px;
-  color: #333;
+  color: var(--fg);
   line-height: 1.4;
 }
 
 .comment-time {
   font-size: 12px;
-  color: #999;
+  color: var(--muted);
   margin-top: 4px;
 }
 
 .view-more {
   font-size: 13px;
-  color: #999;
+  color: var(--muted);
   padding: 6px 0;
   cursor: pointer;
 }
 
 .view-more:hover {
-  color: #4a8cff;
+  color: var(--accent);
 }
 
 .comment-input-box {
@@ -404,29 +415,42 @@ const showAllComments = () => {
 
 .comment-input-box input {
   flex: 1;
-  background-color: #f0f2f5;
-  border: none;
-  border-radius: 16px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 10px 15px;
   font-size: 14px;
+  color: var(--fg);
+  font-family: var(--font-ui);
+}
+
+.comment-input-box input::placeholder {
+  color: var(--muted);
+}
+
+.comment-input-box input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .send-btn {
   margin-left: 8px;
   background: none;
   border: none;
-  color: #4a8cff;
+  color: var(--accent);
   font-size: 20px;
   cursor: pointer;
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s;
 }
 
 .send-btn:hover {
-  background-color: #eef5ff;
+  background-color: var(--accent-muted);
+  color: var(--accent-hover);
 }
 </style>

@@ -370,17 +370,18 @@ const viewUserProfile = (user) => {
 <style scoped>
 .add-friend-view {
   min-height: 100vh;
-  background: #f8fafc;
+  background: var(--bg);
   padding: 20px;
+  font-family: var(--font-ui);
 }
 
 .container {
   max-width: 800px;
   margin: 0 auto;
-  background: white;
-  border-radius: 12px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
 }
 
 .header {
@@ -392,13 +393,14 @@ const viewUserProfile = (user) => {
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 600;
-  color: #333;
+  font-family: var(--font-display);
+  color: var(--fg);
 }
 
 .subtitle {
   margin: 0;
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
 }
 
 .search-section {
@@ -408,19 +410,19 @@ const viewUserProfile = (user) => {
 .search-container {
   display: flex;
   align-items: center;
-  background: #f8f9fa;
-  border-radius: 10px;
+  background: var(--input-bg);
+  border-radius: var(--radius-md);
   padding: 12px 16px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border);
   transition: border-color 0.2s;
 }
 
 .search-container:focus-within {
-  border-color: #2563eb;
+  border-color: var(--accent);
 }
 
 .search-container .icon {
-  color: #999;
+  color: var(--muted);
   margin-right: 12px;
   font-size: 18px;
 }
@@ -430,43 +432,45 @@ const viewUserProfile = (user) => {
   border: none;
   background: none;
   font-size: 15px;
+  font-family: var(--font-ui);
   outline: none;
-  color: #333;
+  color: var(--fg);
 }
 
 .search-container input::placeholder {
-  color: #999;
+  color: var(--muted);
 }
 
 .btn-search,
 .btn-loading {
   padding: 8px 20px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-weight: 500;
+  font-family: var(--font-ui);
   cursor: pointer;
   border: none;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
   margin-left: 12px;
 }
 
 .btn-search {
-  background: #2563eb;
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .btn-search:hover:not(:disabled) {
-  background: #357abd;
+  background: var(--accent-hover);
 }
 
 .btn-search:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .btn-loading {
-  background: #e9ecef;
-  color: #999;
+  background: var(--border);
+  color: var(--muted);
   cursor: not-allowed;
 }
 
@@ -493,12 +497,13 @@ const viewUserProfile = (user) => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  font-family: var(--font-display);
+  color: var(--fg);
 }
 
 .count {
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
 }
 
 .results-list {
@@ -512,23 +517,21 @@ const viewUserProfile = (user) => {
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: #f8f9fa;
-  border-radius: 12px;
-  border: 1px solid #e9ecef;
-  transition: all 0.2s;
+  background: var(--input-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  transition: background-color 0.2s;
   cursor: pointer;
 }
 
 .result-item:hover {
-  background: #f0f2f5;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transform: translateY(-1px);
+  background: var(--card-hover);
 }
 
 .avatar {
   width: 64px;
   height: 64px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -548,7 +551,7 @@ const viewUserProfile = (user) => {
 .name {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--fg);
 }
 
 .status-badge {
@@ -562,18 +565,18 @@ const viewUserProfile = (user) => {
 }
 
 .status-badge.sent {
-  background: #d4edda;
-  color: #155724;
+  background: rgba(39, 174, 96, 0.15);
+  color: var(--success);
 }
 
 .status-badge.sending {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--accent-muted);
+  color: var(--accent);
 }
 
 .account {
   font-size: 13px;
-  color: #999;
+  color: var(--muted);
   margin-bottom: 8px;
 }
 
@@ -587,14 +590,14 @@ const viewUserProfile = (user) => {
 .tag {
   font-size: 12px;
   padding: 4px 8px;
-  background: #e9ecef;
+  background: var(--accent-muted);
   border-radius: 4px;
-  color: #666;
+  color: var(--accent);
 }
 
 .detail {
   font-size: 13px;
-  color: #666;
+  color: var(--muted);
   margin-top: 4px;
   display: flex;
   align-items: center;
@@ -609,12 +612,13 @@ const viewUserProfile = (user) => {
 .btn-sending,
 .btn-sent {
   padding: 10px 20px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-weight: 500;
+  font-family: var(--font-ui);
   cursor: pointer;
   border: none;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -622,23 +626,23 @@ const viewUserProfile = (user) => {
 }
 
 .btn-add {
-  background: #2563eb;
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .btn-add:hover:not(:disabled) {
-  background: #357abd;
+  background: var(--accent-hover);
 }
 
 .btn-sending {
-  background: #e9ecef;
-  color: #666;
+  background: var(--border);
+  color: var(--muted);
   cursor: not-allowed;
 }
 
 .btn-sent {
-  background: #d4edda;
-  color: #155724;
+  background: rgba(39, 174, 96, 0.15);
+  color: var(--success);
   cursor: default;
 }
 
@@ -646,13 +650,13 @@ const viewUserProfile = (user) => {
 .initial-state {
   text-align: center;
   padding: 60px 20px;
-  color: #999;
+  color: var(--muted);
 }
 
 .empty-state .icon,
 .initial-state .icon {
   font-size: 64px;
-  color: #ccc;
+  color: var(--border);
   margin-bottom: 16px;
 }
 
@@ -664,16 +668,17 @@ const viewUserProfile = (user) => {
 
 .tip {
   font-size: 14px;
-  color: #999;
+  color: var(--muted);
   margin-top: 8px;
 }
 
 .search-tips {
   margin-top: 24px;
   text-align: left;
-  background: #f8f9fa;
+  background: var(--input-bg);
   padding: 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
   max-width: 400px;
   margin-left: auto;
   margin-right: auto;
@@ -681,7 +686,7 @@ const viewUserProfile = (user) => {
 
 .tips-title {
   font-weight: 600;
-  color: #666;
+  color: var(--fg);
   margin-bottom: 8px;
   font-size: 14px;
 }
@@ -689,7 +694,7 @@ const viewUserProfile = (user) => {
 .search-tips ul {
   margin: 0;
   padding-left: 20px;
-  color: #999;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -708,15 +713,15 @@ const viewUserProfile = (user) => {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
 }
 
 .tip-item .icon {
   font-size: 16px;
-  color: #2563eb;
+  color: var(--accent);
 }
 
-/* 申请消息对话框样式（与 AddFriendModal 相同） */
+/* 申请消息对话框 */
 .request-message-dialog {
   position: fixed;
   top: 0;
@@ -732,7 +737,7 @@ const viewUserProfile = (user) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--overlay);
 }
 
 .dialog-content {
@@ -740,15 +745,15 @@ const viewUserProfile = (user) => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: white;
-  border-radius: 12px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
   width: 90%;
   max-width: 400px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
 }
 
 .dialog-header {
@@ -756,13 +761,27 @@ const viewUserProfile = (user) => {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--border);
 }
 
 .dialog-header h4 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+  font-family: var(--font-display);
+  color: var(--fg);
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.btn-close:hover {
+  color: var(--fg);
 }
 
 .dialog-body {
@@ -778,19 +797,21 @@ const viewUserProfile = (user) => {
   gap: 12px;
   margin-bottom: 20px;
   padding: 16px;
-  background: #f8f9fa;
-  border-radius: 8px;
+  background: var(--input-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
 }
 
 .user-preview .avatar {
   width: 64px;
   height: 64px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 
 .user-name {
   font-size: 16px;
   font-weight: 600;
+  color: var(--fg);
 }
 
 .message-input {
@@ -801,30 +822,37 @@ const viewUserProfile = (user) => {
   display: block;
   margin-bottom: 8px;
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
   font-weight: 500;
 }
 
 .message-input textarea {
   width: 100%;
   padding: 10px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  font-family: inherit;
+  font-family: var(--font-ui);
+  background: var(--input-bg);
+  color: var(--fg);
   resize: vertical;
   outline: none;
   transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.message-input textarea::placeholder {
+  color: var(--muted);
 }
 
 .message-input textarea:focus {
-  border-color: #2563eb;
+  border-color: var(--accent);
 }
 
 .char-count {
   text-align: right;
   font-size: 12px;
-  color: #999;
+  color: var(--muted);
   margin-top: 4px;
 }
 
@@ -833,40 +861,41 @@ const viewUserProfile = (user) => {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid #f0f2f5;
+  border-top: 1px solid var(--border);
 }
 
 .btn-cancel,
 .btn-confirm {
   padding: 8px 20px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-weight: 500;
+  font-family: var(--font-ui);
   cursor: pointer;
   border: none;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
 }
 
 .btn-cancel {
-  background: #f0f2f5;
-  color: #666;
+  background: var(--border);
+  color: var(--muted);
 }
 
 .btn-cancel:hover {
-  background: #e0e0e0;
+  color: var(--fg);
 }
 
 .btn-confirm {
-  background: #2563eb;
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .btn-confirm:hover:not(:disabled) {
-  background: #357abd;
+  background: var(--accent-hover);
 }
 
 .btn-confirm:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -877,24 +906,24 @@ const viewUserProfile = (user) => {
   left: 50%;
   transform: translateX(-50%);
   padding: 12px 20px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 14px;
+  font-family: var(--font-ui);
   z-index: 3000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   animation: slideDown 0.3s ease-out;
 }
 
 .message-toast.success {
-  background: #28a745;
-  color: white;
+  background: var(--success);
+  color: var(--fg);
 }
 
 .message-toast.error {
-  background: #dc3545;
-  color: white;
+  background: var(--danger);
+  color: var(--fg);
 }
 
 @keyframes slideDown {

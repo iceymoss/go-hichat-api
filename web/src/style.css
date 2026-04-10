@@ -1,111 +1,111 @@
-/* 登录页主题色和全局变量 */
+/* ===== HiChat Design System ===== */
 :root {
-  --primary-gradient: linear-gradient(135deg, #4a8cff, #8a69ff);
-  --primary-color: #4a8cff;
-  --primary-color-dark: #8a69ff;
-  --background-color: #f5f6fa;
-  --button-radius: 8px;
+  --bg: #0a0a0a;
+  --fg: #f5f0eb;
+  --muted: #8a8580;
+  --accent: #c8956c;
+  --accent-hover: #d4a57e;
+  --accent-muted: rgba(200, 149, 108, 0.15);
+  --card: #141414;
+  --card-hover: #1a1a18;
+  --border: #2a2520;
+  --border-light: #1e1b18;
+  --danger: #c0392b;
+  --danger-hover: #a93226;
+  --success: #27ae60;
+  --input-bg: #1a1917;
+  --overlay: rgba(0, 0, 0, 0.6);
 
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-ui: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  font-family: var(--font-ui);
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  color: var(--fg);
+  background-color: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #570b75;
-  text-decoration: inherit;
-}
-
-a:hover {
-  color: #535bf2;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background: var(--background-color);
-  font-family: 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+a:hover {
+  color: var(--accent-hover);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--fg);
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+  font-family: var(--font-ui);
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-
-button:hover {
-  border-color: #646cff;
-}
-
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-.card {
-  padding: 2em;
-}
-
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-
-  a:hover {
-    color: #747bff;
-  }
-
-  button {
-    background-color: #f9f9f9;
-  }
-}
-
-.main-bg {
-  background: var(--primary-gradient);
-}
-
-.button,
-.el-button {
-  background: var(--primary-gradient);
-  border-radius: var(--button-radius);
-  color: #fff;
   border: none;
-  transition: background 0.3s;
+  background: transparent;
+  color: var(--fg);
+  font-size: inherit;
 }
 
-.button:hover,
-.el-button:hover {
-  filter: brightness(1.1);
+input, textarea, select {
+  font-family: var(--font-ui);
+  color: var(--fg);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-muted);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--muted);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Global utilities */
+#app {
+  min-height: 100vh;
 }

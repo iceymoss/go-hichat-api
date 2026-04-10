@@ -953,21 +953,19 @@ function canUseOnlinePreview() {
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(10px);
 }
 
 .file-preview-container {
   width: 90vw;
   max-width: 800px;
   height: 80vh;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
 
 .preview-toolbar {
@@ -975,8 +973,8 @@ function canUseOnlinePreview() {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  background: rgba(248, 250, 252, 0.95);
-  border-bottom: 1px solid rgba(229, 231, 235, 0.8);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
 }
 
 .toolbar-left {
@@ -990,13 +988,13 @@ function canUseOnlinePreview() {
 .file-icon {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(74, 140, 255, 0.1), rgba(138, 105, 255, 0.05));
+  border-radius: var(--radius-md);
+  background: var(--accent-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24px;
-  color: #4a8cff;
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -1007,8 +1005,9 @@ function canUseOnlinePreview() {
 
 .file-name {
   font-size: 18px;
+  font-family: var(--font-display);
   font-weight: 600;
-  color: #1e293b;
+  color: var(--fg);
   margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1019,7 +1018,8 @@ function canUseOnlinePreview() {
   display: flex;
   gap: 12px;
   font-size: 14px;
-  color: #64748b;
+  font-family: var(--font-ui);
+  color: var(--muted);
 }
 
 .toolbar-right {
@@ -1031,11 +1031,11 @@ function canUseOnlinePreview() {
   width: 40px;
   height: 40px;
   border: none;
-  border-radius: 8px;
-  background: rgba(107, 114, 128, 0.1);
-  color: #6b7280;
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--muted);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1043,14 +1043,13 @@ function canUseOnlinePreview() {
 }
 
 .tool-btn:hover {
-  background: rgba(74, 140, 255, 0.1);
-  color: #4a8cff;
-  transform: scale(1.05);
+  background: var(--accent-muted);
+  color: var(--accent);
 }
 
 .close-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(192, 57, 43, 0.15);
+  color: var(--danger);
 }
 
 .preview-content {
@@ -1060,6 +1059,7 @@ function canUseOnlinePreview() {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--bg);
 }
 
 .text-preview {
@@ -1071,11 +1071,12 @@ function canUseOnlinePreview() {
   width: 100%;
   height: 100%;
   overflow: auto;
-  background: #f8fafc;
-  border-radius: 8px;
+  background: var(--input-bg);
+  border-radius: var(--radius-sm);
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 14px;
   line-height: 1.6;
+  color: var(--fg);
 }
 
 .text-content pre {
@@ -1095,13 +1096,13 @@ function canUseOnlinePreview() {
   width: 100%;
   height: 100%;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .video-player {
   width: 100%;
   max-height: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .audio-preview {
@@ -1109,11 +1110,11 @@ function canUseOnlinePreview() {
 }
 
 .audio-container {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 16px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
   padding: 32px;
   text-align: center;
-  border: 1px solid rgba(229, 231, 235, 0.6);
+  border: 1px solid var(--border);
 }
 
 .audio-info {
@@ -1126,7 +1127,7 @@ function canUseOnlinePreview() {
 
 .audio-info .icon {
   font-size: 48px;
-  color: #4a8cff;
+  color: var(--accent);
 }
 
 .audio-details {
@@ -1135,14 +1136,16 @@ function canUseOnlinePreview() {
 
 .audio-title {
   font-size: 18px;
+  font-family: var(--font-display);
   font-weight: 600;
-  color: #1e293b;
+  color: var(--fg);
   margin-bottom: 4px;
 }
 
 .audio-subtitle {
   font-size: 14px;
-  color: #64748b;
+  font-family: var(--font-ui);
+  color: var(--muted);
 }
 
 .audio-player {
@@ -1150,7 +1153,7 @@ function canUseOnlinePreview() {
   max-width: 400px;
 }
 
-/* 图片预览样式 */
+/* Image preview */
 .image-preview {
   width: 100%;
   height: 100%;
@@ -1163,11 +1166,10 @@ function canUseOnlinePreview() {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-sm);
 }
 
-/* 可执行文件样式 */
+/* Executable file */
 .executable-preview {
   width: 100%;
   text-align: center;
@@ -1179,25 +1181,26 @@ function canUseOnlinePreview() {
   align-items: center;
   gap: 16px;
   padding: 32px;
-  background: linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%);
-  border-radius: 16px;
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
 }
 
 .executable-info .icon {
   font-size: 64px;
-  color: #f59e0b;
+  color: var(--accent);
 }
 
 .executable-details h3 {
   font-size: 24px;
+  font-family: var(--font-display);
   font-weight: 600;
-  color: #92400e;
+  color: var(--fg);
   margin: 0 0 12px 0;
 }
 
 .warning-text {
-  color: #dc2626;
+  color: var(--danger);
   font-weight: 600;
   font-size: 16px;
   margin: 8px 0;
@@ -1214,21 +1217,21 @@ function canUseOnlinePreview() {
   display: flex;
   justify-content: space-between;
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 8px;
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: var(--input-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
 }
 
 .property-label {
   font-weight: 600;
-  color: #92400e;
+  color: var(--accent);
 }
 
 .property-value {
-  color: #451a03;
+  color: var(--fg);
 }
 
-/* 代码文件样式 */
+/* Code file */
 .code-preview {
   width: 100%;
 }
@@ -1237,12 +1240,14 @@ function canUseOnlinePreview() {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  color: var(--muted);
 }
 
 .code-details h3 {
   font-size: 24px;
+  font-family: var(--font-display);
   font-weight: 600;
-  color: #374151;
+  color: var(--fg);
   margin: 0 0 8px 0;
 }
 
@@ -1254,9 +1259,9 @@ function canUseOnlinePreview() {
 
 .code-content {
   margin-top: 16px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid rgba(229, 231, 235, 0.8);
+  background: var(--input-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   overflow: hidden;
 }
 
@@ -1265,18 +1270,19 @@ function canUseOnlinePreview() {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: rgba(248, 250, 252, 0.8);
-  border-bottom: 1px solid rgba(229, 231, 235, 0.6);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
   font-size: 14px;
+  font-family: var(--font-ui);
 }
 
 .code-language {
   font-weight: 600;
-  color: #4a8cff;
+  color: var(--accent);
 }
 
 .code-lines {
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .code-text {
@@ -1285,6 +1291,7 @@ function canUseOnlinePreview() {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 14px;
   line-height: 1.6;
+  color: var(--fg);
 }
 
 .code-text pre {
@@ -1294,7 +1301,7 @@ function canUseOnlinePreview() {
   word-wrap: break-word;
 }
 
-/* 设计文件样式 */
+/* Design file */
 .design-preview {
   width: 100%;
   text-align: center;
@@ -1306,29 +1313,34 @@ function canUseOnlinePreview() {
   align-items: center;
   gap: 16px;
   padding: 32px;
-  background: linear-gradient(135deg, #f3e8ff 0%, #e0e7ff 100%);
-  border-radius: 16px;
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
 }
 
 .design-info .icon {
   font-size: 64px;
-  color: #8b5cf6;
+  color: var(--accent);
 }
 
 .design-details h3 {
   font-size: 24px;
+  font-family: var(--font-display);
   font-weight: 600;
-  color: #6b21a8;
+  color: var(--fg);
   margin: 0 0 8px 0;
 }
 
-/* Office文档预览样式 */
+.design-details p {
+  color: var(--muted);
+}
+
+/* Office document preview */
 .office-preview {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #f8fafc;
+  background: var(--bg);
 }
 
 .office-header {
@@ -1336,9 +1348,8 @@ function canUseOnlinePreview() {
   align-items: center;
   justify-content: space-between;
   padding: 24px 32px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
   position: relative;
   z-index: 10;
 }
@@ -1356,11 +1367,10 @@ function canUseOnlinePreview() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  border-radius: 12px;
+  background: var(--accent-muted);
+  border-radius: var(--radius-md);
   font-size: 28px;
-  color: white;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  color: var(--accent);
 }
 
 .office-details {
@@ -1369,8 +1379,9 @@ function canUseOnlinePreview() {
 
 .file-title {
   font-size: 22px;
+  font-family: var(--font-display);
   font-weight: 700;
-  color: #1e293b;
+  color: var(--fg);
   margin: 0 0 8px 0;
   line-height: 1.2;
 }
@@ -1385,16 +1396,17 @@ function canUseOnlinePreview() {
 .file-size,
 .file-status {
   font-size: 14px;
+  font-family: var(--font-ui);
   font-weight: 500;
-  color: #64748b;
-  background: #f1f5f9;
+  color: var(--muted);
+  background: var(--input-bg);
   padding: 4px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .file-type {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .office-actions {
@@ -1409,48 +1421,41 @@ function canUseOnlinePreview() {
   gap: 8px;
   padding: 12px 20px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   font-size: 14px;
+  font-family: var(--font-ui);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
+  transition: all 0.2s ease;
 }
 
 .action-button.secondary {
-  background: #f8fafc;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  background: var(--input-bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
 }
 
 .action-button.secondary:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  transform: translateY(-1px);
+  color: var(--fg);
+  border-color: var(--accent);
 }
 
 .action-button.primary {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .action-button.primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+  background: var(--accent-hover);
 }
 
 .action-button.close-btn {
-  background: #ef4444;
+  background: var(--danger);
   color: white;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 .action-button.close-btn:hover {
-  background: #dc2626;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+  opacity: 0.85;
 }
 
 .preview-container {
@@ -1458,7 +1463,7 @@ function canUseOnlinePreview() {
   display: flex;
   flex-direction: column;
   position: relative;
-  background: #f8fafc;
+  background: var(--bg);
   padding: 0;
   margin: 0;
 }
@@ -1470,17 +1475,17 @@ function canUseOnlinePreview() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  background: var(--card);
   margin: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
 }
 
 .loading-spinner {
   width: 48px;
   height: 48px;
-  border: 4px solid #e5e7eb;
-  border-top: 4px solid #4f46e5;
+  border: 3px solid var(--border);
+  border-top: 3px solid var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 20px;
@@ -1488,7 +1493,8 @@ function canUseOnlinePreview() {
 
 .loading-text {
   font-size: 16px;
-  color: #6b7280;
+  font-family: var(--font-ui);
+  color: var(--muted);
   font-weight: 500;
 }
 
@@ -1498,23 +1504,25 @@ function canUseOnlinePreview() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fee2e2;
-  color: #dc2626;
-  border-radius: 50%;
+  background: rgba(192, 57, 43, 0.15);
+  color: var(--danger);
+  border-radius: var(--radius-full);
   font-size: 32px;
   margin-bottom: 20px;
 }
 
 .error-title {
   font-size: 20px;
+  font-family: var(--font-display);
   font-weight: 600;
-  color: #1f2937;
+  color: var(--fg);
   margin: 0 0 12px 0;
 }
 
 .error-message {
   font-size: 16px;
-  color: #6b7280;
+  font-family: var(--font-ui);
+  color: var(--muted);
   margin: 0 0 24px 0;
   text-align: center;
 }
@@ -1530,42 +1538,52 @@ function canUseOnlinePreview() {
   gap: 8px;
   padding: 12px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
+  font-family: var(--font-ui);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .error-btn.secondary {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--input-bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.error-btn.secondary:hover {
+  color: var(--fg);
 }
 
 .error-btn.primary {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.error-btn.primary:hover {
+  background: var(--accent-hover);
 }
 
 .document-preview {
   flex: 1;
   display: flex;
   margin: 20px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  background: white;
+  border: 1px solid var(--border);
+  background: var(--card);
 }
 
 .preview-iframe {
   width: 100%;
   height: 100%;
   border: none;
-  background: white;
+  background: var(--card);
   min-height: 70vh;
 }
 
-/* 本地文档信息界面样式 */
+/* Local document info */
 .local-document-info {
   flex: 1;
   display: flex;
@@ -1573,19 +1591,21 @@ function canUseOnlinePreview() {
   align-items: center;
   justify-content: center;
   padding: 60px 40px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: var(--bg);
   text-align: center;
 }
 
 .local-doc-icon {
   margin-bottom: 30px;
   opacity: 0.9;
+  color: var(--accent);
 }
 
 .local-doc-title {
   font-size: 32px;
+  font-family: var(--font-display);
   font-weight: 700;
-  color: #1e293b;
+  color: var(--fg);
   margin-bottom: 12px;
   line-height: 1.2;
   word-break: break-word;
@@ -1593,18 +1613,18 @@ function canUseOnlinePreview() {
 
 .local-doc-meta {
   font-size: 18px;
-  color: #64748b;
+  font-family: var(--font-ui);
+  color: var(--muted);
   margin-bottom: 40px;
   font-weight: 500;
 }
 
 .local-doc-message {
-  background: white;
-  border-radius: 16px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
   padding: 32px;
   margin-bottom: 32px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  border: 1px solid var(--border);
   max-width: 500px;
   text-align: left;
 }
@@ -1616,8 +1636,9 @@ function canUseOnlinePreview() {
 
 .message-content h3 {
   font-size: 20px;
+  font-family: var(--font-display);
   font-weight: 600;
-  color: #374151;
+  color: var(--fg);
   margin-bottom: 16px;
   display: flex;
   align-items: center;
@@ -1625,7 +1646,7 @@ function canUseOnlinePreview() {
 }
 
 .message-content p {
-  color: #4b5563;
+  color: var(--muted);
   line-height: 1.6;
   margin-bottom: 20px;
 }
@@ -1638,7 +1659,7 @@ function canUseOnlinePreview() {
 
 .support-list li {
   padding: 8px 0;
-  color: #374151;
+  color: var(--fg);
   font-weight: 500;
 }
 
@@ -1652,28 +1673,28 @@ function canUseOnlinePreview() {
   gap: 12px;
   padding: 18px 36px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   font-size: 18px;
+  font-family: var(--font-ui);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
+  transition: all 0.2s ease;
 }
 
 .local-btn.primary {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .local-btn.primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(79, 70, 229, 0.4);
+  background: var(--accent-hover);
 }
 
 .local-doc-help {
   max-width: 500px;
   font-size: 14px;
-  color: #6b7280;
+  font-family: var(--font-ui);
+  color: var(--muted);
   line-height: 1.6;
 }
 
@@ -1682,7 +1703,7 @@ function canUseOnlinePreview() {
 }
 
 .local-doc-help strong {
-  color: #374151;
+  color: var(--fg);
 }
 
 @keyframes spin {
@@ -1690,7 +1711,7 @@ function canUseOnlinePreview() {
   100% { transform: rotate(360deg); }
 }
 
-/* 响应式调整 */
+/* Responsive */
 @media (max-width: 768px) {
   .office-header {
     padding: 16px 20px;
@@ -1698,38 +1719,38 @@ function canUseOnlinePreview() {
     gap: 16px;
     align-items: stretch;
   }
-  
+
   .office-info {
     gap: 16px;
   }
-  
+
   .office-icon {
     width: 48px;
     height: 48px;
     font-size: 24px;
   }
-  
+
   .file-title {
     font-size: 18px;
   }
-  
+
   .office-actions {
     justify-content: center;
     flex-wrap: wrap;
   }
-  
+
   .action-button {
     padding: 10px 16px;
     font-size: 13px;
   }
-  
+
   .preview-container {
     margin: 12px;
   }
-  
+
   .document-preview {
     margin: 0;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
   }
 }
 </style> 

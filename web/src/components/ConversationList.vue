@@ -175,10 +175,10 @@ function formatLastMessage(message, type) {
   height: 100%;
   overflow-y: auto;
   padding: 8px 0;
-  
+
   /* 自定义滚动条 */
   scrollbar-width: thin;
-  scrollbar-color: rgba(74, 140, 255, 0.3) transparent;
+  scrollbar-color: rgba(200, 149, 108, 0.3) transparent;
 }
 
 .conversation-scroll::-webkit-scrollbar {
@@ -190,12 +190,12 @@ function formatLastMessage(message, type) {
 }
 
 .conversation-scroll::-webkit-scrollbar-thumb {
-  background: rgba(74, 140, 255, 0.3);
+  background: rgba(200, 149, 108, 0.3);
   border-radius: 3px;
 }
 
 .conversation-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(74, 140, 255, 0.5);
+  background: rgba(200, 149, 108, 0.5);
 }
 
 .conversation-item {
@@ -205,19 +205,19 @@ function formatLastMessage(message, type) {
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
-  border-radius: 0 24px 24px 0;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   margin: 2px 0 2px 8px;
   background: transparent;
 }
 
 .conversation-item:hover {
-  background: linear-gradient(135deg, rgba(74, 140, 255, 0.06) 0%, rgba(138, 105, 255, 0.03) 100%);
+  background: var(--card-hover);
   transform: translateX(8px);
 }
 
 .conversation-item.active {
-  background: linear-gradient(135deg, rgba(74, 140, 255, 0.12) 0%, rgba(138, 105, 255, 0.06) 100%);
-  border-left: 4px solid #4a8cff;
+  background: var(--accent-muted);
+  border-left: 4px solid var(--accent);
   transform: translateX(4px);
 }
 
@@ -228,7 +228,7 @@ function formatLastMessage(message, type) {
   top: 0;
   bottom: 0;
   width: 4px;
-  background: linear-gradient(to bottom, #4a8cff, #8a69ff);
+  background: var(--accent);
   border-radius: 2px;
 }
 
@@ -243,33 +243,35 @@ function formatLastMessage(message, type) {
   height: 48px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 2px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   transition: all 0.3s ease;
 }
 
 .conversation-item:hover .conversation-avatar img {
   transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(74, 140, 255, 0.2);
+  border-color: var(--accent);
+  box-shadow: 0 6px 16px rgba(200, 149, 108, 0.2);
 }
 
 .unread-badge {
   position: absolute;
   top: -4px;
   right: -4px;
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: white;
-  border-radius: 12px;
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: var(--radius-full);
   padding: 2px 6px;
   font-size: 10px;
   font-weight: 700;
+  font-family: var(--font-ui);
   min-width: 18px;
   height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid white;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  border: 2px solid var(--card);
+  box-shadow: 0 2px 8px rgba(200, 149, 108, 0.4);
   animation: badgePulse 2s infinite;
 }
 
@@ -284,10 +286,10 @@ function formatLastMessage(message, type) {
   right: 2px;
   width: 14px;
   height: 14px;
-  background: linear-gradient(135deg, #10b981, #059669);
-  border: 2px solid white;
+  background: var(--success);
+  border: 2px solid var(--card);
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 2px 6px rgba(39, 174, 96, 0.3);
 }
 
 .conversation-content {
@@ -306,7 +308,8 @@ function formatLastMessage(message, type) {
 .conversation-name {
   font-size: 16px;
   font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-ui);
+  color: var(--fg);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -317,7 +320,7 @@ function formatLastMessage(message, type) {
 
 .conversation-time {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -330,7 +333,7 @@ function formatLastMessage(message, type) {
 
 .last-message {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -339,7 +342,7 @@ function formatLastMessage(message, type) {
 }
 
 .last-message.unread {
-  color: #374151;
+  color: var(--fg);
   font-weight: 600;
 }
 
@@ -350,7 +353,7 @@ function formatLastMessage(message, type) {
 
 .status-icon {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .conversation-actions {
@@ -369,9 +372,9 @@ function formatLastMessage(message, type) {
   width: 24px;
   height: 24px;
   border: none;
-  border-radius: 6px;
-  background: rgba(107, 114, 128, 0.1);
-  color: #6b7280;
+  border-radius: var(--radius-sm);
+  background: rgba(138, 133, 128, 0.15);
+  color: var(--muted);
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -381,14 +384,14 @@ function formatLastMessage(message, type) {
 }
 
 .btn-action:hover {
-  background: rgba(74, 140, 255, 0.1);
-  color: #4a8cff;
+  background: var(--accent-muted);
+  color: var(--accent);
   transform: scale(1.1);
 }
 
 .btn-delete:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(192, 57, 43, 0.15);
+  color: var(--danger);
 }
 
 .empty-conversations {
@@ -404,7 +407,7 @@ function formatLastMessage(message, type) {
 .empty-icon {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, rgba(107, 114, 128, 0.1), rgba(156, 163, 175, 0.05));
+  background: var(--accent-muted);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -414,19 +417,20 @@ function formatLastMessage(message, type) {
 
 .empty-icon .icon {
   font-size: 36px;
-  color: #9ca3af;
+  color: var(--accent);
 }
 
 .empty-text {
   font-size: 18px;
   font-weight: 600;
-  color: #6b7280;
+  font-family: var(--font-display);
+  color: var(--fg);
   margin-bottom: 8px;
 }
 
 .empty-desc {
   font-size: 14px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 /* 响应式设计 */
@@ -435,20 +439,20 @@ function formatLastMessage(message, type) {
     padding: 12px 16px;
     margin: 1px 0 1px 4px;
   }
-  
+
   .conversation-avatar img {
     width: 40px;
     height: 40px;
   }
-  
+
   .conversation-name {
     font-size: 15px;
   }
-  
+
   .last-message {
     font-size: 13px;
   }
-  
+
   .conversation-actions {
     position: absolute;
     right: 8px;

@@ -286,7 +286,7 @@ watch(() => props.visible, (visible) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay);
   backdrop-filter: blur(8px);
   z-index: 2000;
   display: flex;
@@ -296,20 +296,17 @@ watch(() => props.visible, (visible) => {
 }
 
 .create-post-modal {
-  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(252,253,255,0.95));
-  backdrop-filter: blur(20px);
-  border-radius: 20px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
-  box-shadow: 
-    0 25px 50px rgba(0, 0, 0, 0.15),
-    0 0 0 1px rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border);
   overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
+  font-family: var(--font-ui);
 }
 
 .modal-header {
@@ -317,8 +314,8 @@ watch(() => props.visible, (visible) => {
   align-items: center;
   justify-content: space-between;
   padding: 24px 28px;
-  background: linear-gradient(135deg, rgba(74,140,255,0.08), rgba(138,105,255,0.05));
-  border-bottom: 1px solid rgba(229, 231, 235, 0.3);
+  background: var(--input-bg);
+  border-bottom: 1px solid var(--border);
 }
 
 .header-left {
@@ -330,16 +327,13 @@ watch(() => props.visible, (visible) => {
 .header-icon {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  border-radius: 50%;
+  background: var(--accent);
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--bg);
   font-size: 20px;
-  box-shadow: 
-    0 8px 20px rgba(74, 140, 255, 0.3),
-    0 0 0 3px rgba(255, 255, 255, 0.3);
 }
 
 .header-text {
@@ -352,16 +346,13 @@ watch(() => props.visible, (visible) => {
   font-size: 20px;
   font-weight: 700;
   margin: 0;
-  color: #1e293b;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--accent);
+  font-family: var(--font-display);
 }
 
 .header-subtitle {
   font-size: 13px;
-  color: #64748b;
+  color: var(--muted);
   margin: 0;
   font-weight: 500;
 }
@@ -372,18 +363,18 @@ watch(() => props.visible, (visible) => {
   justify-content: center;
   width: 40px;
   height: 40px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(100, 116, 139, 0.1);
-  color: #64748b;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--card);
+  color: var(--muted);
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 18px;
 }
 
 .close-button:hover {
-  background: rgba(100, 116, 139, 0.2);
-  color: #374151;
+  background: var(--accent-muted);
+  color: var(--accent);
   transform: scale(1.1);
 }
 
@@ -405,9 +396,8 @@ watch(() => props.visible, (visible) => {
 .user-avatar {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border);
 }
 
 .user-details {
@@ -419,7 +409,7 @@ watch(() => props.visible, (visible) => {
 .user-name {
   font-size: 16px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--fg);
 }
 
 .post-type {
@@ -427,7 +417,7 @@ watch(() => props.visible, (visible) => {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #64748b;
+  color: var(--muted);
   font-weight: 500;
 }
 
@@ -445,15 +435,15 @@ watch(() => props.visible, (visible) => {
   outline: none;
   font-size: 16px;
   line-height: 1.6;
-  color: #1e293b;
+  color: var(--fg);
   background: transparent;
   resize: none;
-  font-family: inherit;
+  font-family: var(--font-ui);
   min-height: 120px;
 }
 
 .post-textarea::placeholder {
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .image-preview-area {
@@ -463,7 +453,7 @@ watch(() => props.visible, (visible) => {
 .preview-grid {
   display: grid;
   gap: 8px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -496,7 +486,7 @@ watch(() => props.visible, (visible) => {
 .preview-item {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.2s ease;
@@ -518,9 +508,9 @@ watch(() => props.visible, (visible) => {
   right: 8px;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
+  border-radius: var(--radius-full);
+  background: var(--overlay);
+  color: var(--fg);
   border: none;
   font-size: 14px;
   display: flex;
@@ -531,7 +521,7 @@ watch(() => props.visible, (visible) => {
 }
 
 .remove-image-btn:hover {
-  background: rgba(239, 68, 68, 0.8);
+  background: var(--danger);
   transform: scale(1.1);
 }
 
@@ -540,9 +530,9 @@ watch(() => props.visible, (visible) => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: rgba(248, 250, 252, 0.8);
-  border-radius: 12px;
-  border: 1px solid rgba(229, 231, 235, 0.3);
+  background: var(--input-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
 }
 
 .toolbar-left {
@@ -557,19 +547,20 @@ watch(() => props.visible, (visible) => {
   gap: 6px;
   padding: 8px 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: #64748b;
+  color: var(--muted);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  font-family: var(--font-ui);
 }
 
 .tool-button:hover {
-  background: rgba(74, 140, 255, 0.1);
-  color: #4a8cff;
+  background: var(--accent-muted);
+  color: var(--accent);
 }
 
 .tool-button .icon {
@@ -585,12 +576,12 @@ watch(() => props.visible, (visible) => {
 
 .char-count {
   font-size: 14px;
-  color: #64748b;
+  color: var(--muted);
   font-weight: 500;
 }
 
 .char-count.warning {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .modal-footer {
@@ -599,25 +590,26 @@ watch(() => props.visible, (visible) => {
   justify-content: flex-end;
   gap: 12px;
   padding: 20px 28px;
-  background: rgba(248, 250, 252, 0.8);
-  border-top: 1px solid rgba(229, 231, 235, 0.3);
+  background: var(--input-bg);
+  border-top: 1px solid var(--border);
 }
 
 .cancel-btn {
   padding: 10px 20px;
-  border: 1px solid rgba(100, 116, 139, 0.2);
-  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: transparent;
-  color: #64748b;
+  color: var(--muted);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-family: var(--font-ui);
 }
 
 .cancel-btn:hover {
-  background: rgba(100, 116, 139, 0.1);
-  color: #374151;
+  background: var(--accent-muted);
+  color: var(--fg);
 }
 
 .publish-btn {
@@ -626,25 +618,25 @@ watch(() => props.visible, (visible) => {
   gap: 8px;
   padding: 12px 24px;
   border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  color: white;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--bg);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+  font-family: var(--font-ui);
 }
 
 .publish-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #3b82f6, #7c3aed);
+  background: var(--accent-hover);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(74, 140, 255, 0.4);
+  box-shadow: 0 6px 20px rgba(200,149,108,0.3);
 }
 
 .publish-btn:disabled {
-  background: #e5e7eb;
-  color: #9ca3af;
+  background: var(--border);
+  color: var(--muted);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -659,35 +651,35 @@ watch(() => props.visible, (visible) => {
   .create-post-modal-overlay {
     padding: 8px;
   }
-  
+
   .create-post-modal {
     max-width: 100%;
     max-height: 95vh;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
   }
-  
+
   .modal-header {
     padding: 20px 20px;
   }
-  
+
   .modal-content {
     padding: 20px 20px;
   }
-  
+
   .modal-footer {
     padding: 16px 20px;
   }
-  
+
   .toolbar {
     flex-direction: column;
     gap: 12px;
     align-items: stretch;
   }
-  
+
   .toolbar-left {
     justify-content: center;
   }
-  
+
   .toolbar-right {
     text-align: center;
   }

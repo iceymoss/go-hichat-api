@@ -1088,8 +1088,9 @@ watch(() => props.conversation, () => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: var(--bg);
   position: relative;
+  font-family: var(--font-ui);
 }
 
 /* 聊天头部 */
@@ -1098,9 +1099,8 @@ watch(() => props.conversation, () => {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  background: rgba(255, 255, 255, 0.95);
-  border-bottom: 1px solid rgba(229, 231, 235, 0.8);
-  backdrop-filter: blur(20px);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
   position: relative;
   z-index: 10;
 }
@@ -1114,15 +1114,14 @@ watch(() => props.conversation, () => {
 .avatar {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border);
   transition: all 0.3s ease;
 }
 
 .avatar:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(74, 140, 255, 0.2);
+  border-color: var(--accent);
   cursor: pointer;
 }
 
@@ -1133,7 +1132,7 @@ watch(() => props.conversation, () => {
 
 .message-avatar:hover {
   transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(200, 149, 108, 0.2);
 }
 
 .user-info {
@@ -1144,22 +1143,19 @@ watch(() => props.conversation, () => {
   font-size: 18px;
   font-weight: 700;
   margin: 0 0 4px 0;
-  color: #1e293b;
-  background: linear-gradient(135deg, #1e293b 0%, #4a8cff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--fg);
+  font-family: var(--font-display);
 }
 
 .status {
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--muted);
   font-weight: 500;
   transition: color 0.3s ease;
 }
 
 .status.online {
-  color: #10b981;
+  color: var(--success);
 }
 
 .header-actions {
@@ -1171,9 +1167,9 @@ watch(() => props.conversation, () => {
   width: 40px;
   height: 40px;
   border: none;
-  border-radius: 12px;
-  background: rgba(107, 114, 128, 0.1);
-  color: #6b7280;
+  border-radius: var(--radius-md);
+  background: var(--accent-muted);
+  color: var(--muted);
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -1183,14 +1179,14 @@ watch(() => props.conversation, () => {
 }
 
 .action-btn:hover {
-  background: rgba(74, 140, 255, 0.1);
-  color: #4a8cff;
+  background: var(--accent-muted);
+  color: var(--accent);
   transform: scale(1.05);
 }
 
 .close-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(192, 57, 43, 0.15);
+  color: var(--danger);
 }
 
 /* 消息区域 */
@@ -1199,10 +1195,11 @@ watch(() => props.conversation, () => {
   overflow-y: auto;
   padding: 20px 24px;
   position: relative;
-  
+  background: var(--bg);
+
   /* 自定义滚动条 */
   scrollbar-width: thin;
-  scrollbar-color: rgba(74, 140, 255, 0.3) transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -1214,12 +1211,12 @@ watch(() => props.conversation, () => {
 }
 
 .chat-messages::-webkit-scrollbar-thumb {
-  background: rgba(74, 140, 255, 0.3);
+  background: var(--border);
   border-radius: 3px;
 }
 
 .chat-messages::-webkit-scrollbar-thumb:hover {
-  background: rgba(74, 140, 255, 0.5);
+  background: var(--muted);
 }
 
 .loading-history {
@@ -1228,15 +1225,15 @@ watch(() => props.conversation, () => {
   justify-content: center;
   gap: 12px;
   padding: 16px;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 14px;
 }
 
 .loading-spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid #e5e7eb;
-  border-top: 2px solid #4a8cff;
+  border: 2px solid var(--border);
+  border-top: 2px solid var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -1255,7 +1252,7 @@ watch(() => props.conversation, () => {
 .time-divider {
   text-align: center;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted);
   margin: 16px 0;
   position: relative;
 }
@@ -1267,12 +1264,12 @@ watch(() => props.conversation, () => {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(to right, transparent, #e5e7eb, transparent);
+  background: var(--border-light);
   z-index: 1;
 }
 
 .time-divider span {
-  background: #f8fafc;
+  background: var(--bg);
   padding: 0 12px;
   position: relative;
   z-index: 2;
@@ -1301,7 +1298,7 @@ watch(() => props.conversation, () => {
 .message-avatar {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   flex-shrink: 0;
   align-self: flex-end;
 }
@@ -1316,7 +1313,7 @@ watch(() => props.conversation, () => {
 
 .sender-name {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--muted);
   font-weight: 500;
 }
 
@@ -1329,15 +1326,15 @@ watch(() => props.conversation, () => {
 }
 
 .own-message .message-body {
-  background: linear-gradient(135deg, #4a8cff 0%, #8a69ff 100%);
-  color: white;
+  background: var(--accent);
+  color: #0a0a0a;
   border-bottom-right-radius: 6px;
 }
 
 .other-message .message-body {
-  background: rgba(255, 255, 255, 0.9);
-  color: #1e293b;
-  border: 1px solid rgba(229, 231, 235, 0.5);
+  background: var(--card);
+  color: var(--fg);
+  border: 1px solid var(--border);
   border-bottom-left-radius: 6px;
 }
 
@@ -1354,15 +1351,15 @@ watch(() => props.conversation, () => {
 .image-message img {
   max-width: 200px;
   max-height: 200px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .image-message img:hover {
   transform: scale(1.02);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .voice-message {
@@ -1375,9 +1372,9 @@ watch(() => props.conversation, () => {
 .voice-play-btn {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: none;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
   color: inherit;
   cursor: pointer;
   display: flex;
@@ -1387,8 +1384,17 @@ watch(() => props.conversation, () => {
 }
 
 .voice-play-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.25);
   transform: scale(1.1);
+}
+
+.other-message .voice-play-btn {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.other-message .voice-play-btn:hover {
+  background: rgba(200, 149, 108, 0.25);
 }
 
 .voice-wave {
@@ -1432,22 +1438,21 @@ watch(() => props.conversation, () => {
   min-width: 200px;
   cursor: pointer;
   transition: all 0.3s ease;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 8px;
   margin: -8px;
 }
 
 .file-message:hover {
-  background: rgba(74, 140, 255, 0.1);
+  background: var(--accent-muted);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.2);
 }
 
 .file-icon {
   width: 40px;
   height: 40px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  background: var(--accent-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1457,68 +1462,68 @@ watch(() => props.conversation, () => {
 
 /* 不同文件类型的图标颜色 */
 .file-icon-pdf {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
+  background: rgba(192, 57, 43, 0.15);
+  color: #e74c3c;
 }
 
 .file-icon-word {
-  background: rgba(37, 99, 235, 0.1);
-  color: #2563eb;
+  background: rgba(41, 128, 185, 0.15);
+  color: #3498db;
 }
 
 .file-icon-excel {
-  background: rgba(34, 197, 94, 0.1);
-  color: #16a34a;
+  background: rgba(39, 174, 96, 0.15);
+  color: var(--success);
 }
 
 .file-icon-powerpoint {
-  background: rgba(249, 115, 22, 0.1);
-  color: #ea580c;
+  background: rgba(230, 126, 34, 0.15);
+  color: #e67e22;
 }
 
 .file-icon-code {
-  background: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
+  background: rgba(142, 68, 173, 0.15);
+  color: #9b59b6;
 }
 
 .file-icon-text {
-  background: rgba(107, 114, 128, 0.1);
-  color: #6b7280;
+  background: var(--accent-muted);
+  color: var(--muted);
 }
 
 .file-icon-video {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
+  background: rgba(192, 57, 43, 0.15);
+  color: #e74c3c;
 }
 
 .file-icon-audio {
-  background: rgba(34, 197, 94, 0.1);
-  color: #16a34a;
+  background: rgba(39, 174, 96, 0.15);
+  color: var(--success);
 }
 
 .file-icon-image {
-  background: rgba(168, 85, 247, 0.1);
-  color: #a855f7;
+  background: rgba(142, 68, 173, 0.15);
+  color: #9b59b6;
 }
 
 .file-icon-archive {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  background: rgba(200, 149, 108, 0.15);
+  color: var(--accent);
 }
 
 .file-icon-executable {
-  background: rgba(249, 115, 22, 0.1);
-  color: #ea580c;
+  background: rgba(230, 126, 34, 0.15);
+  color: #e67e22;
 }
 
 .file-icon-design {
-  background: rgba(236, 72, 153, 0.1);
-  color: #ec4899;
+  background: rgba(200, 149, 108, 0.15);
+  color: var(--accent);
 }
 
 .file-icon-default {
-  background: rgba(107, 114, 128, 0.1);
-  color: #6b7280;
+  background: var(--accent-muted);
+  color: var(--muted);
 }
 
 .file-info {
@@ -1538,7 +1543,7 @@ watch(() => props.conversation, () => {
 
 .file-type {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--muted);
   font-weight: 500;
   margin-top: 2px;
 }
@@ -1546,10 +1551,10 @@ watch(() => props.conversation, () => {
 .file-download {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: none;
-  background: rgba(74, 140, 255, 0.1);
-  color: #4a8cff;
+  background: var(--accent-muted);
+  color: var(--accent);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1559,7 +1564,7 @@ watch(() => props.conversation, () => {
 }
 
 .file-download:hover {
-  background: rgba(74, 140, 255, 0.2);
+  background: rgba(200, 149, 108, 0.25);
   transform: scale(1.05);
 }
 
@@ -1569,8 +1574,8 @@ watch(() => props.conversation, () => {
   top: -30px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
+  background: var(--card);
+  color: var(--fg);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -1578,6 +1583,7 @@ watch(() => props.conversation, () => {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
+  border: 1px solid var(--border);
 }
 
 .file-download:hover:after {
@@ -1594,7 +1600,7 @@ watch(() => props.conversation, () => {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--muted);
   margin-top: 2px;
 }
 
@@ -1603,15 +1609,15 @@ watch(() => props.conversation, () => {
 }
 
 .message-status.sent {
-  color: #10b981;
+  color: var(--success);
 }
 
 .message-status.delivered {
-  color: #3b82f6;
+  color: var(--accent);
 }
 
 .message-status.read {
-  color: #8b5cf6;
+  color: var(--accent-hover);
 }
 
 /* 滚动到底部按钮 */
@@ -1621,12 +1627,12 @@ watch(() => props.conversation, () => {
   right: 24px;
   width: 48px;
   height: 48px;
-  border-radius: 50%;
-  border: none;
-  background: linear-gradient(135deg, #4a8cff 0%, #8a69ff 100%);
-  color: white;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--accent);
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1636,14 +1642,15 @@ watch(() => props.conversation, () => {
 
 .scroll-to-bottom:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(74, 140, 255, 0.4);
+  background: var(--card-hover);
+  border-color: var(--accent);
 }
 
 .scroll-to-bottom .unread-count {
   position: absolute;
   top: -4px;
   right: -4px;
-  background: #ef4444;
+  background: var(--danger);
   color: white;
   border-radius: 12px;
   padding: 2px 6px;
@@ -1670,9 +1677,8 @@ watch(() => props.conversation, () => {
 
 /* 输入区域 */
 .chat-input-area {
-  background: rgba(255, 255, 255, 0.95);
-  border-top: 1px solid rgba(229, 231, 235, 0.8);
-  backdrop-filter: blur(20px);
+  background: var(--card);
+  border-top: 1px solid var(--border);
   padding: 16px 24px;
   position: relative;
 }
@@ -1687,9 +1693,9 @@ watch(() => props.conversation, () => {
   width: 36px;
   height: 36px;
   border: none;
-  border-radius: 10px;
-  background: rgba(107, 114, 128, 0.1);
-  color: #6b7280;
+  border-radius: var(--radius-md);
+  background: var(--accent-muted);
+  color: var(--muted);
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -1700,13 +1706,13 @@ watch(() => props.conversation, () => {
 }
 
 .tool-btn:hover {
-  background: rgba(74, 140, 255, 0.1);
-  color: #4a8cff;
+  background: rgba(200, 149, 108, 0.25);
+  color: var(--accent);
   transform: scale(1.05);
 }
 
 .voice-btn.recording {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: var(--danger);
   color: white;
   animation: recordingPulse 1s ease-in-out infinite;
 }
@@ -1720,17 +1726,16 @@ watch(() => props.conversation, () => {
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  background: rgba(248, 250, 252, 0.8);
-  border: 1px solid rgba(229, 231, 235, 0.6);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
   border-radius: 20px;
   padding: 8px 12px;
   transition: all 0.3s ease;
 }
 
 .input-container:focus-within {
-  border-color: #4a8cff;
-  box-shadow: 0 0 0 3px rgba(74, 140, 255, 0.1);
-  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(200, 149, 108, 0.1);
 }
 
 .message-input {
@@ -1742,16 +1747,17 @@ watch(() => props.conversation, () => {
   outline: none;
   font-size: 15px;
   line-height: 1.5;
-  color: #1e293b;
+  color: var(--fg);
   background: transparent;
   overflow-y: auto;
   word-wrap: break-word;
   white-space: pre-wrap;
+  font-family: var(--font-ui);
 }
 
 .message-input:empty::before {
   content: attr(data-placeholder);
-  color: #9ca3af;
+  color: var(--muted);
   pointer-events: none;
 }
 
@@ -1759,9 +1765,9 @@ watch(() => props.conversation, () => {
   width: 36px;
   height: 36px;
   border: none;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
-  color: #9ca3af;
+  border-radius: var(--radius-full);
+  background: var(--border);
+  color: var(--muted);
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -1772,14 +1778,13 @@ watch(() => props.conversation, () => {
 }
 
 .send-btn.has-content {
-  background: linear-gradient(135deg, #4a8cff 0%, #8a69ff 100%);
-  color: white;
-  box-shadow: 0 2px 8px rgba(74, 140, 255, 0.3);
+  background: var(--accent);
+  color: #0a0a0a;
 }
 
 .send-btn.has-content:hover {
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(74, 140, 255, 0.4);
+  background: var(--accent-hover);
 }
 
 .send-btn:disabled {
@@ -1793,10 +1798,10 @@ watch(() => props.conversation, () => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
-  border-radius: 12px;
+  background: rgba(192, 57, 43, 0.1);
+  border-radius: var(--radius-md);
   margin-top: 12px;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(192, 57, 43, 0.2);
 }
 
 .recording-wave {
@@ -1808,7 +1813,7 @@ watch(() => props.conversation, () => {
 
 .recording-wave .wave {
   width: 3px;
-  background: #ef4444;
+  background: var(--danger);
   border-radius: 2px;
   animation: recordingWave 1s ease-in-out infinite;
 }
@@ -1825,13 +1830,13 @@ watch(() => props.conversation, () => {
 
 .recording-text {
   flex: 1;
-  color: #ef4444;
+  color: var(--danger);
   font-size: 14px;
   font-weight: 500;
 }
 
 .recording-time {
-  color: #ef4444;
+  color: var(--danger);
   font-size: 12px;
   font-weight: 600;
 }
@@ -1855,11 +1860,10 @@ watch(() => props.conversation, () => {
   left: 24px;
   right: 24px;
   max-height: 200px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(229, 231, 235, 0.8);
-  border-radius: 16px;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
   overflow: hidden;
   z-index: 20;
 }
@@ -1877,7 +1881,7 @@ watch(() => props.conversation, () => {
   width: 40px;
   height: 40px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   font-size: 20px;
   cursor: pointer;
@@ -1888,7 +1892,7 @@ watch(() => props.conversation, () => {
 }
 
 .emoji-item:hover {
-  background: rgba(74, 140, 255, 0.1);
+  background: var(--accent-muted);
   transform: scale(1.2);
 }
 
@@ -1909,28 +1913,28 @@ watch(() => props.conversation, () => {
   .chat-header {
     padding: 16px 20px;
   }
-  
+
   .chat-messages {
     padding: 16px 20px;
   }
-  
+
   .chat-input-area {
     padding: 12px 20px;
   }
-  
+
   .message-item {
     max-width: 85%;
   }
-  
+
   .avatar {
     width: 40px;
     height: 40px;
   }
-  
+
   .name {
     font-size: 16px;
   }
-  
+
   .emoji-picker {
     left: 20px;
     right: 20px;

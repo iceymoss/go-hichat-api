@@ -67,44 +67,31 @@ function selectType(key) {
   min-width: 450px;
   max-width: 450px;
   height: 100%;
-  background: linear-gradient(135deg, rgba(30,32,40,0.98), rgba(45,47,55,0.95));
-  border-right: 1px solid rgba(74,140,255,0.15);
+  background: var(--bg);
+  border-right: 1px solid var(--border);
   overflow: hidden;
   flex: 1 0 0;
   position: relative;
 }
 
-.feed-type-list::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(74,140,255,0.3), transparent);
-}
-
 .feed-type-list-header {
   padding: 32px 36px 24px 36px;
-  border-bottom: 1px solid rgba(74,140,255,0.1);
+  border-bottom: 1px solid var(--border);
 }
 
 .feed-type-title {
-  color: #ffffff;
+  color: var(--accent);
   font-size: 24px;
   font-weight: 700;
   margin: 0 0 6px 0;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: var(--font-display);
 }
 
 .feed-type-subtitle {
-  color: #b3cfff;
+  color: var(--muted);
   font-size: 14px;
   margin: 0;
-  opacity: 0.8;
+  font-family: var(--font-ui);
 }
 
 .feed-type-list-inner {
@@ -120,30 +107,30 @@ function selectType(key) {
   align-items: center;
   padding: 20px 24px;
   cursor: pointer;
-  color: #b3cfff;
+  color: var(--muted);
   font-size: 16px;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 0;
   position: relative;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(74,140,255,0.05);
-  backdrop-filter: blur(10px);
+  background: var(--card);
+  border: 1px solid var(--border-light);
+  font-family: var(--font-ui);
 }
 
 .feed-type-item:hover {
-  background: rgba(74,140,255,0.08);
-  border-color: rgba(74,140,255,0.2);
+  background: var(--card-hover);
+  border-color: var(--border);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(74,140,255,0.15);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
 }
 
 .feed-type-item.active {
-  background: linear-gradient(135deg, rgba(74,140,255,0.15), rgba(138,105,255,0.1));
-  border-color: rgba(74,140,255,0.3);
-  color: #4a8cff;
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
   font-weight: 600;
-  box-shadow: 0 6px 20px rgba(74,140,255,0.2);
+  box-shadow: 0 6px 20px rgba(200,149,108,0.15);
   transform: translateY(-2px);
 }
 
@@ -154,7 +141,7 @@ function selectType(key) {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: linear-gradient(135deg, #4a8cff, #8a69ff);
+  background: var(--accent);
   border-radius: 0 2px 2px 0;
 }
 
@@ -164,14 +151,14 @@ function selectType(key) {
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: 10px;
-  background: rgba(74,140,255,0.1);
+  border-radius: var(--radius-sm);
+  background: var(--accent-muted);
   margin-right: 16px;
   transition: all 0.3s ease;
 }
 
 .feed-type-item.active .feed-type-icon {
-  background: linear-gradient(135deg, rgba(74,140,255,0.2), rgba(138,105,255,0.15));
+  background: var(--accent-muted);
   transform: scale(1.1);
 }
 
@@ -198,12 +185,13 @@ function selectType(key) {
 
 .feed-type-desc {
   font-size: 12px;
-  color: rgba(179,207,255,0.7);
+  color: var(--muted);
   font-weight: 400;
 }
 
 .feed-type-item.active .feed-type-desc {
-  color: rgba(74,140,255,0.8);
+  color: var(--accent);
+  opacity: 0.8;
 }
 
 .feed-type-indicator {
@@ -218,13 +206,13 @@ function selectType(key) {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(74,140,255,0.3);
+  background: var(--muted);
   transition: all 0.3s ease;
 }
 
 .feed-type-item.active .indicator-dot {
-  background: #4a8cff;
-  box-shadow: 0 0 10px rgba(74,140,255,0.5);
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(200,149,108,0.4);
   transform: scale(1.2);
 }
 
@@ -243,7 +231,7 @@ function selectType(key) {
     min-width: 100%;
     max-width: 100%;
   }
-  
+
   .feed-type-list-header,
   .feed-type-list-inner {
     padding-left: 20px;

@@ -202,8 +202,9 @@ onMounted(() => {
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
-  background: #fff;
+  background: var(--bg);
   min-height: 100vh;
+  font-family: var(--font-ui);
 }
 
 .header {
@@ -214,13 +215,14 @@ onMounted(() => {
   margin: 0 0 16px 0;
   font-size: 24px;
   font-weight: 600;
-  color: #333;
+  font-family: var(--font-display);
+  color: var(--fg);
 }
 
 .tabs {
   display: flex;
   gap: 12px;
-  border-bottom: 2px solid #f0f2f5;
+  border-bottom: 2px solid var(--border);
 }
 
 .tabs button {
@@ -230,23 +232,24 @@ onMounted(() => {
   background: none;
   font-size: 15px;
   font-weight: 500;
-  color: #666;
+  font-family: var(--font-ui);
+  color: var(--muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
-  transition: all 0.2s;
+  transition: color 0.2s, border-color 0.2s;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .tabs button:hover {
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .tabs button.active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .badge {
@@ -256,9 +259,9 @@ onMounted(() => {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 10px;
-  background: #dc3545;
-  color: white;
+  border-radius: var(--radius-full);
+  background: var(--danger);
+  color: var(--fg);
   font-size: 12px;
   font-weight: 600;
 }
@@ -269,7 +272,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #999;
+  color: var(--muted);
   gap: 12px;
 }
 
@@ -288,13 +291,13 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #999;
+  color: var(--muted);
   gap: 12px;
 }
 
 .empty .icon {
   font-size: 48px;
-  color: #ccc;
+  color: var(--border);
 }
 
 .empty p {
@@ -312,34 +315,33 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: #f8fafc;
-  border-radius: 12px;
+  background: var(--card);
+  border-radius: var(--radius-md);
   padding: 16px;
-  border: 1px solid #e9ecef;
-  transition: all 0.2s;
+  border: 1px solid var(--border);
+  transition: background-color 0.2s;
 }
 
 .request-item:hover {
-  background: #f0f2f5;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background: var(--card-hover);
 }
 
 .request-item.pending {
-  border-left: 4px solid #ffc107;
+  border-left: 4px solid var(--accent);
 }
 
 .request-item.accepted {
-  border-left: 4px solid #28a745;
+  border-left: 4px solid var(--success);
 }
 
 .request-item.rejected {
-  border-left: 4px solid #dc3545;
+  border-left: 4px solid var(--danger);
 }
 
 .avatar {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -359,7 +361,7 @@ onMounted(() => {
 .name {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--fg);
 }
 
 .status-badge {
@@ -370,30 +372,30 @@ onMounted(() => {
 }
 
 .status-badge.pending {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--accent-muted);
+  color: var(--accent);
 }
 
 .status-badge.accepted {
-  background: #d4edda;
-  color: #155724;
+  background: rgba(39, 174, 96, 0.15);
+  color: var(--success);
 }
 
 .status-badge.rejected {
-  background: #f8d7da;
-  color: #721c24;
+  background: rgba(192, 57, 43, 0.15);
+  color: var(--danger);
 }
 
 .message {
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
   margin: 4px 0;
   line-height: 1.5;
 }
 
 .time {
   font-size: 12px;
-  color: #999;
+  color: var(--muted);
   margin-top: 4px;
 }
 
@@ -407,43 +409,44 @@ onMounted(() => {
 .btn-accept,
 .btn-reject {
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-weight: 500;
+  font-family: var(--font-ui);
   cursor: pointer;
   border: none;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
   white-space: nowrap;
 }
 
 .btn-accept {
-  background: #28a745;
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .btn-accept:hover:not(:disabled) {
-  background: #218838;
+  background: var(--accent-hover);
 }
 
 .btn-reject {
-  background: #f8f9fa;
-  color: #6c757d;
-  border: 1px solid #dee2e6;
+  background: var(--border);
+  color: var(--muted);
 }
 
 .btn-reject:hover:not(:disabled) {
-  background: #e9ecef;
+  background: var(--card-hover);
+  color: var(--fg);
 }
 
 .btn-accept:disabled,
 .btn-reject:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .status-text {
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
   padding: 8px 16px;
 }
 </style> 

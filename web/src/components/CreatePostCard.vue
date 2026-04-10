@@ -109,11 +109,12 @@ const publishPost = () => {
 
 <style scoped>
 .create-post-card {
-  background-color: white;
-  border-radius: 12px;
+  background-color: var(--card);
+  border-radius: var(--radius-md);
   padding: 16px;
   margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
+  font-family: var(--font-ui);
 }
 
 .post-header {
@@ -124,19 +125,31 @@ const publishPost = () => {
 .avatar {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   margin-right: 12px;
   object-fit: cover;
+  border: 2px solid var(--border);
 }
 
 .post-input {
   flex: 1;
   padding: 12px 18px;
-  background-color: #f0f2f5;
-  border-radius: 24px;
-  border: none;
+  background-color: var(--input-bg);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
   font-size: 15px;
   cursor: pointer;
+  color: var(--fg);
+  font-family: var(--font-ui);
+}
+
+.post-input::placeholder {
+  color: var(--muted);
+}
+
+.post-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .post-editor {
@@ -145,13 +158,24 @@ const publishPost = () => {
 
 .post-textarea {
   width: 100%;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 12px;
-  font-family: inherit;
+  font-family: var(--font-ui);
   font-size: 15px;
   resize: none;
   margin-bottom: 15px;
+  background-color: var(--input-bg);
+  color: var(--fg);
+}
+
+.post-textarea::placeholder {
+  color: var(--muted);
+}
+
+.post-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .preview-images {
@@ -164,7 +188,7 @@ const publishPost = () => {
 .preview-item {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -180,9 +204,9 @@ const publishPost = () => {
   right: 5px;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: white;
+  border-radius: var(--radius-full);
+  background-color: var(--overlay);
+  color: var(--fg);
   border: none;
   font-size: 16px;
   line-height: 1;
@@ -190,6 +214,11 @@ const publishPost = () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-remove:hover {
+  background-color: var(--danger);
 }
 
 .post-actions {
@@ -209,14 +238,16 @@ const publishPost = () => {
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 50%;
-  color: #666;
+  border-radius: var(--radius-full);
+  color: var(--muted);
   cursor: pointer;
   position: relative;
+  transition: all 0.2s;
 }
 
 .upload-btn:hover {
-  background-color: #f0f2f5;
+  background-color: var(--accent-muted);
+  color: var(--accent);
 }
 
 .file-input {
@@ -228,18 +259,24 @@ const publishPost = () => {
 
 .post-btn {
   padding: 8px 20px;
-  background: linear-gradient(to right, #4a8cff, #8a69ff);
-  color: white;
+  background: var(--accent);
+  color: var(--bg);
   border: none;
-  border-radius: 20px;
+  border-radius: var(--radius-full);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
+  font-family: var(--font-ui);
+  transition: background-color 0.2s;
+}
+
+.post-btn:hover {
+  background: var(--accent-hover);
 }
 
 .post-btn:disabled {
-  background: #f0f2f5;
-  color: #999;
+  background: var(--border);
+  color: var(--muted);
   cursor: not-allowed;
 }
 </style>

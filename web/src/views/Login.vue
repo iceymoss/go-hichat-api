@@ -37,11 +37,12 @@ import AuthForm from '../components/AuthForm.vue'
 <style scoped>
 .login-page {
   min-height: 100vh;
-  background-color: #f8f9fa;
+  background-color: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  font-family: var(--font-ui);
 }
 
 .login-container {
@@ -65,23 +66,24 @@ import AuthForm from '../components/AuthForm.vue'
 .logo-text {
   font-size: 36px;
   font-weight: 700;
-  color: #111827;
+  color: var(--fg);
   letter-spacing: -0.5px;
+  font-family: var(--font-display);
 }
 
 .logo-version {
   font-size: 16px;
   font-weight: 600;
-  color: #2563eb;
-  background-color: #eff6ff;
+  color: var(--accent);
+  background-color: var(--accent-muted);
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .app-description {
   margin: 0;
   font-size: 15px;
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .login-footer {
@@ -98,12 +100,12 @@ import AuthForm from '../components/AuthForm.vue'
 .divider-line {
   flex: 1;
   height: 1px;
-  background-color: #e5e7eb;
+  background-color: var(--border);
 }
 
 .divider-text {
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -117,19 +119,20 @@ import AuthForm from '../components/AuthForm.vue'
   width: 48px;
   height: 48px;
   padding: 0;
-  background-color: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
 }
 
 .social-btn:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border-color: var(--accent);
+  background-color: var(--card-hover);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .social-btn img {

@@ -312,11 +312,10 @@ watch(() => props.visible, (visible) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.95);
   z-index: 9999;
   display: flex;
   flex-direction: column;
-  backdrop-filter: blur(10px);
 }
 
 .image-preview-container {
@@ -331,28 +330,29 @@ watch(() => props.visible, (visible) => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
 }
 
 .toolbar-left {
   display: flex;
   align-items: center;
   gap: 16px;
-  color: white;
+  color: var(--fg);
 }
 
 .image-info {
   font-size: 14px;
+  font-family: var(--font-ui);
   font-weight: 600;
-  color: #e5e7eb;
+  color: var(--muted);
 }
 
 .image-name {
   font-size: 16px;
+  font-family: var(--font-display);
   font-weight: 500;
-  color: white;
+  color: var(--fg);
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -369,11 +369,11 @@ watch(() => props.visible, (visible) => {
   width: 40px;
   height: 40px;
   border: none;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--muted);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -381,17 +381,19 @@ watch(() => props.visible, (visible) => {
 }
 
 .tool-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+  background: var(--accent-muted);
+  color: var(--accent);
 }
 
 .close-btn:hover {
-  background: rgba(239, 68, 68, 0.8);
+  background: rgba(192, 57, 43, 0.15);
+  color: var(--danger);
 }
 
 .zoom-level {
-  color: white;
+  color: var(--muted);
   font-size: 14px;
+  font-family: var(--font-ui);
   font-weight: 500;
   min-width: 50px;
   text-align: center;
@@ -405,6 +407,7 @@ watch(() => props.visible, (visible) => {
   overflow: hidden;
   position: relative;
   cursor: grab;
+  background: var(--bg);
 }
 
 .image-container:active {
@@ -434,22 +437,23 @@ watch(() => props.visible, (visible) => {
   width: 50px;
   height: 50px;
   border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
+  border-radius: var(--radius-full);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--fg);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24px;
   pointer-events: auto;
-  backdrop-filter: blur(10px);
 }
 
 .nav-btn:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.8);
-  transform: scale(1.1);
+  background: var(--accent-muted);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .nav-btn:disabled {
@@ -461,9 +465,8 @@ watch(() => props.visible, (visible) => {
   display: flex;
   gap: 8px;
   padding: 16px 20px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--card);
+  border-top: 1px solid var(--border);
   overflow-x: auto;
   justify-content: center;
 }
@@ -471,22 +474,21 @@ watch(() => props.visible, (visible) => {
 .thumbnail-item {
   width: 60px;
   height: 60px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   border: 2px solid transparent;
   flex-shrink: 0;
 }
 
 .thumbnail-item:hover {
-  transform: scale(1.05);
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: var(--border);
 }
 
 .thumbnail-item.active {
-  border-color: #4a8cff;
-  box-shadow: 0 0 0 2px rgba(74, 140, 255, 0.3);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(200, 149, 108, 0.3);
 }
 
 .thumbnail-item img {
@@ -495,7 +497,7 @@ watch(() => props.visible, (visible) => {
   object-fit: cover;
 }
 
-/* 过渡动画 */
+/* Transition */
 .image-preview-enter-active,
 .image-preview-leave-active {
   transition: all 0.3s ease;
@@ -504,50 +506,50 @@ watch(() => props.visible, (visible) => {
 .image-preview-enter-from,
 .image-preview-leave-to {
   opacity: 0;
-  transform: scale(0.9);
+  transform: scale(0.95);
 }
 
-/* 响应式设计 */
+/* Responsive */
 @media (max-width: 768px) {
   .preview-toolbar {
     padding: 12px 16px;
   }
-  
+
   .toolbar-left {
     gap: 12px;
   }
-  
+
   .image-name {
     max-width: 150px;
     font-size: 14px;
   }
-  
+
   .tool-btn {
     width: 36px;
     height: 36px;
     font-size: 16px;
   }
-  
+
   .zoom-level {
     font-size: 12px;
     min-width: 40px;
   }
-  
+
   .nav-btn {
     width: 40px;
     height: 40px;
     font-size: 20px;
   }
-  
+
   .navigation {
     left: 10px;
     right: 10px;
   }
-  
+
   .thumbnail-list {
     padding: 12px 16px;
   }
-  
+
   .thumbnail-item {
     width: 50px;
     height: 50px;
