@@ -135,3 +135,48 @@ type VerifyPhoneCodeReq struct {
 
 type VerifyPhoneCodeResp struct {
 }
+
+// ── Favorites ──
+
+type AddFavoriteReq struct {
+	Type     string `json:"type"`               // text/image/link/file/video/location/note
+	Title    string `json:"title,optional"`
+	Content  string `json:"content"`
+	Source   string `json:"source,optional"`     // chat/moment/manual
+	SourceId string `json:"sourceId,optional"`
+	Tags     string `json:"tags,optional"`       // JSON array string
+}
+
+type AddFavoriteResp struct {
+	Id uint64 `json:"id"`
+}
+
+type DeleteFavoriteReq struct {
+	Id uint64 `json:"id"`
+}
+
+type DeleteFavoriteResp struct {
+}
+
+type ListFavoritesReq struct {
+	Type     string `form:"type,optional"`
+	Keyword  string `form:"keyword,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"pageSize,optional"`
+}
+
+type FavoriteItem struct {
+	Id        uint64 `json:"id"`
+	Type      string `json:"type"`
+	Title     string `json:"title"`
+	Content   string `json:"content"`
+	Source    string `json:"source"`
+	SourceId  string `json:"sourceId"`
+	Tags      string `json:"tags"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type ListFavoritesResp struct {
+	List  []FavoriteItem `json:"list"`
+	Total int64          `json:"total"`
+}

@@ -6,7 +6,7 @@ Etcd:
   Key: social.rpc
 
 Mysql:
-  DataSource: iceymoss:Yk?123456@tcp(127.0.0.1:3306)/hichat2?charset=utf8mb4&parseTime=true
+  DataSource: root:123456789@tcp(127.0.0.1:3306)/hichat2?charset=utf8mb4&parseTime=true
 
 Cache:
   - Host: 127.0.0.1:6379

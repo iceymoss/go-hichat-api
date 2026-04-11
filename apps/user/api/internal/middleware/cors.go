@@ -15,10 +15,10 @@ func CORSMiddleware() rest.Middleware {
 
 			// 在生产环境中应该基于配置允许来源
 			// 这里简化处理，实际项目中应该从配置中读取
-			if origin == "http://localhost:5173" || origin == "https://your-production-domain.com" {
+			if origin == "http://localhost:5173" || origin == "http://localhost:3001" || origin == "https://your-production-domain.com" {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 			} else {
-				w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+				w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3001")
 			}
 
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")

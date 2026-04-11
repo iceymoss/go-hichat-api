@@ -17,16 +17,45 @@ const iconMap: Record<string, React.ReactNode> = {
 
 export default function ContactList() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { setSelectedContactId, selectedContactId, setShowFriendRequests, friendRequestUnreadCount, setShowGroupPanel, groupAppUnreadCount } = useIMStore();
+  const [backendResults, setBackendResults] = useState<Contact[]>([]);
+  const { setSelectedContactId, selectedContactId, setShowFriendRequests, friendRequestUnreadCount, setShowGroupPanel, groupAppUnreadCount, currentUser } = useIMStore();
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Search backend when query looks like phone/email or after debounce
+  React.useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q || !currentUser?.token) { setBackendResults([]); return; }
+    const isPhone = /^1[3-9]\d{2,10}$/.test(q);
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q);
+    if (!isPhone && !isEmail) { setBackendResults([]); return; }
+    const params = isPhone ? `phone=${q}` : `email=${q}`;
+    const timer = setTimeout(() => {
+      fetch(`/api/user/search?${params}`, { headers: { Authorization: `Bearer ${currentUser.token}` } })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && d.data?.users?.length) {
+            setBackendResults(d.data.users.map((u: any) => ({
+              id: u.id, name: u.nickname, avatar: u.avatar || '',
+              phone: u.mobile, region: u.region, signature: u.introduction,
+              pinyin: '', letter: '#', online: false, account: u.id,
+            })));
+          } else setBackendResults([]);
+        })
+        .catch(() => setBackendResults([]));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, currentUser?.token]);
 
   const filteredContacts = useMemo(() => {
     if (!searchQuery.trim()) return contacts;
     const q = searchQuery.toLowerCase();
-    return contacts.filter(c =>
+    const local = contacts.filter(c =>
       c.name.toLowerCase().includes(q) || c.pinyin.toLowerCase().includes(q)
     );
-  }, [searchQuery]);
+    // Merge backend results, avoid duplicates
+    const localIds = new Set(local.map(c => c.id));
+    return [...local, ...backendResults.filter(c => !localIds.has(c.id))];
+  }, [searchQuery, backendResults]);
 
   // Group contacts by letter
   const groupedContacts = useMemo(() => {

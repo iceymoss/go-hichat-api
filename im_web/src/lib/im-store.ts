@@ -6,12 +6,17 @@ export type LoginMethod = 'id-password' | 'smart-code';
 
 export interface AuthUser {
   id: string;
-  userId: string;
   phone: string;
   email: string | null;
   name: string;
   avatar: string;
-  status: string;
+  token: string;
+  expire: number;
+  sex: number;
+  introduction: string;
+  region: string;
+  occupation: string;
+  tags: string;
 }
 
 interface IMState {
@@ -24,6 +29,7 @@ interface IMState {
   setLoginMethod: (method: LoginMethod) => void;
   login: (user: AuthUser) => void;
   logout: () => void;
+  updateCurrentUser: (partial: Partial<AuthUser>) => void;
 
   // IM state
   activeTab: TabType;
@@ -52,6 +58,10 @@ interface IMState {
   // Trend detail panel
   selectedTrendId: number | null;
   setSelectedTrendId: (id: number | null) => void;
+
+  // Me tab sub-page (shown in right panel)
+  meSubPage: 'profile' | 'favorites' | 'album' | null;
+  setMeSubPage: (page: 'profile' | 'favorites' | 'album' | null) => void;
 }
 
 export const useIMStore = create<IMState>((set) => ({
@@ -63,11 +73,23 @@ export const useIMStore = create<IMState>((set) => ({
   setAuthView: (view) => set({ authView: view }),
   setLoginMethod: (method) => set({ loginMethod: method }),
   login: (user) => set({ isAuthenticated: true, currentUser: user, authView: 'login' }),
-  logout: () => set({ isAuthenticated: false, currentUser: null, activeTab: 'chats', selectedConversationId: null, showChatDetail: false }),
+  logout: () => {
+    const token = useIMStore.getState().currentUser?.token;
+    if (token) {
+      fetch('/api/auth/logout', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+    set({ isAuthenticated: false, currentUser: null, activeTab: 'chats', selectedConversationId: null, showChatDetail: false });
+  },
+  updateCurrentUser: (partial) => set((state) => ({
+    currentUser: state.currentUser ? { ...state.currentUser, ...partial } : null,
+  })),
 
   // IM
   activeTab: 'chats',
-  setActiveTab: (tab) => set({ activeTab: tab, selectedConversationId: null, selectedContactId: null, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null }),
+  setActiveTab: (tab) => set({ activeTab: tab, selectedConversationId: null, selectedContactId: null, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null, meSubPage: null }),
   selectedConversationId: null,
   setSelectedConversationId: (id) => set({ selectedConversationId: id, showChatDetail: true }),
   selectedContactId: null,
@@ -92,4 +114,8 @@ export const useIMStore = create<IMState>((set) => ({
   // Trend detail panel
   selectedTrendId: null,
   setSelectedTrendId: (id) => set({ selectedTrendId: id }),
+
+  // Me tab sub-page
+  meSubPage: null,
+  setMeSubPage: (page) => set({ meSubPage: page }),
 }));

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { currentUser, profileMenuItems, settingsMenuItems } from '@/lib/mock-data';
+import { currentUser, profileMenuItems } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -35,12 +35,12 @@ const iconMap: Record<string, React.ReactNode> = {
 };
 
 export default function ProfilePage() {
-  const { currentUser: authUser, logout } = useIMStore();
+  const { currentUser: authUser, logout, setMeSubPage, meSubPage } = useIMStore();
 
   const displayName = authUser?.name || currentUser.name;
   const displayAvatar = authUser?.avatar || currentUser.avatar;
-  const displayUserId = authUser?.userId || '未登录';
-  const displaySignature = currentUser.signature;
+  const displayUserId = authUser?.id || '未登录';
+  const displaySignature = authUser?.introduction || currentUser.signature;
 
   return (
     <div className="h-full flex flex-col">
@@ -49,19 +49,17 @@ export default function ProfilePage() {
         {/* Spacer top */}
         <div className="h-3" />
 
-        {/* User Profile Card */}
+        {/* User Profile Card — click to open edit page */}
         <div className="mx-4">
           <div
             className="flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-colors"
             style={{
-              background: '#FFFFFF',
+              background: meSubPage === 'profile' ? 'rgba(51,144,236,0.08)' : '#FFFFFF',
               boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
             }}
+            onClick={() => setMeSubPage('profile')}
           >
-            <Avatar
-              className="w-16 h-16 shrink-0"
-              style={{ ringColor: 'rgba(51,144,236,0.3)' }}
-            >
+            <Avatar className="w-16 h-16 shrink-0" style={{ ringColor: 'rgba(51,144,236,0.3)' }}>
               <AvatarImage src={displayAvatar} alt={displayName} />
               <AvatarFallback className="text-lg">{displayName[0]}</AvatarFallback>
             </Avatar>
@@ -133,13 +131,15 @@ export default function ProfilePage() {
               {idx > 0 && (
                 <div
                   className="mx-3"
-                  style={{
-                    height: '1px',
-                    background: 'rgba(0,0,0,0.06)',
-                  }}
+                  style={{ height: '1px', background: 'rgba(0,0,0,0.06)' }}
                 />
               )}
-              <div className="im-profile-menu-item">
+              <div className="im-profile-menu-item"
+                onClick={() => {
+                  if (item.label === '收藏') setMeSubPage('favorites');
+                  if (item.label === '相册') setMeSubPage('album');
+                }}
+              >
                 <div className="flex items-center gap-3">
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center"

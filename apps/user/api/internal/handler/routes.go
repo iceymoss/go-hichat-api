@@ -6,6 +6,7 @@ package handler
 import (
 	"net/http"
 
+	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/handler/favorite"
 	user "github.com/iceymoss/go-hichat-api/apps/user/api/internal/handler/user"
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/svc"
 
@@ -98,6 +99,34 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPut,
 				Path:    "/update",
 				Handler: user.UpdateHandler(serverCtx),
+			},
+		},
+		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),
+		rest.WithPrefix("/api/v1/user"),
+	)
+
+	// 收藏功能路由（需要JWT认证）
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/favorite",
+				Handler: favorite.AddFavoriteHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/favorite",
+				Handler: favorite.DeleteFavoriteHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/favorites",
+				Handler: favorite.ListFavoritesHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/favorite/upload",
+				Handler: favorite.UploadFileHandler(serverCtx),
 			},
 		},
 		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),

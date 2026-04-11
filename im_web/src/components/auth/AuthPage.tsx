@@ -263,75 +263,20 @@ function PInput({ id, label, type = 'text', value, onChange, error, maxLength, r
    LOGIN FORMS
    ═══════════════════════════════════════════════ */
 
-function PasswordLogin() {
-  const { login } = useIMStore();
-  const [id, setId] = useState('iceymoss');
-  const [pwd, setPwd] = useState('admin123');
+function PhonePasswordLogin() {
+  const { login, setAuthView } = useIMStore();
+  const [phone, setPhone] = useState('');
+  const [pwd, setPwd] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [hint, setHint] = useState<{ maskedPhone?: string; maskedEmail?: string } | null>(null);
 
   const submit = async () => {
-    if (!id || !pwd) { setError('请填写完整信息'); return; }
-    setLoading(true); setError(''); setHint(null);
-    try {
-      const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method: 'id-password', identifier: id, password: pwd }) });
-      const d = await r.json();
-      d.success = true; // 临时强制成功，展示 hint 功能
-      if (d.success) login(d.data); else { setError(d.message); if (d.data) setHint(d.data); }
-    } catch { setError('网络错误'); }
-    finally { setLoading(false); }
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <PInput id="lid" label="HiChat ID / 手机号" value={id} onChange={v => { setId(v); setError(''); }} error={!!error && !id} />
-      <PInput id="lpwd" label="密码" type={show ? 'text' : 'password'} value={pwd} onChange={v => { setPwd(v); setError(''); }} error={!!error && !pwd}
-        rightEl={<button type="button" onClick={() => setShow(!show)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: TG.textLight }}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>}
-      />
-      {error && <div style={{ fontSize: 13, color: TG.error, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500, animation: 'shake 0.4s ease-out' }}><AlertCircle size={14} />{error}</div>}
-      {hint && (
-        <div style={{ borderRadius: 12, padding: 14, fontSize: 13, lineHeight: 1.8, background: '#FFF8E1', border: '1px solid #FFE082', color: '#E65100' }}>
-          <p style={{ fontWeight: 600 }}>为确保账号安全，请核对绑定信息：</p>
-          {hint.maskedPhone && <p>绑定手机：{hint.maskedPhone}</p>}
-          {hint.maskedEmail && <p>绑定邮箱：{hint.maskedEmail}</p>}
-        </div>
-      )}
-      <button className="hc-btn-primary" onClick={submit} disabled={loading || !id || !pwd} style={{ marginTop: 8 }}>
-        {loading ? <Loader2 size={18} className="animate-spin" /> : '登 录'}
-      </button>
-    </div>
-  );
-}
-
-function SmartCodeLogin() {
-  const { login } = useIMStore();
-  const [acct, setAcct] = useState('');
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [sent, setSent] = useState(false);
-  const cd = useCountdown();
-
-  const isPhone = /^1[3-9]\d{0,9}$/.test(acct);
-  const isEmail = /^[^\s@]+@[^\s@]*\.[^\s@]*$/.test(acct);
-  const valid = (isPhone && acct.length === 11) || isEmail;
-  const lbl = isPhone ? '手机号码' : isEmail ? '邮箱地址' : '手机号 / 邮箱';
-  const method = isEmail ? 'email-code' : 'phone-code';
-
-  const handleSend = async () => {
-    if (!valid) { setError(isPhone ? '请输入完整手机号' : '请输入正确的手机号或邮箱'); return; }
-    setError('');
-    const r = await sendCode(acct, 'login');
-    if (r.ok) { setSent(true); cd.start(); } else setError(r.msg);
-  };
-
-  const submit = async () => {
-    if (!acct || !code) { setError('请填写完整信息'); return; }
+    if (!phone || !pwd) { setError('请填写完整信息'); return; }
+    if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确的手机号'); return; }
     setLoading(true); setError('');
     try {
-      const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method, identifier: acct, code }) });
+      const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, password: pwd }) });
       const d = await r.json();
       if (d.success) login(d.data); else setError(d.message);
     } catch { setError('网络错误'); }
@@ -340,18 +285,15 @@ function SmartCodeLogin() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <PInput id="sacct" label={lbl} value={acct} onChange={v => { setAcct(v); setError(''); setSent(false); }} error={!!error}
-        icon={isPhone ? Smartphone : isEmail ? Mail : undefined}
-        rightEl={
-          <button className="hc-btn-code" onClick={handleSend} disabled={cd.running || !valid}>
-            {cd.running ? `${cd.seconds}s` : '获取验证码'}
-          </button>
-        }
+      <PInput id="lphone" label="手机号码" value={phone} onChange={v => { setPhone(v); setError(''); }} error={!!error && !phone} icon={Smartphone} prefix={<span>+86</span>} />
+      <PInput id="lpwd" label="密码" type={show ? 'text' : 'password'} value={pwd} onChange={v => { setPwd(v); setError(''); }} error={!!error && !pwd}
+        rightEl={<button type="button" onClick={() => setShow(!show)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: TG.textLight }}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>}
       />
-      <PInput id="scode" label="验证码" value={code} onChange={v => { setCode(v); setError(''); }} error={!!error} maxLength={6} />
       {error && <div style={{ fontSize: 13, color: TG.error, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500, animation: 'shake 0.4s ease-out' }}><AlertCircle size={14} />{error}</div>}
-      {sent && <div style={{ fontSize: 13, color: TG.success, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}><CheckCircle2 size={14} />验证码已发送（演示验证码：888888）</div>}
-      <button className="hc-btn-primary" onClick={submit} disabled={loading || !acct || !code} style={{ marginTop: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button onClick={() => setAuthView('forgot-password')} style={{ fontSize: 13, color: TG.blue, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 500 }}>忘记密码？</button>
+      </div>
+      <button className="hc-btn-primary" onClick={submit} disabled={loading || !phone || !pwd} style={{ marginTop: 4 }}>
         {loading ? <Loader2 size={18} className="animate-spin" /> : '登 录'}
       </button>
     </div>
@@ -366,14 +308,13 @@ function RegisterView() {
   const { setAuthView, login } = useIMStore();
   const isMobile = useIsMobile();
   const [phone, setPhone] = useState('');
+  const [nickname, setNickname] = useState('');
   const [code, setCode] = useState('');
   const [pwd, setPwd] = useState('');
   const [pwd2, setPwd2] = useState('');
-  const [email, setEmail] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [emailErr, setEmailErr] = useState('');
   const [sent, setSent] = useState(false);
   const cd = useCountdown();
 
@@ -392,13 +333,13 @@ function RegisterView() {
   };
 
   const submit = async () => {
+    if (!nickname.trim()) { setError('请输入昵称'); return; }
     const e = pwdOk(pwd);
     if (e) { setError(e); return; }
     if (pwd !== pwd2) { setError('两次密码不一致'); return; }
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('邮箱格式不正确'); return; }
     setLoading(true); setError('');
     try {
-      const r = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, code, password: pwd, email: email || undefined }) });
+      const r = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, password: pwd, nickname: nickname.trim(), phoneCode: code }) });
       const d = await r.json();
       if (d.success) login(d.data); else setError(d.message);
     } catch { setError('网络错误'); }
@@ -437,6 +378,7 @@ function RegisterView() {
               }
             />
             <PInput id="rcode" label="验证码" value={code} onChange={v => { setCode(v); setError(''); }} error={!!error && !code} maxLength={6} />
+            <PInput id="rnick" label="昵称" value={nickname} onChange={v => { setNickname(v); setError(''); }} error={!!error && !nickname} maxLength={20} />
             <div>
               <PInput id="rpwd" label="设置密码" type={show ? 'text' : 'password'} value={pwd} onChange={v => { setPwd(v); setError(''); }} error={!!error && !!pwd && !!pwdOk(pwd)}
                 rightEl={<button type="button" onClick={() => setShow(!show)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: TG.textLight }}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>}
@@ -444,16 +386,9 @@ function RegisterView() {
               <p style={{ fontSize: 12, color: TG.textLight, marginTop: 4, paddingLeft: 4 }}>8-20 位，需包含字母和数字</p>
             </div>
             <PInput id="rpwd2" label="确认密码" type={show ? 'text' : 'password'} value={pwd2} onChange={v => { setPwd2(v); setError(''); }} error={!!error && !!pwd2 && pwd !== pwd2} />
-            <div>
-              <PInput id="remail" label="邮箱（选填，用于找回密码）" type="email" value={email} onChange={v => { setEmail(v); setEmailErr(''); }} error={!!emailErr}
-                icon={Mail}
-                onBlur={() => { if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) setEmailErr('邮箱格式不正确'); }}
-              />
-              {emailErr && <div style={{ fontSize: 12, color: TG.error, marginTop: 4, paddingLeft: 4 }}>{emailErr}</div>}
-            </div>
             {error && <div style={{ fontSize: 13, color: TG.error, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500, animation: 'shake 0.4s ease-out' }}><AlertCircle size={14} />{error}</div>}
-            {sent && <div style={{ fontSize: 13, color: TG.success, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}><CheckCircle2 size={14} />验证码已发送（演示验证码：888888）</div>}
-            <button className="hc-btn-primary" onClick={submit} disabled={loading || !phone || !code || !pwd || !pwd2} style={{ marginTop: 4 }}>
+            {sent && <div style={{ fontSize: 13, color: TG.success, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}><CheckCircle2 size={14} />验证码已发送</div>}
+            <button className="hc-btn-primary" onClick={submit} disabled={loading || !phone || !code || !nickname || !pwd || !pwd2} style={{ marginTop: 4 }}>
               {loading ? <Loader2 size={18} className="animate-spin" /> : '注 册'}
             </button>
           </div>
@@ -469,14 +404,105 @@ function RegisterView() {
 }
 
 /* ═══════════════════════════════════════════════
+   FORGOT PASSWORD PAGE
+   ═══════════════════════════════════════════════ */
+
+function ForgotPasswordView() {
+  const { setAuthView } = useIMStore();
+  const isMobile = useIsMobile();
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [pwd, setPwd] = useState('');
+  const [pwd2, setPwd2] = useState('');
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [sent, setSent] = useState(false);
+  const cd = useCountdown();
+
+  const handleSend = async () => {
+    if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确手机号'); return; }
+    setError('');
+    const r = await sendCode(phone, 'register');
+    if (r.ok) { setSent(true); cd.start(); } else setError(r.msg);
+  };
+
+  const submit = async () => {
+    if (!phone || !code || !pwd) { setError('请填写完整信息'); return; }
+    if (pwd.length < 8 || pwd.length > 20) { setError('密码需8-20位'); return; }
+    if (pwd !== pwd2) { setError('两次密码不一致'); return; }
+    setLoading(true); setError('');
+    try {
+      const r = await fetch('/api/auth/reset-pwd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, code, password: pwd }) });
+      const d = await r.json();
+      if (d.success) setSuccess(true); else setError(d.message);
+    } catch { setError('网络错误'); }
+    finally { setLoading(false); }
+  };
+
+  if (success) {
+    return (
+      <div style={{ display: 'flex', width: '100%', height: '100vh', overflow: 'hidden' }}>
+        {!isMobile && <div style={{ width: '42%', minWidth: 340, height: '100%' }}><BrandPanel /></div>}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: TG.formBg, padding: '0 28px' }}>
+          <CheckCircle2 size={48} color={TG.success} />
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: TG.text, marginTop: 16 }}>密码重置成功</h2>
+          <p style={{ fontSize: 14, color: TG.textSub, marginTop: 8 }}>请使用新密码登录</p>
+          <button className="hc-btn-primary" onClick={() => setAuthView('login')} style={{ marginTop: 24, width: 200 }}>去登录</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', width: '100%', height: '100vh', overflow: 'hidden' }}>
+      {!isMobile && <div style={{ width: '42%', minWidth: 340, height: '100%' }}><BrandPanel /></div>}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: TG.formBg }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 28px', maxWidth: 440, width: '100%', margin: '0 auto' }}>
+          <button onClick={() => setAuthView('login')} style={{ fontSize: 14, color: TG.textSub, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4, padding: 0, fontWeight: 500 }}>
+            <ArrowLeft size={16} /> 返回登录
+          </button>
+          <h1 style={{ fontSize: 30, fontWeight: 700, color: TG.text, marginBottom: 6 }}>重置密码</h1>
+          <p style={{ fontSize: 15, color: TG.textSub, marginBottom: 32 }}>通过手机验证码重置登录密码</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <PInput id="fpphone" label="手机号码" value={phone} onChange={v => { setPhone(v); setError(''); }} error={!!error && !phone} icon={Smartphone} prefix={<span>+86</span>}
+              rightEl={
+                <button className="hc-btn-code" onClick={handleSend} disabled={cd.running || !/^1[3-9]\d{9}$/.test(phone)}>
+                  {cd.running ? `${cd.seconds}s` : '获取验证码'}
+                </button>
+              }
+            />
+            <PInput id="fpcode" label="验证码" value={code} onChange={v => { setCode(v); setError(''); }} error={!!error && !code} maxLength={6} />
+            <div>
+              <PInput id="fppwd" label="新密码" type={show ? 'text' : 'password'} value={pwd} onChange={v => { setPwd(v); setError(''); }}
+                rightEl={<button type="button" onClick={() => setShow(!show)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: TG.textLight }}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>}
+              />
+              <p style={{ fontSize: 12, color: TG.textLight, marginTop: 4, paddingLeft: 4 }}>8-20 位，需包含字母和数字</p>
+            </div>
+            <PInput id="fppwd2" label="确认新密码" type={show ? 'text' : 'password'} value={pwd2} onChange={v => { setPwd2(v); setError(''); }} error={!!error && !!pwd2 && pwd !== pwd2} />
+            {error && <div style={{ fontSize: 13, color: TG.error, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}><AlertCircle size={14} />{error}</div>}
+            {sent && <div style={{ fontSize: 13, color: TG.success, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}><CheckCircle2 size={14} />验证码已发送</div>}
+            <button className="hc-btn-primary" onClick={submit} disabled={loading || !phone || !code || !pwd || !pwd2} style={{ marginTop: 4 }}>
+              {loading ? <Loader2 size={18} className="animate-spin" /> : '重置密码'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
    MAIN AUTH ENTRY
    ═══════════════════════════════════════════════ */
 
 export default function AuthPage() {
-  const { authView, setAuthView, loginMethod, setLoginMethod } = useIMStore();
+  const { authView, setAuthView } = useIMStore();
   const isMobile = useIsMobile();
 
   if (authView === 'register') return <RegisterView />;
+  if (authView === 'forgot-password') return <ForgotPasswordView />;
 
   return (
     <div style={{ display: 'flex', width: '100%', height: '100vh', overflow: 'hidden' }}>
@@ -499,19 +525,8 @@ export default function AuthPage() {
           <h1 style={{ fontSize: 30, fontWeight: 700, color: TG.text, marginBottom: 6 }}>欢迎回来</h1>
           <p style={{ fontSize: 15, color: TG.textSub, marginBottom: 32 }}>登录你的 HiChat 账号，开启对话</p>
 
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 32, marginBottom: 32 }}>
-            <button className={`hc-tab${loginMethod === 'id-password' ? ' active' : ''}`} onClick={() => setLoginMethod('id-password')}>
-              账号密码登录
-            </button>
-            <button className={`hc-tab${loginMethod === 'smart-code' ? ' active' : ''}`} onClick={() => setLoginMethod('smart-code')}>
-              手机/邮箱登录
-            </button>
-          </div>
-
           {/* Form */}
-          {loginMethod === 'id-password' && <PasswordLogin />}
-          {loginMethod === 'smart-code' && <SmartCodeLogin />}
+          <PhonePasswordLogin />
         </div>
 
         {/* Bottom */}
