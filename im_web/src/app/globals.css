@@ -1,0 +1,563 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   HiChat IM — Telegram Web Style
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Sidebar: TG dark blue-gray ── */
+.im-sidebar {
+  background: linear-gradient(180deg, #17212B 0%, #1C2B3A 100%);
+}
+
+.im-sidebar-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  color: rgba(255,255,255,0.45);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+.im-sidebar-icon:hover {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.75);
+}
+
+.im-sidebar-icon.active {
+  background: rgba(51,144,236,0.25);
+  color: #3390EC;
+}
+
+.im-sidebar-icon .unread-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: #3390EC;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ── Conversation list (dark panel) ── */
+.im-conversation-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  border-radius: 0;
+  margin: 0;
+}
+
+.im-conversation-item:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.im-conversation-item.active {
+  background: #3390EC;
+}
+
+.im-conversation-item.active .conv-name,
+.im-conversation-item.active .conv-time,
+.im-conversation-item.active .conv-message {
+  color: white !important;
+}
+
+.im-conversation-item.active .conv-time {
+  opacity: 0.7;
+}
+
+.im-conversation-item.active .conv-unread {
+  background: rgba(255,255,255,0.25);
+  color: white;
+}
+
+.im-conversation-item.active .conv-pin {
+  color: rgba(255,255,255,0.7) !important;
+}
+
+.im-conversation-item.active .conv-mute {
+  color: rgba(255,255,255,0.7) !important;
+}
+
+/* ── Contact list ── */
+.im-contact-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  border-radius: 10px;
+  margin: 1px 6px;
+}
+
+.im-contact-item:hover {
+  background: rgba(0,0,0,0.04);
+}
+
+.im-contact-item.selected {
+  background: rgba(51,144,236,0.08);
+}
+
+/* ── Chat bubbles: blue sent + white received ── */
+.im-chat-bubble {
+  max-width: min(65%, 480px);
+  padding: 8px 12px 6px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+  position: relative;
+}
+
+.im-chat-bubble.sent {
+  background: #3390EC;
+  color: #FFFFFF;
+  border-radius: 12px 12px 4px 12px;
+}
+
+.im-chat-bubble.received {
+  background: #FFFFFF;
+  color: #1a1a1a;
+  border-radius: 12px 12px 12px 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+/* ── Input area: TG clean ── */
+.im-input-area {
+  border-top: none;
+  background: #FFFFFF;
+  padding: 8px 12px;
+}
+
+/* ── Moment cards ── */
+.im-moment-card {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+.im-moment-card:last-child {
+  border-bottom: 0;
+}
+
+/* ── Profile menu (Telegram Web style) ── */
+.im-profile-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  border-bottom: none;
+}
+
+.im-profile-menu-item:hover {
+  background: rgba(51,144,236,0.06);
+}
+
+.im-profile-menu-item:last-child {
+  border-bottom: none;
+}
+
+/* ── Custom scrollbar: TG subtle ── */
+.im-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.im-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.im-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.12);
+  border-radius: 20px;
+}
+
+.im-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.22);
+}
+
+/* ── Alphabet index ── */
+.im-alpha-index {
+  position: absolute;
+  right: 2px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 10px;
+  color: #3390EC;
+  z-index: 10;
+}
+
+.im-alpha-index span {
+  padding: 1px 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+  font-weight: 500;
+}
+
+.im-alpha-index span:hover {
+  background: rgba(51,144,236,0.15);
+}
+
+/* ── Mobile bottom tab bar: TG blue ── */
+.im-bottom-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0 2px;
+  color: #9E9E9E;
+  transition: color 0.2s;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+.im-bottom-tab.active {
+  color: #3390EC;
+}
+
+.im-bottom-tab .tab-icon {
+  position: relative;
+}
+
+.im-bottom-tab .tab-badge {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: #3390EC;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ── Animations ── */
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.2s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.15s ease-out;
+}
+
+/* ═══════════════════════════════════════════════════════
+   HiChat Auth — Telegram Web Color Palette
+   ═══════════════════════════════════════════════════════ */
+
+/* Override global * border on auth inputs */
+.auth-input-reset {
+  border: none !important;
+  border-style: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ═══════════════════════════════════════════════
+   CAPSULE BUTTON — TG Blue
+   ═══════════════════════════════════════════════ */
+.hc-btn-primary {
+  width: 100%;
+  padding: 16px 24px;
+  background: #2AABEE;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 16px rgba(42, 171, 238, 0.35);
+  letter-spacing: 0.04em;
+}
+
+.hc-btn-primary:hover:not(:disabled) {
+  background: #3390EC;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(42, 171, 238, 0.4);
+}
+
+.hc-btn-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(42, 171, 238, 0.3);
+}
+
+.hc-btn-primary:disabled {
+  background: #B8D4E8;
+  box-shadow: none;
+  cursor: not-allowed;
+  color: #8CB4CF;
+}
+
+/* ═══════════════════════════════════════════════
+   TEXT BUTTON
+   ═══════════════════════════════════════════════ */
+.hc-btn-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2AABEE;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 4px 0;
+  transition: color 0.2s;
+}
+
+.hc-btn-text:hover:not(:disabled) {
+  color: #229ED9;
+}
+
+.hc-btn-text:disabled {
+  color: #B0C4D4;
+  cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════════════
+   CODE BUTTON — Capsule pill for "获取验证码"
+   ═══════════════════════════════════════════════ */
+.hc-btn-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2AABEE;
+  background: rgba(42, 171, 238, 0.06);
+  border: 1.5px solid rgba(42, 171, 238, 0.25);
+  border-radius: 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 6px 14px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.hc-btn-code:hover:not(:disabled) {
+  background: rgba(42, 171, 238, 0.14);
+  border-color: #2AABEE;
+  box-shadow: 0 2px 8px rgba(42, 171, 238, 0.2);
+}
+
+.hc-btn-code:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.hc-btn-code:disabled {
+  color: #A2ACB5;
+  background: rgba(42, 171, 238, 0.04);
+  border-color: rgba(42, 171, 238, 0.12);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ═══════════════════════════════════════════════
+   TAB SWITCH
+   ═══════════════════════════════════════════════ */
+.hc-tab {
+  position: relative;
+  padding-bottom: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #A2ACB5;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.25s;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.hc-tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2.5px;
+  width: 0;
+  background: #2AABEE;
+  border-radius: 2px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hc-tab.active {
+  color: #2AABEE;
+  font-weight: 600;
+}
+
+.hc-tab.active::after {
+  width: 100%;
+}
+
+.hc-tab:hover:not(.active) {
+  color: #708499;
+}
+
+/* Shake animation */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15%, 55%, 85% { transform: translateX(-5px); }
+  35%, 75% { transform: translateX(5px); }
+}
