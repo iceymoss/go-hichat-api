@@ -8,6 +8,7 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/handler/emoji"
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/handler/favorite"
+	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/handler/settings"
 	user "github.com/iceymoss/go-hichat-api/apps/user/api/internal/handler/user"
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/svc"
 
@@ -156,6 +157,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/emoji/upload",
 				Handler: emoji.UploadEmojiHandler(serverCtx),
+			},
+		},
+		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),
+		rest.WithPrefix("/api/v1/user"),
+	)
+
+	// 用户配置路由（需要JWT认证）
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/settings",
+				Handler: settings.GetSettingsHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPut,
+				Path:    "/settings",
+				Handler: settings.UpdateSettingsHandler(serverCtx),
 			},
 		},
 		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),

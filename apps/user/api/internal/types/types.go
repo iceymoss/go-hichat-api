@@ -181,6 +181,22 @@ type ListFavoritesResp struct {
 	Total int64          `json:"total"`
 }
 
+// ── User Settings ──
+
+type GetSettingsReq struct {
+}
+
+type GetSettingsResp struct {
+	Settings string `json:"settings"` // JSON string
+}
+
+type UpdateSettingsReq struct {
+	Settings string `json:"settings"` // JSON string
+}
+
+type UpdateSettingsResp struct {
+}
+
 // ── User Emojis / Stickers ──
 
 type AddEmojiReq struct {

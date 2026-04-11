@@ -122,6 +122,52 @@
 }
 
 /* ═══════════════════════════════════════════════════════
+   HiChat Global Settings — via SettingsProvider
+
+   Dark mode: filter invert() on .hc-app container
+     → Must re-invert media (images, videos, canvas, emojis)
+   Font size: CSS zoom on .hc-app container
+     → Scales everything uniformly including inline styles
+   ═══════════════════════════════════════════════════════ */
+
+/* Re-invert media elements in dark mode so images look normal */
+.hc-app[data-theme="dark"] img,
+.hc-app[data-theme="dark"] video,
+.hc-app[data-theme="dark"] canvas,
+.hc-app[data-theme="dark"] svg,
+.hc-app[data-theme="dark"] [class*="avatar"],
+.hc-app[data-theme="dark"] .im-chat-bubble.sent {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Fix: the sidebar is already dark, invert makes it light → re-invert it */
+.hc-app[data-theme="dark"] .im-sidebar {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Fix: dark background conversations panel → keep dark */
+.hc-app[data-theme="dark"] [style*="background: #2C3E50"],
+.hc-app[data-theme="dark"] [style*="background:#2C3E50"] {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Fix: the blue header of conversation list */
+.hc-app[data-theme="dark"] header[style*="background: #2C3E50"] {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Fix: Network canvas on auth page */
+.hc-app[data-theme="dark"] canvas {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Emoji characters should not be color-shifted */
+.hc-app[data-theme="dark"] span[style*="fontSize: 16"],
+.hc-app[data-theme="dark"] span[style*="fontSize: 20"] {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* ═══════════════════════════════════════════════════════
    HiChat IM — Telegram Web Style
    ═══════════════════════════════════════════════════════ */
 

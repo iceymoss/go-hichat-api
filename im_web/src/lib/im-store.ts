@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export type TabType = 'chats' | 'contacts' | 'moments' | 'me';
 export type AuthView = 'login' | 'register' | 'forgot-password';
@@ -60,11 +61,11 @@ interface IMState {
   setSelectedTrendId: (id: number | null) => void;
 
   // Me tab sub-page (shown in right panel)
-  meSubPage: 'profile' | 'favorites' | 'album' | 'emojis' | null;
-  setMeSubPage: (page: 'profile' | 'favorites' | 'album' | 'emojis' | null) => void;
+  meSubPage: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null;
+  setMeSubPage: (page: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null) => void;
 }
 
-export const useIMStore = create<IMState>((set) => ({
+export const useIMStore = create<IMState>()(persist((set) => ({
   // Auth
   isAuthenticated: false,
   currentUser: null,
@@ -72,7 +73,13 @@ export const useIMStore = create<IMState>((set) => ({
   loginMethod: 'id-password',
   setAuthView: (view) => set({ authView: view }),
   setLoginMethod: (method) => set({ loginMethod: method }),
-  login: (user) => set({ isAuthenticated: true, currentUser: user, authView: 'login' }),
+  login: (user) => {
+    set({ isAuthenticated: true, currentUser: user, authView: 'login' });
+    // Load settings from backend after login
+    import('./settings-store').then(({ useSettingsStore }) => {
+      useSettingsStore.getState().loadFromBackend(user.token);
+    });
+  },
   logout: () => {
     const token = useIMStore.getState().currentUser?.token;
     if (token) {
@@ -118,4 +125,10 @@ export const useIMStore = create<IMState>((set) => ({
   // Me tab sub-page
   meSubPage: null,
   setMeSubPage: (page) => set({ meSubPage: page }),
+}), {
+  name: 'hichat-auth',
+  partialize: (state) => ({
+    isAuthenticated: state.isAuthenticated,
+    currentUser: state.currentUser,
+  }),
 }));
