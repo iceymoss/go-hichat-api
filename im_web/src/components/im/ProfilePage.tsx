@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { currentUser, profileMenuItems, settingsMenuItems } from '@/lib/mock-data';
+import { currentUser } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
+import { useT } from '@/hooks/use-i18n';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Star,
@@ -12,15 +13,10 @@ import {
   Settings,
   ChevronRight,
   QrCode,
-  Moon,
-  Bell,
-  Shield,
-  Lock,
   Info,
   HelpCircle,
   MessageSquare,
   Wallet,
-  BookOpen,
   FileText,
   LogOut,
   Repeat2,
@@ -35,12 +31,13 @@ const iconMap: Record<string, React.ReactNode> = {
 };
 
 export default function ProfilePage() {
-  const { currentUser: authUser, logout } = useIMStore();
+  const { currentUser: authUser, logout, setMeSubPage, meSubPage } = useIMStore();
+  const t = useT();
 
   const displayName = authUser?.name || currentUser.name;
   const displayAvatar = authUser?.avatar || currentUser.avatar;
-  const displayUserId = authUser?.userId || '未登录';
-  const displaySignature = currentUser.signature;
+  const displayUserId = authUser?.id || '未登录';
+  const displaySignature = authUser?.introduction || currentUser.signature;
 
   return (
     <div className="h-full flex flex-col">
@@ -49,19 +46,17 @@ export default function ProfilePage() {
         {/* Spacer top */}
         <div className="h-3" />
 
-        {/* User Profile Card */}
+        {/* User Profile Card — click to open edit page */}
         <div className="mx-4">
           <div
             className="flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-colors"
             style={{
-              background: '#FFFFFF',
+              background: meSubPage === 'profile' ? 'rgba(51,144,236,0.08)' : '#FFFFFF',
               boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
             }}
+            onClick={() => setMeSubPage('profile')}
           >
-            <Avatar
-              className="w-16 h-16 shrink-0"
-              style={{ ringColor: 'rgba(51,144,236,0.3)' }}
-            >
+            <Avatar className="w-16 h-16 shrink-0" style={{ ringColor: 'rgba(51,144,236,0.3)' }}>
               <AvatarImage src={displayAvatar} alt={displayName} />
               <AvatarFallback className="text-lg">{displayName[0]}</AvatarFallback>
             </Avatar>
@@ -111,7 +106,7 @@ export default function ProfilePage() {
               >
                 <Wallet className="w-4 h-4" style={{ color: '#3390EC' }} />
               </div>
-              <span className="text-sm" style={{ color: '#1C2733' }}>服务</span>
+              <span className="text-sm" style={{ color: '#1C2733' }}>{t('profile.service')}</span>
             </div>
             <ChevronRight className="w-4 h-4" style={{ color: '#A2ACB5' }} />
           </div>
@@ -128,33 +123,25 @@ export default function ProfilePage() {
             boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
           }}
         >
-          {profileMenuItems.map((item, idx) => (
-            <React.Fragment key={item.label}>
-              {idx > 0 && (
-                <div
-                  className="mx-3"
-                  style={{
-                    height: '1px',
-                    background: 'rgba(0,0,0,0.06)',
-                  }}
-                />
-              )}
-              <div className="im-profile-menu-item">
+          {[
+            { icon: <Star className="w-5 h-5" />, label: t('profile.favorites'), action: 'favorites' as const },
+            { icon: <ImageIcon className="w-5 h-5" />, label: t('profile.album'), action: 'album' as const },
+            { icon: <CreditCard className="w-5 h-5" />, label: t('profile.cards'), action: null },
+            { icon: <Smile className="w-5 h-5" />, label: t('profile.emojis'), action: 'emojis' as const },
+          ].map((item, idx) => (
+            <React.Fragment key={idx}>
+              {idx > 0 && <div className="mx-3" style={{ height: '1px', background: 'rgba(0,0,0,0.06)' }} />}
+              <div className="im-profile-menu-item"
+                onClick={() => { if (item.action) setMeSubPage(item.action); }}
+              >
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{ background: 'rgba(51,144,236,0.1)', color: '#3390EC' }}
-                  >
-                    {iconMap[item.icon]}
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ background: 'rgba(51,144,236,0.1)', color: '#3390EC' }}>
+                    {item.icon}
                   </div>
                   <span className="text-sm" style={{ color: '#1C2733' }}>{item.label}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  {item.value && (
-                    <span className="text-xs" style={{ color: '#708499' }}>{item.value}</span>
-                  )}
-                  <ChevronRight className="w-4 h-4" style={{ color: '#A2ACB5' }} />
-                </div>
+                <ChevronRight className="w-4 h-4" style={{ color: '#A2ACB5' }} />
               </div>
             </React.Fragment>
           ))}
@@ -163,50 +150,21 @@ export default function ProfilePage() {
         {/* Spacer */}
         <div className="h-3" />
 
-        {/* Settings Section */}
+        {/* Settings — single entry */}
         <div
           className="mx-4 rounded-xl overflow-hidden"
-          style={{
-            background: '#FFFFFF',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-          }}
+          style={{ background: '#FFFFFF', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
         >
-          {[
-            { icon: <Settings className="w-4 h-4" />, label: '设置' },
-            { icon: <Moon className="w-4 h-4" />, label: '深色模式', value: '跟随系统' },
-            { icon: <Bell className="w-4 h-4" />, label: '消息通知' },
-            { icon: <Shield className="w-4 h-4" />, label: '隐私' },
-            { icon: <Lock className="w-4 h-4" />, label: '账号与安全' },
-          ].map((item, idx) => (
-            <React.Fragment key={item.label}>
-              {idx > 0 && (
-                <div
-                  className="mx-3"
-                  style={{
-                    height: '1px',
-                    background: 'rgba(0,0,0,0.06)',
-                  }}
-                />
-              )}
-              <div className="im-profile-menu-item">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{ background: 'rgba(51,144,236,0.1)', color: '#3390EC' }}
-                  >
-                    {item.icon}
-                  </div>
-                  <span className="text-sm" style={{ color: '#1C2733' }}>{item.label}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {item.value && (
-                    <span className="text-xs" style={{ color: '#708499' }}>{item.value}</span>
-                  )}
-                  <ChevronRight className="w-4 h-4" style={{ color: '#A2ACB5' }} />
-                </div>
+          <div className="im-profile-menu-item" onClick={() => setMeSubPage('settings')}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ background: 'rgba(51,144,236,0.1)', color: '#3390EC' }}>
+                <Settings className="w-4 h-4" />
               </div>
-            </React.Fragment>
-          ))}
+              <span className="text-sm" style={{ color: '#1C2733' }}>{t('profile.settings')}</span>
+            </div>
+            <ChevronRight className="w-4 h-4" style={{ color: '#A2ACB5' }} />
+          </div>
         </div>
 
         {/* Spacer */}
@@ -221,11 +179,10 @@ export default function ProfilePage() {
           }}
         >
           {[
-            { icon: <BookOpen className="w-4 h-4" />, label: '通用' },
-            { icon: <FileText className="w-4 h-4" />, label: '聊天记录备份与迁移' },
-            { icon: <HelpCircle className="w-4 h-4" />, label: '帮助与反馈' },
-            { icon: <MessageSquare className="w-4 h-4" />, label: '关于' },
-            { icon: <Info className="w-4 h-4" />, label: '插件' },
+            { icon: <FileText className="w-4 h-4" />, label: t('profile.backup') },
+            { icon: <HelpCircle className="w-4 h-4" />, label: t('profile.help') },
+            { icon: <MessageSquare className="w-4 h-4" />, label: t('profile.about') },
+            { icon: <Info className="w-4 h-4" />, label: t('profile.plugins') },
           ].map((item, idx) => (
             <React.Fragment key={item.label}>
               {idx > 0 && (
@@ -268,7 +225,7 @@ export default function ProfilePage() {
             }}
           >
             <Repeat2 className="w-4 h-4" style={{ color: '#708499' }} />
-            切换账号
+            {t('profile.switchAccount')}
           </button>
           <button
             onClick={logout}
@@ -278,7 +235,7 @@ export default function ProfilePage() {
             }}
           >
             <LogOut className="w-4 h-4" />
-            退出登录
+            {t('profile.logout')}
           </button>
         </div>
       </div>

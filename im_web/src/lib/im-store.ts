@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export type TabType = 'chats' | 'contacts' | 'moments' | 'me';
 export type AuthView = 'login' | 'register' | 'forgot-password';
@@ -6,12 +7,17 @@ export type LoginMethod = 'id-password' | 'smart-code';
 
 export interface AuthUser {
   id: string;
-  userId: string;
   phone: string;
   email: string | null;
   name: string;
   avatar: string;
-  status: string;
+  token: string;
+  expire: number;
+  sex: number;
+  introduction: string;
+  region: string;
+  occupation: string;
+  tags: string;
 }
 
 interface IMState {
@@ -24,6 +30,7 @@ interface IMState {
   setLoginMethod: (method: LoginMethod) => void;
   login: (user: AuthUser) => void;
   logout: () => void;
+  updateCurrentUser: (partial: Partial<AuthUser>) => void;
 
   // IM state
   activeTab: TabType;
@@ -52,9 +59,13 @@ interface IMState {
   // Trend detail panel
   selectedTrendId: number | null;
   setSelectedTrendId: (id: number | null) => void;
+
+  // Me tab sub-page (shown in right panel)
+  meSubPage: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null;
+  setMeSubPage: (page: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null) => void;
 }
 
-export const useIMStore = create<IMState>((set) => ({
+export const useIMStore = create<IMState>()(persist((set) => ({
   // Auth
   isAuthenticated: false,
   currentUser: null,
@@ -62,12 +73,30 @@ export const useIMStore = create<IMState>((set) => ({
   loginMethod: 'id-password',
   setAuthView: (view) => set({ authView: view }),
   setLoginMethod: (method) => set({ loginMethod: method }),
-  login: (user) => set({ isAuthenticated: true, currentUser: user, authView: 'login' }),
-  logout: () => set({ isAuthenticated: false, currentUser: null, activeTab: 'chats', selectedConversationId: null, showChatDetail: false }),
+  login: (user) => {
+    set({ isAuthenticated: true, currentUser: user, authView: 'login' });
+    // Load settings from backend after login
+    import('./settings-store').then(({ useSettingsStore }) => {
+      useSettingsStore.getState().loadFromBackend(user.token);
+    });
+  },
+  logout: () => {
+    const token = useIMStore.getState().currentUser?.token;
+    if (token) {
+      fetch('/api/auth/logout', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+    set({ isAuthenticated: false, currentUser: null, activeTab: 'chats', selectedConversationId: null, showChatDetail: false });
+  },
+  updateCurrentUser: (partial) => set((state) => ({
+    currentUser: state.currentUser ? { ...state.currentUser, ...partial } : null,
+  })),
 
   // IM
   activeTab: 'chats',
-  setActiveTab: (tab) => set({ activeTab: tab, selectedConversationId: null, selectedContactId: null, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null }),
+  setActiveTab: (tab) => set({ activeTab: tab, selectedConversationId: null, selectedContactId: null, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null, meSubPage: null }),
   selectedConversationId: null,
   setSelectedConversationId: (id) => set({ selectedConversationId: id, showChatDetail: true }),
   selectedContactId: null,
@@ -92,4 +121,14 @@ export const useIMStore = create<IMState>((set) => ({
   // Trend detail panel
   selectedTrendId: null,
   setSelectedTrendId: (id) => set({ selectedTrendId: id }),
+
+  // Me tab sub-page
+  meSubPage: null,
+  setMeSubPage: (page) => set({ meSubPage: page }),
+}), {
+  name: 'hichat-auth',
+  partialize: (state) => ({
+    isAuthenticated: state.isAuthenticated,
+    currentUser: state.currentUser,
+  }),
 }));

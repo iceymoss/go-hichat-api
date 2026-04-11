@@ -135,3 +135,109 @@ type VerifyPhoneCodeReq struct {
 
 type VerifyPhoneCodeResp struct {
 }
+
+// ── Favorites ──
+
+type AddFavoriteReq struct {
+	Type     string `json:"type"`               // text/image/link/file/video/location/note
+	Title    string `json:"title,optional"`
+	Content  string `json:"content"`
+	Source   string `json:"source,optional"`     // chat/moment/manual
+	SourceId string `json:"sourceId,optional"`
+	Tags     string `json:"tags,optional"`       // JSON array string
+}
+
+type AddFavoriteResp struct {
+	Id uint64 `json:"id"`
+}
+
+type DeleteFavoriteReq struct {
+	Id uint64 `json:"id"`
+}
+
+type DeleteFavoriteResp struct {
+}
+
+type ListFavoritesReq struct {
+	Type     string `form:"type,optional"`
+	Keyword  string `form:"keyword,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"pageSize,optional"`
+}
+
+type FavoriteItem struct {
+	Id        uint64 `json:"id"`
+	Type      string `json:"type"`
+	Title     string `json:"title"`
+	Content   string `json:"content"`
+	Source    string `json:"source"`
+	SourceId  string `json:"sourceId"`
+	Tags      string `json:"tags"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type ListFavoritesResp struct {
+	List  []FavoriteItem `json:"list"`
+	Total int64          `json:"total"`
+}
+
+// ── User Settings ──
+
+type GetSettingsReq struct {
+}
+
+type GetSettingsResp struct {
+	Settings string `json:"settings"` // JSON string
+}
+
+type UpdateSettingsReq struct {
+	Settings string `json:"settings"` // JSON string
+}
+
+type UpdateSettingsResp struct {
+}
+
+// ── User Emojis / Stickers ──
+
+type AddEmojiReq struct {
+	Url       string `json:"url"`
+	Name      string `json:"name,optional"`
+	Thumbnail string `json:"thumbnail,optional"`
+	Width     uint   `json:"width,optional"`
+	Height    uint   `json:"height,optional"`
+	Size      uint   `json:"size,optional"`
+	FileType  string `json:"fileType,optional"` // image/gif/sticker
+}
+
+type AddEmojiResp struct {
+	Id uint64 `json:"id"`
+}
+
+type DeleteEmojiReq struct {
+	Id uint64 `json:"id"`
+}
+
+type DeleteEmojiResp struct {
+}
+
+type ListEmojisReq struct {
+	Page     int `form:"page,optional"`
+	PageSize int `form:"pageSize,optional"`
+}
+
+type EmojiItem struct {
+	Id        uint64 `json:"id"`
+	Url       string `json:"url"`
+	Name      string `json:"name"`
+	Thumbnail string `json:"thumbnail"`
+	Width     uint   `json:"width"`
+	Height    uint   `json:"height"`
+	Size      uint   `json:"size"`
+	FileType  string `json:"fileType"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type ListEmojisResp struct {
+	List  []EmojiItem `json:"list"`
+	Total int64       `json:"total"`
+}

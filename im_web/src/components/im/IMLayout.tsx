@@ -13,6 +13,11 @@ import GroupList from './GroupList';
 import MomentsFeed from './MomentsFeed';
 import TrendDetailPanel from './TrendDetailPanel';
 import ProfilePage from './ProfilePage';
+import MyProfileEditPage from './MyProfileEditPage';
+import FavoritesPage from './FavoritesPage';
+import AlbumPage from './AlbumPage';
+import EmojisPage from './EmojisPage';
+import SettingsPage from './SettingsPage';
 import { contacts, type Contact } from '@/lib/mock-data';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -23,6 +28,7 @@ import {
   User,
   Search,
 } from 'lucide-react';
+import { useT } from '@/hooks/use-i18n';
 
 const navItems: { tab: TabType; icon: React.ReactNode }[] = [
   { tab: 'chats', icon: <MessageCircle className="w-5 h-5" /> },
@@ -36,7 +42,7 @@ function getTotalUnread(): number {
 }
 
 export default function IMLayout() {
-  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId } = useIMStore();
+  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage } = useIMStore();
 
   // Resolve selected contact for detail panel
   const selectedContact: Contact | null = React.useMemo(() => {
@@ -45,12 +51,13 @@ export default function IMLayout() {
   }, [selectedContactId]);
   const isMobile = useIsMobile();
   const totalUnread = getTotalUnread();
+  const t = useT();
 
   const tabLabels: Record<TabType, string> = {
-    chats: 'HiChat',
-    contacts: '通讯录',
-    moments: '发现',
-    me: '我',
+    chats: t('tab.chats'),
+    contacts: t('tab.contacts'),
+    moments: t('tab.moments'),
+    me: t('tab.me'),
   };
 
   const renderContent = () => {
@@ -262,7 +269,7 @@ export default function IMLayout() {
         className="w-[420px] flex flex-col shrink-0"
         style={{
           background: activeTab === 'chats' ? '#2C3E50' : '#FFFFFF',
-          borderRight: (showChatDetail && activeTab === 'chats') || showContactDetail || showFriendRequestPanel || showGroupPanelView || showTrendDetail
+          borderRight: (showChatDetail && activeTab === 'chats') || showContactDetail || showFriendRequestPanel || showGroupPanelView || showTrendDetail || (activeTab === 'me' && meSubPage)
             ? '1px solid rgba(0,0,0,0.08)'
             : 'none',
         }}
@@ -377,6 +384,31 @@ export default function IMLayout() {
       {showTrendDetail && (
         <div className="flex-1 min-w-0 animate-fade-in">
           <TrendDetailPanel />
+        </div>
+      )}
+      {activeTab === 'me' && meSubPage === 'profile' && (
+        <div className="flex-1 min-w-0 animate-fade-in">
+          <MyProfileEditPage onBack={() => setMeSubPage(null)} />
+        </div>
+      )}
+      {activeTab === 'me' && meSubPage === 'favorites' && (
+        <div className="flex-1 min-w-0 animate-fade-in">
+          <FavoritesPage onBack={() => setMeSubPage(null)} />
+        </div>
+      )}
+      {activeTab === 'me' && meSubPage === 'album' && (
+        <div className="flex-1 min-w-0 animate-fade-in">
+          <AlbumPage onBack={() => setMeSubPage(null)} />
+        </div>
+      )}
+      {activeTab === 'me' && meSubPage === 'emojis' && (
+        <div className="flex-1 min-w-0 animate-fade-in">
+          <EmojisPage onBack={() => setMeSubPage(null)} />
+        </div>
+      )}
+      {activeTab === 'me' && meSubPage === 'settings' && (
+        <div className="flex-1 min-w-0 animate-fade-in">
+          <SettingsPage onBack={() => setMeSubPage(null)} />
         </div>
       )}
     </div>
