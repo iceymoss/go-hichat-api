@@ -138,6 +138,7 @@ export default function ProfilePage() {
                 onClick={() => {
                   if (item.label === '收藏') setMeSubPage('favorites');
                   if (item.label === '相册') setMeSubPage('album');
+                  if (item.label === '表情') setMeSubPage('emojis');
                 }}
               >
                 <div className="flex items-center gap-3">

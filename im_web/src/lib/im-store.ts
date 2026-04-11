@@ -60,8 +60,8 @@ interface IMState {
   setSelectedTrendId: (id: number | null) => void;
 
   // Me tab sub-page (shown in right panel)
-  meSubPage: 'profile' | 'favorites' | 'album' | null;
-  setMeSubPage: (page: 'profile' | 'favorites' | 'album' | null) => void;
+  meSubPage: 'profile' | 'favorites' | 'album' | 'emojis' | null;
+  setMeSubPage: (page: 'profile' | 'favorites' | 'album' | 'emojis' | null) => void;
 }
 
 export const useIMStore = create<IMState>((set) => ({

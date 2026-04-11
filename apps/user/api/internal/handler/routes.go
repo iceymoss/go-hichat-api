@@ -6,6 +6,7 @@ package handler
 import (
 	"net/http"
 
+	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/handler/emoji"
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/handler/favorite"
 	user "github.com/iceymoss/go-hichat-api/apps/user/api/internal/handler/user"
 	"github.com/iceymoss/go-hichat-api/apps/user/api/internal/svc"
@@ -127,6 +128,34 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/favorite/upload",
 				Handler: favorite.UploadFileHandler(serverCtx),
+			},
+		},
+		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),
+		rest.WithPrefix("/api/v1/user"),
+	)
+
+	// 表情包路由（需要JWT认证）
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/emoji",
+				Handler: emoji.AddEmojiHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/emoji",
+				Handler: emoji.DeleteEmojiHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/emojis",
+				Handler: emoji.ListEmojisHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/emoji/upload",
+				Handler: emoji.UploadEmojiHandler(serverCtx),
 			},
 		},
 		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),

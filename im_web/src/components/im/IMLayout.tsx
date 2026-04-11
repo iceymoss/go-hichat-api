@@ -16,6 +16,7 @@ import ProfilePage from './ProfilePage';
 import MyProfileEditPage from './MyProfileEditPage';
 import FavoritesPage from './FavoritesPage';
 import AlbumPage from './AlbumPage';
+import EmojisPage from './EmojisPage';
 import { contacts, type Contact } from '@/lib/mock-data';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -395,6 +396,11 @@ export default function IMLayout() {
       {activeTab === 'me' && meSubPage === 'album' && (
         <div className="flex-1 min-w-0 animate-fade-in">
           <AlbumPage onBack={() => setMeSubPage(null)} />
+        </div>
+      )}
+      {activeTab === 'me' && meSubPage === 'emojis' && (
+        <div className="flex-1 min-w-0 animate-fade-in">
+          <EmojisPage onBack={() => setMeSubPage(null)} />
         </div>
       )}
     </div>

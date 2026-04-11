@@ -180,3 +180,48 @@ type ListFavoritesResp struct {
 	List  []FavoriteItem `json:"list"`
 	Total int64          `json:"total"`
 }
+
+// ── User Emojis / Stickers ──
+
+type AddEmojiReq struct {
+	Url       string `json:"url"`
+	Name      string `json:"name,optional"`
+	Thumbnail string `json:"thumbnail,optional"`
+	Width     uint   `json:"width,optional"`
+	Height    uint   `json:"height,optional"`
+	Size      uint   `json:"size,optional"`
+	FileType  string `json:"fileType,optional"` // image/gif/sticker
+}
+
+type AddEmojiResp struct {
+	Id uint64 `json:"id"`
+}
+
+type DeleteEmojiReq struct {
+	Id uint64 `json:"id"`
+}
+
+type DeleteEmojiResp struct {
+}
+
+type ListEmojisReq struct {
+	Page     int `form:"page,optional"`
+	PageSize int `form:"pageSize,optional"`
+}
+
+type EmojiItem struct {
+	Id        uint64 `json:"id"`
+	Url       string `json:"url"`
+	Name      string `json:"name"`
+	Thumbnail string `json:"thumbnail"`
+	Width     uint   `json:"width"`
+	Height    uint   `json:"height"`
+	Size      uint   `json:"size"`
+	FileType  string `json:"fileType"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type ListEmojisResp struct {
+	List  []EmojiItem `json:"list"`
+	Total int64       `json:"total"`
+}
