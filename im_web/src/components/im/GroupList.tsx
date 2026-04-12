@@ -37,15 +37,6 @@ import { toast } from 'sonner';
 import { useIMStore } from '@/lib/im-store';
 import { getAvatarColor } from '@/lib/utils';
 import {
-  groups as initGroupInfos,
-  groupMembers as initGroupMembersMap,
-  groupApplications as initApps,
-  groupInviteLinks as initLinksMap,
-  groupAnnouncements as initAnnouncementsMap,
-  groupMemberSettings as initSettingsMap,
-  contacts,
-  groupMemberNames,
-  currentUser,
   type GroupInfo,
   type GroupMemberInfo,
   type GroupApplication,
@@ -57,11 +48,6 @@ import {
   type GroupAppClass,
   type GroupJoinSource,
 } from '@/lib/mock-data';
-
-// Flatten Record maps to arrays for local state
-function flattenRecord<T>(map: Record<string, T[]>): T[] {
-  return Object.values(map).flat();
-}
 
 /* ═══════════════════════════════════════
    Helpers
@@ -78,16 +64,6 @@ function fmtTime(date: Date): string {
   if (h < 24) return `${h}小时前`;
   if (d < 30) return `${new Date(date).getMonth() + 1}月${new Date(date).getDate()}日`;
   return `${new Date(date).getFullYear()}年${new Date(date).getMonth() + 1}月${new Date(date).getDate()}日`;
-}
-
-function getContactName(userId: string): string {
-  if (userId === 'me') return currentUser.name;
-  return groupMemberNames[userId] || contacts.find(c => c.id === userId)?.name || userId;
-}
-
-function getContactOnline(userId: string): boolean {
-  if (userId === 'me') return true;
-  return contacts.find(c => c.id === userId)?.online ?? false;
 }
 
 const roleLabel: Record<GroupRoleLevel, string> = { 1: '成员', 2: '管理员', 3: '群主' };
@@ -111,6 +87,98 @@ const appResultConfig: Record<GroupAppResult, { label: string; color: string; bg
   2: { label: '已拒绝', color: '#FF5252', bg: 'rgba(255,82,82,0.1)', icon: <XCircle className="w-3.5 h-3.5" /> },
   3: { label: '已忽略', color: '#A2ACB5', bg: 'rgba(162,172,181,0.1)', icon: <MinusCircle className="w-3.5 h-3.5" /> },
 };
+
+/* ═══════════════════════════════════════
+   API helper
+   ═══════════════════════════════════════ */
+
+async function apiFetch(path: string, token: string, opts?: RequestInit) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: {
+      ...(opts?.headers || {}),
+      Authorization: `Bearer ${token}`,
+      ...(opts?.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+  });
+  return res.json();
+}
+
+/* ═══════════════════════════════════════
+   Mappers – API response -> local types
+   ═══════════════════════════════════════ */
+
+function mapGroup(g: any): GroupInfo {
+  return {
+    id: String(g.id),
+    name: g.name || '',
+    icon: g.icon || '',
+    isVerify: !!g.is_verify,
+    notification: g.notification || '',
+    createUid: String(g.create_uid || ''),
+  };
+}
+
+function mapMember(m: any, groupId: string): GroupMemberInfo {
+  return {
+    id: m.id,
+    groupId: String(groupId),
+    userId: String(m.user_id),
+    nickname: m.nickname || (m.user?.nickname) || '',
+    roleLevel: (m.role_level || 1) as GroupRoleLevel,
+    online: false, // online status not provided by this endpoint
+  };
+}
+
+function mapApplication(a: any): GroupApplication {
+  return {
+    id: a.id,
+    userId: String(a.user_id),
+    userName: a.user?.nickname || String(a.user_id),
+    userAvatar: a.user?.avatar || '',
+    groupId: String(a.group_id),
+    groupName: a.group?.name || '',
+    groupIcon: a.group?.icon || '',
+    reqMsg: a.req_msg || '',
+    reqTime: new Date(a.req_time || Date.now()),
+    joinSource: (a.join_source || 1) as GroupJoinSource,
+    inviterName: a.inviter_user_id ? String(a.inviter_user_id) : undefined,
+    handleResult: (a.handle_result ?? 0) as GroupAppResult,
+    readState: (a.handle_result ?? 0) !== 0,
+  };
+}
+
+function mapInviteLink(l: any): GroupInviteLink {
+  return {
+    token: l.token || l.id || '',
+    groupId: String(l.group_id),
+    createdBy: String(l.created_by || l.creator_uid || ''),
+    createdAt: new Date(l.created_at || l.create_time || Date.now()),
+    expireAt: l.expire_at || l.expire_time ? new Date(l.expire_at || l.expire_time) : null,
+    maxUses: l.max_uses ?? 0,
+    usedCount: l.used_count ?? 0,
+    revoked: !!l.revoked,
+  };
+}
+
+function mapAnnouncement(a: any): GroupAnnouncement {
+  return {
+    id: a.id,
+    groupId: String(a.group_id),
+    content: a.content || '',
+    createdBy: String(a.created_by || a.creator_uid || ''),
+    createdAt: new Date(a.created_at || a.create_time || Date.now()),
+    pinned: !!a.pinned,
+  };
+}
+
+function mapMemberSetting(s: any): GroupMemberSetting {
+  return {
+    groupId: String(s.group_id),
+    groupNickname: s.group_nickname || s.nickname || '',
+    groupRemark: s.group_remark || s.remark || '',
+  };
+}
 
 /* ═══════════════════════════════════════
    Reusable Confirm Dialog
@@ -228,7 +296,9 @@ type DetailTab = 'members' | 'links' | 'announcements';
 type AppStatusFilter = 'all' | GroupAppResult;
 
 export default function GroupList() {
-  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount } = useIMStore();
+  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends } = useIMStore();
+  const token = currentUser?.token || '';
+  const myUserId = currentUser?.id || '';
 
   // ── Local State ──
   const [view, setView] = useState<View>('list');
@@ -243,13 +313,16 @@ export default function GroupList() {
   // List search
   const [listSearch, setListSearch] = useState('');
 
-  // Local data (mutable copies)
-  const [groups, setGroups] = useState<GroupInfo[]>(initGroupInfos);
-  const [members, setMembers] = useState<GroupMemberInfo[]>(flattenRecord(initGroupMembersMap));
-  const [apps, setApps] = useState<GroupApplication[]>(initApps);
-  const [links, setLinks] = useState<GroupInviteLink[]>(flattenRecord(initLinksMap));
-  const [announcements, setAnnouncements] = useState<GroupAnnouncement[]>(flattenRecord(initAnnouncementsMap));
-  const [settings, setSettings] = useState<GroupMemberSetting[]>(Object.values(initSettingsMap));
+  // Local data (fetched from API)
+  const [groups, setGroups] = useState<GroupInfo[]>([]);
+  const [members, setMembers] = useState<GroupMemberInfo[]>([]);
+  const [apps, setApps] = useState<GroupApplication[]>([]);
+  const [links, setLinks] = useState<GroupInviteLink[]>([]);
+  const [announcements, setAnnouncements] = useState<GroupAnnouncement[]>([]);
+  const [settings, setSettings] = useState<GroupMemberSetting[]>([]);
+
+  // Member name cache (userId -> display name from API member data)
+  const memberNameCache = useRef<Record<string, string>>({});
 
   // Modals
   const [confirmOpts, setConfirmOpts] = useState<ConfirmOpts | null>(null);
@@ -281,8 +354,162 @@ export default function GroupList() {
   // Loading
   const [loading, setLoading] = useState(false);
 
+  // ── Helper: get contact name from member data or friends list ──
+  const getContactName = useCallback((userId: string): string => {
+    if (userId === myUserId) return currentUser?.name || '我';
+    if (memberNameCache.current[userId]) return memberNameCache.current[userId];
+    const friend = friends.find(f => f.id === userId);
+    if (friend) return friend.name;
+    return userId;
+  }, [myUserId, currentUser?.name, friends]);
+
+  // ── API: Fetch groups list ──
+  const fetchGroups = useCallback(async () => {
+    if (!token) return;
+    try {
+      const data = await apiFetch('/api/social/groups', token);
+      if (data.success && data.data?.list) {
+        setGroups(data.data.list.map(mapGroup));
+      } else {
+        setGroups([]);
+      }
+    } catch {
+      // silently fail, keep empty list
+    }
+  }, [token]);
+
+  // ── API: Fetch group detail (members) ──
+  const fetchGroupDetail = useCallback(async (groupId: string) => {
+    if (!token) return;
+    try {
+      const data = await apiFetch(`/api/social/group/detail?group_id=${groupId}`, token);
+      if (data.success && data.data) {
+        // Update group info if returned
+        if (data.data.group) {
+          const updatedGroup = mapGroup(data.data.group);
+          setGroups(prev => prev.map(g => g.id === updatedGroup.id ? updatedGroup : g));
+        }
+        // Update members for this group
+        if (data.data.members) {
+          const newMembers: GroupMemberInfo[] = data.data.members.map((m: any) => mapMember(m, groupId));
+          // Update member name cache
+          for (const m of data.data.members) {
+            const uid = String(m.user_id);
+            const name = m.nickname || m.user?.nickname || '';
+            if (name) memberNameCache.current[uid] = name;
+          }
+          // Replace members for this group, keep others
+          setMembers(prev => [
+            ...prev.filter(m => m.groupId !== groupId),
+            ...newMembers,
+          ]);
+        }
+      }
+    } catch {
+      // silently fail
+    }
+  }, [token]);
+
+  // ── API: Fetch applications ──
+  const fetchApplications = useCallback(async () => {
+    if (!token) return;
+    try {
+      const data = await apiFetch('/api/social/group/putInsByUid?class=2', token);
+      if (data.success && data.data?.list) {
+        setApps(data.data.list.map(mapApplication));
+      } else {
+        setApps([]);
+      }
+    } catch {
+      setApps([]);
+    }
+  }, [token]);
+
+  // ── API: Fetch invite links for a group ──
+  const fetchInviteLinks = useCallback(async (groupId: string) => {
+    if (!token) return;
+    try {
+      const data = await apiFetch(`/api/social/group/inviteLinks?group_id=${groupId}`, token);
+      if (data.success && data.data?.list) {
+        const newLinks: GroupInviteLink[] = data.data.list.map(mapInviteLink);
+        setLinks(prev => [
+          ...prev.filter(l => l.groupId !== groupId),
+          ...newLinks,
+        ]);
+      } else {
+        setLinks(prev => prev.filter(l => l.groupId !== groupId));
+      }
+    } catch {
+      // keep existing
+    }
+  }, [token]);
+
+  // ── API: Fetch announcements for a group ──
+  const fetchAnnouncements = useCallback(async (groupId: string) => {
+    if (!token) return;
+    try {
+      const data = await apiFetch(`/api/social/group/announcements?group_id=${groupId}`, token);
+      if (data.success && data.data?.list) {
+        const newAnns: GroupAnnouncement[] = data.data.list.map(mapAnnouncement);
+        setAnnouncements(prev => [
+          ...prev.filter(a => a.groupId !== groupId),
+          ...newAnns,
+        ]);
+      } else {
+        setAnnouncements(prev => prev.filter(a => a.groupId !== groupId));
+      }
+    } catch {
+      // keep existing
+    }
+  }, [token]);
+
+  // ── API: Fetch member setting for current user in a group ──
+  const fetchMemberSetting = useCallback(async (groupId: string) => {
+    if (!token) return;
+    try {
+      const data = await apiFetch(`/api/social/group/memberSetting?group_id=${groupId}`, token);
+      if (data.success && data.data) {
+        const setting = mapMemberSetting({ ...data.data, group_id: groupId });
+        setSettings(prev => {
+          const filtered = prev.filter(s => s.groupId !== groupId);
+          return [...filtered, setting];
+        });
+      }
+    } catch {
+      // keep existing
+    }
+  }, [token]);
+
+  // ── On mount: fetch groups ──
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
+
+  // ── When entering app view: fetch applications ──
+  useEffect(() => {
+    if (view === 'app') {
+      fetchApplications();
+    }
+  }, [view, fetchApplications]);
+
+  // ── When a group is selected: fetch detail, settings, announcements ──
+  useEffect(() => {
+    if (selectedGroupId && view === 'detail') {
+      fetchGroupDetail(selectedGroupId);
+      fetchMemberSetting(selectedGroupId);
+      fetchAnnouncements(selectedGroupId);
+    }
+  }, [selectedGroupId, view, fetchGroupDetail, fetchMemberSetting, fetchAnnouncements]);
+
+  // ── When links tab is active: fetch invite links ──
+  useEffect(() => {
+    if (selectedGroupId && detailTab === 'links') {
+      fetchInviteLinks(selectedGroupId);
+    }
+  }, [selectedGroupId, detailTab, fetchInviteLinks]);
+
   // ── Computed ──
-  const unreadCount = useMemo(() => apps.filter(a => a.handleResult === 0 && a.userId !== 'me' && !a.readState).length, [apps]);
+  const unreadCount = useMemo(() => apps.filter(a => a.userId !== myUserId && a.handleResult === 0 && !a.readState).length, [apps, myUserId]);
   useEffect(() => { setGroupAppUnreadCount(unreadCount); }, [unreadCount, setGroupAppUnreadCount]);
 
   const filteredGroups = useMemo(() => {
@@ -291,15 +518,16 @@ export default function GroupList() {
     return groups.filter(g => g.name.toLowerCase().includes(q));
   }, [groups, listSearch]);
 
-  const myGroupIds = useMemo(() => [...new Set(members.filter(m => m.userId === 'me').map(m => m.groupId))], [members]);
+  // All groups returned by the API are the user's groups, so myGroupIds = all group ids
+  const myGroupIds = useMemo(() => groups.map(g => g.id), [groups]);
 
   const selectedGroup = useMemo(() => groups.find(g => g.id === selectedGroupId) || null, [groups, selectedGroupId]);
 
   const myRole = useMemo((): GroupRoleLevel => {
     if (!selectedGroupId) return 1;
-    const m = members.find(m => m.groupId === selectedGroupId && m.userId === 'me');
+    const m = members.find(m => m.groupId === selectedGroupId && m.userId === myUserId);
     return m ? m.roleLevel : 1;
-  }, [members, selectedGroupId]);
+  }, [members, selectedGroupId, myUserId]);
 
   const isAdmin = myRole >= 2;
   const isOwner = myRole === 3;
@@ -313,7 +541,7 @@ export default function GroupList() {
       list = list.filter(m => getContactName(m.userId).toLowerCase().includes(q) || m.nickname.toLowerCase().includes(q));
     }
     return list;
-  }, [groupMembers, memberSearch]);
+  }, [groupMembers, memberSearch, getContactName]);
 
   const onlineCount = useMemo(() => groupMembers.filter(m => m.online).length, [groupMembers]);
 
@@ -331,15 +559,15 @@ export default function GroupList() {
   const mySetting = useMemo(() => settings.find(s => s.groupId === selectedGroupId), [settings, selectedGroupId]);
 
   const filteredApps = useMemo(() => {
-    let list = apps.filter(a => appClass === 'received' ? a.userId !== 'me' : a.userId === 'me');
+    let list = apps.filter(a => appClass === 'received' ? a.userId !== myUserId : a.userId === myUserId);
     if (appStatusFilter !== 'all') list = list.filter(a => a.handleResult === appStatusFilter);
     return list;
-  }, [apps, appClass, appStatusFilter]);
+  }, [apps, appClass, appStatusFilter, myUserId]);
 
   const friendsNotInGroup = useMemo(() => {
     const inGroup = new Set(groupMembers.map(m => m.userId));
-    return contacts.filter(c => !inGroup.has(c.id));
-  }, [contacts, groupMembers]);
+    return friends.filter(c => !inGroup.has(c.id));
+  }, [friends, groupMembers]);
 
   // ── Handlers ──
 
@@ -351,11 +579,15 @@ export default function GroupList() {
 
   const openGroup = useCallback((gid: string) => { setSelectedGroupId(gid); setView('detail'); setDetailTab('members'); setMemberSearch(''); }, []);
 
-  // Confirm helper
-  const doConfirm = useCallback((title: string, desc: string, confirmLabel: string, confirmColor: string, action: () => void) => {
-    setConfirmOpts({ title, description: desc, confirmLabel, confirmColor, loading: false, onConfirm: () => {
+  // Confirm helper (async-aware)
+  const doConfirm = useCallback((title: string, desc: string, confirmLabel: string, confirmColor: string, action: () => Promise<void> | void) => {
+    setConfirmOpts({ title, description: desc, confirmLabel, confirmColor, loading: false, onConfirm: async () => {
       setConfirmOpts(prev => prev ? { ...prev, loading: true } : prev);
-      setTimeout(() => { action(); setConfirmOpts(null); }, 600);
+      try {
+        await action();
+      } finally {
+        setConfirmOpts(null);
+      }
     }, onCancel: () => setConfirmOpts(null), onClose: () => setConfirmOpts(null) });
   }, []);
 
@@ -364,40 +596,76 @@ export default function GroupList() {
 
   const handleAcceptApp = useCallback((app: GroupApplication) => {
     markAppRead(app.id);
-    doConfirm('同意入群', `确定同意 ${app.userName} 加入 ${app.groupName} 吗？`, '同意', '#3390EC', () => {
-      setApps(prev => prev.map(a => a.id === app.id ? { ...a, handleResult: 1 as GroupAppResult, readState: true } : a));
-      toast.success(`已同意 ${app.userName} 加入 ${app.groupName}`);
+    doConfirm('同意入群', `确定同意 ${app.userName} 加入 ${app.groupName} 吗？`, '同意', '#3390EC', async () => {
+      try {
+        const data = await apiFetch('/api/social/group/putIn', token, {
+          method: 'PUT',
+          body: JSON.stringify({ group_req_id: app.id, group_id: app.groupId, handle_result: 1 }),
+        });
+        if (data.success) {
+          setApps(prev => prev.map(a => a.id === app.id ? { ...a, handleResult: 1 as GroupAppResult, readState: true } : a));
+          toast.success(`已同意 ${app.userName} 加入 ${app.groupName}`);
+        } else {
+          toast.error(data.message || '操作失败');
+        }
+      } catch {
+        toast.error('网络错误');
+      }
     });
-  }, [doConfirm, markAppRead]);
+  }, [doConfirm, markAppRead, token]);
 
   const handleRejectApp = useCallback((app: GroupApplication) => {
     markAppRead(app.id);
-    doConfirm('拒绝入群', `确定拒绝 ${app.userName} 加入 ${app.groupName} 吗？`, '拒绝', '#E53935', () => {
-      setApps(prev => prev.map(a => a.id === app.id ? { ...a, handleResult: 2 as GroupAppResult, readState: true } : a));
-      toast.success(`已拒绝 ${app.userName} 的申请`);
+    doConfirm('拒绝入群', `确定拒绝 ${app.userName} 加入 ${app.groupName} 吗？`, '拒绝', '#E53935', async () => {
+      try {
+        const data = await apiFetch('/api/social/group/putIn', token, {
+          method: 'PUT',
+          body: JSON.stringify({ group_req_id: app.id, group_id: app.groupId, handle_result: 2 }),
+        });
+        if (data.success) {
+          setApps(prev => prev.map(a => a.id === app.id ? { ...a, handleResult: 2 as GroupAppResult, readState: true } : a));
+          toast.success(`已拒绝 ${app.userName} 的申请`);
+        } else {
+          toast.error(data.message || '操作失败');
+        }
+      } catch {
+        toast.error('网络错误');
+      }
     });
-  }, [doConfirm, markAppRead]);
+  }, [doConfirm, markAppRead, token]);
 
   const markAllAppRead = useCallback(() => {
-    setApps(prev => prev.map(a => a.userId !== 'me' ? { ...a, readState: true } : a));
+    setApps(prev => prev.map(a => a.userId !== myUserId ? { ...a, readState: true } : a));
     toast.success('已全部标记为已读');
-  }, []);
+  }, [myUserId]);
 
   // Create group
-  const handleCreateGroup = useCallback(() => {
+  const handleCreateGroup = useCallback(async () => {
     if (!newGroupName.trim()) { toast.error('请输入群名称'); return; }
-    const gid = 'g' + Date.now();
-    const icon = newGroupIcon.trim() || `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(newGroupName)}`;
-    const newGroup: GroupInfo = { id: gid, name: newGroupName, icon, isVerify: false, notification: '', createUid: 'me' };
-    const newMember: GroupMemberInfo = { id: Date.now(), groupId: gid, userId: 'me', nickname: '', roleLevel: 3, online: true };
-    setGroups(prev => [newGroup, ...prev]);
-    setMembers(prev => [newMember, ...prev]);
-    setSettings(prev => [...prev, { groupId: gid, groupNickname: '', groupRemark: '' }]);
-    setShowCreateGroup(false);
-    setNewGroupName('');
-    setNewGroupIcon('');
-    toast.success('群组创建成功');
-  }, [newGroupName, newGroupIcon]);
+    try {
+      setLoading(true);
+      const body: any = { name: newGroupName.trim() };
+      if (newGroupIcon.trim()) body.icon = newGroupIcon.trim();
+      const data = await apiFetch('/api/social/group', token, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      if (data.success) {
+        toast.success('群组创建成功');
+        setShowCreateGroup(false);
+        setNewGroupName('');
+        setNewGroupIcon('');
+        // Refresh groups list
+        await fetchGroups();
+      } else {
+        toast.error(data.message || '创建失败');
+      }
+    } catch {
+      toast.error('网络错误');
+    } finally {
+      setLoading(false);
+    }
+  }, [newGroupName, newGroupIcon, token, fetchGroups]);
 
   // Edit group
   const openEditGroup = useCallback(() => {
@@ -409,133 +677,286 @@ export default function GroupList() {
     setShowEditGroup(true);
   }, [selectedGroup]);
 
-  const handleEditGroup = useCallback(() => {
+  const handleEditGroup = useCallback(async () => {
     if (!selectedGroupId) return;
-    setGroups(prev => prev.map(g => g.id === selectedGroupId ? { ...g, name: editName, icon: editIcon, notification: editNotification, isVerify: editVerify } : g));
-    setShowEditGroup(false);
-    toast.success('群信息已更新');
-  }, [selectedGroupId, editName, editIcon, editNotification, editVerify]);
+    try {
+      const data = await apiFetch('/api/social/group/update', token, {
+        method: 'POST',
+        body: JSON.stringify({
+          group_id: selectedGroupId,
+          name: editName,
+          icon: editIcon,
+          notification: editNotification,
+          is_verify: editVerify ? 1 : 0,
+        }),
+      });
+      if (data.success) {
+        setGroups(prev => prev.map(g => g.id === selectedGroupId ? { ...g, name: editName, icon: editIcon, notification: editNotification, isVerify: editVerify } : g));
+        setShowEditGroup(false);
+        toast.success('群信息已更新');
+      } else {
+        toast.error(data.message || '更新失败');
+      }
+    } catch {
+      toast.error('网络错误');
+    }
+  }, [selectedGroupId, editName, editIcon, editNotification, editVerify, token]);
 
   // Send message
   const handleSendMessage = useCallback(() => { toast.success('正在打开聊天...'); }, []);
 
   // Invite friends
-  const handleInviteFriends = useCallback(() => {
+  const handleInviteFriends = useCallback(async () => {
     if (inviteSelected.size === 0) { toast.error('请选择要邀请的好友'); return; }
-    const names = [...inviteSelected].map(id => getContactName(id)).join('、');
-    toast.success(`已邀请 ${names} 加入群组`);
-    setShowInviteFriends(false);
-    setInviteSelected(new Set());
-  }, [inviteSelected]);
+    if (!selectedGroupId) return;
+    try {
+      const data = await apiFetch('/api/social/group/invite', token, {
+        method: 'POST',
+        body: JSON.stringify({ group_id: selectedGroupId, friend_ids: [...inviteSelected] }),
+      });
+      if (data.success) {
+        const names = [...inviteSelected].map(id => getContactName(id)).join('、');
+        toast.success(`已邀请 ${names} 加入群组`);
+        setShowInviteFriends(false);
+        setInviteSelected(new Set());
+        // Refresh group detail
+        fetchGroupDetail(selectedGroupId);
+      } else {
+        toast.error(data.message || '邀请失败');
+      }
+    } catch {
+      toast.error('网络错误');
+    }
+  }, [inviteSelected, selectedGroupId, token, getContactName, fetchGroupDetail]);
 
   // Member settings
   const openMemberSettings = useCallback(() => {
-    if (!selectedGroupId || !mySetting) return;
-    setSettingNickname(mySetting.groupNickname);
-    setSettingRemark(mySetting.groupRemark);
-    setShowMemberSettings(true);
-  }, [selectedGroupId, mySetting]);
-
-  const handleSaveMemberSettings = useCallback(() => {
     if (!selectedGroupId) return;
-    setSettings(prev => prev.map(s => s.groupId === selectedGroupId ? { ...s, groupNickname: settingNickname, groupRemark: settingRemark } : s));
-    setShowMemberSettings(false);
-    toast.success('设置已保存');
-  }, [selectedGroupId, settingNickname, settingRemark]);
+    const s = settings.find(s => s.groupId === selectedGroupId);
+    setSettingNickname(s?.groupNickname || '');
+    setSettingRemark(s?.groupRemark || '');
+    setShowMemberSettings(true);
+  }, [selectedGroupId, settings]);
+
+  const handleSaveMemberSettings = useCallback(async () => {
+    if (!selectedGroupId) return;
+    try {
+      const data = await apiFetch('/api/social/group/memberSetting', token, {
+        method: 'POST',
+        body: JSON.stringify({
+          group_id: selectedGroupId,
+          group_nickname: settingNickname,
+          group_remark: settingRemark,
+        }),
+      });
+      if (data.success) {
+        setSettings(prev => prev.map(s => s.groupId === selectedGroupId ? { ...s, groupNickname: settingNickname, groupRemark: settingRemark } : s));
+        setShowMemberSettings(false);
+        toast.success('设置已保存');
+      } else {
+        toast.error(data.message || '保存失败');
+      }
+    } catch {
+      toast.error('网络错误');
+    }
+  }, [selectedGroupId, settingNickname, settingRemark, token]);
 
   // Disband / Quit group
   const handleDisband = useCallback(() => {
     if (!selectedGroup) return;
-    doConfirm('解散群组', `确定解散「${selectedGroup.name}」吗？此操作不可撤销！`, '解散群组', '#E53935', () => {
-      setGroups(prev => prev.filter(g => g.id !== selectedGroupId));
-      setMembers(prev => prev.filter(m => m.groupId !== selectedGroupId));
-      setSettings(prev => prev.filter(s => s.groupId !== selectedGroupId));
-      toast.success('群组已解散');
-      setView('list');
-      setSelectedGroupId(null);
+    doConfirm('解散群组', `确定解散「${selectedGroup.name}」吗？此操作不可撤销！`, '解散群组', '#E53935', async () => {
+      try {
+        const data = await apiFetch('/api/social/group/disband', token, {
+          method: 'POST',
+          body: JSON.stringify({ group_id: selectedGroupId }),
+        });
+        if (data.success) {
+          setGroups(prev => prev.filter(g => g.id !== selectedGroupId));
+          setMembers(prev => prev.filter(m => m.groupId !== selectedGroupId));
+          setSettings(prev => prev.filter(s => s.groupId !== selectedGroupId));
+          toast.success('群组已解散');
+          setView('list');
+          setSelectedGroupId(null);
+        } else {
+          toast.error(data.message || '操作失败');
+        }
+      } catch {
+        toast.error('网络错误');
+      }
     });
-  }, [selectedGroup, selectedGroupId, doConfirm]);
+  }, [selectedGroup, selectedGroupId, doConfirm, token]);
 
   const handleQuitGroup = useCallback(() => {
     if (!selectedGroup) return;
-    doConfirm('退出群组', `确定退出「${selectedGroup.name}」吗？`, '退出群组', '#E53935', () => {
-      setMembers(prev => prev.filter(m => !(m.groupId === selectedGroupId && m.userId === 'me')));
-      setSettings(prev => prev.filter(s => s.groupId !== selectedGroupId));
-      toast.success('已退出群组');
-      setView('list');
-      setSelectedGroupId(null);
+    doConfirm('退出群组', `确定退出「${selectedGroup.name}」吗？`, '退出群组', '#E53935', async () => {
+      try {
+        const data = await apiFetch('/api/social/group/quit', token, {
+          method: 'POST',
+          body: JSON.stringify({ group_id: selectedGroupId }),
+        });
+        if (data.success) {
+          setGroups(prev => prev.filter(g => g.id !== selectedGroupId));
+          setMembers(prev => prev.filter(m => m.groupId !== selectedGroupId));
+          setSettings(prev => prev.filter(s => s.groupId !== selectedGroupId));
+          toast.success('已退出群组');
+          setView('list');
+          setSelectedGroupId(null);
+        } else {
+          toast.error(data.message || '操作失败');
+        }
+      } catch {
+        toast.error('网络错误');
+      }
     });
-  }, [selectedGroup, selectedGroupId, doConfirm]);
+  }, [selectedGroup, selectedGroupId, doConfirm, token]);
 
   // Member actions
   const handleSetAdmin = useCallback((m: GroupMemberInfo) => {
     const newRole: GroupRoleLevel = m.roleLevel === 2 ? 1 : 2;
     const label = newRole === 2 ? '设为管理员' : '取消管理员';
-    doConfirm(label, `确定将 ${getContactName(m.userId)} ${label}吗？`, label, '#3390EC', () => {
-      setMembers(prev => prev.map(x => x.id === m.id ? { ...x, roleLevel: newRole } : x));
-      toast.success(`已${label}`);
+    doConfirm(label, `确定将 ${getContactName(m.userId)} ${label}吗？`, label, '#3390EC', async () => {
+      try {
+        const data = await apiFetch('/api/social/group/setAdmin', token, {
+          method: 'POST',
+          body: JSON.stringify({
+            group_id: selectedGroupId,
+            member_ids: [m.userId],
+            is_admin: newRole === 2,
+          }),
+        });
+        if (data.success) {
+          setMembers(prev => prev.map(x => x.id === m.id ? { ...x, roleLevel: newRole } : x));
+          toast.success(`已${label}`);
+        } else {
+          toast.error(data.message || '操作失败');
+        }
+      } catch {
+        toast.error('网络错误');
+      }
     });
-  }, [doConfirm]);
+  }, [doConfirm, getContactName, selectedGroupId, token]);
 
   const handleTransferOwner = useCallback((m: GroupMemberInfo) => {
-    doConfirm('转让群主', `确定将群主转让给 ${getContactName(m.userId)} 吗？转让后你将变为普通成员。`, '转让', '#F5A623', () => {
-      setMembers(prev => prev.map(x => {
-        if (x.groupId === selectedGroupId && x.userId === 'me') return { ...x, roleLevel: 1 };
-        if (x.id === m.id) return { ...x, roleLevel: 3 };
-        return x;
-      }));
-      toast.success('群主已转让');
+    doConfirm('转让群主', `确定将群主转让给 ${getContactName(m.userId)} 吗？转让后你将变为普通成员。`, '转让', '#F5A623', async () => {
+      try {
+        const data = await apiFetch('/api/social/group/transferOwner', token, {
+          method: 'POST',
+          body: JSON.stringify({
+            group_id: selectedGroupId,
+            new_owner_id: m.userId,
+          }),
+        });
+        if (data.success) {
+          setMembers(prev => prev.map(x => {
+            if (x.groupId === selectedGroupId && x.userId === myUserId) return { ...x, roleLevel: 1 as GroupRoleLevel };
+            if (x.id === m.id) return { ...x, roleLevel: 3 as GroupRoleLevel };
+            return x;
+          }));
+          toast.success('群主已转让');
+        } else {
+          toast.error(data.message || '操作失败');
+        }
+      } catch {
+        toast.error('网络错误');
+      }
     });
-  }, [doConfirm, selectedGroupId]);
+  }, [doConfirm, getContactName, selectedGroupId, myUserId, token]);
 
   const handleKickMember = useCallback((m: GroupMemberInfo) => {
-    doConfirm('踢出群组', `确定将 ${getContactName(m.userId)} 移出群组吗？`, '踢出', '#E53935', () => {
-      setMembers(prev => prev.filter(x => x.id !== m.id));
-      toast.success(`已将 ${getContactName(m.userId)} 移出群组`);
+    doConfirm('踢出群组', `确定将 ${getContactName(m.userId)} 移出群组吗？`, '踢出', '#E53935', async () => {
+      try {
+        const data = await apiFetch('/api/social/group/kick', token, {
+          method: 'POST',
+          body: JSON.stringify({
+            group_id: selectedGroupId,
+            member_ids: [m.userId],
+          }),
+        });
+        if (data.success) {
+          setMembers(prev => prev.filter(x => x.id !== m.id));
+          toast.success(`已将 ${getContactName(m.userId)} 移出群组`);
+        } else {
+          toast.error(data.message || '操作失败');
+        }
+      } catch {
+        toast.error('网络错误');
+      }
     });
-  }, [doConfirm]);
+  }, [doConfirm, getContactName, selectedGroupId, token]);
 
   // Invite links
-  const handleCreateLink = useCallback(() => {
+  const handleCreateLink = useCallback(async () => {
     if (!selectedGroupId) return;
-    const token = Math.random().toString(36).substring(2, 18);
+    const expireDays: Record<string, number> = { '1d': 86400, '7d': 604800, '30d': 2592000, 'never': 0 };
+    const expireSeconds = expireDays[newLinkExpiry] || 604800;
     const maxUses = parseInt(newLinkMaxUses) || 0;
-    const expireDays: Record<string, number> = { '1d': 1, '7d': 7, '30d': 30, 'never': 0 };
-    const days = expireDays[newLinkExpiry] || 7;
-    const newLink: GroupInviteLink = {
-      token, groupId: selectedGroupId, createdBy: 'me',
-      createdAt: new Date(), expireAt: days > 0 ? new Date(Date.now() + days * 86400000) : null,
-      maxUses, usedCount: 0, revoked: false,
-    };
-    setLinks(prev => [newLink, ...prev]);
-    setShowCreateLink(false);
-    toast.success('邀请链接已创建');
-  }, [selectedGroupId, newLinkExpiry, newLinkMaxUses]);
+    try {
+      const data = await apiFetch('/api/social/group/inviteLink/create', token, {
+        method: 'POST',
+        body: JSON.stringify({
+          group_id: selectedGroupId,
+          expire_seconds: expireSeconds > 0 ? expireSeconds : undefined,
+          max_uses: maxUses > 0 ? maxUses : undefined,
+        }),
+      });
+      if (data.success) {
+        setShowCreateLink(false);
+        toast.success('邀请链接已创建');
+        // Refresh links
+        fetchInviteLinks(selectedGroupId);
+      } else {
+        toast.error(data.message || '创建失败');
+      }
+    } catch {
+      toast.error('网络错误');
+    }
+  }, [selectedGroupId, newLinkExpiry, newLinkMaxUses, token, fetchInviteLinks]);
 
   const handleRevokeLink = useCallback((link: GroupInviteLink) => {
-    doConfirm('撤销链接', '确定撤销此邀请链接吗？', '撤销', '#E53935', () => {
-      setLinks(prev => prev.map(l => l.token === link.token ? { ...l, revoked: true } : l));
-      toast.success('链接已撤销');
+    doConfirm('撤销链接', '确定撤销此邀请链接吗？', '撤销', '#E53935', async () => {
+      try {
+        const data = await apiFetch('/api/social/group/inviteLink/revoke', token, {
+          method: 'POST',
+          body: JSON.stringify({ token: link.token }),
+        });
+        if (data.success) {
+          setLinks(prev => prev.map(l => l.token === link.token ? { ...l, revoked: true } : l));
+          toast.success('链接已撤销');
+        } else {
+          toast.error(data.message || '操作失败');
+        }
+      } catch {
+        toast.error('网络错误');
+      }
     });
-  }, [doConfirm]);
+  }, [doConfirm, token]);
 
-  const handleCopyLink = useCallback((token: string) => {
-    navigator.clipboard.writeText(`https://hichat.app/join/${token}`).catch(() => {});
+  const handleCopyLink = useCallback((linkToken: string) => {
+    navigator.clipboard.writeText(`https://hichat.app/join/${linkToken}`).catch(() => {});
     toast.success('链接已复制');
   }, []);
 
   // Announcements
-  const handleCreateAnnouncement = useCallback(() => {
+  const handleCreateAnnouncement = useCallback(async () => {
     if (!selectedGroupId || !newAnnContent.trim()) { toast.error('请输入公告内容'); return; }
-    const newAnn: GroupAnnouncement = {
-      id: Date.now(), groupId: selectedGroupId, content: newAnnContent,
-      createdBy: 'me', createdAt: new Date(), pinned: false,
-    };
-    setAnnouncements(prev => [newAnn, ...prev]);
-    setShowCreateAnnouncement(false);
-    setNewAnnContent('');
-    toast.success('公告已发布');
-  }, [selectedGroupId, newAnnContent]);
+    try {
+      const data = await apiFetch('/api/social/group/announcement', token, {
+        method: 'POST',
+        body: JSON.stringify({ group_id: selectedGroupId, content: newAnnContent }),
+      });
+      if (data.success) {
+        setShowCreateAnnouncement(false);
+        setNewAnnContent('');
+        toast.success('公告已发布');
+        // Refresh announcements
+        fetchAnnouncements(selectedGroupId);
+      } else {
+        toast.error(data.message || '发布失败');
+      }
+    } catch {
+      toast.error('网络错误');
+    }
+  }, [selectedGroupId, newAnnContent, token, fetchAnnouncements]);
 
   const handleTogglePin = useCallback((ann: GroupAnnouncement) => {
     setAnnouncements(prev => prev.map(a => a.id === ann.id ? { ...a, pinned: !a.pinned } : a));
@@ -576,8 +997,8 @@ export default function GroupList() {
   );
 
   const avatarCircle = (name: string, size: number, extra?: React.ReactNode) => (
-    <div className="relative shrink-0" style={{ width: size, height: size, borderRadius: '50%', backgroundColor: getAvatarColor(name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: 600, color: '#FFF' }}>
-      {name[0]}
+    <div className="relative shrink-0" style={{ width: size, height: size, borderRadius: '50%', backgroundColor: getAvatarColor(name || '?'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: 600, color: '#FFF' }}>
+      {(name || '?')[0]}
       {extra}
     </div>
   );
@@ -618,7 +1039,7 @@ export default function GroupList() {
             <div style={{ background: '#FFF', borderRadius: '12px', margin: '0 8px 8px', overflow: 'hidden' }}>
               {filteredGroups.filter(g => myGroupIds.includes(g.id)).map(group => {
                 const gm = members.filter(m => m.groupId === group.id);
-                const myM = gm.find(m => m.userId === 'me');
+                const myM = gm.find(m => m.userId === myUserId);
                 const role = myM?.roleLevel || 1;
                 return (
                   <div key={group.id} className="flex items-center gap-3" style={{ padding: '12px 16px', borderBottom: '1px solid rgba(0,0,0,0.05)', cursor: 'pointer' }} onClick={() => openGroup(group.id)} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.02)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
@@ -635,10 +1056,10 @@ export default function GroupList() {
                           <span style={{ fontSize: '10px', color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 5px' }}>需验证</span>
                         )}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#A2ACB5' }}>{gm.length} 位成员</div>
+                      <div style={{ fontSize: '12px', color: '#A2ACB5' }}>{gm.length > 0 ? `${gm.length} 位成员` : '群组'}</div>
                       {group.notification && (
                         <div style={{ fontSize: '12px', color: '#708499', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
-                          📢 {group.notification}
+                          {group.notification}
                         </div>
                       )}
                     </div>
@@ -711,7 +1132,7 @@ export default function GroupList() {
             <div style={{ background: '#FFF', borderRadius: '12px', margin: '8px', overflow: 'hidden' }}>
               {filteredApps.map(app => {
                 const rc = appResultConfig[app.handleResult];
-                const isReceived = app.userId !== 'me';
+                const isReceived = app.userId !== myUserId;
                 const isPending = app.handleResult === 0;
                 return (
                   <div key={app.id} className="relative" style={{ background: isReceived && !app.readState ? 'rgba(245,166,35,0.03)' : '#FFF', borderLeft: isReceived && !app.readState ? '3px solid #F5A623' : 'none', borderBottom: '1px solid rgba(0,0,0,0.05)', padding: '12px 16px', transition: 'background 0.15s' }}>
@@ -720,7 +1141,11 @@ export default function GroupList() {
                       {isReceived ? (
                         avatarCircle(app.userName, 44, <div className="absolute" style={{ bottom: -2, left: '50%', transform: 'translateX(-50%)', width: 20, height: 3, borderRadius: 2, backgroundColor: rc.color }} />)
                       ) : (
-                        <img src={app.groupIcon} alt="" className="shrink-0" style={{ width: 44, height: 44, borderRadius: '50%' }} />
+                        app.groupIcon ? (
+                          <img src={app.groupIcon} alt="" className="shrink-0" style={{ width: 44, height: 44, borderRadius: '50%' }} />
+                        ) : (
+                          avatarCircle(app.groupName, 44)
+                        )
                       )}
                       <div className="flex-1 min-w-0">
                         {/* Row 1: name + source + status + time */}
@@ -728,14 +1153,18 @@ export default function GroupList() {
                           <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>{isReceived ? app.userName : app.groupName}</span>
                           <span style={{ fontSize: '10px', color: '#708499', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: '3px', padding: '0 4px' }}>{joinSourceLabel[app.joinSource]}</span>
                           <span style={{ fontSize: '11px', fontWeight: 500, color: rc.color, backgroundColor: rc.bg, borderRadius: '4px', padding: '1px 6px', display: 'flex', alignItems: 'center', gap: 3 }}>
-                            {React.cloneElement(rc.icon as React.ReactElement, { style: { color: rc.color, width: 12, height: 12 } })}{rc.label}
+                            {React.cloneElement(rc.icon as React.ReactElement<any>, { style: { color: rc.color, width: 12, height: 12 } })}{rc.label}
                           </span>
                           <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{fmtTime(app.reqTime)}</span>
                         </div>
                         {/* Group info for received */}
                         {isReceived && (
                           <div className="flex items-center gap-1.5" style={{ marginBottom: 4 }}>
-                            <img src={app.groupIcon} alt="" style={{ width: 16, height: 16, borderRadius: '50%' }} />
+                            {app.groupIcon ? (
+                              <img src={app.groupIcon} alt="" style={{ width: 16, height: 16, borderRadius: '50%' }} />
+                            ) : (
+                              <div style={{ width: 16, height: 16, borderRadius: '50%', backgroundColor: getAvatarColor(app.groupName || '?'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 600, color: '#FFF' }}>{(app.groupName || '?')[0]}</div>
+                            )}
                             <span style={{ fontSize: '12px', color: '#708499' }}>{app.groupName}</span>
                           </div>
                         )}
@@ -802,14 +1231,14 @@ export default function GroupList() {
                   )}
                 </div>
                 <div style={{ fontSize: '13px', color: '#A2ACB5', marginBottom: 4 }}>
-                  {groupMembers.length} 位成员 · {onlineCount} 人在线
+                  {groupMembers.length} 位成员{onlineCount > 0 ? ` · ${onlineCount} 人在线` : ''}
                 </div>
                 {mySetting?.groupRemark && (
                   <div style={{ fontSize: '12px', color: '#708499', marginBottom: 4 }}>备注: {mySetting.groupRemark}</div>
                 )}
                 {selectedGroup.notification && (
                   <div style={{ fontSize: '12px', color: '#708499', padding: '6px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: '8px', marginTop: 6 }}>
-                    📢 {selectedGroup.notification}
+                    {selectedGroup.notification}
                   </div>
                 )}
               </div>
@@ -865,7 +1294,7 @@ export default function GroupList() {
               <div style={{ background: '#FFF', borderRadius: '12px', overflow: 'hidden' }}>
                 {filteredMembers.map(m => {
                   const name = getContactName(m.userId);
-                  const isMe = m.userId === 'me';
+                  const isMe = m.userId === myUserId;
                   const displayName = m.nickname || name;
                   return (
                     <div key={m.id} className="flex items-center gap-3" style={{ padding: '10px 16px', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>

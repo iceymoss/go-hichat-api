@@ -63,12 +63,13 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 
 	// 如果已存在申请记录，更新记录让消息重新生效
 	if friendReqs != nil {
-		// 无论当前status是什么值，都更新为 status = 1（正常显示），让消息重新生效
-		friendReqs.Status = 1 // 设置为正常显示，让消息重新生效
+		friendReqs.Status = 1        // 正常显示
 		friendReqs.ReqMsg = in.ReqMsg
 		friendReqs.ReqTime = reqTime
-		friendReqs.HandleResult = 0 // 重置为待处理
+		friendReqs.HandleResult = 0  // 重置为待处理
 		friendReqs.HandledAt = chinaNow
+		friendReqs.ReceiverRead = 0  // 重置接收方已读，让对方重新收到通知
+		friendReqs.SenderRead = 0    // 发起方也重置
 
 		// 使用事务更新记录
 		err = l.svcCtx.FriendRequestsModel.Trans(l.ctx, func(ctx context.Context, session sqlx.Session) error {
@@ -77,6 +78,8 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 		if err != nil {
 			return nil, errors.Wrapf(xerr.NewDBErr(), "update friendRequest err %v req %v ", err, in)
 		}
+		// 失效接收方的气泡缓存
+		l.svcCtx.FriendRequestsModel.InvalidateCountCache(l.ctx, in.ReqUid)
 		return &social.FriendPutInResp{}, nil
 	}
 
@@ -89,11 +92,16 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 		ReqTime:      reqTime,
 		HandleResult: 0, // 0-待处理
 		HandledAt:    chinaNow,
+		ReceiverRead: 0, // 接收方未读
+		SenderRead:   0, // 发起方未读
 	})
 
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "insert friendRequest err %v req %v ", err, in)
 	}
+
+	// 失效接收方的气泡缓存
+	l.svcCtx.FriendRequestsModel.InvalidateCountCache(l.ctx, in.ReqUid)
 
 	return &social.FriendPutInResp{}, nil
 }

@@ -39,6 +39,11 @@ func (s *SocialServer) FriendPutInRead(ctx context.Context, in *social.FriendPut
 	return l.FriendPutInRead(in)
 }
 
+func (s *SocialServer) FriendPutInDelete(ctx context.Context, in *social.FriendPutInDeleteReq) (*social.FriendPutInDeleteResp, error) {
+	l := logic.NewFriendPutInDeleteLogic(ctx, s.svcCtx)
+	return l.FriendPutInDelete(in)
+}
+
 func (s *SocialServer) FriendPutInList(ctx context.Context, in *social.FriendPutInListReq) (*social.FriendPutInListResp, error) {
 	l := logic.NewFriendPutInListLogic(ctx, s.svcCtx)
 	return l.FriendPutInList(in)

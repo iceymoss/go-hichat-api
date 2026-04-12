@@ -54,10 +54,22 @@ export interface Contact {
   gender?: 'male' | 'female';
   age?: number;
   phone?: string;
+  email?: string;
   region?: string;
   signature?: string;
   account?: string;  // HiChat ID
   remark?: string;   // 备注 (friend remark name)
+  introduction?: string;
+  occupation?: string;
+  tags?: string;
+  // Friend settings from API
+  blacklisted?: boolean;
+  moments_permission?: number;
+  notify_enabled?: boolean;
+  pinned?: boolean;
+  muted?: boolean;
+  friend_tags?: string[];
+  friend_uid?: string;
 }
 
 export interface Moment {

@@ -5,8 +5,11 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
+	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 type FriendPutInDeleteLogic struct {
@@ -25,7 +28,14 @@ func NewFriendPutInDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 }
 
 func (l *FriendPutInDeleteLogic) FriendPutInDelete(req *types.FriendPutInDeleteReq) (resp *types.FriendPutInDeleteResp, err error) {
-	// todo: add your logic here and delete this line
-
+	uid := l.ctx.Value(Identify).(string)
+	_, err = l.svcCtx.Social.FriendPutInDelete(l.ctx, &social.FriendPutInDeleteReq{
+		UserId:      uid,
+		FriendReqId: req.FriendReqId,
+	})
+	if err != nil {
+		zLog.Error("friend putIn delete err", zap.Error(err))
+		return nil, err
+	}
 	return
 }

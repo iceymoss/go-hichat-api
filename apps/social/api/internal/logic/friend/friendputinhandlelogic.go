@@ -34,6 +34,7 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(req *types.FriendPutInHandleR
 		UserId:       curUid,
 		HandleResult: req.HandleResult,
 		Remark:       req.Remark,
+		HandleMsg:    req.HandleMsg,
 		Tags:         req.Tags,
 	})
 	if err != nil {

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { type Contact, userMomentsImages } from '@/lib/mock-data';
+import { useIMStore } from '@/lib/im-store';
 import { getAvatarColor } from '@/lib/utils';
 import { Phone, Video, Send, UserPlus, Copy, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
@@ -140,10 +141,37 @@ export default function UserProfileCard({
     onAddFriend?.();
   };
 
-  const handleSaveRemark = (remark: string, tags: string[]) => {
-    // In a real app this would update the contact
-    const tagStr = tags.length > 0 ? `，标签: ${tags.join('、')}` : '';
-    toast.success(`备注已更新: ${remark}${tagStr}`);
+  const token = useIMStore.getState().currentUser?.token;
+  const invalidateFriends = useIMStore.getState().invalidateFriends;
+
+  const handleSaveRemark = async (remark: string, tags: string[]) => {
+    if (!token) return;
+    try {
+      // Save remark
+      if (remark) {
+        const r = await fetch('/api/social/friend/remark', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ friend_uid: contact.id, remark }),
+        }).then(res => res.json());
+        if (!r.success) { toast.error(r.message || '备注更新失败'); return; }
+      }
+      // Save tags
+      if (tags.length > 0) {
+        const r = await fetch('/api/social/friend/tags', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ friend_uid: contact.id, tags }),
+        }).then(res => res.json());
+        if (!r.success) { toast.error(r.message || '标签更新失败'); return; }
+      }
+      const tagStr = tags.length > 0 ? `，标签: ${tags.join('、')}` : '';
+      toast.success(`备注已更新: ${remark}${tagStr}`);
+      // 同步刷新好友列表
+      invalidateFriends();
+    } catch {
+      toast.error('更新失败');
+    }
   };
 
   if (compact) {
@@ -159,13 +187,30 @@ export default function UserProfileCard({
         {/* Header: avatar + name + online */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
           <div className="relative shrink-0">
+            {contact.avatar ? (
+              <img
+                src={contact.avatar}
+                alt={contact.name}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                  const next = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
+                  if (next) next.style.display = 'flex';
+                }}
+              />
+            ) : null}
             <div
               style={{
                 width: 48,
                 height: 48,
                 borderRadius: '50%',
                 background: avatarColor,
-                display: 'flex',
+                display: contact.avatar ? 'none' : 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#FFFFFF',
@@ -404,13 +449,32 @@ export default function UserProfileCard({
           className="relative shrink-0"
           style={{ width: 100, height: 100, flexShrink: 0 }}
         >
+          {contact.avatar ? (
+            <img
+              src={contact.avatar}
+              alt={contact.name}
+              style={{
+                width: 100,
+                height: 100,
+                borderRadius: 12,
+                objectFit: 'cover',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              }}
+              onError={(e) => {
+                // 图片加载失败时隐藏，显示备用方块
+                (e.target as HTMLImageElement).style.display = 'none';
+                const next = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
+                if (next) next.style.display = 'flex';
+              }}
+            />
+          ) : null}
           <div
             style={{
               width: 100,
               height: 100,
               borderRadius: 12,
               background: avatarColor,
-              display: 'flex',
+              display: contact.avatar ? 'none' : 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#FFFFFF',

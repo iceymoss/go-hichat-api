@@ -45,6 +45,14 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 			reqMsg = "" // status=2 时不显示消息
 		}
 
+		// read_state 返回当前用户视角的已读状态
+		// class="1"(我收到的) → 用 receiver_read
+		// class="0"(我发出的) → 用 sender_read
+		readState := v.ReceiverRead
+		if in.Class == "0" {
+			readState = v.SenderRead
+		}
+
 		resp = append(resp, &social.FriendRequests{
 			Id:           int32(v.Id),
 			UserId:       strconv.Itoa(int(v.UserId)),
@@ -53,7 +61,7 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 			Status:       int32(v.Status), // 消息状态（0:已删除 1:正常显示 2:忽略不显示）
 			ReqTime:      reqTimeUnix,
 			HandleResult: int32(v.HandleResult), // 0-待处理, 1-已同意, 2-已拒绝
-			ReadState:    int32(v.ReadState),
+			ReadState:    int32(readState),
 		})
 	}
 

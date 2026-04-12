@@ -1,13 +1,10 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   Bell,
   UserPlus,
-  UserMinus,
-  UserCheck,
-  UserX,
   Trash2,
   X,
   Loader2,
@@ -15,24 +12,215 @@ import {
   Mail,
   Phone,
   MapPin,
-  Briefcase,
   MessageSquare,
-  Tag,
   Clock,
   CheckCircle,
   XCircle,
   MinusCircle,
   AlertCircle,
+  Search,
+  Send,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIMStore } from '@/lib/im-store';
-import {
-  friendRequests as initialRequests,
-  type FriendRequest,
-  type FriendRequestClass,
-  type FriendRequestStatus,
-} from '@/lib/mock-data';
 import { getAvatarColor } from '@/lib/utils';
+
+/* ═══════════════════════════════════════
+   Types (previously from mock-data)
+   ═══════════════════════════════════════ */
+
+export type FriendRequestStatus = 'pending' | 'accepted' | 'rejected' | 'ignored';
+export type FriendRequestClass = 'received' | 'sent';
+
+export interface FriendRequest {
+  id: string;
+  class: FriendRequestClass;
+  nickname: string;
+  avatar: string;
+  sex: 'male' | 'female' | 'unknown';
+  region: string;
+  occupation: string;
+  introduction: string;
+  tags: string[];
+  reqMsg: string;
+  handleMsg: string;
+  status: FriendRequestStatus;
+  readState: boolean;
+  reqTime: Date;
+  hiChatId?: string;
+  email?: string;
+  phone?: string;
+}
+
+/* ═══════════════════════════════════════
+   API helpers
+   ═══════════════════════════════════════ */
+
+/** Map backend sex int to string */
+function mapSex(sex?: number): 'male' | 'female' | 'unknown' {
+  if (sex === 1) return 'male';
+  if (sex === 2) return 'female';
+  return 'unknown';
+}
+
+/** Map backend handle_result int to status string */
+function mapHandleResult(hr: number): FriendRequestStatus {
+  switch (hr) {
+    case 1: return 'accepted';
+    case 2: return 'rejected';
+    case 3: return 'ignored';
+    default: return 'pending';
+  }
+}
+
+/** Map a single API record to our FriendRequest shape */
+function mapApiRequest(item: any, reqClass: FriendRequestClass): FriendRequest {
+  const tagsRaw = item.tags;
+  let tags: string[] = [];
+  if (Array.isArray(tagsRaw)) {
+    tags = tagsRaw;
+  } else if (typeof tagsRaw === 'string' && tagsRaw) {
+    try { tags = JSON.parse(tagsRaw); } catch { tags = tagsRaw.split(',').filter(Boolean); }
+  }
+
+  return {
+    id: String(item.id),
+    class: reqClass,
+    nickname: item.nickname || '未知用户',
+    avatar: item.avatar || '',
+    sex: mapSex(item.sex),
+    region: item.region || '',
+    occupation: item.occupation || '',
+    introduction: item.introduction || '',
+    tags,
+    reqMsg: item.req_msg || '',
+    handleMsg: item.handle_msg || '',
+    status: (item.status as FriendRequestStatus) || mapHandleResult(item.handle_result ?? 0),
+    readState: item.read_state === 1,
+    reqTime: new Date((item.req_time ?? 0) * 1000),
+    hiChatId: item.user_id ? String(item.user_id) : undefined,
+    email: item.email || undefined,
+    phone: item.phone || undefined,
+  };
+}
+
+async function fetchRequests(token: string, cls: '0' | '1', type: number): Promise<FriendRequest[]> {
+  const reqClass: FriendRequestClass = cls === '1' ? 'received' : 'sent';
+  const resp = await fetch(`/api/social/friend/putIns?class=${cls}&type=${type}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const json = await resp.json();
+  if (!json.success || !json.data?.list) return [];
+  return (json.data.list as any[]).map((item) => mapApiRequest(item, reqClass));
+}
+
+async function fetchAllRequests(token: string): Promise<FriendRequest[]> {
+  // Fetch both received (class=1) and sent (class=0) for all status types (type=0,1,2,3)
+  const promises: Promise<FriendRequest[]>[] = [];
+  for (const cls of ['0', '1'] as const) {
+    for (const type of [0, 1, 2, 3]) {
+      promises.push(fetchRequests(token, cls, type));
+    }
+  }
+  const results = await Promise.all(promises);
+  const all = results.flat();
+  // Deduplicate by id
+  const seen = new Set<string>();
+  return all.filter((r) => {
+    if (seen.has(r.id)) return false;
+    seen.add(r.id);
+    return true;
+  });
+}
+
+async function fetchUnreadCount(token: string): Promise<number> {
+  try {
+    const resp = await fetch('/api/social/friend/putIn/messageCount', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await resp.json();
+    if (json.success && json.data?.count !== undefined) return json.data.count;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function apiHandleRequest(token: string, friendReqId: number, handleResult: number, handleMsg?: string): Promise<boolean> {
+  const resp = await fetch('/api/social/friend/putIn', {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      friend_req_id: friendReqId,
+      handle_result: handleResult,
+      ...(handleMsg ? { handle_msg: handleMsg } : {}),
+    }),
+  });
+  const json = await resp.json();
+  return json.success === true;
+}
+
+async function apiDeleteRequest(token: string, friendReqId: number): Promise<boolean> {
+  const resp = await fetch('/api/social/friend/putIn/delete', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ friend_req_id: friendReqId }),
+  });
+  const json = await resp.json();
+  return json.success === true;
+}
+
+async function apiMarkAsRead(token: string, friendReqId: number): Promise<boolean> {
+  try {
+    const resp = await fetch('/api/social/friend/putIn/read', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ friend_req_id: friendReqId }),
+    });
+    const json = await resp.json();
+    return json.success === true;
+  } catch {
+    return false;
+  }
+}
+
+async function apiSendFriendRequest(token: string, userUid: string, reqMsg?: string): Promise<boolean> {
+  const resp = await fetch('/api/social/friend/putIn', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ user_uid: userUid, ...(reqMsg ? { req_msg: reqMsg } : {}) }),
+  });
+  const json = await resp.json();
+  return json.success === true;
+}
+
+async function apiSearchUsers(token: string, query: string): Promise<any[]> {
+  const isPhone = /^1[3-9]\d{2,10}$/.test(query);
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(query);
+  const params = isPhone ? `phone=${query}` : isEmail ? `email=${query}` : `name=${query}`;
+  try {
+    const resp = await fetch(`/api/user/search?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await resp.json();
+    if (json.success && json.data?.users) return json.data.users;
+    return [];
+  } catch {
+    return [];
+  }
+}
 
 /* ═══════════════════════════════════════
    Helpers
@@ -326,20 +514,30 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
           style={{ paddingTop: '28px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}
         >
           {/* Avatar */}
-          <div
-            className="flex items-center justify-center shrink-0"
-            style={{
-              width: 80,
-              height: 80,
-              borderRadius: '50%',
-              backgroundColor: getAvatarColor(request.nickname),
-              fontSize: '32px',
-              fontWeight: 600,
-              color: '#FFFFFF',
-              marginBottom: '12px',
-            }}
-          >
-            {request.nickname[0]}
+          <div className="shrink-0" style={{ marginBottom: '12px' }}>
+            {request.avatar ? (
+              <img
+                src={request.avatar}
+                alt={request.nickname}
+                style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const next = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (next) next.style.display = 'flex'; }}
+              />
+            ) : null}
+            <div
+              className="items-center justify-center"
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: '50%',
+                backgroundColor: getAvatarColor(request.nickname),
+                fontSize: '32px',
+                fontWeight: 600,
+                color: '#FFFFFF',
+                display: request.avatar ? 'none' : 'flex',
+              }}
+            >
+              {request.nickname[0]}
+            </div>
           </div>
 
           {/* Name + sex badge */}
@@ -410,7 +608,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
 
           {/* Status */}
           <div className="flex items-center gap-2" style={{ marginBottom: request.handleMsg ? '10px' : 0 }}>
-            {React.cloneElement(sc.icon as React.ReactElement, { style: { color: sc.color, width: 14, height: 14 } })}
+            {React.cloneElement(sc.icon as React.ReactElement<any>, { style: { color: sc.color, width: 14, height: 14 } })}
             <span
               style={{
                 fontSize: '12px',
@@ -579,20 +777,31 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
         {/* Avatar */}
         <div
           className="relative shrink-0"
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
-            backgroundColor: getAvatarColor(request.nickname),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '18px',
-            fontWeight: 600,
-            color: '#FFFFFF',
-          }}
+          style={{ width: 44, height: 44 }}
         >
-          {request.nickname[0]}
+          {request.avatar ? (
+            <img
+              src={request.avatar}
+              alt={request.nickname}
+              style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const next = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (next) next.style.display = 'flex'; }}
+            />
+          ) : null}
+          <div
+            className="items-center justify-center"
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              backgroundColor: getAvatarColor(request.nickname),
+              fontSize: '18px',
+              fontWeight: 600,
+              color: '#FFFFFF',
+              display: request.avatar ? 'none' : 'flex',
+            }}
+          >
+            {request.nickname[0]}
+          </div>
           {/* Status stripe at bottom */}
           <div
             className="absolute"
@@ -634,7 +843,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                 gap: 3,
               }}
             >
-              {React.cloneElement(sc.icon as React.ReactElement, { style: { color: sc.color, width: 12, height: 12 } })}
+              {React.cloneElement(sc.icon as React.ReactElement<any>, { style: { color: sc.color, width: 12, height: 12 } })}
               {sc.label}
             </span>
             <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
@@ -750,13 +959,25 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
    ═══════════════════════════════════════ */
 
 export default function FriendRequestList() {
-  const { setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount } = useIMStore();
+  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, invalidateFriends } = useIMStore();
+  const token = currentUser?.token || '';
 
   // Local state
   const [activeTab, setActiveTab] = useState<FriendRequestClass>('received');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [requests, setRequests] = useState<FriendRequest[]>(initialRequests);
+  const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [detailRequest, setDetailRequest] = useState<FriendRequest | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Send request panel state
+  const [showSendPanel, setShowSendPanel] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [sendMsg, setSendMsg] = useState('');
+  const [sendingTo, setSendingTo] = useState<string | null>(null);
+  const [sendLoading, setSendLoading] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Confirm dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -765,14 +986,40 @@ export default function FriendRequestList() {
   const [confirmNickname, setConfirmNickname] = useState('');
   const [confirmLoading, setConfirmLoading] = useState(false);
 
-  // Compute unread count and sync with store
-  const unreadCount = useMemo(() => {
-    return requests.filter(r => !r.readState).length;
-  }, [requests]);
+  // Fetch all requests on mount, then mark all as read
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    setLoading(true);
+    fetchAllRequests(token)
+      .then((data) => {
+        if (!cancelled) {
+          setRequests(data);
+          // 进入列表后自动全部标记已读，清除 badge
+          const hasUnread = data.some(r => !r.readState);
+          if (hasUnread) {
+            apiMarkAsRead(token, 0).then(() => {
+              setFriendRequestUnreadCount(0);
+            });
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('加载好友请求失败');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [token, setFriendRequestUnreadCount]);
 
-  React.useEffect(() => {
-    setFriendRequestUnreadCount(unreadCount);
-  }, [unreadCount, setFriendRequestUnreadCount]);
+  // Fetch unread count on mount and sync with store
+  useEffect(() => {
+    if (!token) return;
+    fetchUnreadCount(token).then((count) => {
+      setFriendRequestUnreadCount(count);
+    });
+  }, [token, setFriendRequestUnreadCount]);
 
   // Filter requests
   const filteredRequests = useMemo(() => {
@@ -790,7 +1037,10 @@ export default function FriendRequestList() {
 
   const markAsRead = useCallback((id: string) => {
     setRequests(prev => prev.map(r => r.id === id ? { ...r, readState: true } : r));
-  }, []);
+    if (token) {
+      apiMarkAsRead(token, Number(id));
+    }
+  }, [token]);
 
   const openAcceptDialog = useCallback((id: string, nickname: string) => {
     markAsRead(id);
@@ -815,35 +1065,53 @@ export default function FriendRequestList() {
     setConfirmOpen(true);
   }, []);
 
-  const handleConfirm = useCallback((msg: string) => {
+  const handleConfirm = useCallback(async (msg: string) => {
+    if (!token) return;
     setConfirmLoading(true);
-    // Simulate async operation
-    setTimeout(() => {
-      setRequests(prev => {
-        const newReqs = [...prev];
-        const idx = newReqs.findIndex(r => r.id === confirmTargetId);
-        if (idx === -1) return prev;
-        if (confirmType === 'accept') {
-          newReqs[idx] = { ...newReqs[idx], status: 'accepted' as const, handleMsg: msg, readState: true };
-          toast.success(`已同意 ${newReqs[idx].nickname} 的好友请求`);
-        } else if (confirmType === 'reject') {
-          newReqs[idx] = { ...newReqs[idx], status: 'rejected' as const, handleMsg: msg, readState: true };
-          toast.success(`已拒绝 ${newReqs[idx].nickname} 的好友请求`);
-        } else {
-          return prev.filter(r => r.id !== confirmTargetId);
-        }
-        return newReqs;
-      });
-      if (confirmType === 'delete') {
+    try {
+      const reqId = Number(confirmTargetId);
+
+      if (confirmType === 'accept') {
+        const ok = await apiHandleRequest(token, reqId, 1, msg || undefined);
+        if (!ok) { toast.error('操作失败，请重试'); return; }
+        setRequests(prev => prev.map(r =>
+          r.id === confirmTargetId
+            ? { ...r, status: 'accepted' as const, handleMsg: msg, readState: true }
+            : r
+        ));
+        const req = requests.find(r => r.id === confirmTargetId);
+        toast.success(`已同意 ${req?.nickname || ''} 的好友请求`);
+        invalidateFriends();
+      } else if (confirmType === 'reject') {
+        const ok = await apiHandleRequest(token, reqId, 2, msg || undefined);
+        if (!ok) { toast.error('操作失败，请重试'); return; }
+        setRequests(prev => prev.map(r =>
+          r.id === confirmTargetId
+            ? { ...r, status: 'rejected' as const, handleMsg: msg, readState: true }
+            : r
+        ));
+        const req = requests.find(r => r.id === confirmTargetId);
+        toast.success(`已拒绝 ${req?.nickname || ''} 的好友请求`);
+      } else {
+        // delete
+        const ok = await apiDeleteRequest(token, reqId);
+        if (!ok) { toast.error('删除失败，请重试'); return; }
+        setRequests(prev => prev.filter(r => r.id !== confirmTargetId));
         toast.success('已删除记录');
         if (detailRequest?.id === confirmTargetId) {
           setDetailRequest(null);
         }
       }
-      setConfirmLoading(false);
+
+      // Refresh unread count
+      fetchUnreadCount(token).then((count) => setFriendRequestUnreadCount(count));
       setConfirmOpen(false);
-    }, 600);
-  }, [confirmType, confirmTargetId, detailRequest]);
+    } catch {
+      toast.error('操作失败，请稍后重试');
+    } finally {
+      setConfirmLoading(false);
+    }
+  }, [confirmType, confirmTargetId, detailRequest, token, requests, setFriendRequestUnreadCount]);
 
   const handleCardClick = useCallback((req: FriendRequest) => {
     markAsRead(req.id);
@@ -892,6 +1160,43 @@ export default function FriendRequestList() {
 
   const emptyMsg = getEmptyMessage();
 
+  // Search users for send panel
+  const handleSearchUsers = useCallback((q: string) => {
+    setSearchQuery(q);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!q.trim()) { setSearchResults([]); setSearching(false); return; }
+    setSearching(true);
+    searchTimerRef.current = setTimeout(() => {
+      if (!token) return;
+      apiSearchUsers(token, q.trim()).then((users) => {
+        setSearchResults(users);
+        setSearching(false);
+      });
+    }, 400);
+  }, [token]);
+
+  const handleSendRequest = useCallback(async (userId: string) => {
+    if (!token) return;
+    setSendLoading(true);
+    try {
+      const ok = await apiSendFriendRequest(token, userId, sendMsg || undefined);
+      if (ok) {
+        toast.success('好友请求已发送');
+        setSendingTo(null);
+        setSendMsg('');
+        // Refresh requests list and count from backend
+        fetchAllRequests(token).then(setRequests);
+        fetchUnreadCount(token).then(setFriendRequestUnreadCount);
+      } else {
+        toast.error('发送失败，请重试');
+      }
+    } catch {
+      toast.error('发送失败，请稍后重试');
+    } finally {
+      setSendLoading(false);
+    }
+  }, [token, sendMsg]);
+
   return (
     <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
       {/* ── Header ── */}
@@ -926,39 +1231,58 @@ export default function FriendRequestList() {
           新的朋友
         </span>
 
-        <div className="relative">
+        <div className="flex items-center gap-1">
+          {/* Add friend button */}
           <button
+            onClick={() => setShowSendPanel(true)}
             style={{
               width: 40, height: 40,
               borderRadius: '50%',
               border: 'none',
               background: 'transparent',
-              color: '#708499',
+              color: '#3390EC',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Bell className="w-5 h-5" />
+            <UserPlus className="w-5 h-5" />
           </button>
-          {friendRequestUnreadCount > 0 && (
-            <span
-              className="absolute flex items-center justify-center"
+          <div className="relative">
+            <button
               style={{
-                top: 6, right: 4,
-                minWidth: 18, height: 18,
-                borderRadius: 9,
-                background: '#E53935',
-                color: '#FFFFFF',
-                fontSize: '10px',
-                fontWeight: 700,
-                padding: '0 5px',
+                width: 40, height: 40,
+                borderRadius: '50%',
+                border: 'none',
+                background: 'transparent',
+                color: '#708499',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              {friendRequestUnreadCount > 99 ? '99+' : friendRequestUnreadCount}
-            </span>
-          )}
+              <Bell className="w-5 h-5" />
+            </button>
+            {friendRequestUnreadCount > 0 && (
+              <span
+                className="absolute flex items-center justify-center"
+                style={{
+                  top: 6, right: 4,
+                  minWidth: 18, height: 18,
+                  borderRadius: 9,
+                  background: '#E53935',
+                  color: '#FFFFFF',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  padding: '0 5px',
+                }}
+              >
+                {friendRequestUnreadCount > 99 ? '99+' : friendRequestUnreadCount}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1050,7 +1374,12 @@ export default function FriendRequestList() {
 
       {/* ── Request List ── */}
       <div className="flex-1 overflow-y-auto im-scroll">
-        {filteredRequests.length > 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
+            <Loader2 className="w-8 h-8" style={{ color: '#3390EC', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
+            <div style={{ fontSize: '13px', color: '#A2ACB5' }}>加载中...</div>
+          </div>
+        ) : filteredRequests.length > 0 ? (
           <div style={{ background: '#FFFFFF', borderRadius: '12px', margin: '8px', overflow: 'hidden' }}>
             {filteredRequests.map((req) => (
               <RequestCard
@@ -1099,6 +1428,193 @@ export default function FriendRequestList() {
         onReject={handleDetailReject}
         onDelete={handleDetailDelete}
       />
+
+      {/* ── Send Friend Request Panel ── */}
+      {showSendPanel && (
+        <div
+          className="fixed inset-0"
+          style={{ zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowSendPanel(false); setSearchQuery(''); setSearchResults([]); setSendingTo(null); setSendMsg(''); } }}
+        >
+          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
+          <div
+            className="relative"
+            style={{
+              background: '#FFFFFF',
+              borderRadius: '16px',
+              width: '90%',
+              maxWidth: '440px',
+              maxHeight: '75vh',
+              overflow: 'hidden',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.15)',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            {/* Panel header */}
+            <div className="flex items-center justify-between" style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+              <span style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>添加好友</span>
+              <button
+                onClick={() => { setShowSendPanel(false); setSearchQuery(''); setSearchResults([]); setSendingTo(null); setSendMsg(''); }}
+                style={{
+                  width: 28, height: 28,
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'rgba(0,0,0,0.04)',
+                  color: '#A2ACB5',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search input */}
+            <div style={{ padding: '12px 20px' }}>
+              <div className="flex items-center gap-2" style={{ background: '#F5F7FA', borderRadius: '10px', padding: '8px 12px' }}>
+                <Search className="w-4 h-4" style={{ color: '#A2ACB5' }} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearchUsers(e.target.value)}
+                  placeholder="搜索手机号/邮箱/昵称"
+                  style={{
+                    flex: 1,
+                    border: 'none',
+                    background: 'transparent',
+                    outline: 'none',
+                    fontSize: '14px',
+                    color: '#1C2733',
+                  }}
+                  autoFocus
+                />
+                {searching && <Loader2 className="w-4 h-4" style={{ color: '#3390EC', animation: 'spin 1s linear infinite' }} />}
+              </div>
+            </div>
+
+            {/* Search results */}
+            <div className="flex-1 overflow-y-auto im-scroll" style={{ padding: '0 20px 16px' }}>
+              {searchResults.length > 0 ? (
+                searchResults.map((user: any) => (
+                  <div
+                    key={user.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 0',
+                      borderBottom: '1px solid rgba(0,0,0,0.05)',
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, flexShrink: 0 }}>
+                      {user.avatar ? (
+                        <img
+                          src={user.avatar}
+                          alt={user.nickname || '?'}
+                          style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const next = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (next) next.style.display = 'flex'; }}
+                        />
+                      ) : null}
+                      <div
+                        className="items-center justify-center"
+                        style={{
+                          width: 40, height: 40,
+                          borderRadius: '50%',
+                          backgroundColor: getAvatarColor(user.nickname || '?'),
+                          fontSize: '16px',
+                          fontWeight: 600,
+                          color: '#FFFFFF',
+                          display: user.avatar ? 'none' : 'flex',
+                        }}
+                      >
+                        {(user.nickname || '?')[0]}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div style={{ fontSize: '14px', fontWeight: 500, color: '#1C2733' }}>{user.nickname || '未知'}</div>
+                      {user.region && <div style={{ fontSize: '12px', color: '#A2ACB5' }}>{user.region}</div>}
+                    </div>
+                    {sendingTo === user.id ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={sendMsg}
+                          onChange={(e) => setSendMsg(e.target.value)}
+                          placeholder="附言"
+                          style={{
+                            width: 100,
+                            border: '1px solid rgba(0,0,0,0.1)',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            outline: 'none',
+                          }}
+                          onFocus={(e) => { e.target.style.borderColor = '#3390EC'; }}
+                          onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; }}
+                        />
+                        <button
+                          onClick={() => handleSendRequest(user.id)}
+                          disabled={sendLoading}
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: '#3390EC',
+                            color: '#FFFFFF',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            cursor: sendLoading ? 'not-allowed' : 'pointer',
+                            opacity: sendLoading ? 0.7 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          {sendLoading ? <Loader2 className="w-3 h-3" style={{ animation: 'spin 1s linear infinite' }} /> : <Send className="w-3 h-3" />}
+                          发送
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setSendingTo(user.id); setSendMsg(''); }}
+                        style={{
+                          padding: '5px 14px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: '#3390EC',
+                          color: '#FFFFFF',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        添加
+                      </button>
+                    )}
+                  </div>
+                ))
+              ) : searchQuery.trim() && !searching ? (
+                <div className="flex flex-col items-center" style={{ padding: '30px 0' }}>
+                  <UserCircle className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: '8px' }} />
+                  <div style={{ fontSize: '13px', color: '#A2ACB5' }}>未找到用户</div>
+                </div>
+              ) : !searchQuery.trim() ? (
+                <div className="flex flex-col items-center" style={{ padding: '30px 0' }}>
+                  <Search className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: '8px' }} />
+                  <div style={{ fontSize: '13px', color: '#A2ACB5' }}>输入手机号、邮箱或昵称搜索用户</div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

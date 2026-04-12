@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useCallback } from 'react';
-import { type Contact, conversations } from '@/lib/mock-data';
+import { type Contact } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
 import { toast } from 'sonner';
 import UserProfileCard from './UserProfileCard';
@@ -12,7 +12,8 @@ interface ContactDetailPanelProps {
 }
 
 export default function ContactDetailPanel({ contact }: ContactDetailPanelProps) {
-  const { setActiveTab, setSelectedConversationId, setShowChatDetail, setSelectedContactId } = useIMStore();
+  const { setActiveTab, setSelectedConversationId, setShowChatDetail, setSelectedContactId, currentUser, invalidateFriends } = useIMStore();
+  const token = currentUser?.token;
 
   const handleClose = useCallback(() => {
     setSelectedContactId(null);
@@ -28,15 +29,8 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
   }, [handleClose]);
 
   const handleSendMessage = () => {
-    const conv = conversations.find(c => c.name === contact.name);
-    if (conv) {
-      setSelectedContactId(null);
-      setActiveTab('chats');
-      setSelectedConversationId(conv.id);
-      setShowChatDetail(true);
-    } else {
-      toast.info(`暂无与 ${contact.name} 的会话`);
-    }
+    // TODO: integrate with real conversation lookup
+    toast.info(`暂无与 ${contact.name} 的会话`);
   };
 
   const handleVoiceCall = () => {
@@ -48,24 +42,73 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
   };
 
   const handleRecommend = useCallback(() => {
-    toast('功能开发中');
-  }, []);
+    if (!token) return;
+    fetch('/api/social/friend/share', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ friend_uid: contact.id }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) toast.success('分享成功');
+        else toast.error(d.message || '分享失败');
+      })
+      .catch(() => toast.error('分享失败'));
+  }, [token, contact.id]);
 
   const handleSetPermissions = useCallback(() => {
     toast('功能开发中');
   }, []);
 
   const handleToggleBlock = useCallback((blocked: boolean) => {
-    toast(blocked ? '已加入黑名单' : '已移出黑名单');
-  }, []);
+    if (!token) return;
+    fetch('/api/social/friend/block', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ friend_uid: contact.id, block: blocked }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) { toast.success(blocked ? '已加入黑名单' : '已移出黑名单'); invalidateFriends(); }
+        else toast.error(d.message || '操作失败');
+      })
+      .catch(() => toast.error('操作失败'));
+  }, [token, contact.id]);
 
   const handleReport = useCallback(() => {
-    toast('功能开发中');
-  }, []);
+    if (!token) return;
+    fetch('/api/social/friend/report', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ friend_uid: contact.id, reason: '' }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) toast.success('举报已提交');
+        else toast.error(d.message || '举报失败');
+      })
+      .catch(() => toast.error('举报失败'));
+  }, [token, contact.id]);
 
   const handleDeleteFriend = useCallback(() => {
-    toast('功能开发中');
-  }, []);
+    if (!token) return;
+    fetch('/api/social/friend/delete', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ friend_uid: contact.id }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          toast.success('已删除好友');
+          setSelectedContactId(null);
+          invalidateFriends();
+        } else {
+          toast.error(d.message || '删除失败');
+        }
+      })
+      .catch(() => toast.error('删除失败'));
+  }, [token, contact.id, setSelectedContactId]);
 
   return (
     <div
@@ -124,6 +167,7 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
           <UserProfileCard
             contact={contact}
             isStranger={false}
+            isBlocked={contact.blacklisted}
             onSendMessage={handleSendMessage}
             onVoiceCall={handleVoiceCall}
             onVideoCall={handleVideoCall}

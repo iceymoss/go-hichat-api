@@ -66,9 +66,20 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 	}
 
 	firendReq.HandleResult = int(in.HandleResult)
+	// 保存处理附言
+	if in.HandleMsg != "" {
+		firendReq.HandleMsg = in.HandleMsg
+	}
+	// 处理后：发起方需要收到结果通知，重置 sender_read=0
+	firendReq.SenderRead = 0
 	// 使用中国时区更新处理时间
 	chinaNow := utils.NowInChina()
 	firendReq.HandledAt = chinaNow
+
+	// 获取申请人的用户信息（用于设置默认备注）
+	applicantResp, _ := l.svcCtx.User.GetUserById(l.ctx, &user.GetUserByIdRequest{
+		Id: fmt.Sprint(firendReq.UserId),
+	})
 
 	// 修改申请结果 -> 通过【建立两条好友关系记录】 -> 事务
 	err = l.svcCtx.FriendRequestsModel.Trans(l.ctx, func(ctx context.Context, session sqlx.Session) error {
@@ -76,16 +87,21 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 			return errors.Wrapf(xerr.NewDBErr(), "update friend request err %v, req %v", err, firendReq)
 		}
 
+		// 将同一对用户之间其他待处理的申请标记为已忽略
+		if err := l.svcCtx.FriendRequestsModel.IgnoreOtherPending(
+			l.ctx, uint64(in.FriendReqId), firendReq.UserId, firendReq.ReqUid,
+		); err != nil {
+			return errors.Wrapf(xerr.NewDBErr(), "ignore other pending err %v", err)
+		}
+
 		if constants.HandlerResult(in.HandleResult) != constants.PassHandlerResult {
 			return nil
 		}
 
-		// 使用中国时区创建好友关系
-		// 添加好友关系
-		// 将好友关系添加到申请人的好友列表中
+		// 申请人好友列表中添加处理人（处理人的昵称作为默认备注）
 		friend1 := &socialmodels.Friends{
 			UserId:    firendReq.UserId,
-			FriendUid: firendReq.ReqUid, // 发起好友申请的用户ID
+			FriendUid: firendReq.ReqUid,
 			Remark:    friendRsep.User.Nickname,
 			AddSource: 1,
 			CreatedAt: sql.NullTime{
@@ -100,20 +116,22 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 			friend1.FriendTags = sql.NullString{String: string(tagBytes), Valid: true}
 		}
 
-		// 将好友关系添加到被申请人的好友列表中
+		// 处理人好友列表中添加申请人
+		// remark 是处理人给申请人设的备注；如果没设，用申请人的昵称作默认
+		remark := in.Remark
+		if remark == "" && applicantResp != nil && applicantResp.User != nil {
+			remark = applicantResp.User.Nickname
+		}
 		friend2 := &socialmodels.Friends{
 			UserId:    firendReq.ReqUid,
 			FriendUid: firendReq.UserId,
-			Remark:    in.Remark, // 备注
+			Remark:    remark,
 			AddSource: 1,
 			CreatedAt: sql.NullTime{
 				Time:  chinaNow,
 				Valid: true,
 			},
 		}
-
-		fmt.Println("friend1", friend1)
-		fmt.Println("friend2", friend2)
 
 		_, err = l.svcCtx.FriendsModel.Insert(l.ctx, friend1)
 		if err != nil {
@@ -165,6 +183,10 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 		//}
 		return nil
 	})
+
+	// 失效双方气泡缓存：发起方收到结果通知，接收方数量也变了
+	l.svcCtx.FriendRequestsModel.InvalidateCountCache(l.ctx,
+		fmt.Sprint(firendReq.UserId), fmt.Sprint(firendReq.ReqUid))
 
 	return &social.FriendPutInHandleResp{}, err
 }

@@ -39,6 +39,8 @@ type (
 	FriendPutInMessageCountResp    = social.FriendPutInMessageCountResp
 	FriendPutInReadReq             = social.FriendPutInReadReq
 	FriendPutInReadResp            = social.FriendPutInReadResp
+	FriendPutInDeleteReq           = social.FriendPutInDeleteReq
+	FriendPutInDeleteResp          = social.FriendPutInDeleteResp
 	FriendPutInReq                 = social.FriendPutInReq
 	FriendPutInResp                = social.FriendPutInResp
 	FriendReportReq                = social.FriendReportReq
@@ -112,6 +114,7 @@ type (
 		FriendPutIn(ctx context.Context, in *FriendPutInReq, opts ...grpc.CallOption) (*FriendPutInResp, error)
 		FriendPutInHandle(ctx context.Context, in *FriendPutInHandleReq, opts ...grpc.CallOption) (*FriendPutInHandleResp, error)
 		FriendPutInRead(ctx context.Context, in *FriendPutInReadReq, opts ...grpc.CallOption) (*FriendPutInReadResp, error)
+		FriendPutInDelete(ctx context.Context, in *FriendPutInDeleteReq, opts ...grpc.CallOption) (*FriendPutInDeleteResp, error)
 		FriendPutInList(ctx context.Context, in *FriendPutInListReq, opts ...grpc.CallOption) (*FriendPutInListResp, error)
 		FriendPutInMessageCount(ctx context.Context, in *FriendPutInMessageCountReq, opts ...grpc.CallOption) (*FriendPutInMessageCountResp, error)
 		FriendList(ctx context.Context, in *FriendListReq, opts ...grpc.CallOption) (*FriendListResp, error)
@@ -181,6 +184,11 @@ func (m *defaultSocial) FriendPutInHandle(ctx context.Context, in *FriendPutInHa
 func (m *defaultSocial) FriendPutInRead(ctx context.Context, in *FriendPutInReadReq, opts ...grpc.CallOption) (*FriendPutInReadResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.FriendPutInRead(ctx, in, opts...)
+}
+
+func (m *defaultSocial) FriendPutInDelete(ctx context.Context, in *FriendPutInDeleteReq, opts ...grpc.CallOption) (*FriendPutInDeleteResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.FriendPutInDelete(ctx, in, opts...)
 }
 
 func (m *defaultSocial) FriendPutInList(ctx context.Context, in *FriendPutInListReq, opts ...grpc.CallOption) (*FriendPutInListResp, error) {

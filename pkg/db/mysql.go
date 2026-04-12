@@ -64,7 +64,7 @@ func GetMysqlConn(db string) *gorm.DB {
 		default:
 			gormlevel = gormLogger.Info
 		}
-		dsn := userName + ":" + userPwd + "@tcp(" + host + ":" + port + ")/" + db + "?charset=utf8mb4&parseTime=True&loc=Local"
+		dsn := userName + ":" + userPwd + "@tcp(" + host + ":" + port + ")/" + db + "?charset=utf8mb4&parseTime=True&loc=Asia%2FShanghai"
 		fmt.Printf("dsn:%s\n", dsn, gormlevel)
 		dbConn, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 			//Logger: &CustomMySqlLogger{
