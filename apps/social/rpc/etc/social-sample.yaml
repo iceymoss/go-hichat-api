@@ -6,21 +6,16 @@ Etcd:
   Key: social.rpc
 
 Mysql:
-  DataSource: root:123456789@tcp(127.0.0.1:3306)/hichat2?charset=utf8mb4&parseTime=true
+  DataSource: root:123456789@tcp(127.0.0.1:3306)/hichat2?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
 
 Cache:
   - Host: 127.0.0.1:6379
     Type: node
 
 UserRpc:
-  Etcd:
-    Hosts:
-      - 127.0.0.1:2379
-    Key: user.rpc
+  Target: dns:///127.0.0.1:10000
+  NonBlock: true
+  Timeout: 10000
 
 Log:
-  #  Mode: file      # 改为 file，控制台就清净了
-  #  Path: logs      # 日志文件存放在 logs 目录下
-  #  Stat: false     # 同时关掉统计日志
-  Level: error  # 【关键】只打印 error 级别，info 和 stat 都会被屏蔽
-
+  Level: error

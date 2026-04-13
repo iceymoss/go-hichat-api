@@ -53,14 +53,16 @@ type (
 	}
 
 	GroupMembers struct {
-		Id          int64     `db:"id"`
-		GroupId     string    `db:"group_id"`
-		UserId      string    `db:"user_id"`
-		RoleLevel   int       `db:"role_level"`
-		JoinTime    time.Time `db:"join_time"`
-		JoinSource  int       `db:"join_source"`
-		InviterUid  string    `db:"inviter_uid"`
-		OperatorUid string    `db:"operator_uid"`
+		Id            int64     `db:"id"`
+		GroupId       string    `db:"group_id"`
+		UserId        string    `db:"user_id"`
+		RoleLevel     int       `db:"role_level"`
+		JoinTime      time.Time `db:"join_time"`
+		JoinSource    int       `db:"join_source"`
+		InviterUid    string    `db:"inviter_uid"`
+		OperatorUid   string    `db:"operator_uid"`
+		GroupNickname string    `db:"group_nickname"` // 群内昵称
+		GroupRemark   string    `db:"group_remark"`   // 群备注（仅自己可见）
 	}
 )
 
@@ -125,7 +127,7 @@ func (m *defaultGroupMembersModel) FindMemberByUid(ctx context.Context, groupId,
 
 func (m *defaultGroupMembersModel) ListByUserId(ctx context.Context, userId string) ([]*GroupMembers, error) {
 	var resp []*GroupMembers
-	err := m.mysqlConn.Table(m.table).Select([]string{"group_id", "user_id"}).Where("user_id = ?", userId).Find(&resp).Error
+	err := m.mysqlConn.Table(m.table).Select([]string{"group_id", "user_id", "group_nickname", "group_remark"}).Where("user_id = ?", userId).Find(&resp).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}

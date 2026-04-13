@@ -6,6 +6,7 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/pkg/errors"
@@ -37,8 +38,12 @@ func (l *GroupListLogic) GroupList(in *social.GroupListReq) (*social.GroupListRe
 	}
 
 	ids := make([]string, 0, len(userGroup))
+	// 用 map 记录当前用户在每个群的成员信息（含 group_nickname/group_remark）
+	memberByGroup := make(map[string]*socialmodels.GroupMembers, len(userGroup))
 	for _, v := range userGroup {
 		ids = append(ids, v.GroupId)
+		m := v // copy
+		memberByGroup[v.GroupId] = m
 	}
 
 	groups, err := l.svcCtx.GroupsModel.ListByGroupIds(l.ctx, ids)
@@ -52,8 +57,9 @@ func (l *GroupListLogic) GroupList(in *social.GroupListReq) (*social.GroupListRe
 		if v.IsVerify > 0 {
 			IsVerify = true
 		}
-		respList = append(respList, &social.Groups{
-			Id:              strconv.Itoa(v.Id),
+		gid := strconv.Itoa(v.Id)
+		g := &social.Groups{
+			Id:              gid,
 			Name:            v.Name,
 			Icon:            v.Icon,
 			Status:          int32(v.Status),
@@ -62,7 +68,13 @@ func (l *GroupListLogic) GroupList(in *social.GroupListReq) (*social.GroupListRe
 			IsVerify:        IsVerify,
 			Notification:    v.Notification,
 			NotificationUid: strconv.Itoa(v.NotificationUid),
-		})
+		}
+		// 填充当前用户在该群的昵称和备注
+		if m, ok := memberByGroup[gid]; ok {
+			g.GroupNickname = m.GroupNickname
+			g.GroupRemark = m.GroupRemark
+		}
+		respList = append(respList, g)
 	}
 
 	return &social.GroupListResp{

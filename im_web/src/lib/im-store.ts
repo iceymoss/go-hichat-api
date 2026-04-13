@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { type Contact } from '@/lib/mock-data';
 
 export type TabType = 'chats' | 'contacts' | 'moments' | 'me';
 export type AuthView = 'login' | 'register' | 'forgot-password';
@@ -63,6 +64,12 @@ interface IMState {
   // Me tab sub-page (shown in right panel)
   meSubPage: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null;
   setMeSubPage: (page: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null) => void;
+
+  // Friends list (fetched from API)
+  friends: Contact[];
+  setFriends: (friends: Contact[]) => void;
+  friendsVersion: number;
+  invalidateFriends: () => void;
 }
 
 export const useIMStore = create<IMState>()(persist((set) => ({
@@ -125,6 +132,12 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   // Me tab sub-page
   meSubPage: null,
   setMeSubPage: (page) => set({ meSubPage: page }),
+
+  // Friends list
+  friends: [],
+  setFriends: (friends) => set({ friends }),
+  friendsVersion: 0,
+  invalidateFriends: () => set((state) => ({ friendsVersion: state.friendsVersion + 1 })),
 }), {
   name: 'hichat-auth',
   partialize: (state) => ({

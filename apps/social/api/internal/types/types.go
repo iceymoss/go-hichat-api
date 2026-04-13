@@ -66,17 +66,18 @@ type FriendPinResp struct {
 }
 
 type FriendPutInDeleteReq struct {
-	FriendReqId int32 `json:"friend_req_id,omitempty"` // 申请ID
+	FriendReqId int32 `json:"friend_req_id,optional"` // 申请ID
 }
 
 type FriendPutInDeleteResp struct {
 }
 
 type FriendPutInHandleReq struct {
-	FriendReqId  int32    `json:"friend_req_id,omitempty"`
-	HandleResult int32    `json:"handle_result,omitempty"` // 处理结果
-	Remark       string   `json:"remark,omitempty"`        // 备注
-	Tags         []string `json:"tags,omitempty"`          // 标签
+	FriendReqId  int32    `json:"friend_req_id,optional"`
+	HandleResult int32    `json:"handle_result,optional"` // 处理结果
+	Remark       string   `json:"remark,optional"`        // 好友备注名
+	HandleMsg    string   `json:"handle_msg,optional"`    // 处理附言/回复
+	Tags         []string `json:"tags,optional"`          // 标签
 }
 
 type FriendPutInHandleResp struct {
@@ -95,19 +96,19 @@ type FriendPutInMessageCountReq struct {
 }
 
 type FriendPutInMessageCountResp struct {
-	Count int32 `json:"count,omitempty"` // 消息数量
+	Count int32 `json:"count"` // 未读消息数量（不用omitempty，确保0也返回）
 }
 
 type FriendPutInReadReq struct {
-	FriendReqId int32 `json:"friend_req_id,omitempty"` // 0 或不传表示全部已读
+	FriendReqId int32 `json:"friend_req_id,optional"` // 0 或不传表示全部已读
 }
 
 type FriendPutInReadResp struct {
 }
 
 type FriendPutInReq struct {
-	ReqMsg  string `json:"req_msg,omitempty"`
-	ReqTime int64  `json:"req_time,omitempty"`
+	ReqMsg  string `json:"req_msg,optional"`
+	ReqTime int64  `json:"req_time,optional"`
 	UserId  string `json:"user_uid"`
 }
 
@@ -204,9 +205,9 @@ type FriendsOnlineResp struct {
 }
 
 type GetGroupPutListByUidReq struct {
-	Ids   []string `json:"ids,optional"`   // 用户id列表
-	Class string   `json:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
-	Type  string   `json:"type,optional"`  // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
+	Ids   []string `form:"ids,optional"`   // 用户id列表
+	Class string   `form:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
+	Type  string   `form:"type,optional"`  // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
 }
 
 type GetGroupPutListByUidResp struct {
@@ -268,8 +269,8 @@ type GroupAtListResp struct {
 }
 
 type GroupCreateReq struct {
-	Name string `json:"name,omitempty"`
-	Icon string `json:"icon,omitempty"`
+	Name string `json:"name,optional"`
+	Icon string `json:"icon,optional"`
 }
 
 type GroupCreateResp struct {
@@ -378,25 +379,27 @@ type GroupMembers struct {
 	UserId        string `json:"user_id,omitempty"`
 	Nickname      string `json:"nickname,omitempty"`
 	UserAvatarUrl string `json:"user_avatar_url,omitempty"`
-	RoleLevel     int    `json:"role_level,omitempty"`
+	RoleLevel     int    `json:"role_level"`
 	InviterUid    string `json:"inviter_uid,omitempty"`
 	OperatorUid   string `json:"operator_uid,omitempty"`
+	GroupNickname string `json:"group_nickname,omitempty"`
+	GroupRemark   string `json:"group_remark,omitempty"`
 	User          User   `json:"user,omitempty"`
 }
 
 type GroupPutInHandleReq struct {
-	GroupReqId   int32  `json:"group_req_id,omitempty"`
-	GroupId      string `json:"group_id,omitempty"`
-	HandleResult int32  `json:"handle_result,omitempty"` // 处理结果
+	GroupReqId   int32  `json:"group_req_id,optional"`
+	GroupId      string `json:"group_id,optional"`
+	HandleResult int32  `json:"handle_result,optional"` // 处理结果
 }
 
 type GroupPutInHandleResp struct {
 }
 
 type GroupPutInListReq struct {
-	GroupId string  `json:"group_id,omitempty"`
-	Type    []int32 `json:"type,optional"`
-	Class   int32   `json:"class,optional"`
+	GroupId string  `form:"group_id,optional"`
+	Type    []int32 `form:"type,optional"`
+	Class   int32   `form:"class,optional"`
 }
 
 type GroupPutInListResp struct {
@@ -470,7 +473,7 @@ type GroupUpdateResp struct {
 }
 
 type GroupUserListReq struct {
-	GroupId string `json:"group_id,omitempty"`
+	GroupId string `form:"group_id,optional"`
 }
 
 type GroupUserListResp struct {
@@ -478,7 +481,7 @@ type GroupUserListResp struct {
 }
 
 type GroupUserOnlineReq struct {
-	GroupId string `json:"group_id,omitempty"`
+	GroupId string `form:"group_id,optional"`
 }
 
 type GroupUserOnlineResp struct {
@@ -495,6 +498,8 @@ type Groups struct {
 	Notification    string `json:"notification,omitempty"`
 	NotificationUid string `json:"notification_uid,omitempty"`
 	CreateUid       string `json:"create_uid,omitempty"`
+	GroupNickname   string `json:"group_nickname,omitempty"` // 当前用户在该群的昵称
+	GroupRemark     string `json:"group_remark,omitempty"`   // 当前用户对该群的备注
 }
 
 type UpdateMyGroupMemberSettingReq struct {

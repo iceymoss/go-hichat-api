@@ -2,8 +2,7 @@
 
 import React from 'react';
 import { useIMStore, TabType } from '@/lib/im-store';
-import { currentUser } from '@/lib/mock-data';
-import { conversations } from '@/lib/mock-data';
+import { conversations, type Contact } from '@/lib/mock-data';
 import { ChatListProvider, ChatListToolbar, ChatListContent } from './ChatList';
 import ChatDetail from './ChatDetail';
 import ContactList from './ContactList';
@@ -18,7 +17,6 @@ import FavoritesPage from './FavoritesPage';
 import AlbumPage from './AlbumPage';
 import EmojisPage from './EmojisPage';
 import SettingsPage from './SettingsPage';
-import { contacts, type Contact } from '@/lib/mock-data';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -42,13 +40,13 @@ function getTotalUnread(): number {
 }
 
 export default function IMLayout() {
-  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage } = useIMStore();
+  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends } = useIMStore();
 
-  // Resolve selected contact for detail panel
+  // Resolve selected contact for detail panel from store friends
   const selectedContact: Contact | null = React.useMemo(() => {
     if (!selectedContactId) return null;
-    return contacts.find(c => c.id === selectedContactId) || null;
-  }, [selectedContactId]);
+    return friends.find(c => c.id === selectedContactId) || null;
+  }, [selectedContactId, friends]);
   const isMobile = useIsMobile();
   const totalUnread = getTotalUnread();
   const t = useT();
@@ -227,8 +225,8 @@ export default function IMLayout() {
         {/* User Avatar */}
         <div className="mb-3">
           <Avatar className="w-8 h-8 cursor-pointer" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>
-            <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-            <AvatarFallback>{currentUser.name}</AvatarFallback>
+            <AvatarImage src={currentUser?.avatar} alt={currentUser?.name} />
+            <AvatarFallback>{currentUser?.name}</AvatarFallback>
           </Avatar>
         </div>
 

@@ -39,6 +39,11 @@ func (s *SocialServer) FriendPutInRead(ctx context.Context, in *social.FriendPut
 	return l.FriendPutInRead(in)
 }
 
+func (s *SocialServer) FriendPutInDelete(ctx context.Context, in *social.FriendPutInDeleteReq) (*social.FriendPutInDeleteResp, error) {
+	l := logic.NewFriendPutInDeleteLogic(ctx, s.svcCtx)
+	return l.FriendPutInDelete(in)
+}
+
 func (s *SocialServer) FriendPutInList(ctx context.Context, in *social.FriendPutInListReq) (*social.FriendPutInListResp, error) {
 	l := logic.NewFriendPutInListLogic(ctx, s.svcCtx)
 	return l.FriendPutInList(in)
@@ -178,6 +183,11 @@ func (s *SocialServer) GroupTransferOwner(ctx context.Context, in *social.GroupT
 func (s *SocialServer) GroupSetAdmin(ctx context.Context, in *social.GroupSetAdminReq) (*social.GroupSetAdminResp, error) {
 	l := logic.NewGroupSetAdminLogic(ctx, s.svcCtx)
 	return l.GroupSetAdmin(in)
+}
+
+func (s *SocialServer) GroupInvite(ctx context.Context, in *social.GroupInviteReq) (*social.GroupInviteResp, error) {
+	l := logic.NewGroupInviteLogic(ctx, s.svcCtx)
+	return l.GroupInvite(in)
 }
 
 // 邀请链接/二维码入群

@@ -40,6 +40,8 @@ message Groups { //群
   bool   isVerify = 7; //是否验证
   string notification = 8; // 公告通知
   string notificationUid = 9; //公告发起者
+  string groupNickname = 10; // 当前用户在该群的昵称
+  string groupRemark = 11; // 当前用户对该群的备注
 }
 
 message GroupMembers { //群成员
@@ -51,6 +53,8 @@ message GroupMembers { //群成员
   int32  joinSource = 8; //加入来源
   string inviterUid = 9; //邀请人
   string operatorUid = 10; //存在人
+  string groupNickname = 11; //群内昵称
+  string groupRemark = 12; //群备注
 }
 
 message GroupRequests { //
@@ -274,6 +278,7 @@ message FriendPutInHandleReq {
   int32  handleResult = 3; // 处理结果
   string remark = 4;       // [新增] 备注
   repeated string tags = 5; // [新增] 标签
+  string handleMsg = 6;    // 处理附言/回复
 }
 message FriendPutInHandleResp {}
 
@@ -282,6 +287,12 @@ message FriendPutInReadReq {
   int32  friendReqId = 2; // 0 表示全部已读
 }
 message FriendPutInReadResp {}
+
+message FriendPutInDeleteReq {
+  string userId = 1;
+  int32  friendReqId = 2;
+}
+message FriendPutInDeleteResp {}
 
 message FriendPutInListReq{
   string userId = 1;
@@ -462,6 +473,7 @@ service social {
   rpc FriendPutIn(FriendPutInReq) returns(FriendPutInResp); // 请求好友申请
   rpc FriendPutInHandle(FriendPutInHandleReq) returns(FriendPutInHandleResp); // 申请好友处理
   rpc FriendPutInRead(FriendPutInReadReq) returns(FriendPutInReadResp); // 标记申请消息已读
+  rpc FriendPutInDelete(FriendPutInDeleteReq) returns(FriendPutInDeleteResp); // 删除好友申请记录（软删除，status=0）
   rpc FriendPutInList(FriendPutInListReq) returns(FriendPutInListResp); // 获取好友申请列表,包括：1.我发起的申请列表；2. 获取我接受到的申请列表
   rpc FriendPutInMessageCount(FriendPutInMessageCountReq) returns(FriendPutInMessageCountResp); // 获取申请消息数量
   rpc FriendList(FriendListReq) returns (FriendListResp); // 获取好友列表
@@ -494,6 +506,7 @@ service social {
   rpc GroupDisband(GroupDisbandReq) returns (GroupDisbandResp); // 解散群
   rpc GroupTransferOwner(GroupTransferOwnerReq) returns (GroupTransferOwnerResp); // 转移群主
   rpc GroupSetAdmin(GroupSetAdminReq) returns (GroupSetAdminResp); // 设置群管理员
+  rpc GroupInvite(GroupInviteReq) returns (GroupInviteResp); // 邀请好友入群
 
   // 邀请链接/二维码入群
   rpc GroupInviteLinkCreate(GroupInviteLinkCreateReq) returns (GroupInviteLinkCreateResp); // 创建群邀请链接

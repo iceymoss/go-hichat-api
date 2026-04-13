@@ -38,5 +38,8 @@ func (l *FriendPutInReadLogic) FriendPutInRead(in *social.FriendPutInReadReq) (*
 		}
 	}
 
+	// 失效当前用户的气泡缓存
+	l.svcCtx.FriendRequestsModel.InvalidateCountCache(l.ctx, in.UserId)
+
 	return &social.FriendPutInReadResp{}, nil
 }

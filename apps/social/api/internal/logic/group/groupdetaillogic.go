@@ -70,9 +70,11 @@ func (l *GroupDetailLogic) GroupDetail(req *types.GroupDetailReq) (resp *types.G
 				Avatar:       u.Avatar,
 				Introduction: u.Introduction,
 			},
-			RoleLevel:   int(m.RoleLevel),
-			InviterUid:  m.InviterUid,
-			OperatorUid: m.OperatorUid,
+			RoleLevel:     int(m.RoleLevel),
+			InviterUid:    m.InviterUid,
+			OperatorUid:   m.OperatorUid,
+			GroupNickname: m.GroupNickname,
+			GroupRemark:   m.GroupRemark,
 		})
 	}
 

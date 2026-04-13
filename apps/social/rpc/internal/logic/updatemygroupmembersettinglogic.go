@@ -2,8 +2,6 @@ package logic
 
 import (
 	"context"
-	"strconv"
-	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -12,7 +10,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
-	"gorm.io/gorm/clause"
 )
 
 type UpdateMyGroupMemberSettingLogic struct {
@@ -29,34 +26,29 @@ func NewUpdateMyGroupMemberSettingLogic(ctx context.Context, svcCtx *svc.Service
 	}
 }
 
+// UpdateMyGroupMemberSetting 更新我的群设置，直接写 group_members 表
 func (l *UpdateMyGroupMemberSettingLogic) UpdateMyGroupMemberSetting(in *social.UpdateMyGroupMemberSettingReq) (*social.UpdateMyGroupMemberSettingResp, error) {
 	// 必须是群成员
 	_, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.UserId, in.GroupId)
 	if err != nil {
-		return nil, errors.Wrapf(xerr.NewMsg("no permission"), "not in group")
+		return nil, errors.Wrapf(xerr.NewMsg("不在群中"), "not in group")
 	}
 
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
-	now := time.Now()
-	uidInt, err := strconv.ParseUint(in.UserId, 10, 64)
-	if err != nil {
-		return nil, errors.Wrapf(xerr.NewMsg("invalid userId"), "invalid userId")
+	updates := map[string]any{}
+	if in.GroupNickname != "" {
+		updates["group_nickname"] = in.GroupNickname
 	}
-	gidInt, err := strconv.ParseUint(in.GroupId, 10, 64)
-	if err != nil {
-		return nil, errors.Wrapf(xerr.NewMsg("invalid groupId"), "invalid groupId")
+	if in.GroupRemark != "" {
+		updates["group_remark"] = in.GroupRemark
 	}
-	// upsert
-	err = mysqlConn.Table("group_member_settings").Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "group_id"}, {Name: "user_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"group_nickname", "group_remark", "updated_at"}),
-	}).Create(map[string]any{
-		"group_id":       gidInt,
-		"user_id":        uidInt,
-		"group_nickname": in.GroupNickname,
-		"group_remark":   in.GroupRemark,
-		"updated_at":     now,
-	}).Error
+	if len(updates) == 0 {
+		return &social.UpdateMyGroupMemberSettingResp{}, nil
+	}
+
+	err = mysqlConn.Table("group_members").
+		Where("group_id = ? AND user_id = ?", in.GroupId, in.UserId).
+		Updates(updates).Error
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "update group member setting err")
 	}

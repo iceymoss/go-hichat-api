@@ -1,12 +1,25 @@
 'use client';
 
-import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { contacts, contactGroups, getAlphabetIndex, type Contact } from '@/lib/mock-data';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { contactGroups, type Contact } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Search, UserPlus, Users, Tag, Megaphone, ChevronRight } from 'lucide-react';
+import { getAvatarColor } from '@/lib/utils';
 // Contact detail is shown via ContactDetailPanel in IMLayout right panel
+
+/**
+ * Derive a sort letter from a nickname.
+ * If the first character is A-Z / a-z, return uppercase.
+ * Otherwise (Chinese, emoji, etc.) return '#'.
+ */
+function letterFromName(name: string): string {
+  if (!name) return '#';
+  const first = name[0];
+  if (/[a-zA-Z]/.test(first)) return first.toUpperCase();
+  return '#';
+}
 
 const iconMap: Record<string, React.ReactNode> = {
   UserPlus: <UserPlus className="w-[22px] h-[22px]" />,
@@ -18,11 +31,85 @@ const iconMap: Record<string, React.ReactNode> = {
 export default function ContactList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [backendResults, setBackendResults] = useState<Contact[]>([]);
-  const { setSelectedContactId, selectedContactId, setShowFriendRequests, friendRequestUnreadCount, setShowGroupPanel, groupAppUnreadCount, currentUser } = useIMStore();
+  const { setSelectedContactId, selectedContactId, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, setShowGroupPanel, groupAppUnreadCount, currentUser, friends, setFriends, friendsVersion } = useIMStore();
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Poll friend request unread count every 10s
+  useEffect(() => {
+    if (!currentUser?.token) return;
+    const fetchCount = () => {
+      fetch('/api/social/friend/putIn/messageCount', {
+        headers: { Authorization: `Bearer ${currentUser.token}` },
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) setFriendRequestUnreadCount(d.data?.count ?? 0);
+        })
+        .catch(() => {});
+    };
+    fetchCount(); // 立即拉一次
+    const timer = setInterval(fetchCount, 10000); // 每 10 秒轮询
+    return () => clearInterval(timer);
+  }, [currentUser?.token, setFriendRequestUnreadCount]);
+
+  // Fetch friends list from API
+  useEffect(() => {
+    if (!currentUser?.token) return;
+    let cancelled = false;
+
+    async function fetchFriends() {
+      try {
+        const [friendsRes, onlineRes] = await Promise.all([
+          fetch('/api/social/friends', {
+            headers: { Authorization: `Bearer ${currentUser!.token}` },
+          }),
+          fetch('/api/social/friends/online', {
+            headers: { Authorization: `Bearer ${currentUser!.token}` },
+          }),
+        ]);
+
+        const friendsData = await friendsRes.json();
+        const onlineData = await onlineRes.json();
+
+        if (cancelled) return;
+
+        const onlineMap: Record<string, boolean> =
+          onlineData.success && onlineData.data?.onLineList
+            ? onlineData.data.onLineList
+            : {};
+
+        if (friendsData.success && friendsData.data?.list) {
+          const mapped: Contact[] = friendsData.data.list.map((f: any) => {
+            const displayName = f.remark || f.nickname || '';
+            const letter = letterFromName(displayName);
+            return {
+              id: String(f.friend_uid),
+              name: displayName,
+              avatar: f.avatar || '',
+              pinyin: displayName,
+              letter,
+              online: !!onlineMap[String(f.friend_uid)],
+              gender: f.sex === 1 ? 'male' as const : f.sex === 2 ? 'female' as const : undefined,
+              phone: f.phone || undefined,
+              region: f.region || undefined,
+              signature: f.introduction || undefined,
+              account: String(f.friend_uid),
+              remark: f.remark || undefined,
+            };
+          });
+          setFriends(mapped);
+        }
+      } catch (err) {
+        console.error('Failed to fetch friends:', err);
+      }
+    }
+
+    fetchFriends();
+    return () => { cancelled = true; };
+  }, [currentUser?.token, setFriends, friendsVersion]);
+
   // Search backend when query looks like phone/email or after debounce
-  React.useEffect(() => {
+  useEffect(() => {
     const q = searchQuery.trim();
     if (!q || !currentUser?.token) { setBackendResults([]); return; }
     const isPhone = /^1[3-9]\d{2,10}$/.test(q);
@@ -47,15 +134,15 @@ export default function ContactList() {
   }, [searchQuery, currentUser?.token]);
 
   const filteredContacts = useMemo(() => {
-    if (!searchQuery.trim()) return contacts;
+    if (!searchQuery.trim()) return friends;
     const q = searchQuery.toLowerCase();
-    const local = contacts.filter(c =>
+    const local = friends.filter(c =>
       c.name.toLowerCase().includes(q) || c.pinyin.toLowerCase().includes(q)
     );
     // Merge backend results, avoid duplicates
     const localIds = new Set(local.map(c => c.id));
     return [...local, ...backendResults.filter(c => !localIds.has(c.id))];
-  }, [searchQuery, backendResults]);
+  }, [searchQuery, backendResults, friends]);
 
   // Group contacts by letter
   const groupedContacts = useMemo(() => {
@@ -68,8 +155,9 @@ export default function ContactList() {
   }, [filteredContacts]);
 
   const alphabetIndex = useMemo(() => {
-    return getAlphabetIndex();
-  }, []);
+    const letters = new Set(friends.map(c => c.letter));
+    return Array.from(letters).sort();
+  }, [friends]);
 
   const scrollToLetter = useCallback((letter: string) => {
     const el = document.getElementById(`letter-${letter}`);
@@ -78,7 +166,7 @@ export default function ContactList() {
     }
   }, []);
 
-  const totalContacts = contacts.length;
+  const totalContacts = friends.length;
 
   const handleContactClick = useCallback((contact: Contact) => {
     setSelectedContactId(contact.id);
@@ -213,8 +301,8 @@ export default function ContactList() {
                     <AvatarFallback
                       className="text-sm"
                       style={{
-                        backgroundColor: '#E8EDEF',
-                        color: '#708499',
+                        backgroundColor: getAvatarColor(contact.name),
+                        color: '#FFFFFF',
                         fontSize: '15px',
                         fontWeight: 500,
                       }}

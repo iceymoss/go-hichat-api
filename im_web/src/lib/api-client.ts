@@ -1,6 +1,7 @@
 // Backend API client for Go services
 
 const BACKEND_BASE = process.env.BACKEND_API_URL || 'http://127.0.0.1:8887';
+const SOCIAL_BASE = process.env.SOCIAL_API_URL || 'http://127.0.0.1:8888';
 const TREND_BASE = process.env.TREND_API_URL || 'http://127.0.0.1:8891';
 
 export interface BackendResp<T = unknown> {
@@ -70,6 +71,56 @@ export async function backendPut<T = unknown>(
     body: JSON.stringify(body),
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
+}
+
+// Social service clients (port 8888)
+export async function socialGet<T = unknown>(
+  path: string,
+  token?: string,
+): Promise<BackendResp<T>> {
+  const url = `${SOCIAL_BASE}${path}`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  return res.json() as Promise<BackendResp<T>>;
+}
+
+export async function socialPost<T = unknown>(
+  path: string,
+  body: unknown,
+  token?: string,
+): Promise<BackendResp<T>> {
+  const url = `${SOCIAL_BASE}${path}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  return res.json() as Promise<BackendResp<T>>;
+}
+
+export async function socialPut<T = unknown>(
+  path: string,
+  body: unknown,
+  token?: string,
+): Promise<BackendResp<T>> {
+  const url = `${SOCIAL_BASE}${path}`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  return res.json() as Promise<BackendResp<T>>;
 }
 
 // Trend service client (port 8891)
