@@ -51,6 +51,7 @@ const (
 	Social_GroupDisband_FullMethodName               = "/social.social/GroupDisband"
 	Social_GroupTransferOwner_FullMethodName         = "/social.social/GroupTransferOwner"
 	Social_GroupSetAdmin_FullMethodName              = "/social.social/GroupSetAdmin"
+	Social_GroupInvite_FullMethodName                = "/social.social/GroupInvite"
 	Social_GroupInviteLinkCreate_FullMethodName      = "/social.social/GroupInviteLinkCreate"
 	Social_GroupInviteLinkList_FullMethodName        = "/social.social/GroupInviteLinkList"
 	Social_GroupInviteLinkRevoke_FullMethodName      = "/social.social/GroupInviteLinkRevoke"
@@ -104,6 +105,7 @@ type SocialClient interface {
 	GroupDisband(ctx context.Context, in *GroupDisbandReq, opts ...grpc.CallOption) (*GroupDisbandResp, error)
 	GroupTransferOwner(ctx context.Context, in *GroupTransferOwnerReq, opts ...grpc.CallOption) (*GroupTransferOwnerResp, error)
 	GroupSetAdmin(ctx context.Context, in *GroupSetAdminReq, opts ...grpc.CallOption) (*GroupSetAdminResp, error)
+	GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error)
 	// 邀请链接/二维码入群
 	GroupInviteLinkCreate(ctx context.Context, in *GroupInviteLinkCreateReq, opts ...grpc.CallOption) (*GroupInviteLinkCreateResp, error)
 	GroupInviteLinkList(ctx context.Context, in *GroupInviteLinkListReq, opts ...grpc.CallOption) (*GroupInviteLinkListResp, error)
@@ -447,6 +449,16 @@ func (c *socialClient) GroupSetAdmin(ctx context.Context, in *GroupSetAdminReq, 
 	return out, nil
 }
 
+func (c *socialClient) GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupInviteResp)
+	err := c.cc.Invoke(ctx, Social_GroupInvite_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *socialClient) GroupInviteLinkCreate(ctx context.Context, in *GroupInviteLinkCreateReq, opts ...grpc.CallOption) (*GroupInviteLinkCreateResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GroupInviteLinkCreateResp)
@@ -588,6 +600,7 @@ type SocialServer interface {
 	GroupDisband(context.Context, *GroupDisbandReq) (*GroupDisbandResp, error)
 	GroupTransferOwner(context.Context, *GroupTransferOwnerReq) (*GroupTransferOwnerResp, error)
 	GroupSetAdmin(context.Context, *GroupSetAdminReq) (*GroupSetAdminResp, error)
+	GroupInvite(context.Context, *GroupInviteReq) (*GroupInviteResp, error)
 	// 邀请链接/二维码入群
 	GroupInviteLinkCreate(context.Context, *GroupInviteLinkCreateReq) (*GroupInviteLinkCreateResp, error)
 	GroupInviteLinkList(context.Context, *GroupInviteLinkListReq) (*GroupInviteLinkListResp, error)
@@ -706,6 +719,9 @@ func (UnimplementedSocialServer) GroupTransferOwner(context.Context, *GroupTrans
 }
 func (UnimplementedSocialServer) GroupSetAdmin(context.Context, *GroupSetAdminReq) (*GroupSetAdminResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupSetAdmin not implemented")
+}
+func (UnimplementedSocialServer) GroupInvite(context.Context, *GroupInviteReq) (*GroupInviteResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupInvite not implemented")
 }
 func (UnimplementedSocialServer) GroupInviteLinkCreate(context.Context, *GroupInviteLinkCreateReq) (*GroupInviteLinkCreateResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupInviteLinkCreate not implemented")
@@ -1334,6 +1350,24 @@ func _Social_GroupSetAdmin_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Social_GroupInvite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupInviteReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupInvite(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupInvite_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupInvite(ctx, req.(*GroupInviteReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Social_GroupInviteLinkCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GroupInviteLinkCreateReq)
 	if err := dec(in); err != nil {
@@ -1648,6 +1682,10 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GroupSetAdmin",
 			Handler:    _Social_GroupSetAdmin_Handler,
+		},
+		{
+			MethodName: "GroupInvite",
+			Handler:    _Social_GroupInvite_Handler,
 		},
 		{
 			MethodName: "GroupInviteLinkCreate",

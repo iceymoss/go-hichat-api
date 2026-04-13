@@ -74,10 +74,10 @@ type FriendPutInDeleteResp struct {
 
 type FriendPutInHandleReq struct {
 	FriendReqId  int32    `json:"friend_req_id,optional"`
-	HandleResult int32    `json:"handle_result,optional"`  // 处理结果
-	Remark       string   `json:"remark,optional"`         // 好友备注名
-	HandleMsg    string   `json:"handle_msg,optional"`     // 处理附言/回复
-	Tags         []string `json:"tags,optional"`           // 标签
+	HandleResult int32    `json:"handle_result,optional"` // 处理结果
+	Remark       string   `json:"remark,optional"`        // 好友备注名
+	HandleMsg    string   `json:"handle_msg,optional"`    // 处理附言/回复
+	Tags         []string `json:"tags,optional"`          // 标签
 }
 
 type FriendPutInHandleResp struct {
@@ -379,9 +379,11 @@ type GroupMembers struct {
 	UserId        string `json:"user_id,omitempty"`
 	Nickname      string `json:"nickname,omitempty"`
 	UserAvatarUrl string `json:"user_avatar_url,omitempty"`
-	RoleLevel     int    `json:"role_level,omitempty"`
+	RoleLevel     int    `json:"role_level"`
 	InviterUid    string `json:"inviter_uid,omitempty"`
 	OperatorUid   string `json:"operator_uid,omitempty"`
+	GroupNickname string `json:"group_nickname,omitempty"`
+	GroupRemark   string `json:"group_remark,omitempty"`
 	User          User   `json:"user,omitempty"`
 }
 
@@ -496,6 +498,8 @@ type Groups struct {
 	Notification    string `json:"notification,omitempty"`
 	NotificationUid string `json:"notification_uid,omitempty"`
 	CreateUid       string `json:"create_uid,omitempty"`
+	GroupNickname   string `json:"group_nickname,omitempty"` // 当前用户在该群的昵称
+	GroupRemark     string `json:"group_remark,omitempty"`   // 当前用户对该群的备注
 }
 
 type UpdateMyGroupMemberSettingReq struct {

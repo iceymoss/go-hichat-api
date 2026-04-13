@@ -63,14 +63,16 @@ func (l *GroupDetailLogic) GroupDetail(in *social.GroupDetailReq) (*social.Group
 	var membersProto []*social.GroupMembers
 	for _, m := range members {
 		membersProto = append(membersProto, &social.GroupMembers{
-			Id:          int32(m.Id),
-			GroupId:     m.GroupId,
-			UserId:      m.UserId,
-			RoleLevel:   int32(m.RoleLevel),
-			JoinTime:    m.JoinTime.Unix(),
-			JoinSource:  int32(m.JoinSource),
-			InviterUid:  m.InviterUid,
-			OperatorUid: m.OperatorUid,
+			Id:            int32(m.Id),
+			GroupId:       m.GroupId,
+			UserId:        m.UserId,
+			RoleLevel:     int32(m.RoleLevel),
+			JoinTime:      m.JoinTime.Unix(),
+			JoinSource:    int32(m.JoinSource),
+			InviterUid:    m.InviterUid,
+			OperatorUid:   m.OperatorUid,
+			GroupNickname: m.GroupNickname,
+			GroupRemark:   m.GroupRemark,
 		})
 	}
 

@@ -40,6 +40,8 @@ message Groups { //群
   bool   isVerify = 7; //是否验证
   string notification = 8; // 公告通知
   string notificationUid = 9; //公告发起者
+  string groupNickname = 10; // 当前用户在该群的昵称
+  string groupRemark = 11; // 当前用户对该群的备注
 }
 
 message GroupMembers { //群成员
@@ -51,6 +53,8 @@ message GroupMembers { //群成员
   int32  joinSource = 8; //加入来源
   string inviterUid = 9; //邀请人
   string operatorUid = 10; //存在人
+  string groupNickname = 11; //群内昵称
+  string groupRemark = 12; //群备注
 }
 
 message GroupRequests { //
@@ -502,6 +506,7 @@ service social {
   rpc GroupDisband(GroupDisbandReq) returns (GroupDisbandResp); // 解散群
   rpc GroupTransferOwner(GroupTransferOwnerReq) returns (GroupTransferOwnerResp); // 转移群主
   rpc GroupSetAdmin(GroupSetAdminReq) returns (GroupSetAdminResp); // 设置群管理员
+  rpc GroupInvite(GroupInviteReq) returns (GroupInviteResp); // 邀请好友入群
 
   // 邀请链接/二维码入群
   rpc GroupInviteLinkCreate(GroupInviteLinkCreateReq) returns (GroupInviteLinkCreateResp); // 创建群邀请链接

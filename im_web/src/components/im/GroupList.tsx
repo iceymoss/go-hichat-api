@@ -66,17 +66,17 @@ function fmtTime(date: Date): string {
   return `${new Date(date).getFullYear()}年${new Date(date).getMonth() + 1}月${new Date(date).getDate()}日`;
 }
 
-const roleLabel: Record<GroupRoleLevel, string> = { 1: '成员', 2: '管理员', 3: '群主' };
+const roleLabel: Record<GroupRoleLevel, string> = { 0: '成员', 1: '管理员', 2: '群主' };
 const roleIcon: Record<GroupRoleLevel, React.ReactNode> = {
-  1: <Shield className="w-3 h-3" />,
-  2: <ShieldCheck className="w-3 h-3" />,
-  3: <Crown className="w-3 h-3" />,
+  0: <Shield className="w-3 h-3" />,
+  1: <ShieldCheck className="w-3 h-3" />,
+  2: <Crown className="w-3 h-3" />,
 };
-const roleColor: Record<GroupRoleLevel, string> = { 1: '#A2ACB5', 2: '#3390EC', 3: '#F5A623' };
+const roleColor: Record<GroupRoleLevel, string> = { 0: '#A2ACB5', 1: '#3390EC', 2: '#F5A623' };
 const roleBg: Record<GroupRoleLevel, string> = {
-  1: 'rgba(162,172,181,0.1)',
-  2: 'rgba(51,144,236,0.1)',
-  3: 'rgba(245,166,35,0.1)',
+  0: 'rgba(162,172,181,0.1)',
+  1: 'rgba(51,144,236,0.1)',
+  2: 'rgba(245,166,35,0.1)',
 };
 
 const joinSourceLabel: Record<GroupJoinSource, string> = { 1: '申请', 2: '邀请', 3: '链接' };
@@ -116,6 +116,8 @@ function mapGroup(g: any): GroupInfo {
     isVerify: !!g.is_verify,
     notification: g.notification || '',
     createUid: String(g.create_uid || ''),
+    groupNickname: g.group_nickname || '',
+    groupRemark: g.group_remark || '',
   };
 }
 
@@ -337,11 +339,25 @@ export default function GroupList() {
   // Modal form fields
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupIcon, setNewGroupIcon] = useState('');
+  const [newGroupIconFile, setNewGroupIconFile] = useState<File | null>(null);
+  const [newGroupIconPreview, setNewGroupIconPreview] = useState('');
+  const [createInviteSelected, setCreateInviteSelected] = useState<Set<string>>(new Set());
   const [editName, setEditName] = useState('');
   const [editIcon, setEditIcon] = useState('');
+  const [editIconFile, setEditIconFile] = useState<File | null>(null);
+  const [editIconPreview, setEditIconPreview] = useState('');
   const [editNotification, setEditNotification] = useState('');
   const [editVerify, setEditVerify] = useState(false);
   const [inviteSelected, setInviteSelected] = useState<Set<string>>(new Set());
+  const [sentFriendReqs, setSentFriendReqs] = useState<Set<string>>(new Set());
+  const [reportedUsers, setReportedUsers] = useState<Set<string>>(new Set());
+  // 加好友 / 举报弹窗
+  const [addFriendTarget, setAddFriendTarget] = useState<GroupMemberInfo | null>(null);
+  const [addFriendMsg, setAddFriendMsg] = useState('');
+  const [addFriendLoading, setAddFriendLoading] = useState(false);
+  const [reportTarget, setReportTarget] = useState<GroupMemberInfo | null>(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
   const [newLinkExpiry, setNewLinkExpiry] = useState('7d');
   const [newLinkMaxUses, setNewLinkMaxUses] = useState('0');
   const [newAnnContent, setNewAnnContent] = useState('');
@@ -387,6 +403,12 @@ export default function GroupList() {
         // Update group info if returned
         if (data.data.group) {
           const updatedGroup = mapGroup(data.data.group);
+          // 从成员列表中提取当前用户的群昵称/群备注，合并到群信息中
+          const myMember = (data.data.members || []).find((m: any) => String(m.user_id) === myUserId);
+          if (myMember) {
+            updatedGroup.groupNickname = myMember.group_nickname || '';
+            updatedGroup.groupRemark = myMember.group_remark || '';
+          }
           setGroups(prev => prev.map(g => g.id === updatedGroup.id ? updatedGroup : g));
         }
         // Update members for this group
@@ -408,7 +430,7 @@ export default function GroupList() {
     } catch {
       // silently fail
     }
-  }, [token]);
+  }, [token, myUserId]);
 
   // ── API: Fetch applications ──
   const fetchApplications = useCallback(async () => {
@@ -524,13 +546,13 @@ export default function GroupList() {
   const selectedGroup = useMemo(() => groups.find(g => g.id === selectedGroupId) || null, [groups, selectedGroupId]);
 
   const myRole = useMemo((): GroupRoleLevel => {
-    if (!selectedGroupId) return 1;
+    if (!selectedGroupId) return 0;
     const m = members.find(m => m.groupId === selectedGroupId && m.userId === myUserId);
-    return m ? m.roleLevel : 1;
+    return m ? m.roleLevel : 0;
   }, [members, selectedGroupId, myUserId]);
 
-  const isAdmin = myRole >= 2;
-  const isOwner = myRole === 3;
+  const isAdmin = myRole >= 1;  // 管理员(1)或群主(2)
+  const isOwner = myRole === 2; // 群主
 
   const groupMembers = useMemo(() => members.filter(m => m.groupId === selectedGroupId), [members, selectedGroupId]);
 
@@ -557,6 +579,17 @@ export default function GroupList() {
   }, [announcements, selectedGroupId]);
 
   const mySetting = useMemo(() => settings.find(s => s.groupId === selectedGroupId), [settings, selectedGroupId]);
+
+  // 群显示名称：有群备注时显示 "群备注（群名称）"，否则直接显示群名称
+  const getGroupDisplayName = useCallback((groupId: string, groupName: string) => {
+    // 优先从群列表数据中读取（群列表 API 已返回 group_remark）
+    const group = groups.find(g => g.id === groupId);
+    if (group?.groupRemark) return `${group.groupRemark}（${groupName}）`;
+    // 兜底从 settings 读取（点进群详情后加载的）
+    const setting = settings.find(s => s.groupId === groupId);
+    if (setting?.groupRemark) return `${setting.groupRemark}（${groupName}）`;
+    return groupName;
+  }, [groups, settings]);
 
   const filteredApps = useMemo(() => {
     let list = apps.filter(a => appClass === 'received' ? a.userId !== myUserId : a.userId === myUserId);
@@ -644,28 +677,61 @@ export default function GroupList() {
     if (!newGroupName.trim()) { toast.error('请输入群名称'); return; }
     try {
       setLoading(true);
+
+      // 1. 上传群头像（如果选了图片）
+      let iconUrl = newGroupIcon.trim();
+      if (newGroupIconFile) {
+        const fd = new FormData();
+        fd.append('file', newGroupIconFile);
+        const uploadRes = await fetch('/api/user/avatar', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        }).then(r => r.json());
+        if (uploadRes.success && uploadRes.data?.url) {
+          iconUrl = uploadRes.data.url;
+        } else {
+          toast.error('头像上传失败');
+          return;
+        }
+      }
+
+      // 2. 创建群
       const body: any = { name: newGroupName.trim() };
-      if (newGroupIcon.trim()) body.icon = newGroupIcon.trim();
+      if (iconUrl) body.icon = iconUrl;
       const data = await apiFetch('/api/social/group', token, {
         method: 'POST',
         body: JSON.stringify(body),
       });
-      if (data.success) {
-        toast.success('群组创建成功');
-        setShowCreateGroup(false);
-        setNewGroupName('');
-        setNewGroupIcon('');
-        // Refresh groups list
-        await fetchGroups();
-      } else {
+      if (!data.success) {
         toast.error(data.message || '创建失败');
+        return;
       }
+
+      const groupId = data.data?.group_id;
+
+      // 3. 邀请选中的好友
+      if (createInviteSelected.size > 0 && groupId) {
+        await apiFetch('/api/social/group/invite', token, {
+          method: 'POST',
+          body: JSON.stringify({ group_id: String(groupId), friend_ids: Array.from(createInviteSelected) }),
+        });
+      }
+
+      toast.success('群组创建成功' + (createInviteSelected.size > 0 ? `，已邀请 ${createInviteSelected.size} 人` : ''));
+      setShowCreateGroup(false);
+      setNewGroupName('');
+      setNewGroupIcon('');
+      setNewGroupIconFile(null);
+      setNewGroupIconPreview('');
+      setCreateInviteSelected(new Set());
+      await fetchGroups();
     } catch {
       toast.error('网络错误');
     } finally {
       setLoading(false);
     }
-  }, [newGroupName, newGroupIcon, token, fetchGroups]);
+  }, [newGroupName, newGroupIcon, newGroupIconFile, createInviteSelected, token, fetchGroups]);
 
   // Edit group
   const openEditGroup = useCallback(() => {
@@ -680,19 +746,39 @@ export default function GroupList() {
   const handleEditGroup = useCallback(async () => {
     if (!selectedGroupId) return;
     try {
+      // 上传新头像（如果选了图片）
+      let iconUrl = editIcon;
+      if (editIconFile) {
+        const fd = new FormData();
+        fd.append('file', editIconFile);
+        const uploadRes = await fetch('/api/user/avatar', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        }).then(r => r.json());
+        if (uploadRes.success && uploadRes.data?.url) {
+          iconUrl = uploadRes.data.url;
+        } else {
+          toast.error('头像上传失败');
+          return;
+        }
+      }
+
       const data = await apiFetch('/api/social/group/update', token, {
         method: 'POST',
         body: JSON.stringify({
           group_id: selectedGroupId,
           name: editName,
-          icon: editIcon,
+          icon: iconUrl,
           notification: editNotification,
           is_verify: editVerify ? 1 : 0,
         }),
       });
       if (data.success) {
-        setGroups(prev => prev.map(g => g.id === selectedGroupId ? { ...g, name: editName, icon: editIcon, notification: editNotification, isVerify: editVerify } : g));
+        setGroups(prev => prev.map(g => g.id === selectedGroupId ? { ...g, name: editName, icon: iconUrl, notification: editNotification, isVerify: editVerify } : g));
         setShowEditGroup(false);
+        setEditIconFile(null);
+        setEditIconPreview('');
         toast.success('群信息已更新');
       } else {
         toast.error(data.message || '更新失败');
@@ -700,7 +786,7 @@ export default function GroupList() {
     } catch {
       toast.error('网络错误');
     }
-  }, [selectedGroupId, editName, editIcon, editNotification, editVerify, token]);
+  }, [selectedGroupId, editName, editIcon, editIconFile, editNotification, editVerify, token]);
 
   // Send message
   const handleSendMessage = useCallback(() => { toast.success('正在打开聊天...'); }, []);
@@ -751,6 +837,8 @@ export default function GroupList() {
       });
       if (data.success) {
         setSettings(prev => prev.map(s => s.groupId === selectedGroupId ? { ...s, groupNickname: settingNickname, groupRemark: settingRemark } : s));
+        // 同步更新群列表数据（让群显示名称实时刷新）
+        setGroups(prev => prev.map(g => g.id === selectedGroupId ? { ...g, groupNickname: settingNickname, groupRemark: settingRemark } : g));
         setShowMemberSettings(false);
         toast.success('设置已保存');
       } else {
@@ -812,8 +900,8 @@ export default function GroupList() {
 
   // Member actions
   const handleSetAdmin = useCallback((m: GroupMemberInfo) => {
-    const newRole: GroupRoleLevel = m.roleLevel === 2 ? 1 : 2;
-    const label = newRole === 2 ? '设为管理员' : '取消管理员';
+    const newRole: GroupRoleLevel = m.roleLevel === 1 ? 0 : 1;
+    const label = newRole === 1 ? '设为管理员' : '取消管理员';
     doConfirm(label, `确定将 ${getContactName(m.userId)} ${label}吗？`, label, '#3390EC', async () => {
       try {
         const data = await apiFetch('/api/social/group/setAdmin', token, {
@@ -821,7 +909,7 @@ export default function GroupList() {
           body: JSON.stringify({
             group_id: selectedGroupId,
             member_ids: [m.userId],
-            is_admin: newRole === 2,
+            is_admin: newRole === 1,
           }),
         });
         if (data.success) {
@@ -1040,14 +1128,14 @@ export default function GroupList() {
               {filteredGroups.filter(g => myGroupIds.includes(g.id)).map(group => {
                 const gm = members.filter(m => m.groupId === group.id);
                 const myM = gm.find(m => m.userId === myUserId);
-                const role = myM?.roleLevel || 1;
+                const role = myM?.roleLevel ?? 0;
                 return (
                   <div key={group.id} className="flex items-center gap-3" style={{ padding: '12px 16px', borderBottom: '1px solid rgba(0,0,0,0.05)', cursor: 'pointer' }} onClick={() => openGroup(group.id)} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.02)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                     <img src={group.icon} alt="" className="shrink-0" style={{ width: 48, height: 48, borderRadius: '50%' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2" style={{ marginBottom: 2 }}>
-                        <span style={{ fontSize: '15px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</span>
-                        {role >= 2 && (
+                        <span style={{ fontSize: '15px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getGroupDisplayName(group.id, group.name)}</span>
+                        {role >= 1 && (
                           <span style={{ fontSize: '10px', fontWeight: 500, color: roleColor[role], backgroundColor: roleBg[role], borderRadius: '4px', padding: '1px 5px', display: 'flex', alignItems: 'center', gap: 2 }}>
                             {roleIcon[role]}{roleLabel[role]}
                           </span>
@@ -1080,15 +1168,50 @@ export default function GroupList() {
         </div>
 
         {/* Modals */}
-        <InputModal open={showCreateGroup} title="创建群组" onClose={() => setShowCreateGroup(false)} onSubmit={handleCreateGroup}>
+        <InputModal open={showCreateGroup} title="创建群组" onClose={() => { setShowCreateGroup(false); setNewGroupIconFile(null); setNewGroupIconPreview(''); setCreateInviteSelected(new Set()); }} onSubmit={handleCreateGroup}>
           <div style={{ marginBottom: '12px' }}>
             <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群名称 *</label>
             <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="输入群名称" style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
           </div>
-          <div>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群图标 (URL, 可选)</label>
-            <input value={newGroupIcon} onChange={(e) => setNewGroupIcon(e.target.value)} placeholder="留空自动生成" style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群头像</label>
+            <div className="flex items-center gap-3">
+              {newGroupIconPreview ? (
+                <img src={newGroupIconPreview} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: 48, height: 48, borderRadius: 8, background: '#E8EDEF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#A2ACB5' }}>+</div>
+              )}
+              <label style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', background: '#F5F7FA', fontSize: 13, color: '#3390EC', cursor: 'pointer', fontWeight: 500 }}>
+                选择图片
+                <input type="file" accept="image/*" hidden onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setNewGroupIconFile(file);
+                    setNewGroupIconPreview(URL.createObjectURL(file));
+                  }
+                }} />
+              </label>
+              {newGroupIconPreview && (
+                <button onClick={() => { setNewGroupIconFile(null); setNewGroupIconPreview(''); }} style={{ fontSize: 12, color: '#A2ACB5', background: 'none', border: 'none', cursor: 'pointer' }}>移除</button>
+              )}
+            </div>
           </div>
+          {friends.length > 0 && (
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>邀请好友入群 <span style={{ fontWeight: 400, color: '#A2ACB5' }}>({createInviteSelected.size} 人已选)</span></label>
+              <div style={{ maxHeight: '200px', overflow: 'auto', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                {friends.map(c => (
+                  <label key={c.id} className="flex items-center gap-3" style={{ padding: '8px 12px', borderBottom: '1px solid rgba(0,0,0,0.04)', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={createInviteSelected.has(c.id)} onChange={() => {
+                      setCreateInviteSelected(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; });
+                    }} style={{ width: 16, height: 16, accentColor: '#3390EC' }} />
+                    {avatarCircle(c.name, 32)}
+                    <span style={{ fontSize: '14px', color: '#1C2733' }}>{c.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </InputModal>
 
         <ConfirmModal open={!!confirmOpts} opts={confirmOpts} />
@@ -1211,7 +1334,7 @@ export default function GroupList() {
 
     return (
       <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
-        {renderHeader(selectedGroup.name)}
+        {renderHeader(getGroupDisplayName(selectedGroup.id, selectedGroup.name))}
 
         <div className="flex-1 overflow-y-auto im-scroll">
           {/* ── Group Info Card ── */}
@@ -1220,8 +1343,8 @@ export default function GroupList() {
               <img src={selectedGroup.icon} alt="" className="shrink-0" style={{ width: 72, height: 72, borderRadius: '50%' }} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 4 }}>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#1C2733' }}>{selectedGroup.name}</span>
-                  {myRole >= 2 && (
+                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#1C2733' }}>{getGroupDisplayName(selectedGroup.id, selectedGroup.name)}</span>
+                  {myRole >= 1 && (
                     <span style={{ fontSize: '10px', fontWeight: 500, color: roleColor[myRole], backgroundColor: roleBg[myRole], borderRadius: '4px', padding: '1px 5px', display: 'flex', alignItems: 'center', gap: 2 }}>
                       {roleIcon[myRole]}{roleLabel[myRole]}
                     </span>
@@ -1254,11 +1377,9 @@ export default function GroupList() {
                   <Settings className="w-3.5 h-3.5" /> 编辑群信息
                 </button>
               )}
-              {isAdmin && (
-                <button onClick={() => setShowInviteFriends(true)} style={{ padding: '7px 16px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <UserPlus className="w-3.5 h-3.5" /> 邀请好友
-                </button>
-              )}
+              <button onClick={() => setShowInviteFriends(true)} style={{ padding: '7px 16px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <UserPlus className="w-3.5 h-3.5" /> 邀请好友
+              </button>
               <button onClick={openMemberSettings} style={{ padding: '7px 16px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Settings className="w-3.5 h-3.5" /> 我的设置
               </button>
@@ -1304,7 +1425,7 @@ export default function GroupList() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span style={{ fontSize: '14px', fontWeight: 500, color: '#1C2733' }}>{displayName}</span>
-                          {m.roleLevel >= 2 && (
+                          {m.roleLevel >= 1 && (
                             <span style={{ fontSize: '10px', fontWeight: 500, color: roleColor[m.roleLevel], backgroundColor: roleBg[m.roleLevel], borderRadius: '4px', padding: '1px 5px', display: 'flex', alignItems: 'center', gap: 2 }}>
                               {roleIcon[m.roleLevel]}{roleLabel[m.roleLevel]}
                             </span>
@@ -1318,21 +1439,49 @@ export default function GroupList() {
                         <button onClick={openMemberSettings} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: 'transparent', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Settings className="w-4 h-4" />
                         </button>
-                      ) : isAdmin ? (
+                      ) : (
                         <button onClick={(e) => {
                           e.stopPropagation();
                           const items: ActionMenuItem[] = [];
+                          // 群主专属操作
                           if (isOwner) {
-                            if (m.roleLevel === 2) items.push({ label: '取消管理员', onClick: () => handleSetAdmin(m) });
-                            else if (m.roleLevel === 1) items.push({ label: '设为管理员', onClick: () => handleSetAdmin(m) });
+                            if (m.roleLevel === 1) items.push({ label: '取消管理员', onClick: () => handleSetAdmin(m) });
+                            else if (m.roleLevel === 0) items.push({ label: '设为管理员', onClick: () => handleSetAdmin(m) });
                             items.push({ label: '转让群主', color: '#F5A623', onClick: () => handleTransferOwner(m) });
                           }
-                          items.push({ label: '踢出群组', color: '#FF5252', onClick: () => handleKickMember(m) });
+                          // 管理员/群主可以踢人（管理员不能踢同级或更高）
+                          if (isAdmin && (isOwner || m.roleLevel < myRole)) {
+                            items.push({ label: '踢出群组', color: '#FF5252', onClick: () => handleKickMember(m) });
+                          }
+                          // 所有人都能看到的选项
+                          const isFriend = friends.some(f => f.id === m.userId);
+                          const alreadySent = sentFriendReqs.has(m.userId);
+                          const alreadyReported = reportedUsers.has(m.userId);
+                          if (!isFriend) {
+                            items.push({
+                              label: alreadySent ? '申请已发送' : '加为好友',
+                              color: alreadySent ? '#A2ACB5' : undefined,
+                              onClick: alreadySent ? () => {} : () => {
+                                setAddFriendTarget(m);
+                                setAddFriendMsg(`来自群聊「${selectedGroup?.name || ''}」`);
+                                setActionMenu(null);
+                              },
+                            });
+                          }
+                          items.push({
+                            label: alreadyReported ? '已举报' : '举报',
+                            color: alreadyReported ? '#A2ACB5' : '#FF5252',
+                            onClick: alreadyReported ? () => {} : () => {
+                              setReportTarget(m);
+                              setReportReason('');
+                              setActionMenu(null);
+                            },
+                          });
                           setActionMenu({ x: e.clientX, y: e.clientY, items });
                         }} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: 'transparent', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
-                      ) : null}
+                      )}
                     </div>
                   );
                 })}
@@ -1449,14 +1598,30 @@ export default function GroupList() {
         {actionMenu && <ActionMenu x={actionMenu.x} y={actionMenu.y} items={actionMenu.items} onClose={() => setActionMenu(null)} />}
 
         {/* ── Edit Group Modal ── */}
-        <InputModal open={showEditGroup} title="编辑群信息" onClose={() => setShowEditGroup(false)} onSubmit={handleEditGroup}>
+        <InputModal open={showEditGroup} title="编辑群信息" onClose={() => { setShowEditGroup(false); setEditIconFile(null); setEditIconPreview(''); }} onSubmit={handleEditGroup}>
           <div style={{ marginBottom: '12px' }}>
             <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群名称</label>
             <input value={editName} onChange={(e) => setEditName(e.target.value)} style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群图标 (URL)</label>
-            <input value={editIcon} onChange={(e) => setEditIcon(e.target.value)} style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群头像</label>
+            <div className="flex items-center gap-3">
+              {(editIconPreview || editIcon) ? (
+                <img src={editIconPreview || editIcon} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: 48, height: 48, borderRadius: 8, background: '#E8EDEF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#A2ACB5' }}>+</div>
+              )}
+              <label style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', background: '#F5F7FA', fontSize: 13, color: '#3390EC', cursor: 'pointer', fontWeight: 500 }}>
+                更换图片
+                <input type="file" accept="image/*" hidden onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setEditIconFile(file);
+                    setEditIconPreview(URL.createObjectURL(file));
+                  }
+                }} />
+              </label>
+            </div>
           </div>
           <div style={{ marginBottom: '12px' }}>
             <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群公告</label>
@@ -1532,6 +1697,98 @@ export default function GroupList() {
         </InputModal>
 
         <ConfirmModal open={!!confirmOpts} opts={confirmOpts} />
+
+        {/* ── 加好友弹窗 ── */}
+        {addFriendTarget && (
+          <div className="fixed inset-0" style={{ zIndex: 10003, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) setAddFriendTarget(null); }}>
+            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
+            <div className="relative" style={{ background: '#FFF', borderRadius: '16px', padding: '24px', width: '90%', maxWidth: '400px', boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
+              <button onClick={() => setAddFriendTarget(null)} className="absolute" style={{ top: 16, right: 16, width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'transparent', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X className="w-4 h-4" />
+              </button>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', marginBottom: '16px' }}>添加好友</h3>
+              <div className="flex items-center gap-3" style={{ marginBottom: '16px', padding: '12px', background: '#F5F7FA', borderRadius: '12px' }}>
+                {avatarCircle(getContactName(addFriendTarget.userId), 48)}
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#1C2733' }}>{getContactName(addFriendTarget.userId)}</div>
+                  <div style={{ fontSize: '12px', color: '#A2ACB5' }}>ID: {addFriendTarget.userId}</div>
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>申请附言</label>
+                <textarea value={addFriendMsg} onChange={(e) => setAddFriendMsg(e.target.value)} rows={2} placeholder="向对方介绍一下自己吧" style={{ width: '100%', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 12px', fontSize: '14px', color: '#1C2733', outline: 'none', resize: 'none', background: '#F5F7FA', boxSizing: 'border-box' }} onFocus={(e) => { e.target.style.borderColor = '#3390EC'; e.target.style.boxShadow = '0 0 0 3px rgba(51,144,236,0.15)'; }} onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }} />
+              </div>
+              <div className="flex items-center justify-end gap-3">
+                <button onClick={() => setAddFriendTarget(null)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>取消</button>
+                <button disabled={addFriendLoading} onClick={async () => {
+                  setAddFriendLoading(true);
+                  try {
+                    const res = await apiFetch('/api/social/friend/putIn', token, {
+                      method: 'POST',
+                      body: JSON.stringify({ user_uid: addFriendTarget.userId, req_msg: addFriendMsg || '' }),
+                    });
+                    if (res.success) {
+                      toast.success('好友申请已发送');
+                      setSentFriendReqs(prev => new Set(prev).add(addFriendTarget.userId));
+                      setAddFriendTarget(null);
+                    } else {
+                      toast.error(res.message || '发送失败');
+                    }
+                  } catch { toast.error('发送失败'); }
+                  finally { setAddFriendLoading(false); }
+                }} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: addFriendLoading ? 'not-allowed' : 'pointer', opacity: addFriendLoading ? 0.7 : 1 }}>
+                  {addFriendLoading ? '发送中...' : '发送申请'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── 举报弹窗 ── */}
+        {reportTarget && (
+          <div className="fixed inset-0" style={{ zIndex: 10003, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) setReportTarget(null); }}>
+            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
+            <div className="relative" style={{ background: '#FFF', borderRadius: '16px', padding: '24px', width: '90%', maxWidth: '400px', boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
+              <button onClick={() => setReportTarget(null)} className="absolute" style={{ top: 16, right: 16, width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'transparent', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X className="w-4 h-4" />
+              </button>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#E53935', marginBottom: '16px' }}>举报用户</h3>
+              <div className="flex items-center gap-3" style={{ marginBottom: '16px', padding: '12px', background: '#FFF5F5', borderRadius: '12px' }}>
+                {avatarCircle(getContactName(reportTarget.userId), 48)}
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#1C2733' }}>{getContactName(reportTarget.userId)}</div>
+                  <div style={{ fontSize: '12px', color: '#A2ACB5' }}>ID: {reportTarget.userId}</div>
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>举报原因</label>
+                <textarea value={reportReason} onChange={(e) => setReportReason(e.target.value)} rows={3} placeholder="请描述举报原因..." style={{ width: '100%', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 12px', fontSize: '14px', color: '#1C2733', outline: 'none', resize: 'none', background: '#F5F7FA', boxSizing: 'border-box' }} onFocus={(e) => { e.target.style.borderColor = '#E53935'; e.target.style.boxShadow = '0 0 0 3px rgba(229,57,53,0.15)'; }} onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }} />
+              </div>
+              <div className="flex items-center justify-end gap-3">
+                <button onClick={() => setReportTarget(null)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>取消</button>
+                <button disabled={reportLoading || !reportReason.trim()} onClick={async () => {
+                  setReportLoading(true);
+                  try {
+                    const res = await apiFetch('/api/social/friend/report', token, {
+                      method: 'POST',
+                      body: JSON.stringify({ friend_uid: reportTarget.userId, reason: reportReason }),
+                    });
+                    if (res.success) {
+                      toast.success('举报已提交，我们会尽快处理');
+                      setReportedUsers(prev => new Set(prev).add(reportTarget.userId));
+                      setReportTarget(null);
+                    } else {
+                      toast.error(res.message || '举报失败');
+                    }
+                  } catch { toast.error('举报失败'); }
+                  finally { setReportLoading(false); }
+                }} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#E53935', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: (reportLoading || !reportReason.trim()) ? 'not-allowed' : 'pointer', opacity: (reportLoading || !reportReason.trim()) ? 0.5 : 1 }}>
+                  {reportLoading ? '提交中...' : '提交举报'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

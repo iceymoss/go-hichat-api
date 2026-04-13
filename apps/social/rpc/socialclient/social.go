@@ -144,6 +144,7 @@ type (
 		GroupDisband(ctx context.Context, in *GroupDisbandReq, opts ...grpc.CallOption) (*GroupDisbandResp, error)
 		GroupTransferOwner(ctx context.Context, in *GroupTransferOwnerReq, opts ...grpc.CallOption) (*GroupTransferOwnerResp, error)
 		GroupSetAdmin(ctx context.Context, in *GroupSetAdminReq, opts ...grpc.CallOption) (*GroupSetAdminResp, error)
+		GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error)
 		// 邀请链接/二维码入群
 		GroupInviteLinkCreate(ctx context.Context, in *GroupInviteLinkCreateReq, opts ...grpc.CallOption) (*GroupInviteLinkCreateResp, error)
 		GroupInviteLinkList(ctx context.Context, in *GroupInviteLinkListReq, opts ...grpc.CallOption) (*GroupInviteLinkListResp, error)
@@ -333,6 +334,11 @@ func (m *defaultSocial) GroupSetAdmin(ctx context.Context, in *GroupSetAdminReq,
 }
 
 // 邀请链接/二维码入群
+func (m *defaultSocial) GroupInvite(ctx context.Context, in *GroupInviteReq, opts ...grpc.CallOption) (*GroupInviteResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupInvite(ctx, in, opts...)
+}
+
 func (m *defaultSocial) GroupInviteLinkCreate(ctx context.Context, in *GroupInviteLinkCreateReq, opts ...grpc.CallOption) (*GroupInviteLinkCreateResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.GroupInviteLinkCreate(ctx, in, opts...)

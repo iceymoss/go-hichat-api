@@ -816,7 +816,7 @@ export const friendRequests: FriendRequest[] = [
    Group Management
    ═══════════════════════════════════════ */
 
-export type GroupRoleLevel = 1 | 2 | 3; // 1=member, 2=admin, 3=owner
+export type GroupRoleLevel = 0 | 1 | 2; // 0=member, 1=admin, 2=owner
 export type GroupAppResult = 0 | 1 | 2 | 3; // 0=pending, 1=accepted, 2=rejected, 3=ignored
 export type GroupAppClass = 'received' | 'sent';
 export type GroupJoinSource = 1 | 2 | 3; // 1=apply, 2=invite, 3=link
@@ -828,6 +828,8 @@ export interface GroupInfo {
   isVerify: boolean;
   notification: string;
   createUid: string;
+  groupNickname?: string; // 当前用户在该群的昵称
+  groupRemark?: string;   // 当前用户对该群的备注
 }
 
 export interface GroupMemberInfo {
@@ -893,7 +895,7 @@ export const groups: GroupInfo[] = [
 // ── Group Members ──
 export const groupMembers: Record<string, GroupMemberInfo[]> = {
   'c2': [
-    { id: 1, groupId: 'c2', userId: 'ct3', nickname: '陈总', roleLevel: 3, online: false },
+    { id: 1, groupId: 'c2', userId: 'ct3', nickname: '陈总', roleLevel: 2, online: false },
     { id: 2, groupId: 'c2', userId: 'me', nickname: '', roleLevel: 2, online: true },
     { id: 3, groupId: 'c2', userId: 'ct13', nickname: '', roleLevel: 2, online: true },
     { id: 4, groupId: 'c2', userId: 'ct22', nickname: '', roleLevel: 1, online: false },
@@ -906,7 +908,7 @@ export const groupMembers: Record<string, GroupMemberInfo[]> = {
     { id: 11, groupId: 'c2', userId: 'ct29', nickname: '', roleLevel: 1, online: true },
   ],
   'c5': [
-    { id: 20, groupId: 'c5', userId: 'ct8', nickname: '', roleLevel: 3, online: true },
+    { id: 20, groupId: 'c5', userId: 'ct8', nickname: '', roleLevel: 2, online: true },
     { id: 21, groupId: 'c5', userId: 'me', nickname: '', roleLevel: 1, online: true },
     { id: 22, groupId: 'c5', userId: 'ct22', nickname: '', roleLevel: 1, online: false },
     { id: 23, groupId: 'c5', userId: 'ct13', nickname: '', roleLevel: 1, online: true },
@@ -916,7 +918,7 @@ export const groupMembers: Record<string, GroupMemberInfo[]> = {
     { id: 27, groupId: 'c5', userId: 'ct20', nickname: '', roleLevel: 1, online: true },
   ],
   'c8': [
-    { id: 30, groupId: 'c8', userId: 'me', nickname: '', roleLevel: 3, online: true },
+    { id: 30, groupId: 'c8', userId: 'me', nickname: '', roleLevel: 2, online: true },
     { id: 31, groupId: 'c8', userId: 'ct18', nickname: '', roleLevel: 2, online: true },
     { id: 32, groupId: 'c8', userId: 'ct20', nickname: '', roleLevel: 2, online: true },
     { id: 33, groupId: 'c8', userId: 'ct29', nickname: '', roleLevel: 1, online: true },
@@ -930,7 +932,7 @@ export const groupMembers: Record<string, GroupMemberInfo[]> = {
     { id: 41, groupId: 'c8', userId: 'ct23', nickname: '', roleLevel: 1, online: true },
   ],
   'g_design': [
-    { id: 50, groupId: 'g_design', userId: 'ct13', nickname: '', roleLevel: 3, online: true },
+    { id: 50, groupId: 'g_design', userId: 'ct13', nickname: '', roleLevel: 2, online: true },
     { id: 51, groupId: 'g_design', userId: 'me', nickname: '', roleLevel: 2, online: true },
     { id: 52, groupId: 'g_design', userId: 'ct4', nickname: '', roleLevel: 1, online: true },
     { id: 53, groupId: 'g_design', userId: 'ct16', nickname: '', roleLevel: 1, online: true },
@@ -938,7 +940,7 @@ export const groupMembers: Record<string, GroupMemberInfo[]> = {
     { id: 55, groupId: 'g_design', userId: 'ct19', nickname: '', roleLevel: 1, online: true },
   ],
   'g_run': [
-    { id: 60, groupId: 'g_run', userId: 'ct6', nickname: '', roleLevel: 3, online: true },
+    { id: 60, groupId: 'g_run', userId: 'ct6', nickname: '', roleLevel: 2, online: true },
     { id: 61, groupId: 'g_run', userId: 'me', nickname: '', roleLevel: 1, online: true },
     { id: 62, groupId: 'g_run', userId: 'ct25', nickname: '', roleLevel: 1, online: true },
     { id: 63, groupId: 'g_run', userId: 'ct15', nickname: '', roleLevel: 2, online: false },

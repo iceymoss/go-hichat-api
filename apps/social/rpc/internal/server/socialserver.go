@@ -185,6 +185,11 @@ func (s *SocialServer) GroupSetAdmin(ctx context.Context, in *social.GroupSetAdm
 	return l.GroupSetAdmin(in)
 }
 
+func (s *SocialServer) GroupInvite(ctx context.Context, in *social.GroupInviteReq) (*social.GroupInviteResp, error) {
+	l := logic.NewGroupInviteLogic(ctx, s.svcCtx)
+	return l.GroupInvite(in)
+}
+
 // 邀请链接/二维码入群
 func (s *SocialServer) GroupInviteLinkCreate(ctx context.Context, in *social.GroupInviteLinkCreateReq) (*social.GroupInviteLinkCreateResp, error) {
 	l := logic.NewGroupInviteLinkCreateLogic(ctx, s.svcCtx)

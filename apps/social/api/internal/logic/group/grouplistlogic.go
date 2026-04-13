@@ -40,10 +40,12 @@ func (l *GroupListLogic) GroupList(req *types.GroupListReq) (resp *types.GroupLi
 			Icon:            v.Icon,
 			Status:          int64(v.Status),
 			GroupType:       int64(v.GroupType),
-			CreateUid:       v.CreatorUid, // RPC 返回的是 CreatorUid
+			CreateUid:       v.CreatorUid,
 			IsVerify:        v.IsVerify,
 			Notification:    v.Notification,
 			NotificationUid: v.NotificationUid,
+			GroupNickname:   v.GroupNickname,
+			GroupRemark:     v.GroupRemark,
 		})
 	}
 
