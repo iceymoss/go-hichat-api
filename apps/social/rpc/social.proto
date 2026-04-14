@@ -42,6 +42,7 @@ message Groups { //群
   string notificationUid = 9; //公告发起者
   string groupNickname = 10; // 当前用户在该群的昵称
   string groupRemark = 11; // 当前用户对该群的备注
+  string description = 12; // 群描述
 }
 
 message GroupMembers { //群成员
@@ -98,6 +99,7 @@ message GroupUpdateReq {
   string notification = 5;
   string notificationUid = 6;
   int32  isVerify = 7; // 入群验证：-1不修改 0不需要 1需要
+  string description = 8; // 群描述
 }
 message GroupUpdateResp {}
 
@@ -396,6 +398,7 @@ message GroupCreateReq { //创建群
   string icon = 3;
   int32  status = 4;
   string creator_uid = 5;
+  string description = 6; // 群描述
 }
 message GroupCreateResp {
   string groupId = 1;

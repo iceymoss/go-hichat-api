@@ -45,6 +45,7 @@ func (l *GroupUpdateLogic) GroupUpdate(req *types.GroupUpdateReq) (resp *types.G
 		GroupId:      req.GroupId,
 		Name:         req.Name,
 		Icon:         req.Icon,
+		Description:  req.Description,
 		Notification: req.Notification,
 		IsVerify:     isVerify,
 	})

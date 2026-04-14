@@ -38,6 +38,7 @@ func (l *GroupListLogic) GroupList(req *types.GroupListReq) (resp *types.GroupLi
 			Id:              v.Id,
 			Name:            v.Name,
 			Icon:            v.Icon,
+			Description:     v.Description,
 			Status:          int64(v.Status),
 			GroupType:       int64(v.GroupType),
 			CreateUid:       v.CreatorUid,

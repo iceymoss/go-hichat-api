@@ -49,6 +49,7 @@ type (
 		Id              int       `db:"id"`
 		Name            string    `db:"name"`
 		Icon            string    `db:"icon"`
+		Description     string    `db:"description"` // 群描述
 		Status          int       `db:"status"`
 		CreatorUid      string    `db:"creator_uid"`
 		GroupType       int64     `db:"group_type"`
@@ -130,7 +131,7 @@ func (m *defaultGroupsModel) Update(ctx context.Context, data *Groups) error {
 	groupsIdKey := fmt.Sprintf("%s%v", cacheGroupsIdPrefix, data.Id)
 	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, groupsRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, data.Name, data.Icon, data.Status, data.CreatorUid, data.GroupType, data.IsVerify, data.Notification, data.NotificationUid, data.CreatedAt, data.UpdatedAt, data.Id)
+		return conn.ExecCtx(ctx, query, data.Name, data.Icon, data.Description, data.Status, data.CreatorUid, data.GroupType, data.IsVerify, data.Notification, data.NotificationUid, data.CreatedAt, data.UpdatedAt, data.Id)
 	}, groupsIdKey)
 	return err
 }

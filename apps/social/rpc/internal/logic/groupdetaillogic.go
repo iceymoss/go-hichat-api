@@ -52,10 +52,11 @@ func (l *GroupDetailLogic) GroupDetail(in *social.GroupDetailReq) (*social.Group
 		Id:              strconv.Itoa(group.Id),
 		Name:            group.Name,
 		Icon:            group.Icon,
+		Description:     group.Description,
 		Status:          int32(group.Status),
 		CreatorUid:      group.CreatorUid,
 		GroupType:       int32(group.GroupType),
-		IsVerify:        group.IsVerify == 1, // Model IsVerify is int, proto is bool
+		IsVerify:        group.IsVerify == 1,
 		Notification:    group.Notification,
 		NotificationUid: strconv.Itoa(group.NotificationUid),
 	}

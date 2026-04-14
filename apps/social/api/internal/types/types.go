@@ -269,8 +269,9 @@ type GroupAtListResp struct {
 }
 
 type GroupCreateReq struct {
-	Name string `json:"name,optional"`
-	Icon string `json:"icon,optional"`
+	Name        string `json:"name,optional"`
+	Icon        string `json:"icon,optional"`
+	Description string `json:"description,optional"`
 }
 
 type GroupCreateResp struct {
@@ -465,6 +466,7 @@ type GroupUpdateReq struct {
 	GroupId      string `json:"group_id"`
 	Name         string `json:"name,optional"`
 	Icon         string `json:"icon,optional"`
+	Description  string `json:"description,optional"`
 	Notification string `json:"notification,optional"`
 	IsVerify     int32  `json:"is_verify,optional"` // -1不修改 0不需要验证 1需要验证
 }
@@ -492,14 +494,15 @@ type Groups struct {
 	Id              string `json:"id,omitempty"`
 	Name            string `json:"name,omitempty"`
 	Icon            string `json:"icon,omitempty"`
+	Description     string `json:"description,omitempty"` // 群描述
 	Status          int64  `json:"status,omitempty"`
 	GroupType       int64  `json:"group_type,omitempty"`
 	IsVerify        bool   `json:"is_verify,omitempty"`
 	Notification    string `json:"notification,omitempty"`
 	NotificationUid string `json:"notification_uid,omitempty"`
 	CreateUid       string `json:"create_uid,omitempty"`
-	GroupNickname   string `json:"group_nickname,omitempty"` // 当前用户在该群的昵称
-	GroupRemark     string `json:"group_remark,omitempty"`   // 当前用户对该群的备注
+	GroupNickname   string `json:"group_nickname,omitempty"`
+	GroupRemark     string `json:"group_remark,omitempty"`
 }
 
 type UpdateMyGroupMemberSettingReq struct {
