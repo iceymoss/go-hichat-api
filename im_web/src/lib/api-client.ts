@@ -3,6 +3,7 @@
 const BACKEND_BASE = process.env.BACKEND_API_URL || 'http://127.0.0.1:8887';
 const SOCIAL_BASE = process.env.SOCIAL_API_URL || 'http://127.0.0.1:8888';
 const TREND_BASE = process.env.TREND_API_URL || 'http://127.0.0.1:8891';
+const IM_BASE = process.env.IM_API_URL || 'http://127.0.0.1:8890';
 
 export interface BackendResp<T = unknown> {
   code: number;
@@ -137,4 +138,92 @@ export async function trendGet<T = unknown>(
     },
   });
   return res.json() as Promise<BackendResp<T>>;
+}
+
+// ========== IM service clients (port 8890) ==========
+
+// IM API 直接返回数据对象（不是 {code, data} 包装），用独立的 fetch 函数
+async function imFetch<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
+  const url = `${IM_BASE}${path}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+  if (!res.ok) throw new Error(`IM API error: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<T>;
+}
+
+export function imGet<T = unknown>(path: string, token?: string): Promise<T> {
+  return imFetch<T>(path, {
+    method: 'GET',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+}
+
+export function imPost<T = unknown>(path: string, body: unknown, token?: string): Promise<T> {
+  return imFetch<T>(path, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+}
+
+export function imPut<T = unknown>(path: string, body: unknown, token?: string): Promise<T> {
+  return imFetch<T>(path, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+}
+
+// ========== IM typed API helpers ==========
+
+export interface ChatLogItem {
+  id: string;
+  conversationId: string;
+  sendId: string;
+  recvId: string;
+  msgType: number;
+  msgContent: string;
+  chatType: number;
+  sendTime: number;
+}
+
+export interface ConversationItem {
+  conversationId: string;
+  chatType: number;
+  isShow: boolean;
+  seq: number;
+  read: number;
+  message?: ChatLogItem;
+}
+
+/** 获取聊天记录 — 返回 {list: ChatLogItem[]} */
+export function getChatLog(token: string, conversationId: string, msgId = '', count = 30) {
+  const params = new URLSearchParams({ conversationId, count: String(count) });
+  if (msgId) params.set('msgId', msgId);
+  return imGet<{ list: ChatLogItem[] }>(`/v1/im/chatlog?${params}`, token);
+}
+
+/** 获取消息已读记录 */
+export function getChatLogReadRecords(token: string, msgId: string) {
+  return imGet<{ reads: string[]; unReads: string[] }>(`/v1/im/chatlog/readRecords?msgId=${msgId}`, token);
+}
+
+/** 获取会话列表 — 返回 {conversationList: Record<string, ConversationItem>} */
+export function getConversations(token: string) {
+  return imGet<{ conversationList: Record<string, ConversationItem> }>('/v1/im/conversation', token);
+}
+
+/** 建立会话 */
+export function setupConversation(token: string, sendId: string, recvId: string, chatType: number) {
+  return imPost('/v1/im/setup/conversation', { sendId, recvId, chatType }, token);
+}
+
+/** 更新会话 */
+export function updateConversations(token: string, conversationList: Record<string, Partial<ConversationItem>>) {
+  return imPut('/v1/im/conversation', { conversationList }, token);
 }

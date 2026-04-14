@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { conversations, conversationMessagesMap, formatTime, currentUser, groupMemberNames, groupMembersMap, contacts, type Message, type Contact } from '@/lib/mock-data';
+import { formatTime, currentUser as mockCurrentUser, groupMemberNames, groupMembersMap, contacts, type Message, type Contact } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
+import { useChatStore } from '@/lib/chat-store';
 import { getAvatarColor } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -38,6 +39,9 @@ export default function ChatDetail() {
   // Local mutable conversation overrides (muted, pinned)
   const [convOverrides, setConvOverrides] = useState<Record<string, { muted?: boolean; pinned?: boolean }>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [noMoreHistory, setNoMoreHistory] = useState(false);
   const isMobile = useIsMobile();
 
   // Context menu state
@@ -63,7 +67,15 @@ export default function ChatDetail() {
   // Recalled messages tracking
   const [recalledIds, setRecalledIds] = useState<Set<string>>(new Set());
 
-  const conversation = conversations.find(c => c.id === selectedConversationId);
+  // 优先使用 chat-store 真实数据，fallback 到 mock 数据
+  const chatConversations = useChatStore(s => s.conversations);
+  const chatMessages = useChatStore(s => s.messagesMap);
+  const fetchMessages = useChatStore(s => s.fetchMessages);
+  const storeSendMessage = useChatStore(s => s.sendMessage);
+  const clearUnread = useChatStore(s => s.clearUnread);
+  const { currentUser } = useIMStore();
+
+  const conversation = chatConversations.find(c => c.id === selectedConversationId);
 
   // Merged conversation data with local overrides
   const conv = useMemo(() => {
@@ -72,23 +84,77 @@ export default function ChatDetail() {
     return { ...conversation, ...override };
   }, [conversation, convOverrides]);
 
-  // Find the contact matching the conversation partner
+  // Find the contact matching the conversation partner (by ID, not by name)
+  const { friends } = useIMStore();
+  const userProfiles = useChatStore(s => s.userProfiles);
   const contactMatch = useMemo<Contact | null>(() => {
-    if (!conv || conv.type !== 'private') return null;
+    if (!conv || conv.type !== 'private' || !currentUser?.id) return null;
+    // 从 conversationId 提取对方 userId
+    const parts = conv.id.split('_');
+    const peerId = parts.find(p => p !== currentUser.id);
+    if (!peerId) return null;
+    // 优先从 friends 列表查找
+    const friend = friends.find(c => c.id === peerId || c.friend_uid === peerId);
+    if (friend) return friend;
+    // fallback: 从 userProfiles 构造最小 Contact
+    const profile = userProfiles[peerId];
+    if (profile) {
+      return { id: peerId, name: profile.nickname, avatar: profile.avatar, pinyin: '', letter: '' } as Contact;
+    }
+    // fallback: mock contacts (by name)
     return contacts.find(c => c.name === conv.name) || null;
-  }, [conv]);
+  }, [conv, currentUser?.id, friends, userProfiles]);
 
-  // Derive the current message list from the selected conversation + any sent messages
+  // 对方显示名称和头像（优先 contactMatch，fallback conv）
+  const peerName = contactMatch?.remark || contactMatch?.name || conv?.name || '';
+  const peerAvatar = contactMatch?.avatar || conv?.avatar || '';
+
+  // 加载聊天记录 & 清除未读
+  useEffect(() => {
+    if (selectedConversationId && currentUser?.token) {
+      setNoMoreHistory(false); // 切换会话时重置
+      fetchMessages(currentUser.token, selectedConversationId);
+      clearUnread(selectedConversationId);
+    }
+  }, [selectedConversationId, currentUser?.token]);
+
+  // Derive the current message list: chat-store 真实消息 + 本地 sentMap (兼容 mock)
   const messages = useMemo<Message[]>(() => {
     if (!selectedConversationId) return [];
-    const base = conversationMessagesMap[selectedConversationId] || [];
+    const storeMsgs = chatMessages[selectedConversationId] || [];
     const extra = sentMap[selectedConversationId] || [];
-    return [...base, ...extra];
-  }, [selectedConversationId, sentMap]);
+    return [...storeMsgs, ...extra];
+  }, [selectedConversationId, chatMessages, sentMap]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // 滚动到顶部时加载更早的聊天记录
+  const handleMessagesScroll = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el || loadingMore || noMoreHistory) return;
+    if (el.scrollTop < 50) {
+      const msgs = chatMessages[selectedConversationId!] || [];
+      if (msgs.length === 0) return;
+      const oldestId = msgs[0]?.id;
+      if (!oldestId || oldestId.startsWith('local_')) return;
+      setLoadingMore(true);
+      const prevCount = msgs.length;
+      const prevHeight = el.scrollHeight;
+      fetchMessages(currentUser!.token, selectedConversationId!, oldestId).then(() => {
+        requestAnimationFrame(() => {
+          const newMsgs = useChatStore.getState().messagesMap[selectedConversationId!] || [];
+          // 没有加载到新消息 → 已到头
+          if (newMsgs.length <= prevCount) {
+            setNoMoreHistory(true);
+          }
+          el.scrollTop = el.scrollHeight - prevHeight;
+          setLoadingMore(false);
+        });
+      }).catch(() => setLoadingMore(false));
+    }
+  }, [selectedConversationId, loadingMore, noMoreHistory, chatMessages, currentUser, fetchMessages]);
 
   const handleBack = () => {
     if (isMobile) {
@@ -100,18 +166,26 @@ export default function ChatDetail() {
 
   const handleSend = () => {
     if (!input.trim() || !selectedConversationId) return;
-    const newMsg: Message = {
-      id: `msg-${Date.now()}`,
-      senderId: 'me',
-      content: input.trim(),
-      timestamp: new Date(),
-      type: 'text',
-      replyTo: replyTo ? { senderName: replyTo.senderName, content: replyTo.message.content } : undefined,
-    };
-    setSentMap(prev => ({
-      ...prev,
-      [selectedConversationId]: [...(prev[selectedConversationId] || []), newMsg],
-    }));
+
+    // 通过 chat-store 发送（走 WebSocket RigorAck）
+    if (currentUser?.token && currentUser?.id) {
+      storeSendMessage(currentUser.token, currentUser.id, selectedConversationId, input.trim());
+    } else {
+      // Fallback: 本地 mock 发送
+      const newMsg: Message = {
+        id: `msg-${Date.now()}`,
+        senderId: 'me',
+        content: input.trim(),
+        timestamp: new Date(),
+        type: 'text',
+        replyTo: replyTo ? { senderName: replyTo.senderName, content: replyTo.message.content } : undefined,
+      };
+      setSentMap(prev => ({
+        ...prev,
+        [selectedConversationId]: [...(prev[selectedConversationId] || []), newMsg],
+      }));
+    }
+
     setInput('');
     setReplyTo(null);
   };
@@ -279,17 +353,18 @@ export default function ChatDetail() {
             } : undefined}
             style={{
               width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-              background: getAvatarColor(conv.name),
+              background: peerAvatar ? 'transparent' : getAvatarColor(peerName),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#FFFFFF', fontSize: 16, fontWeight: 600,
               cursor: contactMatch ? 'pointer' : 'default',
+              overflow: 'hidden',
             }}
           >
-            {conv.name[0]}
+            {peerAvatar ? <img src={peerAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : peerName[0]}
           </div>
           <div className="min-w-0">
             <h2 className="truncate" style={{ fontSize: 15, fontWeight: 600, color: '#1C2733', lineHeight: 1.3 }}>
-              {conv.name}
+              {peerName}
             </h2>
             {conv.type === 'group' ? (
               <p className="truncate" style={{ fontSize: 12, color: '#708499', lineHeight: 1.3, marginTop: 1 }}>
@@ -365,6 +440,8 @@ export default function ChatDetail() {
 
       {/* ── Messages Area: light gray background ── */}
       <div
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
         className="flex-1 overflow-y-auto im-scroll"
         style={{
           padding: '8px 0',
@@ -372,6 +449,16 @@ export default function ChatDetail() {
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', padding: '0 2%', minHeight: '100%' }}>
+          {loadingMore && (
+            <div style={{ textAlign: 'center', padding: '8px 0', color: '#A2ACB5', fontSize: 12 }}>
+              加载中...
+            </div>
+          )}
+          {noMoreHistory && !loadingMore && (
+            <div style={{ textAlign: 'center', padding: '8px 0', color: '#A2ACB5', fontSize: 12 }}>
+              没有更多消息了
+            </div>
+          )}
           <MessageList
             messages={displayMessages}
             conversation={conv}
@@ -492,7 +579,7 @@ export default function ChatDetail() {
           open={callDialogOpen}
           onOpenChange={setCallDialogOpen}
           type={callType}
-          contactName={conv.name}
+          contactName={peerName}
           isGroup={conv.type === 'group'}
           members={conv.type === 'group' ? (groupMembersMap[conv.id] || []) : []}
         />
@@ -531,14 +618,9 @@ export default function ChatDetail() {
           message={forwardMsg}
           onClose={() => setForwardMsg(null)}
           onForward={(targetConvId) => {
-            setSentMap(prev => ({
-              ...prev,
-              [targetConvId]: [...(prev[targetConvId] || []), {
-                ...forwardMsg,
-                id: `fwd-${Date.now()}`,
-                timestamp: new Date(),
-              }],
-            }));
+            if (currentUser?.token && currentUser?.id) {
+              storeSendMessage(currentUser.token, currentUser.id, targetConvId, forwardMsg.content, forwardMsg.type);
+            }
             setForwardMsg(null);
             toast.success('转发成功');
           }}
@@ -563,6 +645,8 @@ function MessageList({
   recalledIds: Set<string>;
   onBubbleContext: (e: React.MouseEvent | React.TouchEvent, message: Message, senderName: string, isOwn: boolean) => void;
 }) {
+  const { currentUser } = useIMStore();
+  const { selectedConversationId } = useIMStore();
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);
 
@@ -628,12 +712,17 @@ function MessageList({
     }
   }, []);
 
+  // 判断消息是否是自己发的 (兼容 mock 的 'me' 和真实 userId)
+  const isOwnMessage = useCallback((senderId: string) => {
+    return senderId === 'me' || senderId === currentUser?.id;
+  }, [currentUser?.id]);
+
   // Get sender name for a message
   const getSenderName = useCallback((senderId: string) => {
-    if (senderId === 'me') return currentUser.name;
-    if (conversation.type === 'group') return groupMemberNames[senderId] || senderId;
-    return conversation.name;
-  }, [conversation]);
+    if (isOwnMessage(senderId)) return currentUser?.name || mockCurrentUser.name;
+    if (conversation?.type === 'group') return groupMemberNames[senderId] || senderId;
+    return conversation?.name || senderId;
+  }, [conversation, currentUser?.name, isOwnMessage]);
 
   return (
     <>
@@ -657,7 +746,7 @@ function MessageList({
 
         const { msgs } = group;
         const lastMsg = msgs[msgs.length - 1];
-        const isSent = msgs[0].senderId === 'me';
+        const isSent = isOwnMessage(msgs[0].senderId);
 
         return (
           <div key={group.key} style={{
@@ -698,7 +787,7 @@ function MessageList({
                 </span>
               )}
               {msgs.map((m) => {
-                const msgIsSent = m.senderId === 'me';
+                const msgIsSent = isOwnMessage(m.senderId);
                 const senderName = getSenderName(m.senderId);
 
                 return (
@@ -713,7 +802,7 @@ function MessageList({
                   >
                     {recalledIds.has(m.id) ? (
                       <span style={{ fontStyle: 'italic', opacity: 0.6 }}>
-                        {m.senderId === 'me' ? '你撤回了一条消息' : '对方撤回了一条消息'}
+                        {isOwnMessage(m.senderId) ? '你撤回了一条消息' : '对方撤回了一条消息'}
                       </span>
                     ) : (
                       <>
@@ -743,7 +832,7 @@ function MessageList({
                 );
               })}
 
-              {/* Timestamp */}
+              {/* Timestamp + Status */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -751,9 +840,25 @@ function MessageList({
                 marginTop: 4,
                 flexDirection: isSent ? 'row-reverse' : 'row',
               }}>
-                {isSent && <CheckCheck style={{ width: 14, height: 14, color: 'rgba(51,144,236,0.5)' }} />}
-                <span style={{ fontSize: 11, color: '#A2ACB5', lineHeight: 1 }}>
-                  {formatTime(lastMsg.timestamp)}
+                {isSent && lastMsg.status === 'failed' && (
+                  <span
+                    title="发送失败，点击重试"
+                    onClick={() => {
+                      if (currentUser?.token && currentUser?.id && selectedConversationId) {
+                        useChatStore.getState().resendMessage(currentUser.token, currentUser.id, selectedConversationId, lastMsg.id);
+                      }
+                    }}
+                    style={{ cursor: 'pointer', color: '#e74c3c', fontSize: 14, lineHeight: 1 }}
+                  >!</span>
+                )}
+                {isSent && lastMsg.status === 'sending' && (
+                  <span style={{ fontSize: 11, color: '#A2ACB5' }}>...</span>
+                )}
+                {isSent && lastMsg.status !== 'failed' && lastMsg.status !== 'sending' && (
+                  <CheckCheck style={{ width: 14, height: 14, color: 'rgba(51,144,236,0.5)' }} />
+                )}
+                <span style={{ fontSize: 11, color: lastMsg.status === 'failed' ? '#e74c3c' : '#A2ACB5', lineHeight: 1 }}>
+                  {lastMsg.status === 'failed' ? '发送失败' : formatTime(lastMsg.timestamp)}
                 </span>
               </div>
             </div>
@@ -763,11 +868,11 @@ function MessageList({
               <div style={{ width: 36, flexShrink: 0, marginLeft: 8 }}>
                 <div style={{
                   width: 36, height: 36, borderRadius: '50%',
-                  background: getAvatarColor(currentUser.name),
+                  background: getAvatarColor(currentUser?.name || mockCurrentUser.name),
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: '#FFFFFF', fontSize: 13, fontWeight: 600,
                 }}>
-                  {currentUser.name[0]}
+                  {(currentUser?.name || mockCurrentUser.name)[0]}
                 </div>
               </div>
             )}

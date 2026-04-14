@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Phone, Video, Check, Users } from 'lucide-react';
 import { getAvatarColor } from '@/lib/utils';
 import type { GroupMember } from '@/lib/mock-data';
@@ -70,6 +71,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
         showCloseButton={false}
         className="!border-none !bg-transparent !p-0 !shadow-none !gap-0 data-[state=open]:!animate-none data-[state=closed]:!animate-none"
       >
+        <VisuallyHidden><DialogTitle>通话</DialogTitle></VisuallyHidden>
         <div
           style={{
             display: 'flex',
