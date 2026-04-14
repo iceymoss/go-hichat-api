@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { X } from 'lucide-react';
-import { conversations, type Message } from '@/lib/mock-data';
+import { type Message } from '@/lib/mock-data';
+import { useChatStore } from '@/lib/chat-store';
 import { getAvatarColor } from '@/lib/utils';
 
 interface ForwardDialogProps {
@@ -12,6 +13,8 @@ interface ForwardDialogProps {
 }
 
 export default function ForwardDialog({ message, onClose, onForward }: ForwardDialogProps) {
+  const conversations = useChatStore(s => s.conversations);
+
   return (
     <div
       style={{

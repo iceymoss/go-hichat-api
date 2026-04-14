@@ -4,68 +4,68 @@ import "github.com/iceymoss/go-hichat-api/pkg/constants"
 
 type Msg struct {
 	// 消息类型
-	constants.MType `mapstructure:"mType"`
+	constants.MType `json:"mType" mapstructure:"mType"`
 
 	// 消息内容
-	Content string `mapstructure:"content"`
+	Content string `json:"content" mapstructure:"content"`
 
 	// 已读记录 key为消息id、value为消息值
-	ReadRecords map[string]string `mapstructure:"readRecords"`
+	ReadRecords map[string]string `json:"readRecords" mapstructure:"readRecords"`
 }
 
 // Chat 聊天会话， message 结构中的data字段
 type Chat struct {
 	// 会话id
-	ConversationId string `mapstructure:"conversationId"`
+	ConversationId string `json:"conversationId" mapstructure:"conversationId"`
 
 	// 聊天类型
-	constants.ChatType `mapstructure:"chatType"`
+	constants.ChatType `json:"chatType" mapstructure:"chatType"`
 
 	// 发送者
-	SendId string `mapstructure:"sendId"`
+	SendId string `json:"sendId" mapstructure:"sendId"`
 
 	// 接收者
-	RecvId string `mapstructure:"recvId"`
+	RecvId string `json:"recvId" mapstructure:"recvId"`
 
 	// 发送时间
-	SendTime int64 `mapstructure:"sendTime"`
+	SendTime int64 `json:"sendTime" mapstructure:"sendTime"`
 
 	// 发送内容
-	Msg `mapstructure:"msg"`
+	Msg `json:"msg" mapstructure:"msg"`
 }
 
 type Push struct {
 	// 会话id
-	ConversationId string `mapstructure:"conversationId"`
+	ConversationId string `json:"conversationId" mapstructure:"conversationId"`
 
 	// 聊天类型：1. 私聊、2. 群聊
-	constants.ChatType `mapstructure:"chatType"`
+	constants.ChatType `json:"chatType" mapstructure:"chatType"`
 
 	// 发送者
-	SendId string `mapstructure:"sendId"`
+	SendId string `json:"sendId" mapstructure:"sendId"`
 
-	RecvIdList []string `mapstructure:"recvIdList"`
+	RecvIdList []string `json:"recvIdList" mapstructure:"recvIdList"`
 
 	// 接收者
-	RecvId string `mapstructure:"recvId"`
+	RecvId string `json:"recvId" mapstructure:"recvId"`
 
 	// 发送时间
-	SendTime int64 `mapstructure:"sendTime"`
+	SendTime int64 `json:"sendTime" mapstructure:"sendTime"`
 
 	// 已读记录 key为消息id、value为消息值
-	ReadRecords map[string]string `mapstructure:"readRecords"`
+	ReadRecords map[string]string `json:"readRecords" mapstructure:"readRecords"`
 
-	constants.MType `mapstructure:"mType"`
-	Content         string `mapstructure:"content"`
+	constants.MType `json:"mType" mapstructure:"mType"`
+	Content         string `json:"content" mapstructure:"content"`
 }
 
 // MarkRead 已读标记
 type MarkRead struct {
-	constants.ChatType `mapstructure:"chatType"`
-	RecvId             string `mapstructure:"recvId"`
-	ConversationId     string `mapstructure:"conversationId"`
+	constants.ChatType `json:"chatType" mapstructure:"chatType"`
+	RecvId             string `json:"recvId" mapstructure:"recvId"`
+	ConversationId     string `json:"conversationId" mapstructure:"conversationId"`
 	// 发送者
-	SendId      string            `mapstructure:"sendId"`
-	MsgIds      []string          `mapstructure:"msgIds"`
-	ReadRecords map[string]string `mapstructure:"readRecords"`
+	SendId      string            `json:"sendId" mapstructure:"sendId"`
+	MsgIds      []string          `json:"msgIds" mapstructure:"msgIds"`
+	ReadRecords map[string]string `json:"readRecords" mapstructure:"readRecords"`
 }

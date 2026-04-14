@@ -15,11 +15,11 @@ type ChatLog struct {
 }
 
 type ChatLogReq struct {
-	MsgId          string `json:"msgId"`
-	ConversationId string `json:"conversationId"`
-	StartSendTime  int64  `json:"startSendTime,omitempty"`
-	EndSendTime    int64  `json:"endSendTime,omitempty"`
-	Count          int64  `json:"count,omitempty"`
+	MsgId          string `form:"msgId,optional"`
+	ConversationId string `form:"conversationId"`
+	StartSendTime  int64  `form:"startSendTime,optional"`
+	EndSendTime    int64  `form:"endSendTime,optional"`
+	Count          int64  `form:"count,optional"`
 }
 
 type ChatLogResp struct {
@@ -27,12 +27,12 @@ type ChatLogResp struct {
 }
 
 type Conversation struct {
-	ConversationId string  `json:"conversationId,omitempty"`
-	ChatType       int32   `json:"chatType,omitempty"` // 修正字段名统一小写
-	IsShow         bool    `json:"isShow,omitempty"`
-	Seq            int64   `json:"seq,omitempty"`
-	Read           int32   `json:"read"`
-	Msg            ChatLog `json:"message, optional"`
+	ConversationId string  `json:"conversationId,optional,omitempty"`
+	ChatType       int32   `json:"chatType,optional,omitempty"`
+	IsShow         bool    `json:"isShow,optional,omitempty"`
+	Seq            int64   `json:"seq,optional,omitempty"`
+	Read           int32   `json:"read,optional,omitempty"`
+	Msg            ChatLog `json:"message,optional,omitempty"`
 }
 
 type GetChatLogReadRecordsReq struct {

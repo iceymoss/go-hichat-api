@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIMStore } from '@/lib/im-store';
+import { useChatStore } from '@/lib/chat-store';
 import { getAvatarColor } from '@/lib/utils';
 import {
   type GroupInfo,
@@ -310,7 +311,7 @@ type DetailTab = 'members' | 'links' | 'announcements';
 type AppStatusFilter = 'all' | GroupAppResult;
 
 export default function GroupList() {
-  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends } = useIMStore();
+  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail } = useIMStore();
   const token = currentUser?.token || '';
   const myUserId = currentUser?.id || '';
 
@@ -806,8 +807,15 @@ export default function GroupList() {
     }
   }, [selectedGroupId, editName, editDesc, editIcon, editIconFile, editVerify, token]);
 
-  // Send message
-  const handleSendMessage = useCallback(() => { toast.success('正在打开聊天...'); }, []);
+  // Send message to group
+  const handleSendMessage = useCallback(() => {
+    if (!selectedGroup) return;
+    // 群聊 conversationId 就是 groupId
+    setShowGroupPanel(false);
+    setActiveTab('chats');
+    setSelectedConversationId(selectedGroup.id);
+    setShowChatDetail(true);
+  }, [selectedGroup, setShowGroupPanel, setActiveTab, setSelectedConversationId, setShowChatDetail]);
 
   // Invite friends
   const handleInviteFriends = useCallback(async () => {
@@ -1894,7 +1902,18 @@ export default function GroupList() {
                 {/* 底部操作按钮 */}
                 <div className="flex items-center gap-2">
                   {isFriend ? (
-                    <button onClick={() => { setProfileTarget(null); toast.info('请到聊天列表发消息'); }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <button onClick={async () => {
+                      const memberId = profileTarget?.userId || profileTarget?.id;
+                      setProfileTarget(null);
+                      if (!currentUser?.token || !currentUser?.id || !memberId) return;
+                      try {
+                        const conv = await useChatStore.getState().getOrCreateConversation(currentUser.token, currentUser.id, memberId);
+                        setShowGroupPanel(false);
+                        setActiveTab('chats');
+                        setSelectedConversationId(conv.id);
+                        setShowChatDetail(true);
+                      } catch { toast.error('打开会话失败'); }
+                    }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <Send className="w-4 h-4" /> 发消息
                     </button>
                   ) : !alreadySent ? (

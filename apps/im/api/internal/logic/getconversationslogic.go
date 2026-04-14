@@ -42,8 +42,12 @@ func (l *GetConversationsLogic) GetConversations(req *types.GetConversationsReq)
 	}
 
 	// 会话列表需要展示最后一条聊天信息,需要从会话详情中获取会话last_msg
+	// 过滤掉 isShow=false 的已删除会话
 	conversations := make(map[string]types.Conversation, len(res.ConversationList))
 	for k, v := range res.ConversationList {
+		if !v.IsShow {
+			continue
+		}
 		var message types.ChatLog
 		if v.Msg != nil {
 			message = types.ChatLog{

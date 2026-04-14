@@ -46,6 +46,7 @@ func single(srv *websocket.Server, data *ws.Push, recvId string) error {
 	sendMsg := websocket.NewMessage(
 		data.SendId, &ws.Chat{
 			ConversationId: data.ConversationId,
+			ChatType:       data.ChatType,
 			RecvId:         data.RecvId,
 			SendId:         data.SendId,
 			SendTime:       data.SendTime,

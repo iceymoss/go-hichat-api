@@ -3,6 +3,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { type Contact } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
+import { useChatStore } from '@/lib/chat-store';
 import { toast } from 'sonner';
 import UserProfileCard from './UserProfileCard';
 import { ArrowLeft } from 'lucide-react';
@@ -28,9 +29,19 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
     return () => window.removeEventListener('keydown', handleKey);
   }, [handleClose]);
 
-  const handleSendMessage = () => {
-    // TODO: integrate with real conversation lookup
-    toast.info(`暂无与 ${contact.name} 的会话`);
+  const handleSendMessage = async () => {
+    if (!currentUser?.token || !currentUser?.id) return;
+    try {
+      const conv = await useChatStore.getState().getOrCreateConversation(
+        currentUser.token, currentUser.id, contact.id
+      );
+      setSelectedContactId(null);
+      setActiveTab('chats');
+      setSelectedConversationId(conv.id);
+      setShowChatDetail(true);
+    } catch {
+      toast.error('打开会话失败');
+    }
   };
 
   const handleVoiceCall = () => {

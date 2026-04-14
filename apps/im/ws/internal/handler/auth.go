@@ -25,6 +25,12 @@ func NewJwtAuto(srvCtx *svc.ServiceContext) *JwtAuto {
 }
 
 func (auto *JwtAuto) Auth(w http.ResponseWriter, r *http.Request) bool {
+	// 浏览器原生 WebSocket 不支持自定义 Header，
+	// 需要支持从 URL 查询参数 ?token=xxx 读取 JWT
+	if qToken := r.URL.Query().Get("token"); qToken != "" && r.Header.Get("Authorization") == "" {
+		r.Header.Set("Authorization", "Bearer "+qToken)
+	}
+
 	tok, err := auto.parser.ParseToken(r, auto.srvCtx.Config.JwtAuth.AccessSecret, "")
 	fmt.Println("token:", tok)
 	if err != nil {

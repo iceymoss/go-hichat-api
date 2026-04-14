@@ -74,7 +74,9 @@ type Server struct {
 func NewServer(addr string, opt ...Options) *Server {
 	return &Server{
 		addr:           addr,
-		upGrader:       websocket.Upgrader{},
+		upGrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool { return true },
+		},
 		routes:         make(map[string]HandlerFunc),
 		user2Conn:      make(map[string]*Conn),
 		conn2User:      make(map[*Conn]string),
@@ -195,9 +197,8 @@ func (s *Server) readAck(conn *Conn) {
 		// 这里相当于自旋
 		if len(conn.readMessages) == 0 {
 			conn.messageMu.Unlock()
-			// 没有消息进来的时候
-			// 没有消息可以睡眠100 毫秒 -- 目的是让程序缓一缓
-			time.Sleep(3 * time.Second)
+			// 队列为空时短暂等待，避免 CPU 空转
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 
@@ -280,8 +281,8 @@ func (s *Server) readAck(conn *Conn) {
 					continue
 				}
 			}
-			// 没有超时，我们让程序等等
-			time.Sleep(3 * time.Second)
+			// 等待客户端 ACK 确认，短轮询
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }

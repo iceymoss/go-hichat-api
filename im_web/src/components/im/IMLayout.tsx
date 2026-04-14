@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useIMStore, TabType } from '@/lib/im-store';
-import { conversations, type Contact } from '@/lib/mock-data';
+import { type Contact } from '@/lib/mock-data';
+import { useChatStore } from '@/lib/chat-store';
 import { ChatListProvider, ChatListToolbar, ChatListContent } from './ChatList';
 import ChatDetail from './ChatDetail';
 import ContactList from './ContactList';
@@ -35,12 +36,9 @@ const navItems: { tab: TabType; icon: React.ReactNode }[] = [
   { tab: 'me', icon: <User className="w-5 h-5" /> },
 ];
 
-function getTotalUnread(): number {
-  return conversations.reduce((sum, c) => sum + c.unreadCount, 0);
-}
-
 export default function IMLayout() {
   const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends } = useIMStore();
+  const chatConversations = useChatStore(s => s.conversations);
 
   // Resolve selected contact for detail panel from store friends
   const selectedContact: Contact | null = React.useMemo(() => {
@@ -48,7 +46,7 @@ export default function IMLayout() {
     return friends.find(c => c.id === selectedContactId) || null;
   }, [selectedContactId, friends]);
   const isMobile = useIsMobile();
-  const totalUnread = getTotalUnread();
+  const totalUnread = chatConversations.reduce((sum, c) => sum + c.unreadCount, 0);
   const t = useT();
 
   const tabLabels: Record<TabType, string> = {

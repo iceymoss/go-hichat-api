@@ -20,6 +20,8 @@ export interface Message {
   type: 'text' | 'image' | 'voice' | 'system';
   imageUrl?: string;
   replyTo?: { senderName: string; content: string };
+  /** 发送状态: sending=发送中, sent=已发送, failed=发送失败 */
+  status?: 'sending' | 'sent' | 'failed';
 }
 
 export interface Conversation {

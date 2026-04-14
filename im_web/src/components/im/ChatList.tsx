@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
 import {
-  conversations,
   contacts,
   conversationMessagesMap,
   formatTime,
@@ -11,6 +10,7 @@ import {
   type Message,
 } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
+import { useChatStore } from '@/lib/chat-store';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Search,
@@ -68,8 +68,16 @@ export function ChatListProvider({ children }: { children: React.ReactNode }) {
   const [localSearch, setLocalSearch] = useState('');
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [localConversations, setLocalConversations] = useState<Conversation[]>(conversations);
+  const chatStoreConvs = useChatStore(s => s.conversations);
+  const [localConversations, setLocalConversations] = useState<Conversation[]>(chatStoreConvs);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  // 当 chat-store 数据更新时同步到 localConversations
+  useEffect(() => {
+    if (chatStoreConvs.length > 0) {
+      setLocalConversations(chatStoreConvs);
+    }
+  }, [chatStoreConvs]);
 
   return (
     <ChatListContext.Provider value={{
@@ -215,6 +223,9 @@ function ConversationItem({
   editMode,
   editSelected,
   onToggleSelect,
+  onDelete,
+  onTogglePin,
+  onToggleMute,
 }: {
   conversation: Conversation;
   isActive: boolean;
@@ -223,18 +234,68 @@ function ConversationItem({
   editMode?: boolean;
   editSelected?: boolean;
   onToggleSelect?: () => void;
+  onDelete?: () => void;
+  onTogglePin?: () => void;
+  onToggleMute?: () => void;
 }) {
   const avatarSize = 48;
   const showCheckbox = editMode;
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+
+  // 关闭右键菜单
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [ctxMenu]);
 
   return (
     <div
       className={`im-conversation-item ${isActive ? 'active' : ''}`}
       onClick={editMode ? onToggleSelect : onClick}
+      onContextMenu={(e) => {
+        if (editMode) return;
+        e.preventDefault();
+        setCtxMenu({ x: e.clientX, y: e.clientY });
+      }}
       style={{
         transition: 'background-color 0.15s',
+        position: 'relative',
       }}
     >
+      {/* 右键菜单 */}
+      {ctxMenu && (
+        <div
+          style={{
+            position: 'fixed', left: ctxMenu.x, top: ctxMenu.y, zIndex: 9999,
+            background: '#2C3E50', borderRadius: 10, padding: '4px 0',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)', minWidth: 140,
+            border: '1px solid rgba(255,255,255,0.1)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {[
+            { label: conversation.pinned ? '取消置顶' : '置顶', action: onTogglePin },
+            { label: conversation.muted ? '取消免打扰' : '免打扰', action: onToggleMute },
+            { label: '删除会话', action: onDelete, danger: true },
+          ].map(({ label, action, danger }) => (
+            <button
+              key={label}
+              onClick={() => { setCtxMenu(null); action?.(); }}
+              style={{
+                display: 'block', width: '100%', padding: '8px 16px', border: 'none',
+                background: 'transparent', color: danger ? '#E53935' : '#FFFFFF',
+                fontSize: 13, textAlign: 'left', cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
+              onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       {/* Checkbox (edit mode) */}
       {showCheckbox && (
         <div
@@ -259,14 +320,14 @@ function ConversationItem({
         </div>
       )}
 
-      {/* Avatar — colored circle with white initial */}
+      {/* Avatar */}
       <div className="relative shrink-0">
         <div
           style={{
             width: avatarSize,
             height: avatarSize,
             borderRadius: '50%',
-            background: isActive && !editMode ? 'rgba(255,255,255,0.2)' : getAvatarColor(conversation.name),
+            background: conversation.avatar ? 'transparent' : (isActive && !editMode ? 'rgba(255,255,255,0.2)' : getAvatarColor(conversation.name)),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -277,7 +338,9 @@ function ConversationItem({
             overflow: 'hidden',
           }}
         >
-          {conversation.name[0]}
+          {conversation.avatar
+            ? <img src={conversation.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : (conversation.name?.[0] || '?')}
         </div>
         {/* Online indicator */}
         {conversation.online && conversation.type === 'private' && (
@@ -417,7 +480,7 @@ function SearchConversationItem({
             width: 44,
             height: 44,
             borderRadius: '50%',
-            background: getAvatarColor(conv.name),
+            background: conv.avatar ? 'transparent' : getAvatarColor(conv.name),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -428,7 +491,9 @@ function SearchConversationItem({
             overflow: 'hidden',
           }}
         >
-          {conv.name[0]}
+          {conv.avatar
+            ? <img src={conv.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : (conv.name?.[0] || '?')}
         </div>
       </div>
       <div className="flex-1 min-w-0">
@@ -944,6 +1009,10 @@ export function ChatListContent() {
   }, [setDeleteConfirm]);
 
   const confirmDelete = useCallback(() => {
+    const token = useIMStore.getState().currentUser?.token;
+    if (token) {
+      selectedIds.forEach(id => useChatStore.getState().deleteConversation(token, id));
+    }
     setLocalConversations((prev) => prev.filter((c) => !selectedIds.has(c.id)));
     setSelectedIds(new Set());
     setDeleteConfirm(false);
@@ -967,8 +1036,9 @@ export function ChatListContent() {
   // ── Handle clicking a contact → open their conversation ──
   const handleContactClick = useCallback(
     (contact: Contact) => {
+      // 按 id 匹配 (conversationId 包含对方 userId)
       const conv = localConversations.find(
-        (c) => c.type === 'private' && c.name === contact.name
+        (c) => c.type === 'private' && c.id.split('_').includes(contact.id)
       );
       if (conv) {
         setSelectedConversationId(conv.id);
@@ -1057,6 +1127,23 @@ export function ChatListContent() {
                 editMode={isBatchMode}
                 editSelected={selectedIds.has(conv.id)}
                 onToggleSelect={() => toggleSelect(conv.id)}
+                onDelete={() => {
+                  const token = useIMStore.getState().currentUser?.token;
+                  if (token) useChatStore.getState().deleteConversation(token, conv.id);
+                  setLocalConversations(prev => prev.filter(c => c.id !== conv.id));
+                  if (selectedConversationId === conv.id) setSelectedConversationId(null);
+                  toast.success('会话已删除');
+                }}
+                onTogglePin={() => {
+                  setLocalConversations(prev => prev.map(c =>
+                    c.id === conv.id ? { ...c, pinned: !c.pinned } : c
+                  ));
+                }}
+                onToggleMute={() => {
+                  setLocalConversations(prev => prev.map(c =>
+                    c.id === conv.id ? { ...c, muted: !c.muted } : c
+                  ));
+                }}
               />
             ))}
 
