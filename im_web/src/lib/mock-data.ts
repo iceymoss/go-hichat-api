@@ -825,11 +825,12 @@ export interface GroupInfo {
   id: string;
   name: string;
   icon: string;
+  description?: string;   // 群描述
   isVerify: boolean;
   notification: string;
   createUid: string;
-  groupNickname?: string; // 当前用户在该群的昵称
-  groupRemark?: string;   // 当前用户对该群的备注
+  groupNickname?: string;
+  groupRemark?: string;
 }
 
 export interface GroupMemberInfo {
@@ -837,8 +838,11 @@ export interface GroupMemberInfo {
   groupId: string;
   userId: string;
   nickname: string;
+  avatar?: string;
   roleLevel: GroupRoleLevel;
   online: boolean;
+  groupNickname?: string;
+  groupRemark?: string;
 }
 
 export interface GroupApplication {

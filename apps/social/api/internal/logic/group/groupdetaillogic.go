@@ -83,6 +83,7 @@ func (l *GroupDetailLogic) GroupDetail(req *types.GroupDetailReq) (resp *types.G
 			Id:              rpcResp.Group.Id,
 			Name:            rpcResp.Group.Name,
 			Icon:            rpcResp.Group.Icon,
+			Description:     rpcResp.Group.Description,
 			Status:          int64(rpcResp.Group.Status),
 			CreateUid:       rpcResp.Group.CreatorUid,
 			GroupType:       int64(rpcResp.Group.GroupType),

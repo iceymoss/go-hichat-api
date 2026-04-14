@@ -58,6 +58,9 @@ func (l *GroupUpdateLogic) GroupUpdate(in *social.GroupUpdateReq) (*social.Group
 		uidInt, _ := strconv.Atoi(in.UserId)
 		group.NotificationUid = uidInt
 	}
+	if in.Description != "" {
+		group.Description = in.Description
+	}
 	// 入群验证：-1不修改 0不需要 1需要
 	if in.IsVerify == 0 {
 		group.IsVerify = 0

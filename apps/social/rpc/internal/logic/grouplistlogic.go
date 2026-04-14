@@ -62,6 +62,7 @@ func (l *GroupListLogic) GroupList(in *social.GroupListReq) (*social.GroupListRe
 			Id:              gid,
 			Name:            v.Name,
 			Icon:            v.Icon,
+			Description:     v.Description,
 			Status:          int32(v.Status),
 			CreatorUid:      v.CreatorUid,
 			GroupType:       int32(v.GroupType),

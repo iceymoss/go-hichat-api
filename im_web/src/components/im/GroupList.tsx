@@ -32,6 +32,8 @@ import {
   CheckCircle,
   XCircle,
   MinusCircle,
+  Flag,
+  Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIMStore } from '@/lib/im-store';
@@ -113,6 +115,7 @@ function mapGroup(g: any): GroupInfo {
     id: String(g.id),
     name: g.name || '',
     icon: g.icon || '',
+    description: g.description || '',
     isVerify: !!g.is_verify,
     notification: g.notification || '',
     createUid: String(g.create_uid || ''),
@@ -127,8 +130,11 @@ function mapMember(m: any, groupId: string): GroupMemberInfo {
     groupId: String(groupId),
     userId: String(m.user_id),
     nickname: m.nickname || (m.user?.nickname) || '',
-    roleLevel: (m.role_level || 1) as GroupRoleLevel,
-    online: false, // online status not provided by this endpoint
+    avatar: m.user_avatar_url || m.user?.avatar || '',
+    roleLevel: (m.role_level ?? 0) as GroupRoleLevel,
+    online: false,
+    groupNickname: m.group_nickname || '',
+    groupRemark: m.group_remark || '',
   };
 }
 
@@ -142,7 +148,7 @@ function mapApplication(a: any): GroupApplication {
     groupName: a.group?.name || '',
     groupIcon: a.group?.icon || '',
     reqMsg: a.req_msg || '',
-    reqTime: new Date(a.req_time || Date.now()),
+    reqTime: tsToDate(a.req_time),
     joinSource: (a.join_source || 1) as GroupJoinSource,
     inviterName: a.inviter_user_id ? String(a.inviter_user_id) : undefined,
     handleResult: (a.handle_result ?? 0) as GroupAppResult,
@@ -150,13 +156,19 @@ function mapApplication(a: any): GroupApplication {
   };
 }
 
+function tsToDate(ts: any): Date {
+  if (!ts) return new Date();
+  if (typeof ts === 'number' && ts < 1e12) return new Date(ts * 1000); // Unix秒→毫秒
+  return new Date(ts);
+}
+
 function mapInviteLink(l: any): GroupInviteLink {
   return {
     token: l.token || l.id || '',
     groupId: String(l.group_id),
     createdBy: String(l.created_by || l.creator_uid || ''),
-    createdAt: new Date(l.created_at || l.create_time || Date.now()),
-    expireAt: l.expire_at || l.expire_time ? new Date(l.expire_at || l.expire_time) : null,
+    createdAt: tsToDate(l.created_at || l.create_time),
+    expireAt: (l.expire_at || l.expire_time) ? tsToDate(l.expire_at || l.expire_time) : null,
     maxUses: l.max_uses ?? 0,
     usedCount: l.used_count ?? 0,
     revoked: !!l.revoked,
@@ -169,7 +181,7 @@ function mapAnnouncement(a: any): GroupAnnouncement {
     groupId: String(a.group_id),
     content: a.content || '',
     createdBy: String(a.created_by || a.creator_uid || ''),
-    createdAt: new Date(a.created_at || a.create_time || Date.now()),
+    createdAt: tsToDate(a.created_at || a.create_time),
     pinned: !!a.pinned,
   };
 }
@@ -338,11 +350,13 @@ export default function GroupList() {
 
   // Modal form fields
   const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDesc, setNewGroupDesc] = useState('');
   const [newGroupIcon, setNewGroupIcon] = useState('');
   const [newGroupIconFile, setNewGroupIconFile] = useState<File | null>(null);
   const [newGroupIconPreview, setNewGroupIconPreview] = useState('');
   const [createInviteSelected, setCreateInviteSelected] = useState<Set<string>>(new Set());
   const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
   const [editIcon, setEditIcon] = useState('');
   const [editIconFile, setEditIconFile] = useState<File | null>(null);
   const [editIconPreview, setEditIconPreview] = useState('');
@@ -356,6 +370,7 @@ export default function GroupList() {
   const [addFriendMsg, setAddFriendMsg] = useState('');
   const [addFriendLoading, setAddFriendLoading] = useState(false);
   const [reportTarget, setReportTarget] = useState<GroupMemberInfo | null>(null);
+  const [profileTarget, setProfileTarget] = useState<GroupMemberInfo | null>(null); // 成员资料卡
   const [reportReason, setReportReason] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
   const [newLinkExpiry, setNewLinkExpiry] = useState('7d');
@@ -699,6 +714,7 @@ export default function GroupList() {
       // 2. 创建群
       const body: any = { name: newGroupName.trim() };
       if (iconUrl) body.icon = iconUrl;
+      if (newGroupDesc.trim()) body.description = newGroupDesc.trim();
       const data = await apiFetch('/api/social/group', token, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -721,6 +737,7 @@ export default function GroupList() {
       toast.success('群组创建成功' + (createInviteSelected.size > 0 ? `，已邀请 ${createInviteSelected.size} 人` : ''));
       setShowCreateGroup(false);
       setNewGroupName('');
+      setNewGroupDesc('');
       setNewGroupIcon('');
       setNewGroupIconFile(null);
       setNewGroupIconPreview('');
@@ -737,6 +754,7 @@ export default function GroupList() {
   const openEditGroup = useCallback(() => {
     if (!selectedGroup) return;
     setEditName(selectedGroup.name);
+    setEditDesc(selectedGroup.description || '');
     setEditIcon(selectedGroup.icon);
     setEditNotification(selectedGroup.notification);
     setEditVerify(selectedGroup.isVerify);
@@ -770,12 +788,12 @@ export default function GroupList() {
           group_id: selectedGroupId,
           name: editName,
           icon: iconUrl,
-          notification: editNotification,
+          description: editDesc,
           is_verify: editVerify ? 1 : 0,
         }),
       });
       if (data.success) {
-        setGroups(prev => prev.map(g => g.id === selectedGroupId ? { ...g, name: editName, icon: iconUrl, notification: editNotification, isVerify: editVerify } : g));
+        setGroups(prev => prev.map(g => g.id === selectedGroupId ? { ...g, name: editName, icon: iconUrl, description: editDesc, notification: editNotification, isVerify: editVerify } : g));
         setShowEditGroup(false);
         setEditIconFile(null);
         setEditIconPreview('');
@@ -786,7 +804,7 @@ export default function GroupList() {
     } catch {
       toast.error('网络错误');
     }
-  }, [selectedGroupId, editName, editIcon, editIconFile, editNotification, editVerify, token]);
+  }, [selectedGroupId, editName, editDesc, editIcon, editIconFile, editVerify, token]);
 
   // Send message
   const handleSendMessage = useCallback(() => { toast.success('正在打开聊天...'); }, []);
@@ -818,9 +836,11 @@ export default function GroupList() {
   // Member settings
   const openMemberSettings = useCallback(() => {
     if (!selectedGroupId) return;
+    // 优先从成员数据取（已从 detail API 加载），兜底从 settings 取
+    const myMember = members.find(m => m.groupId === selectedGroupId && m.userId === myUserId);
     const s = settings.find(s => s.groupId === selectedGroupId);
-    setSettingNickname(s?.groupNickname || '');
-    setSettingRemark(s?.groupRemark || '');
+    setSettingNickname(myMember?.groupNickname || s?.groupNickname || '');
+    setSettingRemark(myMember?.groupRemark || s?.groupRemark || '');
     setShowMemberSettings(true);
   }, [selectedGroupId, settings]);
 
@@ -1046,10 +1066,21 @@ export default function GroupList() {
     }
   }, [selectedGroupId, newAnnContent, token, fetchAnnouncements]);
 
-  const handleTogglePin = useCallback((ann: GroupAnnouncement) => {
-    setAnnouncements(prev => prev.map(a => a.id === ann.id ? { ...a, pinned: !a.pinned } : a));
-    toast.success(ann.pinned ? '已取消置顶' : '已置顶');
-  }, []);
+  const handleTogglePin = useCallback(async (ann: GroupAnnouncement) => {
+    const newPinned = !ann.pinned;
+    try {
+      const res = await apiFetch('/api/social/group/announcement/pin', token, {
+        method: 'POST',
+        body: JSON.stringify({ group_id: ann.groupId, announcement_id: ann.id, pinned: newPinned }),
+      });
+      if (res.success) {
+        setAnnouncements(prev => prev.map(a => a.id === ann.id ? { ...a, pinned: newPinned } : a));
+        toast.success(newPinned ? '已置顶' : '已取消置顶');
+      } else {
+        toast.error(res.message || '操作失败');
+      }
+    } catch { toast.error('操作失败'); }
+  }, [token]);
 
   // Link status
   const getLinkStatus = useCallback((link: GroupInviteLink): { label: string; color: string } => {
@@ -1172,6 +1203,10 @@ export default function GroupList() {
           <div style={{ marginBottom: '12px' }}>
             <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群名称 *</label>
             <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="输入群名称" style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群描述</label>
+            <textarea value={newGroupDesc} onChange={(e) => setNewGroupDesc(e.target.value)} rows={2} placeholder="介绍一下这个群（选填）" style={{ ...inputStyle, resize: 'none' }} onFocus={focusInput} onBlur={blurInput} />
           </div>
           <div style={{ marginBottom: '12px' }}>
             <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群头像</label>
@@ -1356,10 +1391,23 @@ export default function GroupList() {
                 <div style={{ fontSize: '13px', color: '#A2ACB5', marginBottom: 4 }}>
                   {groupMembers.length} 位成员{onlineCount > 0 ? ` · ${onlineCount} 人在线` : ''}
                 </div>
+                {selectedGroup.description && (
+                  <div style={{ fontSize: '12px', color: '#708499', marginBottom: 4, lineHeight: '1.5' }}>
+                    {selectedGroup.description}
+                  </div>
+                )}
                 {mySetting?.groupRemark && (
                   <div style={{ fontSize: '12px', color: '#708499', marginBottom: 4 }}>备注: {mySetting.groupRemark}</div>
                 )}
-                {selectedGroup.notification && (
+                {/* 置顶公告 */}
+                {groupAnns.find(a => a.pinned) && (
+                  <div className="flex items-start gap-1.5" style={{ fontSize: '12px', color: '#3390EC', padding: '6px 10px', background: 'rgba(51,144,236,0.06)', borderRadius: '8px', marginTop: 6 }}>
+                    <Pin className="w-3 h-3 shrink-0" style={{ marginTop: 1 }} />
+                    <span>{groupAnns.find(a => a.pinned)!.content}</span>
+                  </div>
+                )}
+                {/* 群描述/公告（非置顶） */}
+                {selectedGroup.notification && !groupAnns.find(a => a.pinned) && (
                   <div style={{ fontSize: '12px', color: '#708499', padding: '6px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: '8px', marginTop: 6 }}>
                     {selectedGroup.notification}
                   </div>
@@ -1418,13 +1466,18 @@ export default function GroupList() {
                   const isMe = m.userId === myUserId;
                   const displayName = m.nickname || name;
                   return (
-                    <div key={m.id} className="flex items-center gap-3" style={{ padding: '10px 16px', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-                      {avatarCircle(name, 40,
-                        m.online ? <span className="absolute" style={{ bottom: 0, right: 0, width: 10, height: 10, borderRadius: '50%', backgroundColor: '#4DCD5E', border: '2px solid #FFF' }} /> : null
-                      )}
+                    <div key={m.id} className="flex items-center gap-3" style={{ padding: '10px 16px', borderBottom: '1px solid rgba(0,0,0,0.05)', cursor: isMe ? 'default' : 'pointer' }} onClick={() => { if (!isMe) setProfileTarget(m); }}>
+                      <div className="relative shrink-0" style={{ width: 40, height: 40 }}>
+                        {m.avatar ? (
+                          <img src={m.avatar} alt={name} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const next = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (next) next.style.display = 'flex'; }} />
+                        ) : null}
+                        <div style={{ width: 40, height: 40, borderRadius: '50%', background: getAvatarColor(name), display: m.avatar ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', fontSize: 16, fontWeight: 600 }}>{name[0]}</div>
+                        {m.online && <span className="absolute" style={{ bottom: 0, right: 0, width: 10, height: 10, borderRadius: '50%', backgroundColor: '#4DCD5E', border: '2px solid #FFF' }} />}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span style={{ fontSize: '14px', fontWeight: 500, color: '#1C2733' }}>{displayName}</span>
+                          {m.groupNickname && <span style={{ fontSize: '11px', color: '#A2ACB5' }}>({m.groupNickname})</span>}
                           {m.roleLevel >= 1 && (
                             <span style={{ fontSize: '10px', fontWeight: 500, color: roleColor[m.roleLevel], backgroundColor: roleBg[m.roleLevel], borderRadius: '4px', padding: '1px 5px', display: 'flex', alignItems: 'center', gap: 2 }}>
                               {roleIcon[m.roleLevel]}{roleLabel[m.roleLevel]}
@@ -1604,6 +1657,10 @@ export default function GroupList() {
             <input value={editName} onChange={(e) => setEditName(e.target.value)} style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
           </div>
           <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群描述</label>
+            <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={2} placeholder="群描述（选填）" style={{ ...inputStyle, resize: 'none' }} onFocus={focusInput} onBlur={blurInput} />
+          </div>
+          <div style={{ marginBottom: '12px' }}>
             <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群头像</label>
             <div className="flex items-center gap-3">
               {(editIconPreview || editIcon) ? (
@@ -1622,10 +1679,6 @@ export default function GroupList() {
                 }} />
               </label>
             </div>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群公告</label>
-            <textarea value={editNotification} onChange={(e) => setEditNotification(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'none' }} onFocus={focusInput} onBlur={blurInput} />
           </div>
           <div className="flex items-center justify-between" style={{ padding: '8px 0' }}>
             <span style={{ fontSize: '13px', color: '#1C2733' }}>入群验证</span>
@@ -1789,6 +1842,74 @@ export default function GroupList() {
             </div>
           </div>
         )}
+
+        {/* ── 成员资料卡弹窗 ── */}
+        {profileTarget && (() => {
+          const pm = profileTarget;
+          const pmName = getContactName(pm.userId);
+          const pmUser = members.find(m => m.id === pm.id);
+          const isFriend = friends.some(f => f.id === pm.userId);
+          const alreadySent = sentFriendReqs.has(pm.userId);
+          return (
+            <div className="fixed inset-0" style={{ zIndex: 10003, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) setProfileTarget(null); }}>
+              <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
+              <div className="relative" style={{ background: '#FFF', borderRadius: '16px', padding: '24px', width: '90%', maxWidth: '400px', boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
+                <button onClick={() => setProfileTarget(null)} className="absolute" style={{ top: 16, right: 16, width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'transparent', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <X className="w-4 h-4" />
+                </button>
+
+                {/* 头像 + 基本信息 */}
+                <div className="flex items-center gap-4" style={{ marginBottom: '16px' }}>
+                  <div className="shrink-0" style={{ width: 64, height: 64 }}>
+                    {pm.avatar ? (
+                      <img src={pm.avatar} alt={pmName} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const next = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (next) next.style.display = 'flex'; }} />
+                    ) : null}
+                    <div style={{ width: 64, height: 64, borderRadius: '50%', background: getAvatarColor(pmName), display: pm.avatar ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', fontSize: 24, fontWeight: 600 }}>{pmName[0]}</div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2" style={{ marginBottom: 4 }}>
+                      <span style={{ fontSize: '18px', fontWeight: 600, color: '#1C2733' }}>{pmName}</span>
+                      {pm.roleLevel >= 1 && (
+                        <span style={{ fontSize: '10px', fontWeight: 500, color: roleColor[pm.roleLevel], backgroundColor: roleBg[pm.roleLevel], borderRadius: '4px', padding: '1px 5px', display: 'flex', alignItems: 'center', gap: 2 }}>
+                          {roleIcon[pm.roleLevel]}{roleLabel[pm.roleLevel]}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#A2ACB5' }}>ID: {pm.userId}</div>
+                    {pm.groupNickname && <div style={{ fontSize: '12px', color: '#708499', marginTop: 2 }}>群昵称: {pm.groupNickname}</div>}
+                  </div>
+                </div>
+
+                {/* 好友状态 */}
+                {isFriend ? (
+                  <div style={{ padding: '10px 14px', background: 'rgba(77,205,94,0.08)', borderRadius: '10px', marginBottom: '16px', fontSize: '13px', color: '#4DCD5E', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <UserCheck className="w-4 h-4" /> 已是好友
+                  </div>
+                ) : alreadySent ? (
+                  <div style={{ padding: '10px 14px', background: 'rgba(51,144,236,0.06)', borderRadius: '10px', marginBottom: '16px', fontSize: '13px', color: '#3390EC', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Clock className="w-4 h-4" /> 好友申请已发送
+                  </div>
+                ) : null}
+
+                {/* 底部操作按钮 */}
+                <div className="flex items-center gap-2">
+                  {isFriend ? (
+                    <button onClick={() => { setProfileTarget(null); toast.info('请到聊天列表发消息'); }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <Send className="w-4 h-4" /> 发消息
+                    </button>
+                  ) : !alreadySent ? (
+                    <button onClick={() => { setProfileTarget(null); setAddFriendTarget(pm); setAddFriendMsg(`来自群聊「${selectedGroup?.name || ''}」`); }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <UserPlus className="w-4 h-4" /> 加为好友
+                    </button>
+                  ) : null}
+                  <button onClick={() => { setProfileTarget(null); setReportTarget(pm); setReportReason(''); }} style={{ padding: '10px 16px', borderRadius: '10px', border: '1px solid #E53935', background: '#FFF', color: '#E53935', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <Flag className="w-4 h-4" /> 举报
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }

@@ -43,6 +43,7 @@ func (l *GroupCreateLogic) GroupCreate(in *social.GroupCreateReq) (*social.Group
 	groups := &socialmodels.Groups{
 		Name:            in.Name,
 		Icon:            in.Icon,
+		Description:     in.Description,
 		CreatorUid:      in.CreatorUid,
 		IsVerify:        1,
 		Status:          0,

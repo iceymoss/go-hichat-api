@@ -38,10 +38,11 @@ func (l *CreateGroupLogic) CreateGroup(req *types.GroupCreateReq) (resp *types.G
 	}
 	uid := l.ctx.Value(Identify).(string)
 	res, err := l.svcCtx.Social.GroupCreate(l.ctx, &social.GroupCreateReq{
-		Name:       req.Name,
-		Icon:       req.Icon,
-		Status:     0,
-		CreatorUid: uid,
+		Name:        req.Name,
+		Icon:        req.Icon,
+		Description: req.Description,
+		Status:      0,
+		CreatorUid:  uid,
 	})
 	if err != nil {
 		zLog.Error("CreateGroup.GroupCreate: create group failed", zap.Error(err))
