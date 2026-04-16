@@ -464,6 +464,8 @@ export default function ChatDetail() {
             conversation={conv}
             recalledIds={recalledIds}
             onBubbleContext={handleBubbleContext}
+            peerName={peerName}
+            peerAvatar={peerAvatar}
           />
           {searchBarOpen && searchKeyword && displayMessages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '24px 0', color: '#A2ACB5', fontSize: 13 }}>
@@ -639,14 +641,19 @@ function MessageList({
   conversation,
   recalledIds,
   onBubbleContext,
+  peerName,
+  peerAvatar,
 }: {
   messages: Message[];
-  conversation: NonNullable<ReturnType<typeof conversations.find>>;
+  conversation: any;
   recalledIds: Set<string>;
   onBubbleContext: (e: React.MouseEvent | React.TouchEvent, message: Message, senderName: string, isOwn: boolean) => void;
+  peerName: string;
+  peerAvatar: string;
 }) {
   const { currentUser } = useIMStore();
   const { selectedConversationId } = useIMStore();
+  const userProfiles = useChatStore(s => s.userProfiles);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);
 
@@ -755,51 +762,52 @@ function MessageList({
             marginBottom: 14,
           }}>
             {/* Received avatar */}
-            {!isSent && (
-              <div style={{ width: 36, flexShrink: 0, marginRight: 8 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: '50%',
-                  background: conversation.type === 'group'
-                    ? getAvatarColor(groupMemberNames[msgs[0].senderId] || msgs[0].senderId)
-                    : getAvatarColor(conversation.name),
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#FFFFFF', fontSize: 13, fontWeight: 600,
-                }}>
-                  {conversation.type === 'group'
-                    ? (groupMemberNames[msgs[0].senderId] || '?')[0]
-                    : conversation.name[0]}
+            {!isSent && (() => {
+              const senderName = conversation.type === 'group'
+                ? (groupMemberNames[msgs[0].senderId] || msgs[0].senderId)
+                : peerName;
+              const senderAvatar = conversation.type === 'group'
+                ? (userProfiles[msgs[0].senderId]?.avatar || '')
+                : peerAvatar;
+              return (
+                <div style={{ width: 36, flexShrink: 0, marginRight: 8 }}>
+                  {senderAvatar ? (
+                    <img src={senderAvatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const next = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (next) next.style.display = 'flex'; }} />
+                  ) : null}
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: getAvatarColor(senderName),
+                    display: senderAvatar ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#FFFFFF', fontSize: 13, fontWeight: 600,
+                  }}>
+                    {senderName[0]}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Bubbles */}
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: isSent ? 'flex-end' : 'flex-start',
-              maxWidth: 'min(70%, 520px)',
-              gap: 3,
-            }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               {/* Group sender name (only for first message in group) */}
               {conversation.type === 'group' && !isSent && (
-                <span style={{ fontSize: 12, color: '#3390EC', fontWeight: 600, marginBottom: 2 }}>
+                <div style={{ fontSize: 12, color: '#3390EC', fontWeight: 600, marginBottom: 2, textAlign: 'left' }}>
                   {groupMemberNames[msgs[0].senderId] || msgs[0].senderId}
-                </span>
+                </div>
               )}
               {msgs.map((m) => {
                 const msgIsSent = isOwnMessage(m.senderId);
                 const senderName = getSenderName(m.senderId);
 
                 return (
-                  <div
-                    key={m.id}
-                    className={`im-chat-bubble ${msgIsSent ? 'sent' : 'received'}`}
-                    onContextMenu={(e) => onBubbleContext(e, m, senderName, msgIsSent)}
-                    onTouchStart={(e) => handleTouchStart(e, m, senderName, msgIsSent)}
-                    onTouchEnd={handleTouchEnd}
-                    onTouchMove={handleTouchMove}
-                    style={{ cursor: 'context-menu', userSelect: 'none' }}
-                  >
+                  <div key={m.id} style={{ textAlign: msgIsSent ? 'right' : 'left', marginBottom: 3 }}>
+                    <div
+                      className={`im-chat-bubble ${msgIsSent ? 'sent' : 'received'}`}
+                      onContextMenu={(e) => onBubbleContext(e, m, senderName, msgIsSent)}
+                      onTouchStart={(e) => handleTouchStart(e, m, senderName, msgIsSent)}
+                      onTouchEnd={handleTouchEnd}
+                      onTouchMove={handleTouchMove}
+                      style={{ cursor: 'context-menu', userSelect: 'none', textAlign: 'left' }}
+                    >
                     {recalledIds.has(m.id) ? (
                       <span style={{ fontStyle: 'italic', opacity: 0.6 }}>
                         {isOwnMessage(m.senderId) ? '你撤回了一条消息' : '对方撤回了一条消息'}
@@ -825,9 +833,10 @@ function MessageList({
                             </div>
                           </div>
                         )}
-                        {m.content}
+                        <span>{m.content}</span>
                       </>
                     )}
+                  </div>
                   </div>
                 );
               })}
@@ -864,18 +873,25 @@ function MessageList({
             </div>
 
             {/* Sent avatar */}
-            {isSent && (
-              <div style={{ width: 36, flexShrink: 0, marginLeft: 8 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: '50%',
-                  background: getAvatarColor(currentUser?.name || mockCurrentUser.name),
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#FFFFFF', fontSize: 13, fontWeight: 600,
-                }}>
-                  {(currentUser?.name || mockCurrentUser.name)[0]}
+            {isSent && (() => {
+              const myName = currentUser?.name || mockCurrentUser.name;
+              const myAvatar = currentUser?.avatar || '';
+              return (
+                <div style={{ width: 36, flexShrink: 0, marginLeft: 8 }}>
+                  {myAvatar ? (
+                    <img src={myAvatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const next = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (next) next.style.display = 'flex'; }} />
+                  ) : null}
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: getAvatarColor(myName),
+                    display: myAvatar ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#FFFFFF', fontSize: 13, fontWeight: 600,
+                  }}>
+                    {myName[0]}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         );
       })}

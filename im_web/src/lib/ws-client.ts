@@ -179,8 +179,33 @@ export class IMWebSocket {
     this.handlers.delete(method);
   }
 
+  /** 等待 WebSocket 连接就绪（OPEN 状态） */
+  private waitForOpen(timeout = 5000): Promise<void> {
+    if (this.ws?.readyState === WebSocket.OPEN) return Promise.resolve();
+    // 如果已断开，尝试重连
+    if (this.state === 'disconnected') this.connect();
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('连接超时')), timeout);
+      const check = () => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+          clearTimeout(timer);
+          resolve();
+        } else if (this.state === 'disconnected') {
+          clearTimeout(timer);
+          reject(new Error('连接失败'));
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
+    });
+  }
+
   /** 发送业务消息 (RigorAck 三次通信)，Promise 在 ACK 完成后 resolve */
-  send(method: string, data: unknown): Promise<void> {
+  async send(method: string, data: unknown): Promise<void> {
+    // 等待连接就绪
+    await this.waitForOpen();
+
     const id = genMsgId();
     const msg: WsMessage = {
       id,
