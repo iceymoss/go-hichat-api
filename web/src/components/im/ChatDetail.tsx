@@ -128,9 +128,38 @@ export default function ChatDetail() {
     return [...storeMsgs, ...extra];
   }, [selectedConversationId, chatMessages, sentMap]);
 
+  // Reliable scroll-to-bottom: retries until the container is fully rendered
+  const scrollToBottom = useCallback((instant = false) => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const doScroll = () => { el.scrollTop = el.scrollHeight; };
+    if (instant) {
+      // Retry a few times to catch async render
+      doScroll();
+      requestAnimationFrame(doScroll);
+      setTimeout(doScroll, 100);
+      setTimeout(doScroll, 300);
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, []);
+
+  // Scroll to bottom when messages change (new message sent/loaded)
+  const prevMsgCount = useRef(0);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (messages.length === 0) return;
+    // If switching conversation (count changed drastically) → instant, otherwise smooth
+    const isNewConv = Math.abs(messages.length - prevMsgCount.current) > 1;
+    scrollToBottom(isNewConv);
+    prevMsgCount.current = messages.length;
+  }, [messages, scrollToBottom]);
+
+  // Also scroll when conversation switches (even if messages haven't changed yet)
+  useEffect(() => {
+    if (selectedConversationId) {
+      scrollToBottom(true);
+    }
+  }, [selectedConversationId, scrollToBottom]);
 
   // 滚动到顶部时加载更早的聊天记录
   const handleMessagesScroll = useCallback(() => {
