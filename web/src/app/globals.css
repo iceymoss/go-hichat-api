@@ -284,11 +284,13 @@
 
 /* ── Chat bubbles: blue sent + white received ── */
 .im-chat-bubble {
-  max-width: min(65%, 480px);
+  display: inline-block;
+  max-width: 480px;
   padding: 8px 12px 6px;
   font-size: 14px;
   line-height: 1.5;
-  word-break: break-word;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   position: relative;
 }
 
