@@ -347,6 +347,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   deleteConversation: (token, conversationId) => {
     // 先从 UI 移除（乐观更新）
+    // 先读取会话类型，再从 state 中删除
+    const conv = get().conversations.find(c => c.id === conversationId);
+    const chatType = conv?.type === 'group' ? ChatType.Group : ChatType.Single;
+
     set(s => ({
       conversations: s.conversations.filter(c => c.id !== conversationId),
       messagesMap: Object.fromEntries(
@@ -355,11 +359,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }));
 
     // 调后端 PUT /v1/im/conversation 设置 isShow=false
-    const conv = get().conversations.find(c => c.id === conversationId);
     updateConversations(token, {
       [conversationId]: {
         conversationId,
-        chatType: conv?.type === 'group' ? ChatType.Group : ChatType.Single,
+        chatType,
         isShow: false,
       } as any,
     }).catch(err => console.error('[ChatStore] deleteConversation failed:', err));

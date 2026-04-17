@@ -19,6 +19,8 @@ ImRpc:
     Hosts:
       - 127.0.0.1:2379
     Key: im.rpc
+  NonBlock: true
+  Timeout: 10000
 
 JwtAuth:
   AccessSecret: iceymoss.hichat.hichat2.com

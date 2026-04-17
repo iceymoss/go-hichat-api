@@ -96,7 +96,7 @@ func (l *GetConversationsLogic) GetConversations(in *im.GetConversationsReq) (*i
 			res.ConversationList[conversation.ConversationId].Total = int32(conversation.Total)
 			// 待读消息量
 			res.ConversationList[conversation.ConversationId].ToRead = int32(conversation.Total) - total
-			// 有新消息一定显示
+			// 有新消息一定要显示（即使用户之前删除过会话）
 			res.ConversationList[conversation.ConversationId].IsShow = true
 		}
 

@@ -2,6 +2,21 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { formatTime, currentUser as mockCurrentUser, groupMemberNames, groupMembersMap, contacts, type Message, type Contact, type Conversation } from '@/lib/mock-data';
+
+/** 气泡时间：今天 HH:mm，昨天 昨天 HH:mm，今年 MM/DD HH:mm，跨年 YYYY/MM/DD HH:mm */
+function formatBubbleTime(date: Date): string {
+  const now = new Date();
+  const hm = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  const md = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
+  const isToday = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+  if (isToday) return hm;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.getFullYear() === yesterday.getFullYear() && date.getMonth() === yesterday.getMonth() && date.getDate() === yesterday.getDate();
+  if (isYesterday) return `昨天 ${hm}`;
+  if (date.getFullYear() !== now.getFullYear()) return `${date.getFullYear()}/${md} ${hm}`;
+  return `${md} ${hm}`;
+}
 import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
 import { getAvatarColor } from '@/lib/utils';
@@ -900,7 +915,7 @@ function MessageList({
                   <CheckCheck style={{ width: 14, height: 14, color: 'rgba(51,144,236,0.5)' }} />
                 )}
                 <span style={{ fontSize: 11, color: lastMsg.status === 'failed' ? '#e74c3c' : '#A2ACB5', lineHeight: 1 }}>
-                  {lastMsg.status === 'failed' ? '发送失败' : formatTime(lastMsg.timestamp)}
+                  {lastMsg.status === 'failed' ? '发送失败' : formatBubbleTime(lastMsg.timestamp)}
                 </span>
               </div>
             </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const SOCIAL_BASE = process.env.SOCIAL_API_URL || 'http://127.0.0.1:8888';
+const SOCIAL_BASE = process.env.SOCIAL_API_URL || 'http://127.0.0.1:8889';
 
 /**
  * Catch-all proxy for Social Service APIs.

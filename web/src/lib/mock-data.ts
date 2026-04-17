@@ -582,7 +582,9 @@ export function formatTime(date: Date): string {
     const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
     return weekdays[date.getDay()];
   }
-  return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
+  const md = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
+  if (date.getFullYear() !== now.getFullYear()) return `${date.getFullYear()}/${md}`;
+  return md;
 }
 
 // Moments images per user (for profile card display)
