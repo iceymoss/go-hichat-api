@@ -19,11 +19,11 @@ type Conversation struct {
 	ChatType constants.ChatType `bson:"chatType,omitempty"`
 	//TargetId       string             `bson:"targetId,omitempty"`
 
-	// 是否展示
-	IsShow bool `bson:"isShow,omitempty"`
+	// 是否展示（不能用 omitempty，否则 false 不会存储）
+	IsShow bool `bson:"isShow"`
 
-	// 会话下消息总数
-	Total int `bson:"total,omitempty"`
+	// 会话下消息总数（不能用 omitempty，否则 0 不会存储）
+	Total int `bson:"total"`
 
 	// 会话序号
 	Seq int64 `bson:"seq"`

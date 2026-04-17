@@ -115,11 +115,43 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     ws.on('chat.ping', () => { /* pong */ });
 
     ws.connect();
+
+    // 定时刷新好友在线状态（每 30 秒）
+    if (typeof window !== 'undefined') {
+      const onlineTimer = setInterval(async () => {
+        const currentUser = useIMStore.getState().currentUser;
+        if (!currentUser?.token) return;
+        try {
+          const res = await fetch('/api/social/friends/online', {
+            headers: { Authorization: `Bearer ${currentUser.token}` },
+          });
+          const d = await res.json();
+          if (d.success && d.data?.onLineList) {
+            const onlineMap: Record<string, boolean> = d.data.onLineList;
+            set(s => ({
+              conversations: s.conversations.map(c => {
+                if (c.type !== 'private') return c;
+                const parts = c.id.split('_');
+                const peerId = parts.find(p => p !== currentUser.id);
+                return { ...c, online: peerId ? !!onlineMap[peerId] : false };
+              }),
+            }));
+          }
+        } catch { /* silent */ }
+      }, 30000);
+      // Store timer for cleanup
+      (window as any).__hc_online_timer = onlineTimer;
+    }
   },
 
   destroyWs: () => {
     getIMWs().disconnect();
     set({ wsState: 'disconnected' });
+    // Clear online polling timer
+    if (typeof window !== 'undefined' && (window as any).__hc_online_timer) {
+      clearInterval((window as any).__hc_online_timer);
+      delete (window as any).__hc_online_timer;
+    }
   },
 
   // ==================== REST API ====================
@@ -167,6 +199,25 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             }),
           }));
         }
+
+        // 第三轮：查询好友在线状态，合并到会话列表
+        try {
+          const onlineRes = await fetch('/api/social/friends/online', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const onlineData = await onlineRes.json();
+          if (onlineData.success && onlineData.data?.onLineList) {
+            const onlineMap: Record<string, boolean> = onlineData.data.onLineList;
+            set(s => ({
+              conversations: s.conversations.map(c => {
+                if (c.type !== 'private') return c;
+                const parts = c.id.split('_');
+                const peerId = parts.find(p => p !== currentUserId);
+                return { ...c, online: peerId ? !!onlineMap[peerId] : false };
+              }),
+            }));
+          }
+        } catch { /* 在线状态查询失败不影响会话列表 */ }
       }
     } catch (e) {
       console.error('[ChatStore] fetch conversations error:', e);
@@ -347,6 +398,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   deleteConversation: (token, conversationId) => {
     // 先从 UI 移除（乐观更新）
+    // 先读取会话类型，再从 state 中删除
+    const conv = get().conversations.find(c => c.id === conversationId);
+    const chatType = conv?.type === 'group' ? ChatType.Group : ChatType.Single;
+
     set(s => ({
       conversations: s.conversations.filter(c => c.id !== conversationId),
       messagesMap: Object.fromEntries(
@@ -355,11 +410,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }));
 
     // 调后端 PUT /v1/im/conversation 设置 isShow=false
-    const conv = get().conversations.find(c => c.id === conversationId);
     updateConversations(token, {
       [conversationId]: {
         conversationId,
-        chatType: conv?.type === 'group' ? ChatType.Group : ChatType.Single,
+        chatType,
         isShow: false,
       } as any,
     }).catch(err => console.error('[ChatStore] deleteConversation failed:', err));

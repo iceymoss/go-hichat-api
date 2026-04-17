@@ -125,8 +125,13 @@ func (l *SetUpUserConversationLogic) setUpUserConversation(conversationId, userI
 		}
 	}
 	// 更新会话记录，如果用户会话存在
-	if _, ok := conversations.ConversationList[conversationId]; ok {
-		// 存在
+	if existing, ok := conversations.ConversationList[conversationId]; ok {
+		// 会话已存在，如果当前要求显示且之前被隐藏了，则恢复显示
+		if isShow && !existing.IsShow {
+			existing.IsShow = true
+			_, err = l.svcCtx.ConversationsModel.Update(l.ctx, conversations)
+			return err
+		}
 		return nil
 	}
 
