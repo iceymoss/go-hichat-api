@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iceymoss/go-hichat-api/pkg/db"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/gorilla/websocket"
@@ -15,6 +16,9 @@ import (
 	"github.com/zeromicro/go-zero/core/threading"
 	"go.uber.org/zap"
 )
+
+const onlineKeyPrefix = "user:online:"
+const onlineTTL = 5 * time.Minute
 
 type AckType int
 
@@ -380,6 +384,23 @@ func (s *Server) addConn(conn *Conn, req *http.Request) {
 	s.user2Conn[uid] = conn
 	s.conn2User[conn] = uid
 
+	// 标记用户在线到 Redis，并启动心跳续期
+	rdb := db.GetRedisConn()
+	rdb.Set(context.Background(), onlineKeyPrefix+uid, "1", onlineTTL)
+	go func(userId string) {
+		ticker := time.NewTicker(2 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			s.RWMutex.RLock()
+			_, still := s.user2Conn[userId]
+			s.RWMutex.RUnlock()
+			if !still {
+				return
+			}
+			rdb.Set(context.Background(), onlineKeyPrefix+userId, "1", onlineTTL)
+		}
+	}(uid)
+
 	fmt.Println("连接池变化:", len(s.user2Conn))
 }
 
@@ -458,6 +479,10 @@ func (s *Server) Close(conn *Conn) {
 	delete(s.user2Conn, uid)
 
 	conn.Close()
+
+	// 从 Redis 移除在线状态
+	rdb := db.GetRedisConn()
+	rdb.Del(context.Background(), onlineKeyPrefix+uid)
 
 	fmt.Println("退出连接池变化", len(s.conn2User))
 }
