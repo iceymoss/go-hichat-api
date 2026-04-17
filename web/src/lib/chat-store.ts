@@ -293,7 +293,18 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     };
 
     ws.send('chat.user', wsData)
-      .then(() => updateMsgStatus('sent'))
+      .then(() => {
+        updateMsgStatus('sent');
+        // 发送方自己的消息也要同步已读到后端，防止刷新后出现自己发的消息的未读气泡
+        updateConversations(token, {
+          [conversationId]: {
+            conversationId,
+            chatType,
+            isShow: true,
+            read: 1, // 每发一条消息，已读数 +1
+          } as any,
+        }).catch(() => {});
+      })
       .catch(err => {
         console.error('[ChatStore] send failed:', err);
         updateMsgStatus('failed');
@@ -410,11 +421,31 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   // ==================== 清除未读 ====================
 
   clearUnread: (conversationId) => {
+    const conv = get().conversations.find(c => c.id === conversationId);
+    const unreadCount = conv?.unreadCount || 0;
+
+    // 1. 清除前端未读计数
     set(s => ({
       conversations: s.conversations.map(c =>
         c.id === conversationId ? { ...c, unreadCount: 0 } : c,
       ),
     }));
+
+    // 2. 同步后端：PUT conversation 更新已读数
+    if (unreadCount > 0) {
+      const token = useIMStore.getState().currentUser?.token;
+      if (token) {
+        const chatType = conv?.type === 'group' ? ChatType.Group : ChatType.Single;
+        updateConversations(token, {
+          [conversationId]: {
+            conversationId,
+            chatType,
+            isShow: true,
+            read: unreadCount,
+          } as any,
+        }).catch(err => console.error('[ChatStore] clearUnread sync failed:', err));
+      }
+    }
   },
 
   fetchGroupMembers: async (token, groupId) => {
@@ -453,13 +484,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
  */
 /** 计算未读数，防止后端 seq 数据异常（如存了时间戳）导致天文数字 */
 function calcUnread(seq: number | undefined, read: number | undefined): number {
-  const s = seq || 0;
-  const r = read || 0;
-  const diff = s - r;
-  // seq 应该是消息序列号（小数字），不是时间戳（大数字）
-  // 如果差值超过 10000，说明数据异常，返回 0
-  if (diff <= 0 || diff > 10000) return 0;
-  return diff;
+  // 后端 read 字段实际是 toRead（未读消息数），直接使用
+  const unread = read || 0;
+  if (unread < 0 || unread > 10000) return 0;
+  return unread;
 }
 
 function parseTimestamp(ts: number): Date {
