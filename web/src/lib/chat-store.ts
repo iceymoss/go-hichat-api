@@ -293,18 +293,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     };
 
     ws.send('chat.user', wsData)
-      .then(() => {
-        updateMsgStatus('sent');
-        // 发送方自己的消息也要同步已读到后端，防止刷新后出现自己发的消息的未读气泡
-        updateConversations(token, {
-          [conversationId]: {
-            conversationId,
-            chatType,
-            isShow: true,
-            read: 1, // 每发一条消息，已读数 +1
-          } as any,
-        }).catch(() => {});
-      })
+      .then(() => updateMsgStatus('sent'))
       .catch(err => {
         console.error('[ChatStore] send failed:', err);
         updateMsgStatus('failed');
