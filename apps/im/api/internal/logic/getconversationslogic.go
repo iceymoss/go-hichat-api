@@ -2,12 +2,15 @@ package logic
 
 import (
 	"context"
-	"fmt"
+	"strings"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
+	socialPb "github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	userPb "github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"github.com/iceymoss/go-hichat-api/pkg/wuid"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"go.uber.org/zap"
@@ -21,7 +24,6 @@ type GetConversationsLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// NewGetConversationsLogic 获取会话
 func NewGetConversationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetConversationsLogic {
 	return &GetConversationsLogic{
 		Logger: logx.WithContext(ctx),
@@ -30,7 +32,6 @@ func NewGetConversationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
-// GetConversations 获取用户会话(聊天列表)列表
 func (l *GetConversationsLogic) GetConversations(req *types.GetConversationsReq) (resp *types.GetConversationsResp, err error) {
 	uid := l.ctx.Value(Identify).(string)
 	res, err := l.svcCtx.IM.GetConversations(l.ctx, &im.GetConversationsReq{
@@ -41,9 +42,11 @@ func (l *GetConversationsLogic) GetConversations(req *types.GetConversationsReq)
 		return nil, err
 	}
 
-	// 会话列表需要展示最后一条聊天信息,需要从会话详情中获取会话last_msg
-	// 过滤掉 isShow=false 的已删除会话
+	// 1. 构建会话列表，收集需要查询的用户ID和群ID
+	peerIds := make([]string, 0)  // 私聊对方 userId
+	groupIds := make([]string, 0) // 群聊 groupId
 	conversations := make(map[string]types.Conversation, len(res.ConversationList))
+
 	for k, v := range res.ConversationList {
 		if !v.IsShow {
 			continue
@@ -61,18 +64,113 @@ func (l *GetConversationsLogic) GetConversations(req *types.GetConversationsReq)
 			}
 		}
 
-		conversations[k] = types.Conversation{
+		conv := types.Conversation{
 			ConversationId: v.ConversationId,
 			ChatType:       v.ChatType,
 			IsShow:         v.IsShow,
 			Seq:            v.Seq,
-			Read:           v.ToRead, //未读数量
+			Read:           v.ToRead,
 			Msg:            message,
 		}
-		fmt.Printf("conversations: %+v\n", conversations[k])
+
+		if v.ChatType == 2 { // 群聊
+			groupIds = append(groupIds, v.ConversationId)
+		} else { // 私聊
+			peerId := extractPeerId(v.ConversationId, uid)
+			if peerId != "" {
+				peerIds = append(peerIds, peerId)
+			}
+		}
+
+		conversations[k] = conv
 	}
 
-	resp = &types.GetConversationsResp{ConversationList: conversations}
+	// 2. 批量查询私聊对方用户信息
+	if len(peerIds) > 0 {
+		userResp, err := l.svcCtx.User.FindUser(l.ctx, &userPb.FindUserReq{
+			Ids: peerIds,
+		})
+		if err == nil && userResp != nil {
+			userMap := make(map[string]*userPb.UserEntity)
+			for _, u := range userResp.User {
+				userMap[u.Id] = u
+			}
+			// 回填到会话
+			for k, conv := range conversations {
+				if conv.ChatType != 1 {
+					continue
+				}
+				peerId := extractPeerId(conv.ConversationId, uid)
+				if u, ok := userMap[peerId]; ok {
+					conv.TargetName = u.Nickname
+					conv.TargetAvatar = u.Avatar
+					conversations[k] = conv
+				}
+			}
+		}
 
-	return
+		// 补充好友备注名
+		friendResp, err := l.svcCtx.Social.FriendList(l.ctx, &socialPb.FriendListReq{
+			UserId: uid,
+		})
+		if err == nil && friendResp != nil {
+			remarkMap := make(map[string]string)
+			for _, f := range friendResp.List {
+				if f.Remark != "" {
+					remarkMap[f.FriendUid] = f.Remark
+				}
+			}
+			for k, conv := range conversations {
+				if conv.ChatType != 1 {
+					continue
+				}
+				peerId := extractPeerId(conv.ConversationId, uid)
+				if remark, ok := remarkMap[peerId]; ok {
+					conv.TargetName = remark
+					conversations[k] = conv
+				}
+			}
+		}
+	}
+
+	// 3. 批量查询群信息
+	if len(groupIds) > 0 {
+		groupResp, err := l.svcCtx.Social.GroupList(l.ctx, &socialPb.GroupListReq{
+			UserId: uid,
+		})
+		if err == nil && groupResp != nil {
+			groupMap := make(map[string]*socialPb.Groups)
+			for _, g := range groupResp.List {
+				groupMap[g.Id] = g
+			}
+			for k, conv := range conversations {
+				if conv.ChatType != 2 {
+					continue
+				}
+				if g, ok := groupMap[conv.ConversationId]; ok {
+					conv.TargetName = g.Name
+					conv.TargetAvatar = g.Icon
+					conversations[k] = conv
+				}
+			}
+		}
+	}
+
+	return &types.GetConversationsResp{ConversationList: conversations}, nil
 }
+
+// extractPeerId 从会话ID中提取对方用户ID
+func extractPeerId(conversationId, myId string) string {
+	// 优先用 wuid.CombineId 的格式：小ID_大ID
+	parts := strings.Split(conversationId, "_")
+	if len(parts) == 2 {
+		if parts[0] == myId {
+			return parts[1]
+		}
+		return parts[0]
+	}
+	return ""
+}
+
+// 确保 wuid 包被导入（用于未来可能的验证）
+var _ = wuid.CombineId

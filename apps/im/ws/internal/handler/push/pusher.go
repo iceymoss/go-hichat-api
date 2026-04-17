@@ -37,7 +37,7 @@ func Push(svcCtx *svc.ServiceContext) websocket.HandlerFunc {
 }
 
 func single(srv *websocket.Server, data *ws.Push, recvId string) error {
-	rconn := srv.GetConn([]string{data.RecvId})
+	rconn := srv.GetConn([]string{recvId})
 	if len(rconn) == 0 {
 		// 离线
 		return nil
@@ -47,7 +47,7 @@ func single(srv *websocket.Server, data *ws.Push, recvId string) error {
 		data.SendId, &ws.Chat{
 			ConversationId: data.ConversationId,
 			ChatType:       data.ChatType,
-			RecvId:         data.RecvId,
+			RecvId:         recvId,
 			SendId:         data.SendId,
 			SendTime:       data.SendTime,
 			Msg: ws.Msg{

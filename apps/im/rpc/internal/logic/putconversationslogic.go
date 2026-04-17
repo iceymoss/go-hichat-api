@@ -61,9 +61,9 @@ func (l *PutConversationsLogic) PutConversations(in *im.PutConversationsReq) (*i
 		}
 
 		newTotal := int(i.Read) + oldTotal
-		// 删除会话时，将 Total 设为实际消息数，防止 GET 时误判为有未读消息
+		// 删除会话时，强制将 Total 设为实际消息数，防止 user.Total > conversation.Total 导致永远不显示
 		if !i.IsShow {
-			if actualTotal, ok := convTotals[k]; ok && actualTotal > newTotal {
+			if actualTotal, ok := convTotals[k]; ok {
 				newTotal = actualTotal
 			}
 		}

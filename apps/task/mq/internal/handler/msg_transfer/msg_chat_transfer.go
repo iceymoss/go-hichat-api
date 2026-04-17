@@ -81,6 +81,15 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data mq.MsgChatTransfe
 		return err
 	}
 
+	// 发送者的消息自动标记为已读：user.Total += 1，防止发送者自己看到未读气泡
+	conversations, err := m.svcCtx.ConversationsModel.FindByUserId(ctx, data.SendId)
+	if err == nil && conversations.ConversationList != nil {
+		if conv, ok := conversations.ConversationList[data.ConversationId]; ok {
+			conv.Total = conv.Total + 1
+			m.svcCtx.ConversationsModel.Update(ctx, conversations)
+		}
+	}
+
 	return nil
 }
 

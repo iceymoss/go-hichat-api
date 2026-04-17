@@ -1,0 +1,15 @@
+Name: im.rpc
+ListenOn: 0.0.0.0:10002
+
+Etcd:
+  Hosts:
+  - 127.0.0.1:2379
+  Key: im.rpc
+
+SocialRpc:
+  Target: dns:///127.0.0.1:10001
+  NonBlock: true
+  Timeout: 10000
+
+Log:
+  Level: error
