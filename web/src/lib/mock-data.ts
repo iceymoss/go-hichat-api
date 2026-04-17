@@ -565,26 +565,29 @@ export function formatTime(date: Date): string {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
+  const hm = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes}分钟前`;
-  if (hours < 24) {
-    const today = new Date();
-    if (date.getDate() === today.getDate()) {
-      return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-    }
-    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  // 判断是否同一天（基于日期而非小时差）
+  const isToday = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.getFullYear() === yesterday.getFullYear() && date.getMonth() === yesterday.getMonth() && date.getDate() === yesterday.getDate();
+
+  if (isToday) {
+    if (minutes < 1) return '刚刚';
+    if (minutes < 60) return `${minutes}分钟前`;
+    return hm;
   }
-  if (days === 1) return '昨天';
+  if (isYesterday) return `昨天 ${hm}`;
+
+  const days = Math.floor(diff / 86400000);
   if (days < 7) {
     const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    return weekdays[date.getDay()];
+    return `${weekdays[date.getDay()]} ${hm}`;
   }
   const md = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
-  if (date.getFullYear() !== now.getFullYear()) return `${date.getFullYear()}/${md}`;
-  return md;
+  if (date.getFullYear() !== now.getFullYear()) return `${date.getFullYear()}/${md} ${hm}`;
+  return `${md} ${hm}`;
 }
 
 // Moments images per user (for profile card display)
