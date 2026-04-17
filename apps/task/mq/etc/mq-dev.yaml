@@ -30,19 +30,19 @@ Ws:
   Host: 127.0.0.1:10090
 
 SocialRpc:
-  Etcd:
-    Hosts:
-      - 127.0.0.1:2379
-    Key: social.rpc
+  Target: dns:///127.0.0.1:10001
+  NonBlock: true
+  Timeout: 10000
 
 UserRpc:
-  Etcd:
-    Hosts:
-      - 127.0.0.1:2379
-    Key: user.rpc
+  Target: dns:///127.0.0.1:10000
+  NonBlock: true
+  Timeout: 10000
 
 ImRpc:
-  Etcd:
-    Hosts:
-      - 127.0.0.1:2379
-    Key: im.rpc
+  Target: dns:///127.0.0.1:10002
+  NonBlock: true
+  Timeout: 10000
+
+Log:
+  Level: error

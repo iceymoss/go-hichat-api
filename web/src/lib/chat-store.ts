@@ -50,6 +50,14 @@ interface UserProfile {
   avatar: string;
 }
 
+export interface GroupMember {
+  user_id: string;
+  nickname: string;
+  user_avatar_url: string;
+  role_level: number; // 1=member, 2=admin, 3=owner
+  group_nickname: string;
+}
+
 interface ChatState {
   // 连接状态
   wsState: 'disconnected' | 'connecting' | 'connected';
@@ -62,6 +70,9 @@ interface ChatState {
 
   // 用户资料缓存 (userId → profile)
   userProfiles: Record<string, UserProfile>;
+
+  // 群成员缓存 (groupId → members[])
+  groupMembers: Record<string, GroupMember[]>;
 
   // 加载状态
   loadingConversations: boolean;
@@ -78,10 +89,12 @@ interface ChatState {
   getOrCreateConversation: (token: string, userId: string, targetId: string) => Promise<Conversation>;
   deleteConversation: (token: string, conversationId: string) => void;
   clearUnread: (conversationId: string) => void;
+  fetchGroupMembers: (token: string, groupId: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
   wsState: 'disconnected',
+  groupMembers: {},
   conversations: [],
   messagesMap: {},
   userProfiles: {},
@@ -161,46 +174,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     try {
       const resp = await getConversations(token);
       const map = resp?.conversationList || {};
+      // 后端已附带 targetName/targetAvatar，mapConversation 直接使用
       const list: Conversation[] = Object.values(map).map(mapConversation);
       set({ conversations: list });
 
-      // 填充私聊会话的名称和头像
       const currentUserId = useIMStore.getState().currentUser?.id;
       if (currentUserId) {
-        const friends = useIMStore.getState().friends;
-        const unresolvedPeerIds = new Set<string>();
-
-        // 第一轮：用 friends 列表直接填充
-        const updated = list.map(c => {
-          if (c.type !== 'private') return c;
-          const parts = c.id.split('_');
-          const peerId = parts.find(p => p !== currentUserId);
-          if (!peerId) return c;
-          const friend = friends.find(f => f.id === peerId || f.friend_uid === peerId);
-          if (friend) {
-            return { ...c, name: friend.remark || friend.name, avatar: friend.avatar || '' };
-          }
-          unresolvedPeerIds.add(peerId);
-          return c;
-        });
-        set({ conversations: updated });
-
-        // 第二轮：剩余没有好友关系的 ID，走 API 查询
-        if (unresolvedPeerIds.size > 0) {
-          await resolveUserProfiles(token, [...unresolvedPeerIds]);
-          set(s => ({
-            conversations: s.conversations.map(c => {
-              if (c.type !== 'private') return c;
-              const parts = c.id.split('_');
-              const peerId = parts.find(p => p !== currentUserId);
-              const profile = peerId ? s.userProfiles[peerId] : null;
-              if (!profile || c.name !== c.id) return c; // 已有名字则不覆盖
-              return { ...c, name: profile.nickname, avatar: profile.avatar };
-            }),
-          }));
-        }
-
-        // 第三轮：查询好友在线状态，合并到会话列表
+        // 查询好友在线状态
         try {
           const onlineRes = await fetch('/api/social/friends/online', {
             headers: { Authorization: `Bearer ${token}` },
@@ -217,7 +197,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
               }),
             }));
           }
-        } catch { /* 在线状态查询失败不影响会话列表 */ }
+        } catch { /* silent */ }
+
+        // 预加载群成员
+        const groupConvs = list.filter(c => c.type === 'group');
+        for (const gc of groupConvs) {
+          get().fetchGroupMembers(token, gc.id);
+        }
       }
     } catch (e) {
       console.error('[ChatStore] fetch conversations error:', e);
@@ -333,6 +319,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   // ==================== 标记已读 ====================
 
   markRead: (userId, conversationId, msgIds) => {
+    // Filter out local/push IDs that aren't real MongoDB ObjectIDs
+    msgIds = msgIds.filter(id => !id.startsWith('local_') && !id.startsWith('push_'));
     if (!msgIds.length) return;
     const conv = get().conversations.find(c => c.id === conversationId);
     const chatType = conv?.type === 'group' ? ChatType.Group : ChatType.Single;
@@ -428,6 +416,33 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       ),
     }));
   },
+
+  fetchGroupMembers: async (token, groupId) => {
+    if (get().groupMembers[groupId]?.length) return; // already cached
+    try {
+      const res = await fetch(`/api/social/group/users?group_id=${groupId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await res.json();
+      if (d.success && d.data?.List) {
+        set(s => ({
+          groupMembers: { ...s.groupMembers, [groupId]: d.data.List },
+        }));
+        // Also cache user profiles from group members
+        const profiles: Record<string, UserProfile> = {};
+        for (const m of d.data.List) {
+          profiles[m.user_id] = {
+            id: m.user_id,
+            nickname: m.group_nickname || m.nickname || m.user_id,
+            avatar: m.user_avatar_url || '',
+          };
+        }
+        set(s => ({ userProfiles: { ...s.userProfiles, ...profiles } }));
+      }
+    } catch (e) {
+      console.error('[ChatStore] fetchGroupMembers error:', e);
+    }
+  },
 }));
 
 // ========== 内部辅助函数 ==========
@@ -460,13 +475,14 @@ function mapConversation(raw: ConversationItem): Conversation {
   return {
     id: raw.conversationId,
     type: raw.chatType === ChatType.Group ? 'group' : 'private',
-    name: raw.conversationId,
-    avatar: '',
+    name: (raw as any).targetName || raw.conversationId,
+    avatar: (raw as any).targetAvatar || '',
     lastMessage: msg?.msgContent || '',
     lastMessageTime: msg?.sendTime ? parseTimestamp(msg.sendTime) : new Date(),
     unreadCount: calcUnread(raw.seq, raw.read),
     pinned: false,
     muted: false,
+    members: (raw as any).memberCount || undefined,
   };
 }
 
@@ -542,13 +558,22 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
         unreadCount: convs[idx].unreadCount + (chat.sendId !== currentUserId ? 1 : 0),
       };
     } else {
-      // 新会话 — 尝试用缓存的用户资料命名
-      const peerId = chat.sendId !== currentUserId ? chat.sendId : '';
+      // 新会话
+      const isGroup = chat.chatType === ChatType.Group;
+      let name = convId;
+      let avatar = '';
+      if (!isGroup) {
+        // 私聊：用对方资料
+        const peerId = convId.split('_').find(p => p !== currentUserId) || '';
+        name = peerId ? getProfileName(peerId) : convId;
+        avatar = peerId ? getProfileAvatar(peerId) : '';
+      }
+      // 群聊先用 convId 占位，后续异步回填群名
       convs = [{
         id: convId,
-        type: chat.chatType === ChatType.Group ? 'group' : 'private',
-        name: peerId ? getProfileName(peerId) : convId,
-        avatar: peerId ? getProfileAvatar(peerId) : '',
+        type: isGroup ? 'group' : 'private',
+        name,
+        avatar,
         lastMessage: msg.content,
         lastMessageTime: msg.timestamp,
         unreadCount: chat.sendId !== currentUserId ? 1 : 0,
@@ -560,20 +585,84 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     return { messagesMap: { ...s.messagesMap, [convId]: msgs }, conversations: convs };
   });
 
-  // 如果发送者的资料不在缓存中，异步加载并回填
+  const token = useIMStore.getState().currentUser?.token;
+  if (!token) return;
+
+  const isGroup = chat.chatType === ChatType.Group;
+
+  // 异步加载发送者资料（用于群聊消息显示发送者名称）
   if (!useChatStore.getState().userProfiles[chat.sendId]) {
-    const token = useIMStore.getState().currentUser?.token;
-    if (token) {
-      resolveUserProfiles(token, [chat.sendId]).then(() => {
-        useChatStore.setState(s => ({
-          conversations: s.conversations.map(c => {
-            if (c.id !== convId || c.type !== 'private') return c;
-            const profile = s.userProfiles[chat.sendId];
-            if (!profile) return c;
-            return { ...c, name: profile.nickname, avatar: profile.avatar };
-          }),
-        }));
-      });
+    resolveUserProfiles(token, [chat.sendId]);
+  }
+
+  // 检查会话名称是否需要补全（名称是纯 ID 格式说明还没填充过）
+  const convNow = useChatStore.getState().conversations.find(c => c.id === convId);
+  const needsResolve = convNow && (convNow.name === convId || /^\d+$/.test(convNow.name) || convNow.name.includes('_'));
+  if (needsResolve) {
+    if (isGroup) {
+      // 群聊：查群信息 + 加载群成员
+      (async () => {
+        try {
+          const res = await fetch('/api/social/groups', { headers: { Authorization: `Bearer ${token}` } });
+          const d = await res.json();
+          if (d.success) {
+            const list = Array.isArray(d.data) ? d.data : (d.data?.list || []);
+            const group = list.find((g: any) => String(g.id) === convId);
+            if (group) {
+              useChatStore.setState(s => ({
+                conversations: s.conversations.map(c =>
+                  c.id === convId ? { ...c, name: group.name || c.name, avatar: group.icon || c.avatar } : c,
+                ),
+              }));
+            }
+          }
+        } catch { /* silent */ }
+        // 预加载群成员
+        useChatStore.getState().fetchGroupMembers(token, convId);
+      })();
+    } else {
+      // 私聊：查对方用户资料（优先好友备注）
+      const peerId = convId.split('_').find(p => p !== currentUserId) || '';
+      if (peerId) {
+        (async () => {
+          // 1. 先从本地好友缓存查
+          let friends = useIMStore.getState().friends;
+          let friend = friends.find(f => f.id === peerId || f.friend_uid === peerId);
+
+          // 2. 本地没有则从 API 加载好友列表
+          if (!friend && friends.length === 0) {
+            try {
+              const res = await fetch('/api/social/friends', { headers: { Authorization: `Bearer ${token}` } });
+              const d = await res.json();
+              if (d.success && d.data?.list) {
+                friend = d.data.list.find((f: any) => String(f.friend_uid) === peerId);
+              }
+            } catch { /* silent */ }
+          }
+
+          if (friend) {
+            const name = (friend as any).remark || (friend as any).nickname || friend.name || peerId;
+            const avatar = (friend as any).user_avatar_url || friend.avatar || '';
+            useChatStore.setState(s => ({
+              conversations: s.conversations.map(c =>
+                c.id === convId ? { ...c, name, avatar: avatar || c.avatar } : c,
+              ),
+            }));
+            return;
+          }
+
+          // 3. 非好友：查用户 API
+          await resolveUserProfiles(token, [peerId]);
+          const profile = useChatStore.getState().userProfiles[peerId];
+          if (profile) {
+            useChatStore.setState(s => ({
+              conversations: s.conversations.map(c =>
+                c.id === convId ? { ...c, name: profile.nickname, avatar: profile.avatar } : c,
+              ),
+            }));
+          }
+        })();
+      }
     }
   }
 }

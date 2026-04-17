@@ -33,6 +33,11 @@ type Conversation struct {
 	Seq            int64   `json:"seq,optional,omitempty"`
 	Read           int32   `json:"read,optional,omitempty"`
 	Msg            ChatLog `json:"message,optional,omitempty"`
+
+	// 附带的用户/群信息（API 层填充，前端无需二次查询）
+	TargetName   string `json:"targetName,optional,omitempty"`
+	TargetAvatar string `json:"targetAvatar,optional,omitempty"`
+	MemberCount  int    `json:"memberCount,optional,omitempty"`
 }
 
 type GetChatLogReadRecordsReq struct {

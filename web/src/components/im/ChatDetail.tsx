@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { formatTime, currentUser as mockCurrentUser, groupMemberNames, groupMembersMap, contacts, type Message, type Contact, type Conversation } from '@/lib/mock-data';
+import { formatTime, currentUser as mockCurrentUser, contacts, type Message, type Contact, type Conversation } from '@/lib/mock-data';
 
 /** 气泡时间：今天 HH:mm，昨天 昨天 HH:mm，今年 MM/DD HH:mm，跨年 YYYY/MM/DD HH:mm */
 function formatBubbleTime(date: Date): string {
@@ -88,9 +88,33 @@ export default function ChatDetail() {
   const fetchMessages = useChatStore(s => s.fetchMessages);
   const storeSendMessage = useChatStore(s => s.sendMessage);
   const clearUnread = useChatStore(s => s.clearUnread);
+  const storeGroupMembers = useChatStore(s => s.groupMembers);
+  const fetchGroupMembers = useChatStore(s => s.fetchGroupMembers);
   const { currentUser } = useIMStore();
 
   const conversation = chatConversations.find(c => c.id === selectedConversationId);
+
+  // 群成员名称/头像映射 (从 chat-store 真实数据)
+  const groupMemberNames = useMemo<Record<string, string>>(() => {
+    if (!selectedConversationId || conversation?.type !== 'group') return {};
+    const members = storeGroupMembers[selectedConversationId] || [];
+    const map: Record<string, string> = {};
+    for (const m of members) {
+      map[m.user_id] = m.group_nickname || m.nickname || m.user_id;
+    }
+    return map;
+  }, [selectedConversationId, conversation?.type, storeGroupMembers]);
+
+  const groupMembersMap = useMemo<Record<string, any[]>>(() => {
+    if (!selectedConversationId || conversation?.type !== 'group') return {};
+    const members = storeGroupMembers[selectedConversationId] || [];
+    return { [selectedConversationId]: members.map(m => ({
+      id: m.user_id,
+      name: m.group_nickname || m.nickname || m.user_id,
+      avatar: m.user_avatar_url || '',
+      roleLevel: m.role_level,
+    })) };
+  }, [selectedConversationId, conversation?.type, storeGroupMembers]);
 
   // Merged conversation data with local overrides
   const conv = useMemo(() => {
@@ -132,8 +156,12 @@ export default function ChatDetail() {
       resetNoMoreHistory();
       fetchMessages(currentUser.token, selectedConversationId);
       clearUnread(selectedConversationId);
+      // 群聊自动加载群成员
+      if (conversation?.type === 'group') {
+        fetchGroupMembers(currentUser.token, selectedConversationId);
+      }
     }
-  }, [selectedConversationId, currentUser?.token, resetNoMoreHistory, fetchMessages, clearUnread]);
+  }, [selectedConversationId, currentUser?.token, resetNoMoreHistory, fetchMessages, clearUnread, conversation?.type, fetchGroupMembers]);
 
   // Derive the current message list: chat-store 真实消息 + 本地 sentMap (兼容 mock)
   const messages = useMemo<Message[]>(() => {
@@ -184,7 +212,7 @@ export default function ChatDetail() {
       const msgs = chatMessages[selectedConversationId!] || [];
       if (msgs.length === 0) return;
       const oldestId = msgs[0]?.id;
-      if (!oldestId || oldestId.startsWith('local_')) return;
+      if (!oldestId || oldestId.startsWith('local_') || oldestId.startsWith('push_')) return;
       setLoadingMore(true);
       const prevCount = msgs.length;
       const prevHeight = el.scrollHeight;
@@ -414,7 +442,7 @@ export default function ChatDetail() {
             </h2>
             {conv.type === 'group' ? (
               <p className="truncate" style={{ fontSize: 12, color: '#708499', lineHeight: 1.3, marginTop: 1 }}>
-                {conv.members}位成员
+                {(storeGroupMembers[selectedConversationId!] || []).length || conv.members || ''}位成员
               </p>
             ) : conv.online ? (
               <p style={{ fontSize: 12, color: '#4DCD5E', lineHeight: 1.3, marginTop: 1 }}>在线</p>
@@ -700,8 +728,20 @@ function MessageList({
   const { currentUser } = useIMStore();
   const { selectedConversationId } = useIMStore();
   const userProfiles = useChatStore(s => s.userProfiles);
+  const storeGroupMembers = useChatStore(s => s.groupMembers);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);
+
+  // 群成员名称映射
+  const groupMemberNames = useMemo<Record<string, string>>(() => {
+    if (!selectedConversationId || conversation?.type !== 'group') return {};
+    const members = storeGroupMembers[selectedConversationId] || [];
+    const map: Record<string, string> = {};
+    for (const m of members) {
+      map[m.user_id] = m.group_nickname || m.nickname || m.user_id;
+    }
+    return map;
+  }, [selectedConversationId, conversation?.type, storeGroupMembers]);
 
   const GROUP_INTERVAL = 3 * 60 * 1000;
 

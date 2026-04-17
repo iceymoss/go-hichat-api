@@ -808,14 +808,44 @@ export default function GroupList() {
   }, [selectedGroupId, editName, editDesc, editIcon, editIconFile, editVerify, token]);
 
   // Send message to group
-  const handleSendMessage = useCallback(() => {
-    if (!selectedGroup) return;
-    // 群聊 conversationId 就是 groupId
+  const handleSendMessageToGroup = useCallback(async (group?: { id: string | number; name: string; icon?: string }) => {
+    const targetGroup = group || selectedGroup;
+    if (!targetGroup || !token || !myUserId) return;
+    const groupId = String(targetGroup.id);
+
+    // 确保群会话存在于 chat-store
+    const { useChatStore } = await import('@/lib/chat-store');
+    const { setupConversation } = await import('@/lib/api-client');
+    const store = useChatStore.getState();
+    const existing = store.conversations.find(c => c.id === groupId);
+
+    if (!existing) {
+      try { await setupConversation(token, myUserId, groupId, 2); } catch { /* may exist */ }
+      useChatStore.setState(s => ({
+        conversations: [{
+          id: groupId,
+          type: 'group' as const,
+          name: targetGroup.name || groupId,
+          avatar: (targetGroup as any).icon || '',
+          lastMessage: '',
+          lastMessageTime: new Date(),
+          unreadCount: 0,
+          pinned: false,
+          muted: false,
+        }, ...s.conversations],
+      }));
+      store.fetchGroupMembers(token, groupId);
+    }
+
     setShowGroupPanel(false);
     setActiveTab('chats');
-    setSelectedConversationId(selectedGroup.id);
+    setSelectedConversationId(groupId);
     setShowChatDetail(true);
-  }, [selectedGroup, setShowGroupPanel, setActiveTab, setSelectedConversationId, setShowChatDetail]);
+  }, [selectedGroup, token, myUserId, setShowGroupPanel, setActiveTab, setSelectedConversationId, setShowChatDetail]);
+
+  const handleSendMessage = useCallback(() => {
+    handleSendMessageToGroup();
+  }, [handleSendMessageToGroup]);
 
   // Invite friends
   const handleInviteFriends = useCallback(async () => {
@@ -1170,7 +1200,11 @@ export default function GroupList() {
                 const role = myM?.roleLevel ?? 0;
                 return (
                   <div key={group.id} className="flex items-center gap-3" style={{ padding: '12px 16px', borderBottom: '1px solid rgba(0,0,0,0.05)', cursor: 'pointer' }} onClick={() => openGroup(group.id)} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.02)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                    <img src={group.icon} alt="" className="shrink-0" style={{ width: 48, height: 48, borderRadius: '50%' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    {group.icon ? (
+                      <img src={group.icon} alt="" className="shrink-0" style={{ width: 48, height: 48, borderRadius: '50%' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    ) : (
+                      <div className="shrink-0 flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: '50%', background: '#3390EC', color: '#fff', fontSize: 18, fontWeight: 600 }}>{(group.name || '群')[0]}</div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2" style={{ marginBottom: 2 }}>
                         <span style={{ fontSize: '15px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getGroupDisplayName(group.id, group.name)}</span>
@@ -1190,7 +1224,7 @@ export default function GroupList() {
                         </div>
                       )}
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); handleSendMessage(); }} style={{ padding: '5px 14px', borderRadius: '16px', border: '1px solid #3390EC', background: 'transparent', color: '#3390EC', fontSize: '12px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button onClick={(e) => { e.stopPropagation(); handleSendMessageToGroup(group); }} style={{ padding: '5px 14px', borderRadius: '16px', border: '1px solid #3390EC', background: 'transparent', color: '#3390EC', fontSize: '12px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Send className="w-3 h-3" /> 发消息
                     </button>
                   </div>
