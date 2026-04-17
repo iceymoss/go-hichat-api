@@ -23,6 +23,8 @@ import {
   type BackendUser,
 } from './api-client';
 import { useIMStore } from './im-store';
+import { playMessageSound, vibrate } from './notification';
+import { useSettingsStore } from './settings-store';
 import type { Message, Conversation } from './mock-data';
 
 // ========== 消息类型映射 ==========
@@ -602,6 +604,11 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     return { messagesMap: { ...s.messagesMap, [convId]: msgs }, conversations: convs };
   });
 
+  // 收到别人的消息 → 播放提示音 + 振动
+  if (chat.sendId !== currentUserId && typeof window !== 'undefined') {
+    notifyNewMessage();
+  }
+
   const token = useIMStore.getState().currentUser?.token;
   if (!token) return;
 
@@ -682,4 +689,12 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
       }
     }
   }
+}
+
+/** 新消息提示音 + 振动 */
+function notifyNewMessage() {
+  const s = useSettingsStore.getState();
+  if (!s.notifyEnabled) return;
+  if (s.notifySound) playMessageSound();
+  if (s.notifyVibrate) vibrate();
 }
