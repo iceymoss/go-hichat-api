@@ -12,6 +12,8 @@ type ChatLog struct {
 	MsgContent     string `json:"msgContent,omitempty"`
 	ChatType       int32  `json:"chatType,omitempty"`
 	SendTime       int64  `json:"sendTime,omitempty"` // 修正字段名统一小写
+	// ReadRecords base64(bitmap)。私聊为 "AQ=="（对方已读）/空（未读），群聊为每成员 bit 位图
+	ReadRecords string `json:"readRecords,omitempty"`
 }
 
 type ChatLogReq struct {
@@ -41,12 +43,20 @@ type Conversation struct {
 }
 
 type GetChatLogReadRecordsReq struct {
-	MsgId string `json:"msgId"`
+	MsgId string `form:"msgId"`
+}
+
+type ReadRecordUser struct {
+	Id       string `json:"id"`
+	Nickname string `json:"nickname"`
+	Avatar   string `json:"avatar"`
+	// 已读时间戳（unix nano），仅已读列表里有值；未读列表里为 0
+	ReadAt int64 `json:"readAt,omitempty"`
 }
 
 type GetChatLogReadRecordsResp struct {
-	Reads   []string `json:"reads"`
-	UnReads []string `json:"unReads"`
+	Reads   []ReadRecordUser `json:"reads"`
+	UnReads []ReadRecordUser `json:"unReads"`
 }
 
 type GetConversationsReq struct {

@@ -78,3 +78,27 @@ func (m *BaseChatTransfer) group(ctx context.Context, data *mq.MsgChatTransfer) 
 		Data:      data,
 	})
 }
+
+// 普通聊天消息（非已读回执）需要把 MsgId 回推给 SENDER，让 sender 前端把 local_ 占位 ID 替换为真实 ID。
+// 对已读回执（MsgType=ContentMakeRead）跳过，避免 sender 收到重复的回执。
+func (m *BaseChatTransfer) echoToSender(data *mq.MsgChatTransfer) error {
+	if data.MsgType == constants.ContentMakeRead || data.ContentType == constants.ContentMakeRead {
+		return nil
+	}
+	if data.SendId == "" || data.MsgId == "" {
+		return nil
+	}
+	// echo 是专门发给"发送方本人"的点对点包，必须走 single 路径（ws pusher 会 push 到 RecvId）。
+	// 如果保留原 ChatType=Group，pusher 会走 group() 把发送方从 RecvIdList 里剔除，echo 会被丢掉。
+	echo := *data
+	echo.RecvIdList = nil
+	echo.RecvId = data.SendId
+	echo.ChatType = constants.SingleChatType
+	echo.ContentType = constants.ContentMsgAck
+	return m.svcCtx.WsClient.Send(websocket.Message{
+		FrameType: websocket.FrameNoAck,
+		Method:    "push",
+		FormId:    constants.SYSTEM_ROOT_UID,
+		Data:      &echo,
+	})
+}

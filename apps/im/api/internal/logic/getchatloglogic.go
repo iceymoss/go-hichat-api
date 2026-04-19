@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"encoding/base64"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/types"
@@ -44,6 +45,11 @@ func (l *GetChatLogLogic) GetChatLog(req *types.ChatLogReq) (resp *types.ChatLog
 	list := make([]types.ChatLog, 0, len(res.List))
 
 	for _, v := range res.List {
+		// ReadRecords 是 bitmap 字节，base64 编码成字符串透传给前端
+		var readRec string
+		if len(v.ReadRecords) > 0 {
+			readRec = base64.StdEncoding.EncodeToString(v.ReadRecords)
+		}
 		list = append(list, types.ChatLog{
 			Id:             v.Id,
 			ConversationId: v.ConversationId,
@@ -53,6 +59,7 @@ func (l *GetChatLogLogic) GetChatLog(req *types.ChatLogReq) (resp *types.ChatLog
 			MsgContent:     v.MsgContent,
 			ChatType:       v.ChatType,
 			SendTime:       v.SendTime,
+			ReadRecords:    readRec,
 		})
 	}
 

@@ -19,6 +19,7 @@ function formatBubbleTime(date: Date): string {
 }
 import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
+import { useSettingsStore } from '@/lib/settings-store';
 import { getAvatarColor } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -40,6 +41,7 @@ import ChatSettingsMenu from './ChatSettingsMenu';
 import MessageContextMenu from './MessageContextMenu';
 import ForwardDialog from './ForwardDialog';
 import FloatingProfileCard from './FloatingProfileCard';
+import ReadStatusDialog from './ReadStatusDialog';
 
 export default function ChatDetail() {
   const { selectedConversationId, setSelectedConversationId, setShowChatDetail } = useIMStore();
@@ -82,15 +84,23 @@ export default function ChatDetail() {
   // Recalled messages tracking
   const [recalledIds, setRecalledIds] = useState<Set<string>>(new Set());
 
+  // 群聊已读详情弹窗（存的是 mongoID）
+  const [readDetailMsgId, setReadDetailMsgId] = useState<string | null>(null);
+
   // 优先使用 chat-store 真实数据，fallback 到 mock 数据
   const chatConversations = useChatStore(s => s.conversations);
   const chatMessages = useChatStore(s => s.messagesMap);
   const fetchMessages = useChatStore(s => s.fetchMessages);
   const storeSendMessage = useChatStore(s => s.sendMessage);
   const clearUnread = useChatStore(s => s.clearUnread);
+  const storeMarkRead = useChatStore(s => s.markRead);
   const storeGroupMembers = useChatStore(s => s.groupMembers);
   const fetchGroupMembers = useChatStore(s => s.fetchGroupMembers);
+  const readReceiptEnabled = useSettingsStore(s => s.readReceiptEnabled);
   const { currentUser } = useIMStore();
+
+  // 去重：记录已对哪些 msgId 发过 markRead，避免每次 re-render 重复投递
+  const markedReadRef = useRef<Set<string>>(new Set());
 
   const conversation = chatConversations.find(c => c.id === selectedConversationId);
 
@@ -154,6 +164,7 @@ export default function ChatDetail() {
   useEffect(() => {
     if (selectedConversationId && currentUser?.token) {
       resetNoMoreHistory();
+      markedReadRef.current = new Set();
       fetchMessages(currentUser.token, selectedConversationId);
       clearUnread(selectedConversationId);
       // 群聊自动加载群成员
@@ -162,6 +173,27 @@ export default function ChatDetail() {
       }
     }
   }, [selectedConversationId, currentUser?.token, resetNoMoreHistory, fetchMessages, clearUnread, conversation?.type, fetchGroupMembers]);
+
+  // 进入会话/新消息到达时自动上报已读：对自己收到的消息 ID 批量调用 markRead。
+  // - 只处理 MongoDB 真实 id（排除 local_/push_ 临时 id）
+  // - 通过 markedReadRef 去重，避免重复投递
+  // - readReceiptEnabled=false 时本地仍上报，便于服务端统计未读数；仅显示层根据开关决定是否渲染
+  useEffect(() => {
+    if (!selectedConversationId || !currentUser?.id) return;
+    const msgs = chatMessages[selectedConversationId] || [];
+    if (msgs.length === 0) return;
+    const unreadIds: string[] = [];
+    for (const m of msgs) {
+      if (m.senderId === currentUser.id) continue;
+      if (!m.id || m.id.startsWith('local_') || m.id.startsWith('push_')) continue;
+      if (markedReadRef.current.has(m.id)) continue;
+      markedReadRef.current.add(m.id);
+      unreadIds.push(m.id);
+    }
+    if (unreadIds.length > 0) {
+      storeMarkRead(currentUser.id, selectedConversationId, unreadIds);
+    }
+  }, [selectedConversationId, currentUser?.id, chatMessages, storeMarkRead]);
 
   // Derive the current message list: chat-store 真实消息 + 本地 sentMap (兼容 mock)
   const messages = useMemo<Message[]>(() => {
@@ -540,6 +572,8 @@ export default function ChatDetail() {
             onBubbleContext={handleBubbleContext}
             peerName={peerName}
             peerAvatar={peerAvatar}
+            readReceiptEnabled={readReceiptEnabled}
+            onShowReadDetail={(mid) => setReadDetailMsgId(mid)}
           />
           {searchBarOpen && searchKeyword && displayMessages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '24px 0', color: '#A2ACB5', fontSize: 13 }}>
@@ -702,6 +736,11 @@ export default function ChatDetail() {
           }}
         />
       )}
+
+      {/* ── Group Read Status Dialog ── */}
+      {readDetailMsgId && (
+        <ReadStatusDialog msgId={readDetailMsgId} onClose={() => setReadDetailMsgId(null)} />
+      )}
     </div>
   );
 }
@@ -717,6 +756,8 @@ function MessageList({
   onBubbleContext,
   peerName,
   peerAvatar,
+  readReceiptEnabled,
+  onShowReadDetail,
 }: {
   messages: Message[];
   conversation: any;
@@ -724,6 +765,8 @@ function MessageList({
   onBubbleContext: (e: React.MouseEvent | React.TouchEvent, message: Message, senderName: string, isOwn: boolean) => void;
   peerName: string;
   peerAvatar: string;
+  readReceiptEnabled: boolean;
+  onShowReadDetail: (msgId: string) => void;
 }) {
   const { currentUser } = useIMStore();
   const { selectedConversationId } = useIMStore();
@@ -930,34 +973,92 @@ function MessageList({
               })}
 
               {/* Timestamp + Status */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                marginTop: 4,
-                flexDirection: isSent ? 'row-reverse' : 'row',
-              }}>
-                {isSent && lastMsg.status === 'failed' && (
-                  <span
-                    title="发送失败，点击重试"
-                    onClick={() => {
-                      if (currentUser?.token && currentUser?.id && selectedConversationId) {
-                        useChatStore.getState().resendMessage(currentUser.token, currentUser.id, selectedConversationId, lastMsg.id);
-                      }
-                    }}
-                    style={{ cursor: 'pointer', color: '#e74c3c', fontSize: 14, lineHeight: 1 }}
-                  >!</span>
-                )}
-                {isSent && lastMsg.status === 'sending' && (
-                  <span style={{ fontSize: 11, color: '#A2ACB5' }}>...</span>
-                )}
-                {isSent && lastMsg.status !== 'failed' && lastMsg.status !== 'sending' && (
-                  <CheckCheck style={{ width: 14, height: 14, color: 'rgba(51,144,236,0.5)' }} />
-                )}
-                <span style={{ fontSize: 11, color: lastMsg.status === 'failed' ? '#e74c3c' : '#A2ACB5', lineHeight: 1 }}>
-                  {lastMsg.status === 'failed' ? '发送失败' : formatBubbleTime(lastMsg.timestamp)}
-                </span>
-              </div>
+              {(() => {
+                // 已读回执展示规则：只在自己发送的消息、且未发送失败/发送中时启用
+                // - readReceiptEnabled=false 时退化到「灰色 ✓✓ + 时间」行为（旧视觉）
+                // - 私聊：isRead=true → 蓝色 ✓✓ + 「已读 · 时间」
+                // - 群聊：readCount>0 → 蓝色 ✓✓ + 「X/N 人已读」
+                const isGroup = conversation?.type === 'group';
+                // 群总人数优先用 storeGroupMembers，缺失时用 conversation.members（会话列表里的 memberCount）
+                // 避免群成员异步加载期间 totalMembers=0 导致 footer 不展示
+                const liveMembersLen = (storeGroupMembers[selectedConversationId!] || []).length;
+                const fallbackTotal = conversation?.members || 0;
+                const totalMembers = isGroup
+                  ? Math.max(0, (liveMembersLen || fallbackTotal) - 1)
+                  : 1;
+                const showRead = isSent
+                  && lastMsg.status !== 'failed' && lastMsg.status !== 'sending'
+                  && readReceiptEnabled
+                  && (isGroup ? (lastMsg.readCount || 0) > 0 : !!lastMsg.isRead);
+
+                // 未读用中性灰，已读用品牌蓝，两者肉眼可辨
+                const checkColor = showRead ? '#3390EC' : '#C8CCD0';
+                let footerText = formatBubbleTime(lastMsg.timestamp);
+                if (lastMsg.status === 'failed') {
+                  footerText = '发送失败';
+                } else if (isSent && isGroup && readReceiptEnabled && totalMembers > 0) {
+                  // 群聊自己发的消息：总是展示 X/N，哪怕 X=0，方便点开看谁没读
+                  const rc = Math.min(lastMsg.readCount || 0, totalMembers);
+                  footerText = `${rc}/${totalMembers} 人已读 · ${formatBubbleTime(lastMsg.timestamp)}`;
+                } else if (showRead) {
+                  footerText = `已读 · ${formatBubbleTime(lastMsg.timestamp)}`;
+                }
+
+                // 仅自己发出 + 群聊 + 有真实 mongoID 才能点开已读详情
+                const canShowDetail = isSent && isGroup
+                  && !!lastMsg.id
+                  && !lastMsg.id.startsWith('local_')
+                  && !lastMsg.id.startsWith('push_');
+
+                const footerSpanProps = canShowDetail ? {
+                  onClick: () => onShowReadDetail(lastMsg.id),
+                  style: {
+                    fontSize: 11,
+                    color: lastMsg.status === 'failed' ? '#e74c3c' : (showRead ? '#3390EC' : '#A2ACB5'),
+                    lineHeight: 1,
+                    cursor: 'pointer',
+                    textDecoration: 'underline dotted',
+                    textUnderlineOffset: 2,
+                  } as React.CSSProperties,
+                } : {
+                  style: {
+                    fontSize: 11,
+                    color: lastMsg.status === 'failed' ? '#e74c3c' : (showRead ? '#3390EC' : '#A2ACB5'),
+                    lineHeight: 1,
+                  } as React.CSSProperties,
+                };
+
+                return (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    marginTop: 4,
+                    flexDirection: isSent ? 'row-reverse' : 'row',
+                  }}>
+                    {isSent && lastMsg.status === 'failed' && (
+                      <span
+                        title="发送失败，点击重试"
+                        onClick={() => {
+                          if (currentUser?.token && currentUser?.id && selectedConversationId) {
+                            useChatStore.getState().resendMessage(currentUser.token, currentUser.id, selectedConversationId, lastMsg.id);
+                          }
+                        }}
+                        style={{ cursor: 'pointer', color: '#e74c3c', fontSize: 14, lineHeight: 1 }}
+                      >!</span>
+                    )}
+                    {isSent && lastMsg.status === 'sending' && (
+                      <span style={{ fontSize: 11, color: '#A2ACB5' }}>...</span>
+                    )}
+                    {isSent && lastMsg.status !== 'failed' && lastMsg.status !== 'sending' && (
+                      <CheckCheck style={{ width: 14, height: 14, color: checkColor }} />
+                    )}
+                    <span {...footerSpanProps} title={canShowDetail ? '查看已读详情' : undefined}>
+                      {footerText}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Sent avatar */}

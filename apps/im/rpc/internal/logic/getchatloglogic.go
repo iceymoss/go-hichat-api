@@ -35,6 +35,23 @@ func (l *GetChatLogLogic) GetChatLog(in *im.GetChatLogReq) (*im.GetChatLogResp, 
 			return nil, errors.Wrapf(xerr.NewDBErr(), "find chatLog by msgId err %v, req %v", err, in.MsgId)
 		}
 
+		// 仅传 MsgId（Count=0 且无时间范围）时，按"精确单条查询"返回目标消息自身。
+		// 这是给 GetChatLogReadRecords 等场景用的"点查"入口；有 Count 时仍走下面的游标分页。
+		if in.Count == 0 && in.StartSendTime == 0 && in.EndSendTime == 0 {
+			return &im.GetChatLogResp{List: []*im.ChatLog{{
+				Id:             chatlog.ID.Hex(),
+				ConversationId: chatlog.ConversationId,
+				SendId:         chatlog.SendId,
+				RecvId:         chatlog.RecvId,
+				MsgType:        int32(chatlog.MsgType),
+				MsgContent:     chatlog.MsgContent,
+				ChatType:       int32(chatlog.ChatType),
+				SendTime:       chatlog.SendTime,
+				ReadRecords:    chatlog.ReadRecords,
+				ReadTimes:      chatlog.ReadTimes,
+			}}}, nil
+		}
+
 		// 用该消息的 sendTime - 1 作为 endSendTime，查更早的消息
 		endTime := chatlog.SendTime - 1
 		data, err := l.svcCtx.ChatLogModel.ListBySendTime(l.ctx, in.ConversationId, in.StartSendTime, endTime, in.Count)
@@ -54,6 +71,7 @@ func (l *GetChatLogLogic) GetChatLog(in *im.GetChatLogReq) (*im.GetChatLogResp, 
 				ChatType:       int32(datum.ChatType),
 				SendTime:       datum.SendTime,
 				ReadRecords:    datum.ReadRecords,
+				ReadTimes:      datum.ReadTimes,
 			})
 		}
 

@@ -24,6 +24,16 @@ export const MsgType = {
   Voice: 3,
   Image: 4,
   Memes: 5,
+  // ContentMakeRead = 6：已读回执，不是正常消息类型
+  ContentMakeRead: 6,
+} as const;
+
+// ContentType 附加类型（与 MsgType 独立），ws.Chat.contentType 字段
+export const ContentType = {
+  Normal: 0,
+  MakeRead: 6,
+  /** 发送方回响：服务端写库后把消息回推给发送方，携带真实 MongoDB MsgId */
+  MsgAck: 7,
 } as const;
 
 // ========== 聊天类型 ==========
@@ -52,6 +62,7 @@ export interface WsChatData {
   sendId: string;
   recvId: string;
   sendTime: number;
+  contentType?: number;   // 7 表示这是给发送方的回响（ContentType.MsgAck）
   msg: {
     mType: number;
     content: string;

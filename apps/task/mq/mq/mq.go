@@ -26,6 +26,9 @@ type MsgChatTransfer struct {
 	SendTime int64 `json:"sendTime"`
 
 	ContentType constants.MType
+
+	// MongoDB 持久化后的聊天记录 ID（hex），用于前端把 local_ 占位 ID 替换为真实 ID
+	MsgId string `json:"msgId,omitempty"`
 }
 
 // MsgMarkRead 标记已读消息结构体

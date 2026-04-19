@@ -21,9 +21,13 @@ const (
 
 	// MemesMType 表情包类型
 	MemesMType
-
-	ContentMakeRead
 )
+
+// ContentMakeRead 已读回执消息类型（独立显式值，避免 iota 重排造成协议不兼容）
+const ContentMakeRead MType = 6
+
+// ContentMsgAck 发送方回响：携带 MongoDB 真实 MsgId，用于把前端本地占位 ID 升级为真实 ID
+const ContentMsgAck MType = 7
 
 const (
 	// SingleChatType 单聊

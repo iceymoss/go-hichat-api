@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.28.3
-// source: apps/im/rpc/im.proto
+// source: im.proto
 
 package im
 
@@ -279,5 +279,5 @@ var Im_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "apps/im/rpc/im.proto",
+	Metadata: "im.proto",
 }
