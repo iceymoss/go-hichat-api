@@ -81,6 +81,9 @@ func RunAutoMigrate(dbName string) error {
 		&objects.GroupMemberSetting{},
 		&objects.GroupAnnouncement{},
 
+		// 系统级配置
+		&objects.SystemSetting{},
+
 		// 可以在这里添加更多表结构
 	}
 
@@ -203,6 +206,9 @@ func RunAutoMigrateInTx(tx *gorm.DB) error {
 		&objects.GroupInviteLink{},
 		&objects.GroupMemberSetting{},
 		&objects.GroupAnnouncement{},
+
+		// 系统级配置
+		&objects.SystemSetting{},
 
 		// 可以在这里添加更多表结构
 	}

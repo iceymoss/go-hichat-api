@@ -42,6 +42,10 @@ type ChatLog struct {
 	// 已读记录
 	ReadRecords []byte `bson:"readRecords"`
 
+	// 每个成员的已读时间戳（unix nano），key=userId。群聊里用来展示"某成员何时读了"
+	// sender 自己由 addChatLog 记为发送即读；其他成员由 msg_read_transfer 填入。
+	ReadTimes map[string]int64 `bson:"readTimes,omitempty" json:"readTimes,omitempty"`
+
 	// 更新时间
 	UpdateAt time.Time `bson:"updateAt,omitempty" json:"updateAt,omitempty"`
 

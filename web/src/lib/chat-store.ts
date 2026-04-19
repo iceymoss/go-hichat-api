@@ -11,6 +11,7 @@ import {
   getIMWs,
   ChatType,
   MsgType,
+  ContentType,
   type WsChatData,
 } from './ws-client';
 import {
@@ -506,13 +507,33 @@ function mapConversation(raw: ConversationItem): Conversation {
 }
 
 function mapChatLog(log: ChatLogItem): Message {
-  return {
+  const base: Message = {
     id: log.id,
     senderId: log.sendId,
     content: log.msgContent,
     timestamp: log.sendTime ? parseTimestamp(log.sendTime) : new Date(),
     type: backMsgTypeMap[log.msgType] || 'text',
   };
+  // 从 REST 返回的 readRecords 恢复已读状态。
+  // 服务端语义：
+  // - 私聊：初始写库时 ReadRecords 为 256 字节 bitmap（仅 sender 的 hash 位置），
+  //   接收方读后会被 msg_read_transfer 覆盖为 []byte{1}（base64="AQ=="）。
+  //   所以只有 readRecords === "AQ==" 才代表对方已读。
+  // - 群聊：ReadRecords 一直是 256 字节 bitmap，发送者在 addChatLog 时就 Set，
+  //   其他读者陆续 Set 自己的位。前端用"总 bit 数 - 1"估算已读人数（扣除自己）。
+  if (log.readRecords) {
+    if (log.chatType === ChatType.Group) {
+      const bits = countBitsSet(log.readRecords);
+      const readCount = Math.max(0, bits - 1);
+      if (readCount > 0) {
+        base.readCount = readCount;
+        base.isRead = true;
+      }
+    } else if (log.readRecords === 'AQ==') {
+      base.isRead = true;
+    }
+  }
+  return consumePendingReceipt(base);
 }
 
 /**
@@ -551,16 +572,144 @@ function getProfileAvatar(userId: string): string {
   return useChatStore.getState().userProfiles[userId]?.avatar || '';
 }
 
+/**
+ * 乱序回执缓存：回执（mType=6）可能先于其引用的消息到达。
+ * 按 msgId 暂存 readRecords，稍后收到对应消息或拉取历史记录时合并。
+ */
+const pendingReadReceipts: Record<string, { readCount: number; isRead: boolean }> = {};
+
+/**
+ * 把某条 local_<timestamp> 占位消息替换为真实的 MongoDB ObjectID。
+ * 策略：在该会话中找内容一致、id 为 local_ 前缀、senderId=自己、且 status!=='failed' 的最近一条，替换 id。
+ * 若同内容消息有多条，按"最后一条"匹配——符合连续发相同内容的常见场景。
+ */
+function reconcileLocalMessageId(convId: string, content: string, realId: string) {
+  useChatStore.setState(s => {
+    const list = s.messagesMap[convId];
+    if (!list || list.length === 0) return s;
+    // 反向找最近一条 local_ 占位消息，内容一致则替换
+    for (let i = list.length - 1; i >= 0; i--) {
+      const m = list[i];
+      if (!m.id?.startsWith('local_')) continue;
+      if (m.content !== content) continue;
+      if (m.status === 'failed') continue;
+      const updated: Message = { ...m, id: realId };
+      const nextList = [...list];
+      nextList[i] = consumePendingReceipt(updated);
+      return { messagesMap: { ...s.messagesMap, [convId]: nextList } };
+    }
+    return s;
+  });
+}
+
+/** 解析 base64 bitmap 里的 set 位数，用于群聊「X/N 人已读」 */
+function countBitsSet(base64Str: string): number {
+  if (!base64Str) return 0;
+  try {
+    const bin = atob(base64Str);
+    let count = 0;
+    for (let i = 0; i < bin.length; i++) {
+      let v = bin.charCodeAt(i);
+      while (v) { v &= v - 1; count++; }
+    }
+    return count;
+  } catch { return 0; }
+}
+
+/** 将回执里的 readRecords 合并进某条消息 */
+function applyReceiptToMsg(m: Message, rec: string, isGroup: boolean): Message {
+  if (isGroup) {
+    // 服务端 bitmap 里 sender 自己的位置也被 addChatLog 置为 1（表示"发送人自动已读"），
+    // 但 UI 上的 X/N 指的是"除自己外的已读人数"，所以要减去 1
+    const readCount = Math.max(m.readCount || 0, Math.max(0, countBitsSet(rec) - 1));
+    return { ...m, readCount, isRead: readCount > 0 };
+  }
+  return { ...m, isRead: true };
+}
+
+/** 处理已读回执：更新消息；未匹配到的缓存起来等消息稍后到达 */
+function handleReadReceipt(chat: WsChatData) {
+  const convId = chat.conversationId;
+  const readRecords = chat.msg?.readRecords || {};
+  const isGroup = chat.chatType === ChatType.Group;
+  const msgIds = Object.keys(readRecords);
+  if (msgIds.length === 0) return;
+
+  useChatStore.setState(s => {
+    const existing = s.messagesMap[convId];
+    if (!existing) {
+      // 整个会话都还没加载，全部缓存；群聊的 bitmap 里 sender 自己那一位也算 1，所以要减 1
+      for (const id of msgIds) {
+        const count = isGroup ? Math.max(0, countBitsSet(readRecords[id]) - 1) : 1;
+        const prev = pendingReadReceipts[id];
+        pendingReadReceipts[id] = {
+          readCount: Math.max(prev?.readCount || 0, count),
+          isRead: true,
+        };
+      }
+      return s;
+    }
+    const matchedIds = new Set<string>();
+    const nextList = existing.map(m => {
+      const rec = readRecords[m.id];
+      if (!rec) return m;
+      matchedIds.add(m.id);
+      return applyReceiptToMsg(m, rec, isGroup);
+    });
+    // 未匹配的 msgId 先缓存；群聊减去 sender 自己那一位
+    for (const id of msgIds) {
+      if (matchedIds.has(id)) continue;
+      const count = isGroup ? Math.max(0, countBitsSet(readRecords[id]) - 1) : 1;
+      const prev = pendingReadReceipts[id];
+      pendingReadReceipts[id] = {
+        readCount: Math.max(prev?.readCount || 0, count),
+        isRead: true,
+      };
+    }
+    return { messagesMap: { ...s.messagesMap, [convId]: nextList } };
+  });
+}
+
+/** 消息落本地时消费缓存里的回执 */
+function consumePendingReceipt(m: Message): Message {
+  const pend = pendingReadReceipts[m.id];
+  if (!pend) return m;
+  delete pendingReadReceipts[m.id];
+  return { ...m, isRead: pend.isRead, readCount: pend.readCount };
+}
+
 /** 处理服务端推送的消息 */
 function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: string) {
+  // 先拦截已读回执：不落为一条新消息，只去更新既有消息的 isRead
+  if (chat.msg?.mType === MsgType.ContentMakeRead) {
+    handleReadReceipt(chat);
+    return;
+  }
+
+  // 发送方回响：服务端写库后把消息带着真实 MsgId 回推给发送方，
+  // 我们用它把前端之前插入的 local_<timestamp> 占位记录升级为真实 mongoID。
+  // 忽略全零 ObjectID（异常数据，避免 key 冲突）。
+  if (chat.contentType === ContentType.MsgAck && chat.sendId === currentUserId
+      && rawId && !/^0+$/.test(rawId)) {
+    reconcileLocalMessageId(chat.conversationId, chat.msg?.content || '', rawId);
+    return;
+  }
+  if (chat.contentType === ContentType.MsgAck) {
+    // 回响来了但 ID 异常，静默丢弃
+    return;
+  }
+
   const convId = chat.conversationId;
-  const msg: Message = {
+  const baseMsg: Message = {
+    // 服务端在 pusher 把 MongoDB MsgId 写入 WS Message.Id，优先用它
     id: rawId || `push_${Date.now()}`,
     senderId: chat.sendId,
     content: chat.msg?.content || '',
     timestamp: chat.sendTime ? parseTimestamp(chat.sendTime) : new Date(),
     type: backMsgTypeMap[chat.msg?.mType] || 'text',
   };
+  // 消费可能先到的乱序回执
+  const msg = consumePendingReceipt(baseMsg);
 
   useChatStore.setState(s => {
     // 添加消息

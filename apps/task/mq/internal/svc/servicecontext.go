@@ -9,6 +9,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/config"
+	userModels "github.com/iceymoss/go-hichat-api/apps/user/models"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 
@@ -33,6 +34,12 @@ type ServiceContext struct {
 
 	// 导入social微服务模块
 	Social socialclient.Social
+
+	// 用户个人设置（MySQL）
+	UserSettingsModel *userModels.UserSettingsModel
+
+	// 系统级配置（MySQL）
+	SystemConfigModel *userModels.SystemConfigModel
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -42,6 +49,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		ChatLogModel:       model.NewChatLogModel(),
 		ConversationsModel: model.NewConversationsModel(),
 		Social:             socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
+		UserSettingsModel:  userModels.NewUserSettingsModel(),
+		SystemConfigModel:  userModels.NewSystemConfigModel(),
 	}
 
 	token, err := svcCtx.GetToken()

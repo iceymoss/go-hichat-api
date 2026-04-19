@@ -30,6 +30,9 @@ type Chat struct {
 	// 发送时间
 	SendTime int64 `json:"sendTime" mapstructure:"sendTime"`
 
+	// 附加内容类型（如 ContentMakeRead=6 已读回执, ContentMsgAck=7 发送方回响），0 表示普通消息
+	ContentType constants.MType `json:"contentType,omitempty" mapstructure:"contentType"`
+
 	// 发送内容
 	Msg `json:"msg" mapstructure:"msg"`
 }
@@ -57,6 +60,11 @@ type Push struct {
 
 	constants.MType `json:"mType" mapstructure:"mType"`
 	Content         string `json:"content" mapstructure:"content"`
+
+	// MongoDB 聊天记录 ObjectID（hex），用于前端把 local_ 占位 ID 替换为真实 ID
+	MsgId string `json:"msgId" mapstructure:"msgId"`
+	// 附加内容类型（ContentType=7 表示给发送方的回响）
+	ContentType constants.MType `json:"contentType" mapstructure:"contentType"`
 }
 
 // MarkRead 已读标记
