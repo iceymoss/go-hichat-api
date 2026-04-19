@@ -43,16 +43,22 @@ func (m *MsgChatTransfer) Consume(ctx context.Context, key, value string) error 
 
 	fmt.Printf("已经收到消息了: %+v\n", data)
 
-	// 写入数据库（如 MongoDB 聊天记录）
-	if err = m.addChatLog(ctx, data); err != nil {
+	// 写入数据库（如 MongoDB 聊天记录）；同时把真实 MsgId 回填到 data，供下游推送
+	if err = m.addChatLog(ctx, &data); err != nil {
 		return err
 	}
 
-	return m.MsgChatTransfer(ctx, &data)
+	// 1) 推送给接收方（原有行为）
+	if err = m.MsgChatTransfer(ctx, &data); err != nil {
+		return err
+	}
+	// 2) 额外回响给发送方：携带 MongoDB MsgId，前端把 local_ 占位 ID 升级为真实 ID
+	return m.echoToSender(&data)
 }
 
 // addChatLog 将聊天记录消息持久化到数据库中
-func (m *MsgChatTransfer) addChatLog(ctx context.Context, data mq.MsgChatTransfer) error {
+// 注意：入参改为指针，以便把 Insert 后生成的 ObjectID.Hex 回写到 data.MsgId
+func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransfer) error {
 	chatLog := model.ChatLog{
 		ConversationId: data.ConversationId,
 		SendId:         data.SendId,
@@ -68,10 +74,18 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data mq.MsgChatTransfe
 	chatLog.ReadRecords = readRecords.Export()
 
 	// 记录聊天记录
-	_, err := m.svcCtx.ChatLogModel.Insert(ctx, &chatLog)
+	insertedID, err := m.svcCtx.ChatLogModel.Insert(ctx, &chatLog)
 	if err != nil {
 		zLog.Error("添加聊天记录失败", zap.Any("chatLog", chatLog), zap.Error(err))
 		return err
+	}
+
+	// Insert 只在返回值里给出新生成的 ObjectID，不会回写 chatLog.ID。
+	// 把这个 ID 同步到 chatLog 和 data，下游 pusher 会把它写进 WS Message.Id，
+	// 前端 sender 侧据此把 local_ 占位 ID 升级为真实 mongoID。
+	if insertedID != nil {
+		chatLog.ID = *insertedID
+		data.MsgId = insertedID.Hex()
 	}
 
 	// 更新会话的最后一次聊天记录

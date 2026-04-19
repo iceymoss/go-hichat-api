@@ -55,6 +55,8 @@ const dict: Record<string, Record<string, string>> = {
     'privacy.allVisible': '所有人可见',
     'privacy.friendsOnly': '仅好友可见',
     'privacy.privateOnly': '仅自己可见',
+    'privacy.readReceipt': '消息已读回执',
+    'privacy.readReceiptDesc': '对方能看到你的消息何时被你阅读；关闭后你也看不到对方的已读状态',
 
     // General
     'general.language': '语言',
@@ -144,6 +146,8 @@ const dict: Record<string, Record<string, string>> = {
     'privacy.allVisible': 'Everyone',
     'privacy.friendsOnly': 'Friends Only',
     'privacy.privateOnly': 'Only Me',
+    'privacy.readReceipt': 'Read Receipts',
+    'privacy.readReceiptDesc': 'Lets others see when you have read their messages; disabling also hides their read status from you',
 
     'general.language': 'Language',
     'general.fontSize': 'Font Size',

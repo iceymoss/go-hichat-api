@@ -190,6 +190,8 @@ export interface ChatLogItem {
   msgContent: string;
   chatType: number;
   sendTime: number;
+  /** base64(bitmap)；私聊 "AQ==" 表示对方已读，空串或缺失视为未读；群聊为成员 bitmap */
+  readRecords?: string;
 }
 
 export interface ConversationItem {

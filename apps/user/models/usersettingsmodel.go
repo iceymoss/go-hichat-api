@@ -2,6 +2,8 @@ package models
 
 import (
 	"context"
+	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/pkg/db"
@@ -54,4 +56,41 @@ func (m *UserSettingsModel) Upsert(ctx context.Context, userId uint64, settings 
 			DoUpdates: clause.AssignmentColumns([]string{"settings"}),
 		}).
 		Create(&row).Error
+}
+
+// GetBoolField 从 settings JSON 中读取布尔字段；缺省或解析失败返回 defaultVal。
+func (m *UserSettingsModel) GetBoolField(ctx context.Context, userId uint64, field string, defaultVal bool) bool {
+	raw, err := m.Get(ctx, userId)
+	if err != nil || raw == "" {
+		return defaultVal
+	}
+	return parseBoolField(raw, field, defaultVal)
+}
+
+// parseBoolField 从 JSON 字符串中解析布尔字段（pure，便于单测）。
+// 兼容 true/false、"true"/"false"、1/0、"1"/"0"。
+func parseBoolField(raw, field string, defaultVal bool) bool {
+	var kv map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(raw), &kv); err != nil {
+		return defaultVal
+	}
+	v, ok := kv[field]
+	if !ok {
+		return defaultVal
+	}
+	var b bool
+	if err := json.Unmarshal(v, &b); err == nil {
+		return b
+	}
+	var n float64
+	if err := json.Unmarshal(v, &n); err == nil {
+		return n != 0
+	}
+	var s string
+	if err := json.Unmarshal(v, &s); err == nil {
+		if parsed, e := strconv.ParseBool(s); e == nil {
+			return parsed
+		}
+	}
+	return defaultVal
 }

@@ -1,0 +1,25 @@
+Name: social
+Host: 0.0.0.0
+Port: 8889
+
+SocialRpc:
+  Target: dns:///127.0.0.1:10001
+  NonBlock: true
+  Timeout: 10000
+
+UserRpc:
+  Target: dns:///127.0.0.1:10000
+  NonBlock: true
+  Timeout: 10000
+
+ImRpc:
+  Target: dns:///127.0.0.1:10002
+  NonBlock: true
+  Timeout: 10000
+
+JwtAuth:
+  AccessSecret: iceymoss.hichat.hichat2.com
+  AccessExpire: 8640000
+
+Log:
+  Level: error

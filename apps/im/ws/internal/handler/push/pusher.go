@@ -50,12 +50,17 @@ func single(srv *websocket.Server, data *ws.Push, recvId string) error {
 			RecvId:         recvId,
 			SendId:         data.SendId,
 			SendTime:       data.SendTime,
+			ContentType:    data.ContentType,
 			Msg: ws.Msg{
 				MType:       data.MType,
 				Content:     data.Content,
 				ReadRecords: data.ReadRecords,
 			},
 		})
+	// 把 MongoDB MsgId 写入 WS 帧的顶层 Id 字段，前端据此建立 local_<=>mongoID 的映射
+	if data.MsgId != "" {
+		sendMsg.Id = data.MsgId
+	}
 	fmt.Printf("push到客户端的数据: %+v \n", sendMsg)
 	return srv.Send(sendMsg, rconn[0])
 }

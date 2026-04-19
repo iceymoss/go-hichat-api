@@ -17,6 +17,8 @@ interface SettingsState {
   allowSearchByPhone: boolean;
   allowSearchById: boolean;
   momentVisibility: 'all' | 'friends' | 'private';
+  /** 消息已读回执（发送方能看到对方是否已读） */
+  readReceiptEnabled: boolean;
   // General
   language: string;
   fontSize: FontSize;
@@ -102,6 +104,7 @@ function saveToBackend(state: SettingsState, token: string) {
       allowSearchByPhone: state.allowSearchByPhone,
       allowSearchById: state.allowSearchById,
       momentVisibility: state.momentVisibility,
+      readReceiptEnabled: state.readReceiptEnabled,
       language: state.language,
       fontSize: state.fontSize,
     };
@@ -131,6 +134,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   allowSearchByPhone: true,
   allowSearchById: true,
   momentVisibility: 'all',
+  readReceiptEnabled: true,
   language: 'zh-CN',
   fontSize: 'medium',
 

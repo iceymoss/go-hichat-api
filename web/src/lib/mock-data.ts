@@ -22,6 +22,12 @@ export interface Message {
   replyTo?: { senderName: string; content: string };
   /** 发送状态: sending=发送中, sent=已发送, failed=发送失败 */
   status?: 'sending' | 'sent' | 'failed';
+  /** 已读状态（用于发送方显示 ✓✓）；私聊为布尔，群聊用 readCount/readTotal 细化 */
+  isRead?: boolean;
+  /** 群聊已读人数（不含发送者自己） */
+  readCount?: number;
+  /** 群聊总人数（不含发送者自己） */
+  readTotal?: number;
 }
 
 export interface Conversation {

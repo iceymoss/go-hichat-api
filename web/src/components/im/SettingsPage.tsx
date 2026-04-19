@@ -8,7 +8,7 @@ import {
   ArrowLeft, ChevronRight, Lock, Bell, Shield, Moon, BookOpen,
   Key, Mail, Smartphone, UserX, Loader2, Eye, EyeOff,
   CheckCircle2, AlertCircle, X, Sun, Monitor, Globe, Type,
-  Trash2, Search, Users,
+  Trash2, Search, Users, CheckCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -601,6 +601,13 @@ function PrivacySettingsPage({ onBack }: { onBack: () => void }) {
             <Divider />
             <RadioRow icon={<Lock size={16} />} label={t('privacy.privateOnly')} selected={s.momentVisibility === 'private'}
               onClick={() => u('momentVisibility', 'private')} />
+          </div>
+        </div>
+
+        <div className="mx-3 mt-3">
+          <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <ToggleRow icon={<CheckCheck size={16} />} label={t('privacy.readReceipt')} desc={t('privacy.readReceiptDesc')}
+              checked={s.readReceiptEnabled} onChange={v => u('readReceiptEnabled', v)} />
           </div>
         </div>
         <div style={{ height: 24 }} />

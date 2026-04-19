@@ -12,6 +12,8 @@ type ChatLog struct {
 	MsgContent     string `json:"msgContent,omitempty"`
 	ChatType       int32  `json:"chatType,omitempty"`
 	SendTime       int64  `json:"sendTime,omitempty"` // 修正字段名统一小写
+	// ReadRecords base64(bitmap)。私聊为 "AQ=="（对方已读）/空（未读），群聊为每成员 bit 位图
+	ReadRecords string `json:"readRecords,omitempty"`
 }
 
 type ChatLogReq struct {
