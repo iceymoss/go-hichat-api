@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"go.uber.org/zap"
 
@@ -72,6 +74,8 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransf
 	readRecords := bitmap.NewBitmap(0)
 	readRecords.Set(chatLog.SendId)
 	chatLog.ReadRecords = readRecords.Export()
+	// 发送者自己的已读时间 = 发送时间
+	chatLog.ReadTimes = map[string]int64{chatLog.SendId: time.Now().UnixNano()}
 
 	// 记录聊天记录
 	insertedID, err := m.svcCtx.ChatLogModel.Insert(ctx, &chatLog)

@@ -210,9 +210,17 @@ export function getChatLog(token: string, conversationId: string, msgId = '', co
   return imGet<{ list: ChatLogItem[] }>(`/v1/im/chatlog?${params}`, token);
 }
 
-/** 获取消息已读记录 */
+export interface ReadRecordUser {
+  id: string;
+  nickname: string;
+  avatar: string;
+  /** 已读时间戳（unix nano），未读时为 0 或不存在 */
+  readAt?: number;
+}
+
+/** 获取消息已读记录（群聊查看谁读/谁未读） */
 export function getChatLogReadRecords(token: string, msgId: string) {
-  return imGet<{ reads: string[]; unReads: string[] }>(`/v1/im/chatlog/readRecords?msgId=${msgId}`, token);
+  return imGet<{ reads: ReadRecordUser[]; unReads: ReadRecordUser[] }>(`/v1/im/chatlog/readRecords?msgId=${msgId}`, token);
 }
 
 /** 获取会话列表 — 返回 {conversationList: Record<string, ConversationItem>} */

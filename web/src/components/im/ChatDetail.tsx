@@ -41,6 +41,7 @@ import ChatSettingsMenu from './ChatSettingsMenu';
 import MessageContextMenu from './MessageContextMenu';
 import ForwardDialog from './ForwardDialog';
 import FloatingProfileCard from './FloatingProfileCard';
+import ReadStatusDialog from './ReadStatusDialog';
 
 export default function ChatDetail() {
   const { selectedConversationId, setSelectedConversationId, setShowChatDetail } = useIMStore();
@@ -82,6 +83,9 @@ export default function ChatDetail() {
 
   // Recalled messages tracking
   const [recalledIds, setRecalledIds] = useState<Set<string>>(new Set());
+
+  // 群聊已读详情弹窗（存的是 mongoID）
+  const [readDetailMsgId, setReadDetailMsgId] = useState<string | null>(null);
 
   // 优先使用 chat-store 真实数据，fallback 到 mock 数据
   const chatConversations = useChatStore(s => s.conversations);
@@ -569,6 +573,7 @@ export default function ChatDetail() {
             peerName={peerName}
             peerAvatar={peerAvatar}
             readReceiptEnabled={readReceiptEnabled}
+            onShowReadDetail={(mid) => setReadDetailMsgId(mid)}
           />
           {searchBarOpen && searchKeyword && displayMessages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '24px 0', color: '#A2ACB5', fontSize: 13 }}>
@@ -731,6 +736,11 @@ export default function ChatDetail() {
           }}
         />
       )}
+
+      {/* ── Group Read Status Dialog ── */}
+      {readDetailMsgId && (
+        <ReadStatusDialog msgId={readDetailMsgId} onClose={() => setReadDetailMsgId(null)} />
+      )}
     </div>
   );
 }
@@ -747,6 +757,7 @@ function MessageList({
   peerName,
   peerAvatar,
   readReceiptEnabled,
+  onShowReadDetail,
 }: {
   messages: Message[];
   conversation: any;
@@ -755,6 +766,7 @@ function MessageList({
   peerName: string;
   peerAvatar: string;
   readReceiptEnabled: boolean;
+  onShowReadDetail: (msgId: string) => void;
 }) {
   const { currentUser } = useIMStore();
   const { selectedConversationId } = useIMStore();
@@ -967,8 +979,12 @@ function MessageList({
                 // - 私聊：isRead=true → 蓝色 ✓✓ + 「已读 · 时间」
                 // - 群聊：readCount>0 → 蓝色 ✓✓ + 「X/N 人已读」
                 const isGroup = conversation?.type === 'group';
+                // 群总人数优先用 storeGroupMembers，缺失时用 conversation.members（会话列表里的 memberCount）
+                // 避免群成员异步加载期间 totalMembers=0 导致 footer 不展示
+                const liveMembersLen = (storeGroupMembers[selectedConversationId!] || []).length;
+                const fallbackTotal = conversation?.members || 0;
                 const totalMembers = isGroup
-                  ? Math.max(0, (storeGroupMembers[selectedConversationId!] || []).length - 1)
+                  ? Math.max(0, (liveMembersLen || fallbackTotal) - 1)
                   : 1;
                 const showRead = isSent
                   && lastMsg.status !== 'failed' && lastMsg.status !== 'sending'
@@ -980,13 +996,37 @@ function MessageList({
                 let footerText = formatBubbleTime(lastMsg.timestamp);
                 if (lastMsg.status === 'failed') {
                   footerText = '发送失败';
+                } else if (isSent && isGroup && readReceiptEnabled && totalMembers > 0) {
+                  // 群聊自己发的消息：总是展示 X/N，哪怕 X=0，方便点开看谁没读
+                  const rc = Math.min(lastMsg.readCount || 0, totalMembers);
+                  footerText = `${rc}/${totalMembers} 人已读 · ${formatBubbleTime(lastMsg.timestamp)}`;
                 } else if (showRead) {
-                  if (isGroup) {
-                    footerText = `${Math.min(lastMsg.readCount || 0, totalMembers)}/${totalMembers} 人已读 · ${formatBubbleTime(lastMsg.timestamp)}`;
-                  } else {
-                    footerText = `已读 · ${formatBubbleTime(lastMsg.timestamp)}`;
-                  }
+                  footerText = `已读 · ${formatBubbleTime(lastMsg.timestamp)}`;
                 }
+
+                // 仅自己发出 + 群聊 + 有真实 mongoID 才能点开已读详情
+                const canShowDetail = isSent && isGroup
+                  && !!lastMsg.id
+                  && !lastMsg.id.startsWith('local_')
+                  && !lastMsg.id.startsWith('push_');
+
+                const footerSpanProps = canShowDetail ? {
+                  onClick: () => onShowReadDetail(lastMsg.id),
+                  style: {
+                    fontSize: 11,
+                    color: lastMsg.status === 'failed' ? '#e74c3c' : (showRead ? '#3390EC' : '#A2ACB5'),
+                    lineHeight: 1,
+                    cursor: 'pointer',
+                    textDecoration: 'underline dotted',
+                    textUnderlineOffset: 2,
+                  } as React.CSSProperties,
+                } : {
+                  style: {
+                    fontSize: 11,
+                    color: lastMsg.status === 'failed' ? '#e74c3c' : (showRead ? '#3390EC' : '#A2ACB5'),
+                    lineHeight: 1,
+                  } as React.CSSProperties,
+                };
 
                 return (
                   <div style={{
@@ -1013,11 +1053,9 @@ function MessageList({
                     {isSent && lastMsg.status !== 'failed' && lastMsg.status !== 'sending' && (
                       <CheckCheck style={{ width: 14, height: 14, color: checkColor }} />
                     )}
-                    <span style={{
-                      fontSize: 11,
-                      color: lastMsg.status === 'failed' ? '#e74c3c' : (showRead ? '#3390EC' : '#A2ACB5'),
-                      lineHeight: 1,
-                    }}>{footerText}</span>
+                    <span {...footerSpanProps} title={canShowDetail ? '查看已读详情' : undefined}>
+                      {footerText}
+                    </span>
                   </div>
                 );
               })()}

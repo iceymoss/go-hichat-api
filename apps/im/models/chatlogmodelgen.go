@@ -52,8 +52,8 @@ type chatLogModel interface {
 	// 根据id批量获取消息
 	ListByMsgId(ctx context.Context, id []string) ([]*ChatLog, error)
 
-	// 更新已读数
-	UpdateMakeRead(ctx context.Context, id primitive.ObjectID, readRecords []byte) error
+	// 更新已读数；readTimes 可为 nil（私聊无需时间轴时）
+	UpdateMakeRead(ctx context.Context, id primitive.ObjectID, readRecords []byte, readTimes map[string]int64) error
 }
 
 type defaultChatLogModel struct {
@@ -305,7 +305,7 @@ func (m *defaultChatLogModel) ListBySendTime(ctx context.Context, conversationId
 	return data, nil
 }
 
-func (m *defaultChatLogModel) UpdateMakeRead(ctx context.Context, id primitive.ObjectID, readRecords []byte) error {
+func (m *defaultChatLogModel) UpdateMakeRead(ctx context.Context, id primitive.ObjectID, readRecords []byte, readTimes map[string]int64) error {
 	// 验证输入参数
 	if id.IsZero() {
 		logx.WithContext(ctx).Errorf("更新已读记录失败: 无效的消息ID")
@@ -318,7 +318,11 @@ func (m *defaultChatLogModel) UpdateMakeRead(ctx context.Context, id primitive.O
 
 	// 构建更新操作
 	filter := bson.M{"_id": id}
-	update := bson.M{"$set": bson.M{"readRecords": readRecords}}
+	setFields := bson.M{"readRecords": readRecords}
+	if len(readTimes) > 0 {
+		setFields["readTimes"] = readTimes
+	}
+	update := bson.M{"$set": setFields}
 
 	// 执行更新操作
 	collection := m.Conn.Database(HiChat2).Collection(ChatLogs)

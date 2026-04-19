@@ -586,23 +586,18 @@ const pendingReadReceipts: Record<string, { readCount: number; isRead: boolean }
 function reconcileLocalMessageId(convId: string, content: string, realId: string) {
   useChatStore.setState(s => {
     const list = s.messagesMap[convId];
-    if (!list || list.length === 0) {
-      console.log('[DEBUG reconcile] no list for conv=', convId);
-      return s;
-    }
+    if (!list || list.length === 0) return s;
     // 反向找最近一条 local_ 占位消息，内容一致则替换
     for (let i = list.length - 1; i >= 0; i--) {
       const m = list[i];
       if (!m.id?.startsWith('local_')) continue;
       if (m.content !== content) continue;
       if (m.status === 'failed') continue;
-      console.log('[DEBUG reconcile] hit local msg at idx=', i, 'oldId=', m.id, 'status=', m.status, '→ newId=', realId);
       const updated: Message = { ...m, id: realId };
       const nextList = [...list];
       nextList[i] = consumePendingReceipt(updated);
       return { messagesMap: { ...s.messagesMap, [convId]: nextList } };
     }
-    console.log('[DEBUG reconcile] NO local_ msg matched for content=', content, 'in last', list.length, 'msgs');
     return s;
   });
 }
@@ -624,10 +619,11 @@ function countBitsSet(base64Str: string): number {
 /** 将回执里的 readRecords 合并进某条消息 */
 function applyReceiptToMsg(m: Message, rec: string, isGroup: boolean): Message {
   if (isGroup) {
-    const readCount = Math.max(m.readCount || 0, countBitsSet(rec));
+    // 服务端 bitmap 里 sender 自己的位置也被 addChatLog 置为 1（表示"发送人自动已读"），
+    // 但 UI 上的 X/N 指的是"除自己外的已读人数"，所以要减去 1
+    const readCount = Math.max(m.readCount || 0, Math.max(0, countBitsSet(rec) - 1));
     return { ...m, readCount, isRead: readCount > 0 };
   }
-  // 私聊：对端已读 → 直接标记
   return { ...m, isRead: true };
 }
 
@@ -642,9 +638,9 @@ function handleReadReceipt(chat: WsChatData) {
   useChatStore.setState(s => {
     const existing = s.messagesMap[convId];
     if (!existing) {
-      // 整个会话都还没加载，全部缓存
+      // 整个会话都还没加载，全部缓存；群聊的 bitmap 里 sender 自己那一位也算 1，所以要减 1
       for (const id of msgIds) {
-        const count = isGroup ? countBitsSet(readRecords[id]) : 1;
+        const count = isGroup ? Math.max(0, countBitsSet(readRecords[id]) - 1) : 1;
         const prev = pendingReadReceipts[id];
         pendingReadReceipts[id] = {
           readCount: Math.max(prev?.readCount || 0, count),
@@ -660,10 +656,10 @@ function handleReadReceipt(chat: WsChatData) {
       matchedIds.add(m.id);
       return applyReceiptToMsg(m, rec, isGroup);
     });
-    // 未匹配的 msgId 先缓存
+    // 未匹配的 msgId 先缓存；群聊减去 sender 自己那一位
     for (const id of msgIds) {
       if (matchedIds.has(id)) continue;
-      const count = isGroup ? countBitsSet(readRecords[id]) : 1;
+      const count = isGroup ? Math.max(0, countBitsSet(readRecords[id]) - 1) : 1;
       const prev = pendingReadReceipts[id];
       pendingReadReceipts[id] = {
         readCount: Math.max(prev?.readCount || 0, count),

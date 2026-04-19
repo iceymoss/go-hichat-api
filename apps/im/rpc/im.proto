@@ -16,6 +16,8 @@ message ChatLog {
   int32 chatType = 7;
   int64 SendTime = 8;
   bytes readRecords = 9;
+  // 每个成员的已读时间戳（unix nano），仅群聊/已读详情场景填充
+  map<string, int64> readTimes = 10;
 }
 
 message Conversation {

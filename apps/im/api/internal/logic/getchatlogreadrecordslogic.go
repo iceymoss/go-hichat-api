@@ -34,26 +34,37 @@ func (l *GetChatLogReadRecordsLogic) GetChatLogReadRecords(req *types.GetChatLog
 		MsgId: req.MsgId,
 	})
 
-	if err != nil || len(chatlogs.List) == 0 {
+	if err != nil {
 		return nil, err
+	}
+	if chatlogs == nil || len(chatlogs.List) == 0 {
+		// 消息不存在时返回空列表而非 null，避免前端当成错误
+		return &types.GetChatLogReadRecordsResp{
+			Reads:   []types.ReadRecordUser{},
+			UnReads: []types.ReadRecordUser{},
+		}, nil
 	}
 
 	var (
-		chatlog = chatlogs.List[0]
-		reads   = []string{chatlog.SendId} //已读列表，消息发送者直接加入
-		unreads []string                   // 未读列表
-		ids     []string
+		chatlog   = chatlogs.List[0]
+		readIds   []string // 已读 userId
+		unIds     []string // 未读 userId
+		allIds    []string
+		readTimes = chatlog.ReadTimes // userId → unix nano
 	)
+	if readTimes == nil {
+		readTimes = map[string]int64{}
+	}
 
-	// 分别设置已读未读
 	switch constants.ChatType(chatlog.ChatType) {
 	case constants.SingleChatType:
-		if len(chatlog.ReadRecords) == 0 || chatlog.ReadRecords[0] == 0 { // 如果ReadRecords没有标记，说明用户还没阅读
-			unreads = []string{chatlog.RecvId}
+		// 私聊：发送者本人不在展示范围，只看接收方状态
+		if len(chatlog.ReadRecords) == 1 && chatlog.ReadRecords[0] == 0x01 {
+			readIds = []string{chatlog.RecvId}
 		} else {
-			reads = append(reads, chatlog.RecvId)
+			unIds = []string{chatlog.RecvId}
 		}
-		ids = []string{chatlog.RecvId, chatlog.SendId}
+		allIds = []string{chatlog.RecvId}
 	case constants.GroupChatType:
 		groupUsers, err := l.svcCtx.Social.GroupUsers(l.ctx, &socialclient.GroupUsersReq{
 			GroupId: chatlog.RecvId,
@@ -61,51 +72,53 @@ func (l *GetChatLogReadRecordsLogic) GetChatLogReadRecords(req *types.GetChatLog
 		if err != nil {
 			return nil, err
 		}
-
 		bitmaps := bitmap.Load(chatlog.ReadRecords)
-		for _, members := range groupUsers.List {
-			ids = append(ids, members.UserId)
-
-			// 消息发送者
-			if members.UserId == chatlog.SendId {
+		for _, member := range groupUsers.List {
+			// 发送者自己不在已读/未读列表中
+			if member.UserId == chatlog.SendId {
 				continue
 			}
-
-			// 如果已读
-			if bitmaps.IsSet(members.UserId) {
-				reads = append(reads, members.UserId)
+			allIds = append(allIds, member.UserId)
+			if bitmaps.IsSet(member.UserId) {
+				readIds = append(readIds, member.UserId)
 			} else {
-				unreads = append(unreads, members.UserId)
+				unIds = append(unIds, member.UserId)
 			}
 		}
 	}
 
-	// 获取用户信息
-	userEntitys, err := l.svcCtx.User.FindUser(l.ctx, &user.FindUserReq{
-		Ids: ids,
-	})
+	// 批量查询用户资料
+	userEntitys, err := l.svcCtx.User.FindUser(l.ctx, &user.FindUserReq{Ids: allIds})
 	if err != nil {
 		return nil, err
 	}
 	userEntitySet := make(map[string]*user.UserEntity, len(userEntitys.User))
-	for i, entity := range userEntitys.User {
-		userEntitySet[entity.Id] = userEntitys.User[i]
+	for i := range userEntitys.User {
+		userEntitySet[userEntitys.User[i].Id] = userEntitys.User[i]
 	}
 
-	// 设置手机号码
-	for i, read := range reads {
-		if u := userEntitySet[read]; u != nil {
-			reads[i] = u.Phone
+	toEntries := func(ids []string, includeTime bool) []types.ReadRecordUser {
+		out := make([]types.ReadRecordUser, 0, len(ids))
+		for _, id := range ids {
+			u := userEntitySet[id]
+			nick, avatar := id, ""
+			if u != nil {
+				if u.Nickname != "" {
+					nick = u.Nickname
+				}
+				avatar = u.Avatar
+			}
+			var readAt int64
+			if includeTime {
+				readAt = readTimes[id]
+			}
+			out = append(out, types.ReadRecordUser{Id: id, Nickname: nick, Avatar: avatar, ReadAt: readAt})
 		}
-	}
-	for i, unread := range unreads {
-		if u := userEntitySet[unread]; u != nil {
-			unreads[i] = u.Phone
-		}
+		return out
 	}
 
 	return &types.GetChatLogReadRecordsResp{
-		Reads:   reads,
-		UnReads: unreads,
+		Reads:   toEntries(readIds, true),
+		UnReads: toEntries(unIds, false),
 	}, nil
 }

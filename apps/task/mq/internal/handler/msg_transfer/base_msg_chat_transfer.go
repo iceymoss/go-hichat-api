@@ -88,13 +88,12 @@ func (m *BaseChatTransfer) echoToSender(data *mq.MsgChatTransfer) error {
 	if data.SendId == "" || data.MsgId == "" {
 		return nil
 	}
-	// 构造一条专门给发送方的 echo，只带 MsgId/SendTime/ConversationId 等最小字段，
-	// 前端据此把 local_ 记录升级到真实 ID。
+	// echo 是专门发给"发送方本人"的点对点包，必须走 single 路径（ws pusher 会 push 到 RecvId）。
+	// 如果保留原 ChatType=Group，pusher 会走 group() 把发送方从 RecvIdList 里剔除，echo 会被丢掉。
 	echo := *data
-	// group 的 RecvIdList 已被上游填充；对 echo 清空，避免 pusher 重复 fan-out
 	echo.RecvIdList = nil
 	echo.RecvId = data.SendId
-	// 给前端一个明确标识：这是发送方回响（而非对方推送）
+	echo.ChatType = constants.SingleChatType
 	echo.ContentType = constants.ContentMsgAck
 	return m.svcCtx.WsClient.Send(websocket.Message{
 		FrameType: websocket.FrameNoAck,

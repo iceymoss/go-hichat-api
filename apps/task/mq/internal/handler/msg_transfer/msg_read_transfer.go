@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	userModels "github.com/iceymoss/go-hichat-api/apps/user/models"
 
@@ -45,17 +46,19 @@ func (m *MsgReadTransfer) Consume(ctx context.Context, key, value string) error 
 
 	fmt.Printf("已经收到消息了用户已读标识: %+v\n", data)
 
-	// DB 更新始终执行 —— 未读计数、服务端状态正确性不受开关影响
-	readRecords, err := m.UpdateChatLogRead(ctx, &data)
-	if err != nil {
-		return err
-	}
-
-	// 三层开关判定（任一关闭 → 不下发回执，发送方保持"已发送未读"视觉）
+	// 三层开关判定（任一关闭 → 既不写 bitmap，也不推回执）
+	// 关键：要在写 bitmap 之前拦截，否则"关闭方"的 bit 会永久留在 bitmap 里，
+	// 后续其他成员读取触发新一轮 receipt 时会泄漏"关闭方已读"这个事实。
 	if !m.shouldDeliverReceipt(ctx, data.SendId, data.RecvId, data.ChatType) {
 		m.Infof("read receipt suppressed by switch: reader=%s, sender=%s, chatType=%v",
 			data.SendId, data.RecvId, data.ChatType)
 		return nil
+	}
+
+	// 写库更新 ReadRecords bitmap
+	readRecords, err := m.UpdateChatLogRead(ctx, &data)
+	if err != nil {
+		return err
 	}
 
 	return m.MsgChatTransfer(ctx, &mq.MsgChatTransfer{
@@ -114,6 +117,7 @@ func (m *MsgReadTransfer) UpdateChatLogRead(ctx context.Context, data *mq.MsgMar
 
 	m.Infof("chatLogs %v", chatLogs)
 
+	readAt := time.Now().UnixNano()
 	for _, chatlog := range chatLogs {
 		switch data.ChatType {
 		case constants.GroupChatType:
@@ -124,9 +128,17 @@ func (m *MsgReadTransfer) UpdateChatLogRead(ctx context.Context, data *mq.MsgMar
 			chatlog.ReadRecords = []byte{1}
 		}
 
+		// 记录本次读者的已读时间（sender 自己的时间在 addChatLog 时已写入）
+		if chatlog.ReadTimes == nil {
+			chatlog.ReadTimes = map[string]int64{}
+		}
+		if _, exists := chatlog.ReadTimes[data.SendId]; !exists {
+			chatlog.ReadTimes[data.SendId] = readAt
+		}
+
 		res[chatlog.ID.Hex()] = base64.StdEncoding.EncodeToString(chatlog.ReadRecords)
 
-		err = m.svcCtx.ChatLogModel.UpdateMakeRead(ctx, chatlog.ID, chatlog.ReadRecords)
+		err = m.svcCtx.ChatLogModel.UpdateMakeRead(ctx, chatlog.ID, chatlog.ReadRecords, chatlog.ReadTimes)
 		if err != nil {
 			m.Errorf("update make read err %v", err)
 		}
