@@ -12,7 +12,7 @@ import (
 // 批量获取点赞摘要
 func BatchGetTrendLikeSummaryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.BatchTrendLikeSummaryRequest
+		var req types.GetLikeListReq
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return

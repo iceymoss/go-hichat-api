@@ -1,25 +1,31 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import {
   Heart, MessageCircle, MapPin, Send, Pin, MessageSquareOff,
   Play, ArrowLeft, ExternalLink, ThumbsUp, Users, Lock, Globe,
-  X, Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAvatarColor } from '@/lib/utils';
 import { useIMStore } from '@/lib/im-store';
 import {
-  trends as initTrends,
-  trendComments as initComments,
-  trendLikeUsers as initLikeUsers,
-  initialLikedTrends,
-  currentUser,
+  currentUser as mockCurrentUser,
   contacts,
   type Trend,
   type TrendComment,
 } from '@/lib/mock-data';
+import {
+  getTrendDetail,
+  getCommentTree,
+  getLikedUsers,
+  toggleLike as apiToggleLike,
+  createComment,
+  deleteComment as apiDeleteComment,
+  mapBackendTrend,
+  commentTreeToMap,
+} from '@/lib/trend-api';
 
 /* ═══════════════════════════════════════
    Helpers
@@ -38,8 +44,9 @@ function fmtTime(date: Date): string {
   return `${new Date(date).getFullYear()}/${new Date(date).getMonth() + 1}/${new Date(date).getDate()}`;
 }
 
-function getUserName(userId: string): string {
-  if (userId === 'me') return currentUser.name;
+function getUserName(userId: string, fallback?: string): string {
+  if (userId === 'me') return fallback || mockCurrentUser.name;
+  if (fallback) return fallback;
   const c = contacts.find(ct => ct.id === userId);
   return c ? c.name : userId;
 }
@@ -175,108 +182,148 @@ function LikeAvatarItem({ user }: { user: { id: string; name: string; avatar: st
    ═══════════════════════════════════════ */
 
 export default function TrendDetailPanel() {
-  const { selectedTrendId, setSelectedTrendId } = useIMStore();
+  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth } = useIMStore();
+  const token = meAuth?.token || '';
+  const meUserId = meAuth?.id || '';
+  const meName = meAuth?.name || mockCurrentUser.name;
+  const meAvatar = meAuth?.avatar || mockCurrentUser.avatar;
 
-  // Local state for detail view
-  const [trends] = useState<Trend[]>(() => [...initTrends]);
-  const [likedMap, setLikedMap] = useState<Record<number, boolean>>(() => {
-    const m: Record<number, boolean> = {};
-    initialLikedTrends.forEach(id => { m[id] = true; });
-    return m;
-  });
-  const [commentsMap, setCommentsMap] = useState<Record<number, TrendComment[]>>(() => ({ ...initComments }));
-  const [likeUsersMap, setLikeUsersMap] = useState<Record<number, { id: string; name: string; avatar: string }[]>>(() => ({ ...initLikeUsers }));
+  const [trend, setTrend] = useState<Trend | null>(null);
+  const [comments, setComments] = useState<TrendComment[]>([]);
+  const [likeUsers, setLikeUsers] = useState<{ id: string; name: string; avatar: string }[]>([]);
+  const [liked, setLiked] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [replyTarget, setReplyTarget] = useState<TrendComment | null>(null);
   const [likeAnim, setLikeAnim] = useState(false);
   const [likeExpanded, setLikeExpanded] = useState(false);
 
-  const trend = useMemo(() => trends.find(t => t.id === selectedTrendId) || null, [trends, selectedTrendId]);
-  const comments = useMemo(() => selectedTrendId ? (commentsMap[selectedTrendId] || []) : [], [commentsMap, selectedTrendId]);
-  const liked = useMemo(() => selectedTrendId ? !!likedMap[selectedTrendId] : false, [likedMap, selectedTrendId]);
   const likeCount = trend?.agreeCount || 0;
-  const likeUsers = useMemo(() => selectedTrendId ? (likeUsersMap[selectedTrendId] || []) : [], [likeUsersMap, selectedTrendId]);
+
+  // Load trend + comments + like users when the selected id changes.
+  useEffect(() => {
+    if (!selectedTrendId || !token) {
+      setTrend(null);
+      setComments([]);
+      setLikeUsers([]);
+      setLiked(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const [detailRes, treeRes, likedUsersRes] = await Promise.all([
+        getTrendDetail(token, selectedTrendId),
+        getCommentTree(token, [selectedTrendId]),
+        getLikedUsers(token, selectedTrendId, 0, 100),
+      ]);
+      if (cancelled) return;
+      if (detailRes.success && detailRes.data?.trend) {
+        setTrend(mapBackendTrend(detailRes.data.trend, meUserId));
+      } else {
+        setTrend(null);
+      }
+      if (treeRes.success && treeRes.data) {
+        const map = commentTreeToMap(treeRes.data, meUserId);
+        setComments(map[selectedTrendId] || []);
+      } else {
+        setComments([]);
+      }
+      if (likedUsersRes.success && likedUsersRes.data) {
+        const users = (likedUsersRes.data.users || []).map(u => ({
+          id: u.id === meUserId ? 'me' : u.id,
+          name: u.nickname || '',
+          avatar: u.avatar || '',
+        }));
+        setLikeUsers(users);
+        setLiked(users.some(u => u.id === 'me'));
+      } else {
+        setLikeUsers([]);
+        setLiked(false);
+      }
+    })().catch(err => console.error('TrendDetailPanel load error', err));
+    return () => { cancelled = true; };
+  }, [selectedTrendId, token, meUserId]);
 
   // Handlers
   const handleClose = useCallback(() => {
     setSelectedTrendId(null);
   }, [setSelectedTrendId]);
 
+  const refreshComments = useCallback(async () => {
+    if (!selectedTrendId || !token) return;
+    const r = await getCommentTree(token, [selectedTrendId]);
+    if (r.success && r.data) {
+      const map = commentTreeToMap(r.data, meUserId);
+      setComments(map[selectedTrendId] || []);
+    }
+  }, [selectedTrendId, token, meUserId]);
+
   const handleToggleLike = useCallback(() => {
-    if (!selectedTrendId || !trend) return;
+    if (!selectedTrendId || !trend || !token) return;
     setLikeAnim(true);
     setTimeout(() => setLikeAnim(false), 300);
-    const isLiked = !!likedMap[selectedTrendId];
-    if (isLiked) {
-      setLikedMap(prev => { const n = { ...prev }; delete n[selectedTrendId]; return n; });
-      setLikeUsersMap(prev => ({
-        ...prev,
-        [selectedTrendId]: (prev[selectedTrendId] || []).filter(u => u.id !== 'me'),
-      }));
-    } else {
-      setLikedMap(prev => ({ ...prev, [selectedTrendId]: true }));
-      setLikeUsersMap(prev => ({
-        ...prev,
-        [selectedTrendId]: [{ id: 'me', name: currentUser.name, avatar: currentUser.avatar }, ...(prev[selectedTrendId] || [])],
-      }));
-    }
-  }, [selectedTrendId, trend, likedMap]);
+    const wasLiked = liked;
+    // Optimistic
+    setLiked(!wasLiked);
+    setLikeUsers(prev => wasLiked
+      ? prev.filter(u => u.id !== 'me')
+      : [{ id: 'me', name: meName, avatar: meAvatar }, ...prev]);
+    setTrend(t => t ? { ...t, agreeCount: wasLiked ? Math.max(0, t.agreeCount - 1) : t.agreeCount + 1 } : t);
+
+    const authorIdStr = trend.userId === 'me' ? meUserId : trend.userId;
+    const authorId = Number(authorIdStr) || 0;
+    apiToggleLike(token, selectedTrendId, authorId, 1).catch(err => {
+      console.error('toggleLike error', err);
+      setLiked(wasLiked);
+      setLikeUsers(prev => wasLiked
+        ? [{ id: 'me', name: meName, avatar: meAvatar }, ...prev]
+        : prev.filter(u => u.id !== 'me'));
+      setTrend(t => t ? { ...t, agreeCount: wasLiked ? t.agreeCount + 1 : Math.max(0, t.agreeCount - 1) } : t);
+      toast.error('点赞操作失败');
+    });
+  }, [selectedTrendId, trend, token, liked, meUserId, meName, meAvatar]);
 
   const handleSubmitComment = useCallback(() => {
-    if (!selectedTrendId || !commentText.trim()) return;
-    const newComment: TrendComment = {
-      id: Date.now(),
-      trendId: selectedTrendId,
-      rootId: replyTarget ? (replyTarget.rootId || replyTarget.id) : Date.now(),
-      father: replyTarget ? replyTarget.id : 0,
-      replyer: { id: 'me', name: currentUser.name, avatar: currentUser.avatar },
-      user: replyTarget ? replyTarget.replyer : { id: '', name: '', avatar: '' },
-      level: replyTarget ? replyTarget.level + 1 : 1,
+    if (!selectedTrendId || !commentText.trim() || !token || !trend) return;
+    let replyUserIdStr = '';
+    if (replyTarget) {
+      replyUserIdStr = replyTarget.replyer.id === 'me' ? meUserId : replyTarget.replyer.id;
+    } else {
+      replyUserIdStr = trend.userId === 'me' ? meUserId : trend.userId;
+    }
+    const payload = {
+      trend_id: selectedTrendId,
+      father: replyTarget ? replyTarget.id : undefined,
+      user_id: Number(replyUserIdStr) || 0,
       content: commentText.trim(),
-      agreeCount: 0,
-      children: [],
-      createTime: new Date(),
     };
-
-    setCommentsMap(prev => {
-      const existing = prev[selectedTrendId] || [];
-      if (replyTarget && replyTarget.rootId) {
-        const addChild = (cs: TrendComment[]): TrendComment[] =>
-          cs.map(c => {
-            if (c.id === replyTarget.rootId) return { ...c, children: [...(c.children || []), newComment] };
-            if (c.children) return { ...c, children: addChild(c.children) };
-            return c;
-          });
-        return { ...prev, [selectedTrendId]: addChild(existing) };
-      } else if (replyTarget) {
-        const addChild = (cs: TrendComment[]): TrendComment[] =>
-          cs.map(c => {
-            if (c.id === replyTarget.id) return { ...c, children: [...(c.children || []), newComment] };
-            if (c.children) return { ...c, children: addChild(c.children) };
-            return c;
-          });
-        return { ...prev, [selectedTrendId]: addChild(existing) };
-      }
-      return { ...prev, [selectedTrendId]: [...existing, { ...newComment, rootId: newComment.id }] };
-    });
     setCommentText('');
     setReplyTarget(null);
-    toast.success('评论已发布');
-  }, [selectedTrendId, commentText, replyTarget]);
+    createComment(token, payload).then(async r => {
+      if (!r.success) {
+        toast.error(r.message || '评论失败');
+        return;
+      }
+      await refreshComments();
+      setTrend(t => t ? { ...t, replyCount: t.replyCount + 1 } : t);
+      toast.success('评论已发布');
+    }).catch(err => {
+      console.error('createComment error', err);
+      toast.error('评论失败');
+    });
+  }, [selectedTrendId, commentText, replyTarget, token, trend, meUserId, refreshComments]);
 
   const handleDeleteComment = useCallback((comment: TrendComment) => {
-    if (!selectedTrendId) return;
-    const removeComment = (cs: TrendComment[]): TrendComment[] =>
-      cs.filter(c => c.id !== comment.id).map(c => ({
-        ...c,
-        children: c.children ? removeComment(c.children) : [],
-      }));
-    setCommentsMap(prev => ({
-      ...prev,
-      [selectedTrendId]: removeComment(prev[selectedTrendId] || []),
-    }));
-    toast.success('评论已删除');
-  }, [selectedTrendId]);
+    if (!selectedTrendId || !token) return;
+    apiDeleteComment(token, comment.id).then(async r => {
+      if (!r.success) {
+        toast.error(r.message || '删除失败');
+        return;
+      }
+      await refreshComments();
+      setTrend(t => t ? { ...t, replyCount: Math.max(0, t.replyCount - 1) } : t);
+      toast.success('评论已删除');
+    }).catch(() => toast.error('删除失败'));
+  }, [selectedTrendId, token, refreshComments]);
 
   const imageGridClass = (count: number) => {
     if (count === 1) return 'grid-cols-1';
@@ -297,7 +344,8 @@ export default function TrendDetailPanel() {
   };
 
   if (!trend) return null;
-  const userName = getUserName(trend.userId);
+  const userName = trend.userName || getUserName(trend.userId);
+  const userAvatar = trend.userAvatar || '';
 
   return (
     <div className="h-full flex flex-col" style={{ background: '#F0F2F5' }}>
@@ -335,6 +383,7 @@ export default function TrendDetailPanel() {
             {/* User header */}
             <div className="flex items-center gap-3 mb-4">
               <div
+                className="overflow-hidden"
                 style={{
                   width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
                   backgroundColor: getAvatarColor(userName),
@@ -342,7 +391,11 @@ export default function TrendDetailPanel() {
                   fontSize: 18, fontWeight: 600, color: '#FFF',
                 }}
               >
-                {userName[0]}
+                {userAvatar ? (
+                  <img src={userAvatar} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  userName[0]
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">

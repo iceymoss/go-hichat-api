@@ -24,8 +24,8 @@ func NewBatchGetTrendLikeSummaryLogic(ctx context.Context, svcCtx *svc.ServiceCo
 	}
 }
 
-func (l *BatchGetTrendLikeSummaryLogic) BatchGetTrendLikeSummary(req *types.BatchTrendLikeSummaryRequest) (resp *types.BatchTrendLikeSummaryResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+func (l *BatchGetTrendLikeSummaryLogic) BatchGetTrendLikeSummary(req *types.GetLikeListReq) (resp *types.GetLikeListResp, err error) {
+	// TODO: implement against the real RPC. For now return an empty map so the
+	// frontend feed can load cleanly without 500s.
+	return &types.GetLikeListResp{LikeMap: map[uint64][]types.User{}}, nil
 }

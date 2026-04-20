@@ -38,17 +38,31 @@ import { getAvatarColor } from '@/lib/utils';
 import { useIMStore } from '@/lib/im-store';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
-  trends as initTrends,
-  trendComments as initComments,
-  trendLikeUsers as initLikeUsers,
-  initialLikedTrends,
-  momentsNotifications as initNotifications,
-  currentUser,
+  currentUser as mockCurrentUser,
   contacts,
   type Trend,
   type TrendComment,
   type MomentsNotification,
 } from '@/lib/mock-data';
+import {
+  createTrend,
+  deleteTrend as apiDeleteTrend,
+  updateTrend as apiUpdateTrend,
+  getLatestTrends,
+  getUserTrends,
+  getCommentTree,
+  createComment,
+  deleteComment as apiDeleteComment,
+  getUnread,
+  markCommentsRead,
+  markLikesRead,
+  toggleLike as apiToggleLike,
+  getBatchLikeSummary,
+  mapBackendTrend,
+  commentTreeToMap,
+  batchSummaryToLikeUsersMap,
+  unreadToNotifications,
+} from '@/lib/trend-api';
 
 /* ═══════════════════════════════════════
    Helpers
@@ -67,10 +81,15 @@ function fmtTime(date: Date): string {
   return `${new Date(date).getFullYear()}/${new Date(date).getMonth() + 1}/${new Date(date).getDate()}`;
 }
 
-function getUserName(userId: string): string {
-  if (userId === 'me') return currentUser.name;
+function getUserName(userId: string, fallback?: string): string {
+  if (userId === 'me') return fallback || mockCurrentUser.name;
+  if (fallback) return fallback;
   const c = contacts.find(ct => ct.id === userId);
   return c ? c.name : userId;
+}
+
+function trendDisplayName(trend: Trend): string {
+  return trend.userName || getUserName(trend.userId);
 }
 
 function avatarCircle(name: string, size: number, extra?: React.ReactNode) {
@@ -270,7 +289,8 @@ function TrendCard({
 }: TrendCardProps) {
   const [likeAnim, setLikeAnim] = useState(false);
   const [likeNamesExpanded, setLikeNamesExpanded] = useState(false);
-  const userName = getUserName(trend.userId);
+  const userName = trendDisplayName(trend);
+  const userAvatar = trend.userAvatar || '';
   const totalComments = trend.replyCount + (expanded ? comments.reduce((acc, c) => acc + 1 + (c.children?.length || 0), 0) - comments.reduce((acc, c) => acc, 0) : 0);
   const visibleComments = expanded ? comments : comments.slice(0, 2);
   const hiddenCount = comments.length > 2 && !expanded ? comments.length - 2 : 0;
@@ -318,11 +338,15 @@ function TrendCard({
       <div className="flex gap-3">
         {/* Avatar */}
         <div
-          className="shrink-0 mt-0.5 cursor-pointer"
+          className="shrink-0 mt-0.5 cursor-pointer overflow-hidden"
           style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: getAvatarColor(userName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 600, color: '#FFF' }}
           onClick={onAvatarClick}
         >
-          {userName[0]}
+          {userAvatar ? (
+            <img src={userAvatar} alt="" className="w-full h-full object-cover" />
+          ) : (
+            userName[0]
+          )}
         </div>
 
         {/* Content */}
@@ -827,7 +851,8 @@ function TrendDetailModal({
   onSetReplyTarget, onDeleteComment, onAvatarClick, onClose,
 }: TrendDetailModalProps) {
   if (!open || !trend) return null;
-  const userName = getUserName(trend.userId);
+  const userName = trendDisplayName(trend);
+  const userAvatar = trend.userAvatar || '';
 
   const renderContent = () => {
     const parts = trend.content.split(/(@\S+)/g);
@@ -863,11 +888,15 @@ function TrendDetailModal({
           {/* User header */}
           <div className="flex items-center gap-3 mb-4">
             <div
-              className="cursor-pointer shrink-0"
+              className="cursor-pointer shrink-0 overflow-hidden"
               style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: getAvatarColor(userName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 600, color: '#FFF' }}
               onClick={() => onAvatarClick(trend.userId)}
             >
-              {userName[0]}
+              {userAvatar ? (
+                <img src={userAvatar} alt="" className="w-full h-full object-cover" />
+              ) : (
+                userName[0]
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -1019,7 +1048,12 @@ type NotifTab = 'all' | 'reply' | 'like';
 
 export default function MomentsFeed() {
   const isMobile = useIsMobile();
-  const { selectedTrendId, setSelectedTrendId } = useIMStore();
+  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth } = useIMStore();
+  const meName = meAuth?.name || mockCurrentUser.name;
+  const meAvatar = meAuth?.avatar || mockCurrentUser.avatar;
+  const meSignature = meAuth?.introduction || mockCurrentUser.signature;
+  const meUserId = meAuth?.id || '';
+  const token = meAuth?.token || '';
 
   // ── View state ──
   const [view, setView] = useState<View>('feed');
@@ -1047,18 +1081,75 @@ export default function MomentsFeed() {
   const [confirmOpts, setConfirmOpts] = useState<ConfirmOpts | null>(null);
   const [actionMenu, setActionMenu] = useState<{ x: number; y: number; trendId: number } | null>(null);
 
-  // ── Initialize ──
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setTrends([...initTrends]);
-      setLikedTrends(new Set(initialLikedTrends));
-      setCommentsMap({ ...initComments });
-      setLikeUsersMap({ ...initLikeUsers });
-      setNotifications([...initNotifications]);
+  // Name lookup for user trends header (filled when user clicks an avatar).
+  const [userTrendsUserName, setUserTrendsUserName] = useState<string>('');
+
+  // ── Feed loader: pulls latest trends + comments + like users ──
+  const loadFeed = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const resp = await getLatestTrends(token, { count: 20 });
+      if (!resp.success || !resp.data) {
+        setTrends([]);
+        return;
+      }
+      const mapped = (resp.data.list || []).map(t => mapBackendTrend(t, meUserId));
+      setTrends(mapped);
+
+      const ids = mapped.map(t => t.id);
+      if (ids.length > 0) {
+        const [treeRes, likesRes] = await Promise.all([
+          getCommentTree(token, ids),
+          getBatchLikeSummary(token, ids),
+        ]);
+        if (treeRes.success && treeRes.data) {
+          setCommentsMap(commentTreeToMap(treeRes.data, meUserId));
+        }
+        if (likesRes.success && likesRes.data) {
+          const map = batchSummaryToLikeUsersMap(likesRes.data, meUserId);
+          setLikeUsersMap(map);
+          // Derive likedTrends from whether 'me' is in the like users.
+          const liked = new Set<number>();
+          Object.entries(map).forEach(([tid, users]) => {
+            if (users.some(u => u.id === 'me')) liked.add(Number(tid));
+          });
+          setLikedTrends(liked);
+        }
+      } else {
+        setCommentsMap({});
+        setLikeUsersMap({});
+        setLikedTrends(new Set());
+      }
+    } catch (err) {
+      console.error('loadFeed error', err);
+      toast.error('加载动态失败');
+    } finally {
       setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  }, [token, meUserId]);
+
+  // ── Notifications loader ──
+  const loadNotifications = useCallback(async () => {
+    if (!token) return;
+    try {
+      const resp = await getUnread(token);
+      if (resp.success && resp.data) {
+        setNotifications(unreadToNotifications(resp.data, meUserId));
+      }
+    } catch (err) {
+      console.error('loadNotifications error', err);
+    }
+  }, [token, meUserId]);
+
+  useEffect(() => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    loadFeed();
+    loadNotifications();
+  }, [token, loadFeed, loadNotifications]);
 
   // ── Computed ──
   const unreadNotifCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
@@ -1073,12 +1164,10 @@ export default function MomentsFeed() {
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(t => t.content.toLowerCase().includes(q) || getUserName(t.userId).toLowerCase().includes(q));
+      list = list.filter(t => t.content.toLowerCase().includes(q) || trendDisplayName(t).toLowerCase().includes(q));
     }
     return list;
   }, [trends, view, userTrendsUserId, searchQuery]);
-
-  const userTrendsUserName = useMemo(() => getUserName(userTrendsUserId), [userTrendsUserId]);
 
   const filteredNotifications = useMemo(() => {
     let list = [...notifications].sort((a, b) => b.createTime.getTime() - a.createTime.getTime());
@@ -1104,76 +1193,96 @@ export default function MomentsFeed() {
     });
   }, []);
 
+  // Resolve the real backend user id for a trend's poster. When the poster is
+  // the current user, our local 'me' sentinel has been mapped, so fall back to meUserId.
+  const trendAuthorBackendId = useCallback((trendId: number): string => {
+    const t = trends.find(tr => tr.id === trendId);
+    if (!t) return '';
+    return t.userId === 'me' ? meUserId : t.userId;
+  }, [trends, meUserId]);
+
   // ── Like handlers ──
   const handleToggleLike = useCallback((trendId: number) => {
+    if (!token) {
+      toast.error('请先登录');
+      return;
+    }
+    // Optimistic update
+    const wasLiked = likedTrends.has(trendId);
     setLikedTrends(prev => {
       const next = new Set(prev);
-      const isLiked = next.has(trendId);
-      if (isLiked) {
-        next.delete(trendId);
-        setLikeUsersMap(lum => {
-          const users = (lum[trendId] || []).filter(u => u.id !== 'me');
-          return { ...lum, [trendId]: users };
-        });
-        setTrends(ts => ts.map(t => t.id === trendId ? { ...t, agreeCount: Math.max(0, t.agreeCount - 1) } : t));
-      } else {
-        next.add(trendId);
-        setLikeUsersMap(lum => ({
-          ...lum,
-          [trendId]: [{ id: 'me', name: currentUser.name, avatar: currentUser.avatar }, ...(lum[trendId] || [])],
-        }));
-        setTrends(ts => ts.map(t => t.id === trendId ? { ...t, agreeCount: t.agreeCount + 1 } : t));
-      }
+      if (wasLiked) next.delete(trendId); else next.add(trendId);
       return next;
     });
-  }, []);
+    setLikeUsersMap(lum => {
+      if (wasLiked) {
+        return { ...lum, [trendId]: (lum[trendId] || []).filter(u => u.id !== 'me') };
+      }
+      return { ...lum, [trendId]: [{ id: 'me', name: meName, avatar: meAvatar }, ...(lum[trendId] || [])] };
+    });
+    setTrends(ts => ts.map(t => t.id === trendId ? {
+      ...t, agreeCount: wasLiked ? Math.max(0, t.agreeCount - 1) : t.agreeCount + 1,
+    } : t));
+
+    const authorIdStr = trendAuthorBackendId(trendId);
+    const authorId = Number(authorIdStr) || 0;
+    apiToggleLike(token, trendId, authorId, 1).then(r => {
+      if (!r.success) throw new Error(r.message || 'toggle failed');
+    }).catch(err => {
+      console.error('toggleLike error', err);
+      // Rollback optimistic update
+      setLikedTrends(prev => {
+        const next = new Set(prev);
+        if (wasLiked) next.add(trendId); else next.delete(trendId);
+        return next;
+      });
+      setLikeUsersMap(lum => {
+        if (wasLiked) {
+          return { ...lum, [trendId]: [{ id: 'me', name: meName, avatar: meAvatar }, ...(lum[trendId] || [])] };
+        }
+        return { ...lum, [trendId]: (lum[trendId] || []).filter(u => u.id !== 'me') };
+      });
+      setTrends(ts => ts.map(t => t.id === trendId ? {
+        ...t, agreeCount: wasLiked ? t.agreeCount + 1 : Math.max(0, t.agreeCount - 1),
+      } : t));
+      toast.error('点赞操作失败');
+    });
+  }, [token, likedTrends, meName, meAvatar, trendAuthorBackendId]);
+
+  // Refetch the comment tree for a single trend, merging it into the map.
+  const refreshCommentsFor = useCallback(async (trendId: number) => {
+    if (!token) return;
+    try {
+      const r = await getCommentTree(token, [trendId]);
+      if (r.success && r.data) {
+        const mapped = commentTreeToMap(r.data, meUserId);
+        setCommentsMap(prev => ({ ...prev, [trendId]: mapped[trendId] || [] }));
+      }
+    } catch (err) {
+      console.error('refreshCommentsFor error', err);
+    }
+  }, [token, meUserId]);
 
   // ── Comment handlers ──
   const handleSubmitComment = useCallback((trendId: number, text: string, replyTo: TrendComment | null, isDetail?: boolean) => {
-    if (!text.trim()) return;
-    const newComment: TrendComment = {
-      id: Date.now(),
-      trendId,
-      rootId: replyTo ? (replyTo.rootId || replyTo.id) : Date.now(),
-      father: replyTo ? replyTo.id : 0,
-      replyer: { id: 'me', name: currentUser.name, avatar: currentUser.avatar },
-      user: replyTo ? replyTo.replyer : { id: '', name: '', avatar: '' },
-      level: replyTo ? replyTo.level + 1 : 1,
+    if (!text.trim() || !token) return;
+    const trend = trends.find(t => t.id === trendId);
+    // user_id in the backend payload = the user being replied to (or trend author for top-level).
+    let replyUserIdStr = '';
+    if (replyTo) {
+      replyUserIdStr = replyTo.replyer.id === 'me' ? meUserId : replyTo.replyer.id;
+    } else if (trend) {
+      replyUserIdStr = trend.userId === 'me' ? meUserId : trend.userId;
+    }
+
+    const payload = {
+      trend_id: trendId,
+      father: replyTo ? replyTo.id : undefined,
+      user_id: Number(replyUserIdStr) || 0,
       content: text.trim(),
-      agreeCount: 0,
-      children: [],
-      createTime: new Date(),
     };
 
-    setCommentsMap(prev => {
-      const existing = prev[trendId] || [];
-      if (replyTo && replyTo.rootId) {
-        // Add as child of the root comment
-        const addChild = (comments: TrendComment[]): TrendComment[] =>
-          comments.map(c => {
-            if (c.id === replyTo.rootId) {
-              return { ...c, children: [...(c.children || []), newComment] };
-            }
-            if (c.children) return { ...c, children: addChild(c.children) };
-            return c;
-          });
-        return { ...prev, [trendId]: addChild(existing) };
-      } else if (replyTo) {
-        // Add as child of the reply target
-        const addChild = (comments: TrendComment[]): TrendComment[] =>
-          comments.map(c => {
-            if (c.id === replyTo.id) return { ...c, children: [...(c.children || []), newComment] };
-            if (c.children) return { ...c, children: addChild(c.children) };
-            return c;
-          });
-        return { ...prev, [trendId]: addChild(existing) };
-      } else {
-        return { ...prev, [trendId]: [...existing, { ...newComment, rootId: newComment.id }] };
-      }
-    });
-
-    setTrends(ts => ts.map(t => t.id === trendId ? { ...t, replyCount: t.replyCount + 1 } : t));
-
+    // Clear input immediately for snappy UX.
     if (isDetail) {
       setDetailCommentText('');
       setDetailReplyTarget(null);
@@ -1182,59 +1291,84 @@ export default function MomentsFeed() {
       setReplyTargets(prev => ({ ...prev, [trendId]: null }));
     }
 
-    // Auto-expand comments
-    setExpandedTrendIds(prev => new Set(prev).add(trendId));
-    toast.success('评论已发布');
-  }, []);
+    createComment(token, payload).then(async r => {
+      if (!r.success) {
+        toast.error(r.message || '评论失败');
+        return;
+      }
+      await refreshCommentsFor(trendId);
+      setTrends(ts => ts.map(t => t.id === trendId ? { ...t, replyCount: t.replyCount + 1 } : t));
+      setExpandedTrendIds(prev => new Set(prev).add(trendId));
+      toast.success('评论已发布');
+    }).catch(err => {
+      console.error('createComment error', err);
+      toast.error('评论失败');
+    });
+  }, [token, trends, meUserId, refreshCommentsFor]);
 
   const handleDeleteComment = useCallback((trendId: number, comment: TrendComment) => {
+    if (!token) return;
     doConfirm('删除评论', '确定删除这条评论吗？', '删除', '#E53935', () => {
-      const removeComment = (comments: TrendComment[]): TrendComment[] =>
-        comments.filter(c => c.id !== comment.id).map(c => ({
-          ...c,
-          children: c.children ? removeComment(c.children) : [],
-        }));
-      setCommentsMap(prev => ({
-        ...prev,
-        [trendId]: removeComment(prev[trendId] || []),
-      }));
-      setTrends(ts => ts.map(t => t.id === trendId ? { ...t, replyCount: Math.max(0, t.replyCount - 1) } : t));
-      toast.success('评论已删除');
+      apiDeleteComment(token, comment.id).then(async r => {
+        if (!r.success) {
+          toast.error(r.message || '删除失败');
+          return;
+        }
+        await refreshCommentsFor(trendId);
+        setTrends(ts => ts.map(t => t.id === trendId ? { ...t, replyCount: Math.max(0, t.replyCount - 1) } : t));
+        toast.success('评论已删除');
+      }).catch(() => toast.error('删除失败'));
     });
-  }, [doConfirm]);
+  }, [token, doConfirm, refreshCommentsFor]);
 
   // ── Publish handler ──
   const handlePublish = useCallback((data: { type: number; content: string; title: string; images: string[]; shareUrl: string; location: string; scope: number }) => {
-    const newTrend: Trend = {
-      id: Date.now(),
-      userId: 'me',
-      type: data.type as Trend['type'],
+    if (!token) return;
+    createTrend(token, {
+      type: data.type,
       content: data.content,
-      scope: data.scope as Trend['scope'],
-      createTime: new Date(),
-      replyCount: 0,
-      agreeCount: 0,
-      positionName: data.location,
-      title: data.title,
-      atUsers: [],
-      resources: data.type === 5 ? (data.images.length > 0 ? [data.images[0]] : []) : data.images,
-      coverUrl: data.images.length > 0 ? data.images[0] : '',
-      shareUrl: data.shareUrl,
-      openReply: true,
-      isTop: false,
-    };
-    setTrends(prev => [newTrend, ...prev]);
-    setShowPublish(false);
-    toast.success('动态已发布');
-  }, []);
+      scope: data.scope,
+      resources: data.type === 5
+        ? (data.images.length > 0 ? [data.images[0]] : [])
+        : (data.type === 2 ? data.images : undefined),
+      position_name: data.location || undefined,
+      title: data.type === 3 ? data.title : undefined,
+      cover_url: data.type === 3 && data.images.length > 0 ? data.images[0] : undefined,
+      share_url: data.type === 4 ? data.shareUrl : undefined,
+      open_reply: true,
+    }).then(r => {
+      if (!r.success) {
+        toast.error(r.message || '发布失败');
+        return;
+      }
+      setShowPublish(false);
+      toast.success('动态已发布');
+      loadFeed();
+    }).catch(err => {
+      console.error('publish error', err);
+      toast.error('发布失败');
+    });
+  }, [token, loadFeed]);
 
   // ── Notification handlers ──
   const handleMarkAllRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    toast.success('已全部标记为已读');
-  }, []);
+    if (!token) return;
+    const unreadReplies = notifications.filter(n => !n.read && n.type === 'reply').map(n => n.id);
+    const unreadLikes = notifications.filter(n => !n.read && n.type === 'like').map(n => n.id);
+    const ops: Promise<unknown>[] = [];
+    if (unreadReplies.length) ops.push(markCommentsRead(token, unreadReplies));
+    if (unreadLikes.length) ops.push(markLikesRead(token, unreadLikes));
+    Promise.all(ops).then(() => {
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      toast.success('已全部标记为已读');
+    }).catch(() => toast.error('标记失败'));
+  }, [token, notifications]);
 
   const handleNotifClick = useCallback((notif: MomentsNotification) => {
+    if (!notif.read && token) {
+      if (notif.type === 'reply') markCommentsRead(token, [notif.id]).catch(() => {});
+      else markLikesRead(token, [notif.id]).catch(() => {});
+    }
     setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
     if (isMobile) {
       setDetailTrendId(notif.trendId);
@@ -1243,55 +1377,90 @@ export default function MomentsFeed() {
       setSelectedTrendId(notif.trendId);
       setView('feed');
     }
-  }, [isMobile, setSelectedTrendId]);
+  }, [isMobile, setSelectedTrendId, token]);
 
   // ── Trend management ──
+  // The ActionMenu items are constructed inline in the render; this handler just opens the menu.
   const handleManageTrend = useCallback((trendId: number, x: number, y: number) => {
     const trend = trends.find(t => t.id === trendId);
     if (!trend || trend.userId !== 'me') return;
-
-    const items: ActionMenuItem[] = [
-      {
-        label: trend.isTop ? '取消置顶' : '置顶',
-        icon: trend.isTop ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />,
-        onClick: () => {
-          setTrends(prev => prev.map(t => t.id === trendId ? { ...t, isTop: !t.isTop } : t));
-          toast.success(trend.isTop ? '已取消置顶' : '已置顶');
-        },
-      },
-      {
-        label: trend.openReply ? '关闭评论' : '开启评论',
-        icon: trend.openReply ? <MessageSquareOff className="w-3.5 h-3.5" /> : <MessageCircle className="w-3.5 h-3.5" />,
-        onClick: () => {
-          setTrends(prev => prev.map(t => t.id === trendId ? { ...t, openReply: !t.openReply } : t));
-          toast.success(trend.openReply ? '评论已关闭' : '评论已开启');
-        },
-      },
-      {
-        label: '删除动态',
-        color: '#FF5252',
-        icon: <Trash2 className="w-3.5 h-3.5" />,
-        onClick: () => {
-          doConfirm('删除动态', '确定删除这条动态吗？删除后不可恢复。', '删除', '#E53935', () => {
-            setTrends(prev => prev.filter(t => t.id !== trendId));
-            setCommentsMap(prev => { const next = { ...prev }; delete next[trendId]; return next; });
-            setLikeUsersMap(prev => { const next = { ...prev }; delete next[trendId]; return next; });
-            toast.success('动态已删除');
-          });
-        },
-      },
-    ];
     setActionMenu({ x, y, trendId });
-  }, [trends, doConfirm]);
+  }, [trends]);
+
+  // API-backed toggle of pin/reply; optimistic with rollback.
+  const handleToggleTrendField = useCallback((trendId: number, field: 'isTop' | 'openReply') => {
+    if (!token) return;
+    const trend = trends.find(t => t.id === trendId);
+    if (!trend) return;
+    const currentVal = trend[field];
+    // Optimistic
+    setTrends(prev => prev.map(t => t.id === trendId ? { ...t, [field]: !currentVal } : t));
+    const body: { trend_id: number; is_top?: number; open_reply?: number } = { trend_id: trendId };
+    if (field === 'isTop') body.is_top = currentVal ? 0 : 1;
+    else body.open_reply = currentVal ? 0 : 1;
+    apiUpdateTrend(token, body).then(r => {
+      if (!r.success) throw new Error(r.message);
+      toast.success(
+        field === 'isTop'
+          ? (currentVal ? '已取消置顶' : '已置顶')
+          : (currentVal ? '评论已关闭' : '评论已开启'),
+      );
+    }).catch(err => {
+      console.error('updateTrend error', err);
+      setTrends(prev => prev.map(t => t.id === trendId ? { ...t, [field]: currentVal } : t));
+      toast.error('操作失败');
+    });
+  }, [token, trends]);
+
+  const handleDeleteTrend = useCallback((trendId: number) => {
+    if (!token) return;
+    apiDeleteTrend(token, trendId).then(r => {
+      if (!r.success) {
+        toast.error(r.message || '删除失败');
+        return;
+      }
+      setTrends(prev => prev.filter(t => t.id !== trendId));
+      setCommentsMap(prev => { const next = { ...prev }; delete next[trendId]; return next; });
+      setLikeUsersMap(prev => { const next = { ...prev }; delete next[trendId]; return next; });
+      toast.success('动态已删除');
+    }).catch(() => toast.error('删除失败'));
+  }, [token]);
 
   // ── Navigation ──
-  const handleAvatarClick = useCallback((userId: string) => {
+  const handleAvatarClick = useCallback((userId: string, userName?: string) => {
     if (userId === 'me') return;
     setUserTrendsUserId(userId);
+    setUserTrendsUserName(userName || '');
     setView('userTrends');
     setSearchQuery('');
     setExpandedTrendIds(new Set());
   }, []);
+
+  // Load user-trends when entering that view.
+  useEffect(() => {
+    if (view !== 'userTrends' || !userTrendsUserId || !token) return;
+    (async () => {
+      try {
+        const r = await getUserTrends(token, userTrendsUserId);
+        if (r.success && r.data) {
+          const list = (r.data.list || []).map(t => mapBackendTrend(t, meUserId));
+          const topList = (r.data.top_list || []).map(t => mapBackendTrend(t, meUserId));
+          const combined = [...topList, ...list];
+          // Merge user trends into the trends state (replace if id exists, else add).
+          setTrends(prev => {
+            const byId = new Map(prev.map(t => [t.id, t]));
+            combined.forEach(t => byId.set(t.id, t));
+            return Array.from(byId.values());
+          });
+          if (!userTrendsUserName && combined.length > 0 && combined[0].userName) {
+            setUserTrendsUserName(combined[0].userName);
+          }
+        }
+      } catch (err) {
+        console.error('getUserTrends error', err);
+      }
+    })();
+  }, [view, userTrendsUserId, token, meUserId, userTrendsUserName]);
 
   const handleBackFromUserTrends = useCallback(() => {
     setView('feed');
@@ -1382,9 +1551,9 @@ export default function MomentsFeed() {
       </div>
       <div className="absolute" style={{ bottom: -16, left: 12 }}>
         <div
-          style={{ width: 68, height: 68, borderRadius: '50%', backgroundColor: getAvatarColor(currentUser.name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 600, color: '#FFF', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
+          style={{ width: 68, height: 68, borderRadius: '50%', backgroundColor: getAvatarColor(meName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 600, color: '#FFF', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
         >
-          {currentUser.name[0]}
+          {meName[0]}
         </div>
       </div>
     </div>
@@ -1392,8 +1561,8 @@ export default function MomentsFeed() {
 
   const renderUserInfo = () => (
     <div style={{ padding: '20px 12px 10px' }}>
-      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>{currentUser.name}</h3>
-      <p style={{ fontSize: '12px', color: '#708499', marginTop: 2 }}>{currentUser.signature}</p>
+      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>{meName}</h3>
+      <p style={{ fontSize: '12px', color: '#708499', marginTop: 2 }}>{meSignature}</p>
     </div>
   );
 
@@ -1448,7 +1617,7 @@ export default function MomentsFeed() {
                   onSubmitComment={() => handleSubmitComment(trend.id, commentTexts[trend.id] || '', replyTargets[trend.id] || null)}
                   onDeleteComment={(c) => handleDeleteComment(trend.id, c)}
                   onOpenDetail={() => handleOpenDetail(trend.id)}
-                  onAvatarClick={() => handleAvatarClick(trend.userId)}
+                  onAvatarClick={() => handleAvatarClick(trend.userId, trendDisplayName(trend))}
                   onManage={(x, y) => handleManageTrend(trend.id, x, y)}
                 />
               ))
@@ -1513,24 +1682,12 @@ export default function MomentsFeed() {
               {
                 label: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.isTop ? '取消置顶' : '置顶'; })(),
                 icon: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.isTop ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />; })(),
-                onClick: () => {
-                  const tid = actionMenu.trendId;
-                  const t = trends.find(tr => tr.id === tid);
-                  if (!t) return;
-                  setTrends(prev => prev.map(tr => tr.id === tid ? { ...tr, isTop: !tr.isTop } : tr));
-                  toast.success(t.isTop ? '已取消置顶' : '已置顶');
-                },
+                onClick: () => handleToggleTrendField(actionMenu.trendId, 'isTop'),
               },
               {
                 label: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.openReply ? '关闭评论' : '开启评论'; })(),
                 icon: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.openReply ? <MessageSquareOff className="w-3.5 h-3.5" /> : <MessageCircle className="w-3.5 h-3.5" />; })(),
-                onClick: () => {
-                  const tid = actionMenu.trendId;
-                  const t = trends.find(tr => tr.id === tid);
-                  if (!t) return;
-                  setTrends(prev => prev.map(tr => tr.id === tid ? { ...tr, openReply: !tr.openReply } : tr));
-                  toast.success(t.openReply ? '评论已关闭' : '评论已开启');
-                },
+                onClick: () => handleToggleTrendField(actionMenu.trendId, 'openReply'),
               },
               {
                 label: '删除动态',
@@ -1538,12 +1695,7 @@ export default function MomentsFeed() {
                 icon: <Trash2 className="w-3.5 h-3.5" />,
                 onClick: () => {
                   const tid = actionMenu.trendId;
-                  doConfirm('删除动态', '确定删除这条动态吗？删除后不可恢复。', '删除', '#E53935', () => {
-                    setTrends(prev => prev.filter(tr => tr.id !== tid));
-                    setCommentsMap(prev => { const next = { ...prev }; delete next[tid]; return next; });
-                    setLikeUsersMap(prev => { const next = { ...prev }; delete next[tid]; return next; });
-                    toast.success('动态已删除');
-                  });
+                  doConfirm('删除动态', '确定删除这条动态吗？删除后不可恢复。', '删除', '#E53935', () => handleDeleteTrend(tid));
                 },
               },
             ]}
@@ -1759,13 +1911,7 @@ export default function MomentsFeed() {
               {
                 label: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.isTop ? '取消置顶' : '置顶'; })(),
                 icon: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.isTop ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />; })(),
-                onClick: () => {
-                  const tid = actionMenu.trendId;
-                  const t = trends.find(tr => tr.id === tid);
-                  if (!t) return;
-                  setTrends(prev => prev.map(tr => tr.id === tid ? { ...tr, isTop: !tr.isTop } : tr));
-                  toast.success(t.isTop ? '已取消置顶' : '已置顶');
-                },
+                onClick: () => handleToggleTrendField(actionMenu.trendId, 'isTop'),
               },
               {
                 label: '删除动态',
@@ -1773,10 +1919,7 @@ export default function MomentsFeed() {
                 icon: <Trash2 className="w-3.5 h-3.5" />,
                 onClick: () => {
                   const tid = actionMenu.trendId;
-                  doConfirm('删除动态', '确定删除这条动态吗？', '删除', '#E53935', () => {
-                    setTrends(prev => prev.filter(tr => tr.id !== tid));
-                    toast.success('动态已删除');
-                  });
+                  doConfirm('删除动态', '确定删除这条动态吗？', '删除', '#E53935', () => handleDeleteTrend(tid));
                 },
               },
             ]}
