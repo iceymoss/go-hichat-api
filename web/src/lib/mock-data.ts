@@ -1073,6 +1073,10 @@ export interface Trend {
   shareUrl: string;          // link share (type 4)
   openReply: boolean;
   isTop: boolean;
+  /** Poster display name — filled by the trend-api mapper when loaded from backend. */
+  userName?: string;
+  /** Poster avatar URL — filled by the trend-api mapper when loaded from backend. */
+  userAvatar?: string;
 }
 
 export interface TrendComment {
