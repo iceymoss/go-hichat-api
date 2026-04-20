@@ -61,6 +61,12 @@ interface IMState {
   selectedTrendId: number | null;
   setSelectedTrendId: (id: number | null) => void;
 
+  // Per-trend version counter: any panel that mutates a trend bumps its version;
+  // other panels subscribe to the map and refetch when the version changes for
+  // an id they care about.
+  trendVersions: Record<number, number>;
+  bumpTrendVersion: (trendId: number) => void;
+
   // Me tab sub-page (shown in right panel)
   meSubPage: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null;
   setMeSubPage: (page: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null) => void;
@@ -128,6 +134,10 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   // Trend detail panel
   selectedTrendId: null,
   setSelectedTrendId: (id) => set({ selectedTrendId: id }),
+  trendVersions: {},
+  bumpTrendVersion: (trendId) => set((state) => ({
+    trendVersions: { ...state.trendVersions, [trendId]: (state.trendVersions[trendId] || 0) + 1 },
+  })),
 
   // Me tab sub-page
   meSubPage: null,
