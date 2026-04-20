@@ -40,25 +40,30 @@ func (l *GetTrendDiscussesLogic) GetTrendDiscusses(in *trend.GetDiscussesListReq
 
 	uids := make([]string, 0, len(discusses))
 
-	fatherIds := make([]uint64, 0, len(discusses))
+	rootIds := make([]uint64, 0, len(discusses))
 	for _, v := range discusses {
-		fatherIds = append(fatherIds, v.Id)
+		rootIds = append(rootIds, v.Id)
 	}
 
-	// 获取子评论
-	child, err := l.svcCtx.TrendDiscuss.FindChildrenByFathers(l.ctx, fatherIds, 0, 30)
-	childBind := make(map[int64][]*trend.Discuss, len(child))
+	// 获取子评论 (按根评论id拉取所有后代,不分层级。一级评论的 id 就是其 rootid)
+	child, err := l.svcCtx.TrendDiscuss.FindChildrenByRootIds(l.ctx, rootIds)
+	if err != nil {
+		zLog.Error("GetTrendDiscusses.FindChildrenByRootIds: 获取子评论失败", zap.Any("rootIds", rootIds), zap.Error(err))
+		return nil, errors.New("获取评论失败")
+	}
+	// rootId -> 所有后代(二级、三级...全部打平)
+	childBind := make(map[uint64][]*trend.Discuss, len(child))
 	for _, v := range child {
-		if _, ok := childBind[v.Father]; !ok {
-			childBind[v.Father] = make([]*trend.Discuss, 0)
+		if _, ok := childBind[v.Rootid]; !ok {
+			childBind[v.Rootid] = make([]*trend.Discuss, 0)
 		}
 		uids = append(uids, []string{strconv.Itoa(int(v.Replyer)), strconv.Itoa(int(v.Userid))}...)
-		childBind[v.Father] = append(childBind[v.Father], convertToReply(v))
+		childBind[v.Rootid] = append(childBind[v.Rootid], convertToReply(v))
 	}
 
 	// 一级评论
 	// 动态id => {[
-	//   一级评论 => {[二级评论]}
+	//   一级评论 => {[该根评论下的所有回复(二级、三级...)]}
 	//]}
 	//
 	listBind := make(map[uint32]*trend.TrendDiscusses, len(in.TrendId))
@@ -69,9 +74,8 @@ func (l *GetTrendDiscussesLogic) GetTrendDiscusses(in *trend.GetDiscussesListReq
 			}
 		}
 		uids = append(uids, []string{strconv.Itoa(int(v.Replyer)), strconv.Itoa(int(v.Userid))}...)
-		// 加入二级评论
 		rootDiscuss := convertToReply(v)
-		rootDiscuss.Children = childBind[int64(v.Id)]
+		rootDiscuss.Children = childBind[v.Id]
 		listBind[uint32(v.Trendid)].List = append(listBind[uint32(v.Trendid)].List, rootDiscuss)
 	}
 

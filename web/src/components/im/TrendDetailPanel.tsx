@@ -71,6 +71,7 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
   const [showActions, setShowActions] = useState(false);
   const isOwn = comment.replyer.id === 'me';
   const userName = comment.replyer.name;
+  const userAvatar = comment.replyer.avatar;
   const replyToName = comment.user?.name;
 
   return (
@@ -82,6 +83,7 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
     >
       <div className="flex gap-2.5">
         <div
+          className="overflow-hidden"
           style={{
             width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
             backgroundColor: getAvatarColor(userName),
@@ -89,7 +91,11 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
             fontSize: 13, fontWeight: 600, color: '#FFF',
           }}
         >
-          {userName[0]}
+          {userAvatar ? (
+            <img src={userAvatar} alt="" className="w-full h-full object-cover" />
+          ) : (
+            userName[0]
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -147,7 +153,7 @@ function LikeAvatarItem({ user }: { user: { id: string; name: string; avatar: st
   const displayName = user.id === 'me' ? '我' : (name || user.id);
   return (
     <div
-      className="relative"
+      className="relative overflow-hidden"
       style={{
         width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
         backgroundColor: getAvatarColor(name),
@@ -159,7 +165,11 @@ function LikeAvatarItem({ user }: { user: { id: string; name: string; avatar: st
       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.15)'; setShowTip(true); }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; setShowTip(false); }}
     >
-      {name[0]}
+      {user.avatar ? (
+        <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+      ) : (
+        name[0]
+      )}
       {showTip && (
         <div
           className="absolute"
@@ -182,7 +192,8 @@ function LikeAvatarItem({ user }: { user: { id: string; name: string; avatar: st
    ═══════════════════════════════════════ */
 
 export default function TrendDetailPanel() {
-  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth } = useIMStore();
+  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion } = useIMStore();
+  const trendVersion = selectedTrendId != null ? (trendVersions[selectedTrendId] || 0) : 0;
   const token = meAuth?.token || '';
   const meUserId = meAuth?.id || '';
   const meName = meAuth?.name || mockCurrentUser.name;
@@ -241,7 +252,7 @@ export default function TrendDetailPanel() {
       }
     })().catch(err => console.error('TrendDetailPanel load error', err));
     return () => { cancelled = true; };
-  }, [selectedTrendId, token, meUserId]);
+  }, [selectedTrendId, token, meUserId, trendVersion]);
 
   // Handlers
   const handleClose = useCallback(() => {
@@ -271,7 +282,10 @@ export default function TrendDetailPanel() {
 
     const authorIdStr = trend.userId === 'me' ? meUserId : trend.userId;
     const authorId = Number(authorIdStr) || 0;
-    apiToggleLike(token, selectedTrendId, authorId, 1).catch(err => {
+    // like_type: 1 点赞 / 0 取消 (后端按 LikeType > 0 判加减)
+    apiToggleLike(token, selectedTrendId, authorId, wasLiked ? 0 : 1).then(() => {
+      bumpTrendVersion(selectedTrendId);
+    }).catch(err => {
       console.error('toggleLike error', err);
       setLiked(wasLiked);
       setLikeUsers(prev => wasLiked
@@ -280,7 +294,7 @@ export default function TrendDetailPanel() {
       setTrend(t => t ? { ...t, agreeCount: wasLiked ? t.agreeCount + 1 : Math.max(0, t.agreeCount - 1) } : t);
       toast.error('点赞操作失败');
     });
-  }, [selectedTrendId, trend, token, liked, meUserId, meName, meAvatar]);
+  }, [selectedTrendId, trend, token, liked, meUserId, meName, meAvatar, bumpTrendVersion]);
 
   const handleSubmitComment = useCallback(() => {
     if (!selectedTrendId || !commentText.trim() || !token || !trend) return;
@@ -305,12 +319,13 @@ export default function TrendDetailPanel() {
       }
       await refreshComments();
       setTrend(t => t ? { ...t, replyCount: t.replyCount + 1 } : t);
+      bumpTrendVersion(selectedTrendId);
       toast.success('评论已发布');
     }).catch(err => {
       console.error('createComment error', err);
       toast.error('评论失败');
     });
-  }, [selectedTrendId, commentText, replyTarget, token, trend, meUserId, refreshComments]);
+  }, [selectedTrendId, commentText, replyTarget, token, trend, meUserId, refreshComments, bumpTrendVersion]);
 
   const handleDeleteComment = useCallback((comment: TrendComment) => {
     if (!selectedTrendId || !token) return;
@@ -321,9 +336,10 @@ export default function TrendDetailPanel() {
       }
       await refreshComments();
       setTrend(t => t ? { ...t, replyCount: Math.max(0, t.replyCount - 1) } : t);
+      bumpTrendVersion(selectedTrendId);
       toast.success('评论已删除');
     }).catch(() => toast.error('删除失败'));
-  }, [selectedTrendId, token, refreshComments]);
+  }, [selectedTrendId, token, refreshComments, bumpTrendVersion]);
 
   const imageGridClass = (count: number) => {
     if (count === 1) return 'grid-cols-1';

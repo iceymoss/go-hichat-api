@@ -50,6 +50,8 @@ import {
   updateTrend as apiUpdateTrend,
   getLatestTrends,
   getUserTrends,
+  getTrendDetail,
+  getLikedUsers,
   getCommentTree,
   createComment,
   deleteComment as apiDeleteComment,
@@ -1048,7 +1050,7 @@ type NotifTab = 'all' | 'reply' | 'like';
 
 export default function MomentsFeed() {
   const isMobile = useIsMobile();
-  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth } = useIMStore();
+  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion } = useIMStore();
   const meName = meAuth?.name || mockCurrentUser.name;
   const meAvatar = meAuth?.avatar || mockCurrentUser.avatar;
   const meSignature = meAuth?.introduction || mockCurrentUser.signature;
@@ -1151,6 +1153,59 @@ export default function MomentsFeed() {
     loadNotifications();
   }, [token, loadFeed, loadNotifications]);
 
+  // Re-sync a single trend (meta + comments + like users) into local state.
+  // Called when an external panel (e.g. TrendDetailPanel) bumps the trend version.
+  const refreshTrend = useCallback(async (trendId: number) => {
+    if (!token) return;
+    try {
+      const [detailRes, treeRes, likedUsersRes] = await Promise.all([
+        getTrendDetail(token, trendId),
+        getCommentTree(token, [trendId]),
+        getLikedUsers(token, trendId, 0, 100),
+      ]);
+      if (detailRes.success && detailRes.data?.trend) {
+        const mapped = mapBackendTrend(detailRes.data.trend, meUserId);
+        setTrends(prev => prev.map(t => t.id === trendId ? mapped : t));
+      }
+      if (treeRes.success && treeRes.data) {
+        const map = commentTreeToMap(treeRes.data, meUserId);
+        setCommentsMap(prev => ({ ...prev, [trendId]: map[trendId] || [] }));
+      }
+      if (likedUsersRes.success && likedUsersRes.data) {
+        const users = (likedUsersRes.data.users || []).map(u => ({
+          id: u.id === meUserId ? 'me' : u.id,
+          name: u.nickname || '',
+          avatar: u.avatar || '',
+        }));
+        setLikeUsersMap(prev => ({ ...prev, [trendId]: users }));
+        setLikedTrends(prev => {
+          const next = new Set(prev);
+          if (users.some(u => u.id === 'me')) next.add(trendId); else next.delete(trendId);
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error('refreshTrend error', err);
+    }
+  }, [token, meUserId]);
+
+  // Watch per-trend version bumps and refetch only ids this component has
+  // not yet applied. Using a ref avoids re-fetching from our own mutations
+  // more than once — we update the ref right after any refresh.
+  const seenVersionsRef = useRef<Record<number, number>>({});
+  useEffect(() => {
+    if (!token || trends.length === 0) return;
+    const seen = seenVersionsRef.current;
+    const ids = trends.map(t => t.id);
+    ids.forEach(id => {
+      const v = trendVersions[id] || 0;
+      if (v > (seen[id] || 0)) {
+        seen[id] = v;
+        refreshTrend(id);
+      }
+    });
+  }, [token, trendVersions, trends, refreshTrend]);
+
   // ── Computed ──
   const unreadNotifCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
@@ -1226,8 +1281,12 @@ export default function MomentsFeed() {
 
     const authorIdStr = trendAuthorBackendId(trendId);
     const authorId = Number(authorIdStr) || 0;
-    apiToggleLike(token, trendId, authorId, 1).then(r => {
+    // like_type: 1 点赞 / 0 取消 (后端按 LikeType > 0 判加减)
+    apiToggleLike(token, trendId, authorId, wasLiked ? 0 : 1).then(r => {
       if (!r.success) throw new Error(r.message || 'toggle failed');
+      // Bump after our own seen-version is already at the current value, so no extra refetch.
+      seenVersionsRef.current[trendId] = (trendVersions[trendId] || 0) + 1;
+      bumpTrendVersion(trendId);
     }).catch(err => {
       console.error('toggleLike error', err);
       // Rollback optimistic update
@@ -1299,12 +1358,14 @@ export default function MomentsFeed() {
       await refreshCommentsFor(trendId);
       setTrends(ts => ts.map(t => t.id === trendId ? { ...t, replyCount: t.replyCount + 1 } : t));
       setExpandedTrendIds(prev => new Set(prev).add(trendId));
+      seenVersionsRef.current[trendId] = (trendVersions[trendId] || 0) + 1;
+      bumpTrendVersion(trendId);
       toast.success('评论已发布');
     }).catch(err => {
       console.error('createComment error', err);
       toast.error('评论失败');
     });
-  }, [token, trends, meUserId, refreshCommentsFor]);
+  }, [token, trends, meUserId, refreshCommentsFor, trendVersions, bumpTrendVersion]);
 
   const handleDeleteComment = useCallback((trendId: number, comment: TrendComment) => {
     if (!token) return;
@@ -1316,10 +1377,12 @@ export default function MomentsFeed() {
         }
         await refreshCommentsFor(trendId);
         setTrends(ts => ts.map(t => t.id === trendId ? { ...t, replyCount: Math.max(0, t.replyCount - 1) } : t));
+        seenVersionsRef.current[trendId] = (trendVersions[trendId] || 0) + 1;
+        bumpTrendVersion(trendId);
         toast.success('评论已删除');
       }).catch(() => toast.error('删除失败'));
     });
-  }, [token, doConfirm, refreshCommentsFor]);
+  }, [token, doConfirm, refreshCommentsFor, trendVersions, bumpTrendVersion]);
 
   // ── Publish handler ──
   const handlePublish = useCallback((data: { type: number; content: string; title: string; images: string[]; shareUrl: string; location: string; scope: number }) => {
@@ -1400,6 +1463,8 @@ export default function MomentsFeed() {
     else body.open_reply = currentVal ? 0 : 1;
     apiUpdateTrend(token, body).then(r => {
       if (!r.success) throw new Error(r.message);
+      seenVersionsRef.current[trendId] = (trendVersions[trendId] || 0) + 1;
+      bumpTrendVersion(trendId);
       toast.success(
         field === 'isTop'
           ? (currentVal ? '已取消置顶' : '已置顶')
@@ -1410,7 +1475,7 @@ export default function MomentsFeed() {
       setTrends(prev => prev.map(t => t.id === trendId ? { ...t, [field]: currentVal } : t));
       toast.error('操作失败');
     });
-  }, [token, trends]);
+  }, [token, trends, trendVersions, bumpTrendVersion]);
 
   const handleDeleteTrend = useCallback((trendId: number) => {
     if (!token) return;
@@ -1419,12 +1484,15 @@ export default function MomentsFeed() {
         toast.error(r.message || '删除失败');
         return;
       }
+      // Close the detail panel if it was showing the deleted trend.
+      if (selectedTrendId === trendId) setSelectedTrendId(null);
+      bumpTrendVersion(trendId);
       setTrends(prev => prev.filter(t => t.id !== trendId));
       setCommentsMap(prev => { const next = { ...prev }; delete next[trendId]; return next; });
       setLikeUsersMap(prev => { const next = { ...prev }; delete next[trendId]; return next; });
       toast.success('动态已删除');
     }).catch(() => toast.error('删除失败'));
-  }, [token]);
+  }, [token, selectedTrendId, setSelectedTrendId, bumpTrendVersion]);
 
   // ── Navigation ──
   const handleAvatarClick = useCallback((userId: string, userName?: string) => {
