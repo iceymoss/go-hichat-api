@@ -1,0 +1,8 @@
+- 服务边界严格按 `apps/<svc>/` 划分，跨服务**不**直接读对方数据库表
+- 跨服务调用必须走 RPC client（详见 [`rpc-client.md`](rpc-client.md)）
+- 不要把 user / im / social / trend 的 model 互相 import；要数据就调 RPC
+- 共享逻辑放 `pkg/`，不要在 `apps/<svc>/` 之间互相 import 业务包
+- 异步事件（消息推送、动态扩散）走 Kafka，不要 RPC 同步阻塞
+- 数据所有权：每个服务独占自己的库表；跨服务一致性用最终一致 + 补偿
+- 服务发现走 etcd；本地开发 yaml 里写明 etcd 地址，不要写死 IP
+- 新增服务时检查端口不冲突：`grep -RnE "Port|Listen" apps/*/etc/*.yaml`
