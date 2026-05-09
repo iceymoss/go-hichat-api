@@ -1,0 +1,11 @@
+- WS 入口：`apps/im/ws/`，连接管理、心跳、ack 在这里实现
+- 每个连接对应一个用户 session；连接 map 是共享状态，**必须加锁**或使用 sync.Map
+- 心跳：客户端定时 ping，服务端超时未收到 ping 关连接（避免幽灵连接堆积）
+- 消息可靠性走 ack 机制：客户端收到消息回 ack，未 ack 的存入 redis pending 队列重发
+- goroutine 泄漏防护：每个连接的读写 goroutine 在连接关闭时必须能退出（context cancel + channel close）
+- 写连接前确认 conn 没被关闭（`defer conn.Close()` 后再写会 panic）
+- 消息格式：JSON，序列化用 `common.Marshal/Unmarshal`
+- 大量在线用户场景下，广播必须走批处理 / 分片，不要 N 个 goroutine 直推
+- 离线消息：写 MongoDB chatLog；上线时按 conversationId + seq 拉取
+- 在线状态在 Redis：`user:online:<uid> -> ws_node_id`，下线时 DEL
+- 跨节点投递（用户在 A 节点，发消息的人在 B 节点）：通过 Kafka topic 路由

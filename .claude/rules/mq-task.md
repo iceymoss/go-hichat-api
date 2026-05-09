@@ -1,0 +1,10 @@
+- 异步消费在 `apps/task/mq/`，定时任务在 `apps/task/cron/`
+- Kafka 消息体 JSON，用 `common.Marshal/Unmarshal`
+- 消费**必须幂等**：同一条消息重复消费不能产生副作用（用唯一 key 去重 / 数据库唯一约束）
+- 消费失败：可重试错误抛出让 Kafka 重投；不可重试错误打日志 + 写死信主题，不要无脑 panic
+- 不要在消费者里做长事务 / 大批量同步 RPC，会拖死 consumer group
+- topic 命名：`<domain>.<event>.v<n>`（如 `im.message.sent.v1`），版本随 schema 演进
+- schema 演进：新字段必须能与旧版本共存，消费者代码用宽容反序列化
+- 定时任务：cron 表达式集中在 yaml 配置，不要分散在代码里
+- 定时任务**必须**支持单实例锁（Redis 分布式锁），避免多副本同时跑
+- 长任务可中断：每轮检查 ctx.Done()，优雅退出
