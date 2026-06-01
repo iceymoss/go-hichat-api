@@ -24,6 +24,8 @@ type (
 	GetConversationsResp        = im.GetConversationsResp
 	PutConversationsReq         = im.PutConversationsReq
 	PutConversationsResp        = im.PutConversationsResp
+	SetConversationSettingsReq  = im.SetConversationSettingsReq
+	SetConversationSettingsResp = im.SetConversationSettingsResp
 	SetUpUserConversationReq    = im.SetUpUserConversationReq
 	SetUpUserConversationResp   = im.SetUpUserConversationResp
 
@@ -38,6 +40,8 @@ type (
 		PutConversations(ctx context.Context, in *PutConversationsReq, opts ...grpc.CallOption) (*PutConversationsResp, error)
 		// 创建群会话
 		CreateGroupConversation(ctx context.Context, in *CreateGroupConversationReq, opts ...grpc.CallOption) (*CreateGroupConversationResp, error)
+		// 设置会话置顶/免打扰
+		SetConversationSettings(ctx context.Context, in *SetConversationSettingsReq, opts ...grpc.CallOption) (*SetConversationSettingsResp, error)
 	}
 
 	defaultIm struct {
@@ -79,4 +83,10 @@ func (m *defaultIm) PutConversations(ctx context.Context, in *PutConversationsRe
 func (m *defaultIm) CreateGroupConversation(ctx context.Context, in *CreateGroupConversationReq, opts ...grpc.CallOption) (*CreateGroupConversationResp, error) {
 	client := im.NewImClient(m.cli.Conn())
 	return client.CreateGroupConversation(ctx, in, opts...)
+}
+
+// 设置会话置顶/免打扰
+func (m *defaultIm) SetConversationSettings(ctx context.Context, in *SetConversationSettingsReq, opts ...grpc.CallOption) (*SetConversationSettingsResp, error) {
+	client := im.NewImClient(m.cli.Conn())
+	return client.SetConversationSettings(ctx, in, opts...)
 }

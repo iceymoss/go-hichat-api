@@ -16,14 +16,21 @@ type (
 		MsgContent     string `json:"msgContent,omitempty"`
 		ChatType       int32  `json:"chatType,omitempty"`
 		SendTime       int64  `json:"sendTime,omitempty"` // 修正字段名统一小写
+		ReadRecords    string `json:"readRecords,omitempty"` // base64(bitmap)。私聊为 "AQ=="（对方已读）/空（未读），群聊为每成员 bit 位图
 	}
 	Conversation {
-		ConversationId string  `json:"conversationId,omitempty"`
-		ChatType       int32   `json:"chatType,omitempty"` // 修正字段名统一小写
-		IsShow         bool    `json:"isShow,omitempty"`
-		Seq            int64   `json:"seq,omitempty"`
-		Read           int32   `json:"read"`
-		Msg            ChatLog `json:"message, optional"`
+		ConversationId string  `json:"conversationId,optional,omitempty"`
+		ChatType       int32   `json:"chatType,optional,omitempty"`
+		IsShow         bool    `json:"isShow,optional,omitempty"`
+		IsTop          bool    `json:"isTop,optional,omitempty"` // 会话置顶
+		IsMute         bool    `json:"isMute,optional,omitempty"` // 消息免打扰
+		Seq            int64   `json:"seq,optional,omitempty"`
+		Read           int32   `json:"read,optional,omitempty"`
+		Msg            ChatLog `json:"message,optional,omitempty"`
+		// 附带的用户/群信息（API 层填充，前端无需二次查询）
+		TargetName   string `json:"targetName,optional,omitempty"`
+		TargetAvatar string `json:"targetAvatar,optional,omitempty"`
+		MemberCount  int    `json:"memberCount,optional,omitempty"`
 	}
 )
 
@@ -60,6 +67,12 @@ type (
 		Reads   []string `json:"reads"`
 		UnReads []string `json:"unReads"`
 	}
+	SetConversationSettingsReq {
+		ConversationId string `json:"conversationId"`
+		IsTop          bool   `json:"isTop,optional"`
+		IsMute         bool   `json:"isMute,optional"`
+	}
+	SetConversationSettingsResp  {}
 )
 
 @server (
@@ -86,5 +99,9 @@ service im {
 	@doc "更新会话"
 	@handler putConversations
 	put /conversation (PutConversationsReq) returns (PutConversationsResp)
+
+	@doc "设置会话置顶/免打扰"
+	@handler setConversationSettings
+	put /conversation/settings (SetConversationSettingsReq) returns (SetConversationSettingsResp)
 }
 

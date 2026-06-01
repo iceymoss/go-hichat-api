@@ -19,6 +19,7 @@ import {
   getConversations,
   setupConversation,
   updateConversations,
+  setConversationSettings as apiSetConversationSettings,
   type ChatLogItem,
   type ConversationItem,
   type BackendUser,
@@ -91,6 +92,7 @@ interface ChatState {
   markRead: (userId: string, conversationId: string, msgIds: string[]) => void;
   getOrCreateConversation: (token: string, userId: string, targetId: string) => Promise<Conversation>;
   deleteConversation: (token: string, conversationId: string) => void;
+  setConversationSettings: (token: string, conversationId: string, settings: { pinned?: boolean; muted?: boolean }) => Promise<void>;
   clearUnread: (conversationId: string) => void;
   fetchGroupMembers: (token: string, groupId: string) => Promise<void>;
 }
@@ -410,6 +412,30 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }).catch(err => console.error('[ChatStore] deleteConversation failed:', err));
   },
 
+  // ==================== 置顶 / 免打扰 ====================
+
+  setConversationSettings: async (token, conversationId, settings) => {
+    const prev = get().conversations;
+    const target = prev.find(c => c.id === conversationId);
+    if (!target) return;
+    const nextPinned = settings.pinned ?? target.pinned;
+    const nextMuted = settings.muted ?? target.muted;
+
+    // 乐观更新
+    set({
+      conversations: prev.map(c =>
+        c.id === conversationId ? { ...c, pinned: nextPinned, muted: nextMuted } : c
+      ),
+    });
+
+    try {
+      await apiSetConversationSettings(token, conversationId, nextPinned, nextMuted);
+    } catch (e) {
+      console.error('[ChatStore] setConversationSettings failed:', e);
+      set({ conversations: prev }); // 失败回滚
+    }
+  },
+
   // ==================== 清除未读 ====================
 
   clearUnread: (conversationId) => {
@@ -500,8 +526,8 @@ function mapConversation(raw: ConversationItem): Conversation {
     lastMessage: msg?.msgContent || '',
     lastMessageTime: msg?.sendTime ? parseTimestamp(msg.sendTime) : new Date(),
     unreadCount: calcUnread(raw.seq, raw.read),
-    pinned: false,
-    muted: false,
+    pinned: !!raw.isTop,
+    muted: !!raw.isMute,
     members: (raw as any).memberCount || undefined,
   };
 }
@@ -753,9 +779,10 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     return { messagesMap: { ...s.messagesMap, [convId]: msgs }, conversations: convs };
   });
 
-  // 收到别人的消息 → 播放提示音 + 振动
+  // 收到别人的消息 → 播放提示音 + 振动（免打扰会话不提示）
   if (chat.sendId !== currentUserId && typeof window !== 'undefined') {
-    notifyNewMessage();
+    const convMuted = useChatStore.getState().conversations.find(c => c.id === convId)?.muted;
+    if (!convMuted) notifyNewMessage();
   }
 
   const token = useIMStore.getState().currentUser?.token;

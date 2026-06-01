@@ -39,6 +39,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: putConversationsHandler(serverCtx),
 			},
 			{
+				// 设置会话置顶/免打扰
+				Method:  http.MethodPut,
+				Path:    "/conversation/settings",
+				Handler: setConversationSettingsHandler(serverCtx),
+			},
+			{
 				// 建立会话
 				Method:  http.MethodPost,
 				Path:    "/setup/conversation",

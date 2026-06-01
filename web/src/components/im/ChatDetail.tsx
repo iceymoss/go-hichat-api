@@ -307,6 +307,9 @@ export default function ChatDetail() {
       ...prev,
       [selectedConversationId]: { ...(prev[selectedConversationId] || {}), muted },
     }));
+    if (currentUser?.token) {
+      useChatStore.getState().setConversationSettings(currentUser.token, selectedConversationId, { muted });
+    }
   };
 
   const handlePinnedChange = (pinned: boolean) => {
@@ -315,6 +318,9 @@ export default function ChatDetail() {
       ...prev,
       [selectedConversationId]: { ...(prev[selectedConversationId] || {}), pinned },
     }));
+    if (currentUser?.token) {
+      useChatStore.getState().setConversationSettings(currentUser.token, selectedConversationId, { pinned });
+    }
   };
 
   const handleClearChat = () => {
