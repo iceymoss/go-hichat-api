@@ -33,6 +33,10 @@ message Conversation {
   // 已读消息
   int32 Read = 9;
   ChatLog msg = 8;
+  // 会话置顶（每用户每会话设置）
+  bool isTop = 10;
+  // 消息免打扰（每用户每会话设置）
+  bool isMute = 11;
 }
 
 // ------------ req resp ---------------
@@ -76,6 +80,14 @@ message CreateGroupConversationReq {
 }
 message CreateGroupConversationResp {}
 
+message SetConversationSettingsReq {
+  string userId = 1;
+  string conversationId = 2;
+  bool isTop = 3;
+  bool isMute = 4;
+}
+message SetConversationSettingsResp {}
+
 service Im {
   // 获取会话记录
   rpc GetChatLog(GetChatLogReq) returns(GetChatLogResp);
@@ -91,5 +103,8 @@ service Im {
 
   // 创建群会话
   rpc CreateGroupConversation(CreateGroupConversationReq) returns(CreateGroupConversationResp);
+
+  // 设置会话置顶/免打扰
+  rpc SetConversationSettings(SetConversationSettingsReq) returns(SetConversationSettingsResp);
 }
 

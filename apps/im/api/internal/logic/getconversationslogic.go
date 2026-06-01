@@ -68,6 +68,8 @@ func (l *GetConversationsLogic) GetConversations(req *types.GetConversationsReq)
 			ConversationId: v.ConversationId,
 			ChatType:       v.ChatType,
 			IsShow:         v.IsShow,
+			IsTop:          v.IsTop,
+			IsMute:         v.IsMute,
 			Seq:            v.Seq,
 			Read:           v.ToRead,
 			Msg:            message,

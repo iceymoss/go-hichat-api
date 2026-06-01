@@ -22,6 +22,12 @@ type Conversation struct {
 	// 是否展示（不能用 omitempty，否则 false 不会存储）
 	IsShow bool `bson:"isShow"`
 
+	// 会话置顶（不能用 omitempty，否则 false 不会存储）
+	IsTop bool `bson:"isTop"`
+
+	// 消息免打扰（不能用 omitempty，否则 false 不会存储）
+	IsMute bool `bson:"isMute"`
+
 	// 会话下消息总数（不能用 omitempty，否则 0 不会存储）
 	Total int `bson:"total"`
 

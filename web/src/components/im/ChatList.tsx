@@ -435,26 +435,39 @@ function ConversationItem({
             {conversation.lastMessage}
           </span>
           {conversation.unreadCount > 0 && (
-            <span
-              className="conv-unread shrink-0"
-              style={{
-                minWidth: 20,
-                height: 20,
-                padding: '0 6px',
-                borderRadius: 10,
-                background: isActive && !editMode ? undefined : '#3390EC',
-                color: '#FFFFFF',
-                fontSize: 11,
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                lineHeight: 1,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
-            </span>
+            conversation.muted ? (
+              /* 免打扰：仅显示小灰点，不显示数字气泡 */
+              <span
+                className="conv-unread-dot shrink-0"
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  background: 'rgba(255,255,255,0.4)',
+                }}
+              />
+            ) : (
+              <span
+                className="conv-unread shrink-0"
+                style={{
+                  minWidth: 20,
+                  height: 20,
+                  padding: '0 6px',
+                  borderRadius: 10,
+                  background: isActive && !editMode ? undefined : '#3390EC',
+                  color: '#FFFFFF',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+              </span>
+            )
           )}
         </div>
       </div>
@@ -995,17 +1008,21 @@ export function ChatListContent() {
   }, [selectedIds, setLocalConversations]);
 
   const handleTogglePin = useCallback(() => {
-    setLocalConversations((prev) =>
-      prev.map((c) => {
-        if (!selectedIds.has(c.id)) return c;
-        const allSelectedPinned = Array.from(selectedIds).every(
-          (id) => prev.find((conv) => conv.id === id)?.pinned
-        );
-        return { ...c, pinned: !allSelectedPinned };
-      })
+    const token = useIMStore.getState().currentUser?.token;
+    const allSelectedPinned = Array.from(selectedIds).every(
+      (id) => localConversations.find((conv) => conv.id === id)?.pinned
     );
+    const nextPinned = !allSelectedPinned;
+    setLocalConversations((prev) =>
+      prev.map((c) => (selectedIds.has(c.id) ? { ...c, pinned: nextPinned } : c))
+    );
+    if (token) {
+      selectedIds.forEach(id =>
+        useChatStore.getState().setConversationSettings(token, id, { pinned: nextPinned })
+      );
+    }
     toast.success(selectedIds.size > 0 ? '已更新置顶状态' : '');
-  }, [selectedIds, setLocalConversations]);
+  }, [selectedIds, localConversations, setLocalConversations]);
 
   const handleDelete = useCallback(() => {
     setDeleteConfirm(true);
@@ -1024,17 +1041,21 @@ export function ChatListContent() {
   }, [selectedIds, setLocalConversations, setSelectedIds, setDeleteConfirm, setEditMode]);
 
   const handleToggleMute = useCallback(() => {
-    setLocalConversations((prev) =>
-      prev.map((c) => {
-        if (!selectedIds.has(c.id)) return c;
-        const allSelectedMuted = Array.from(selectedIds).every(
-          (id) => prev.find((conv) => conv.id === id)?.muted
-        );
-        return { ...c, muted: !allSelectedMuted };
-      })
+    const token = useIMStore.getState().currentUser?.token;
+    const allSelectedMuted = Array.from(selectedIds).every(
+      (id) => localConversations.find((conv) => conv.id === id)?.muted
     );
+    const nextMuted = !allSelectedMuted;
+    setLocalConversations((prev) =>
+      prev.map((c) => (selectedIds.has(c.id) ? { ...c, muted: nextMuted } : c))
+    );
+    if (token) {
+      selectedIds.forEach(id =>
+        useChatStore.getState().setConversationSettings(token, id, { muted: nextMuted })
+      );
+    }
     toast.success('已更新免打扰状态');
-  }, [selectedIds, setLocalConversations]);
+  }, [selectedIds, localConversations, setLocalConversations]);
 
   // ── Handle clicking a contact → open their conversation ──
   const handleContactClick = useCallback(
@@ -1138,14 +1159,18 @@ export function ChatListContent() {
                   toast.success('会话已删除');
                 }}
                 onTogglePin={() => {
+                  const token = useIMStore.getState().currentUser?.token;
                   setLocalConversations(prev => prev.map(c =>
                     c.id === conv.id ? { ...c, pinned: !c.pinned } : c
                   ));
+                  if (token) useChatStore.getState().setConversationSettings(token, conv.id, { pinned: !conv.pinned });
                 }}
                 onToggleMute={() => {
+                  const token = useIMStore.getState().currentUser?.token;
                   setLocalConversations(prev => prev.map(c =>
                     c.id === conv.id ? { ...c, muted: !c.muted } : c
                   ));
+                  if (token) useChatStore.getState().setConversationSettings(token, conv.id, { muted: !conv.muted });
                 }}
               />
             ))}

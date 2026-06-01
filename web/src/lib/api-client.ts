@@ -198,6 +198,8 @@ export interface ConversationItem {
   conversationId: string;
   chatType: number;
   isShow: boolean;
+  isTop?: boolean;
+  isMute?: boolean;
   seq: number;
   read: number;
   message?: ChatLogItem;
@@ -236,4 +238,9 @@ export function setupConversation(token: string, sendId: string, recvId: string,
 /** 更新会话 */
 export function updateConversations(token: string, conversationList: Record<string, Partial<ConversationItem>>) {
   return imPut('/v1/im/conversation', { conversationList }, token);
+}
+
+/** 设置会话置顶 / 免打扰（全量覆盖两个标记） */
+export function setConversationSettings(token: string, conversationId: string, isTop: boolean, isMute: boolean) {
+  return imPut('/v1/im/conversation/settings', { conversationId, isTop, isMute }, token);
 }

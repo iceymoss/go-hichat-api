@@ -32,6 +32,8 @@ type Conversation struct {
 	ConversationId string  `json:"conversationId,optional,omitempty"`
 	ChatType       int32   `json:"chatType,optional,omitempty"`
 	IsShow         bool    `json:"isShow,optional,omitempty"`
+	IsTop          bool    `json:"isTop,optional,omitempty"`  // 会话置顶
+	IsMute         bool    `json:"isMute,optional,omitempty"` // 消息免打扰
 	Seq            int64   `json:"seq,optional,omitempty"`
 	Read           int32   `json:"read,optional,omitempty"`
 	Msg            ChatLog `json:"message,optional,omitempty"`
@@ -71,6 +73,15 @@ type PutConversationsReq struct {
 }
 
 type PutConversationsResp struct {
+}
+
+type SetConversationSettingsReq struct {
+	ConversationId string `json:"conversationId"`
+	IsTop          bool   `json:"isTop,optional"`
+	IsMute         bool   `json:"isMute,optional"`
+}
+
+type SetConversationSettingsResp struct {
 }
 
 type SetUpUserConversationReq struct {

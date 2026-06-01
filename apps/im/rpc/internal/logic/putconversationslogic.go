@@ -56,8 +56,12 @@ func (l *PutConversationsLogic) PutConversations(in *im.PutConversationsReq) (*i
 
 	for k, i := range in.ConversationList {
 		var oldTotal int
+		// 保留用户已有的置顶/免打扰设置，避免被未读更新/删除会话操作清掉
+		var oldIsTop, oldIsMute bool
 		if conversations.ConversationList[k] != nil {
 			oldTotal = conversations.ConversationList[k].Total
+			oldIsTop = conversations.ConversationList[k].IsTop
+			oldIsMute = conversations.ConversationList[k].IsMute
 		}
 
 		newTotal := int(i.Read) + oldTotal
@@ -72,6 +76,8 @@ func (l *PutConversationsLogic) PutConversations(in *im.PutConversationsReq) (*i
 			ConversationId: i.ConversationId,
 			ChatType:       constants.ChatType(i.ChatType),
 			IsShow:         i.IsShow,
+			IsTop:          oldIsTop,
+			IsMute:         oldIsMute,
 			Total:          newTotal,
 			Seq:            i.Seq,
 		}

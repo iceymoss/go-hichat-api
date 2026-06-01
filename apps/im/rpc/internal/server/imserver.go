@@ -52,3 +52,9 @@ func (s *ImServer) CreateGroupConversation(ctx context.Context, in *im.CreateGro
 	l := logic.NewCreateGroupConversationLogic(ctx, s.svcCtx)
 	return l.CreateGroupConversation(in)
 }
+
+// 设置会话置顶/免打扰
+func (s *ImServer) SetConversationSettings(ctx context.Context, in *im.SetConversationSettingsReq) (*im.SetConversationSettingsResp, error) {
+	l := logic.NewSetConversationSettingsLogic(ctx, s.svcCtx)
+	return l.SetConversationSettings(in)
+}
