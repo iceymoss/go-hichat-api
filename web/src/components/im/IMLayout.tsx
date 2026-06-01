@@ -46,7 +46,8 @@ export default function IMLayout() {
     return friends.find(c => c.id === selectedContactId) || null;
   }, [selectedContactId, friends]);
   const isMobile = useIsMobile();
-  const totalUnread = chatConversations.reduce((sum, c) => sum + c.unreadCount, 0);
+  // 免打扰会话不计入侧边栏总未读气泡（与会话列表只显示小灰点保持一致）
+  const totalUnread = chatConversations.reduce((sum, c) => sum + (c.muted ? 0 : c.unreadCount), 0);
   const t = useT();
 
   const tabLabels: Record<TabType, string> = {
