@@ -430,6 +430,63 @@ export default function ChatDetail() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // 语音录制（Safari 用 m4a，其余用 webm/opus）
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recordStartRef = useRef<number>(0);
+
+  const pickAudioMime = (): { mime: string; ext: string } => {
+    const cands = [
+      { mime: 'audio/webm;codecs=opus', ext: 'webm' },
+      { mime: 'audio/mp4', ext: 'm4a' },
+      { mime: 'audio/webm', ext: 'webm' },
+    ];
+    for (const c of cands) {
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(c.mime)) return c;
+    }
+    return { mime: '', ext: 'webm' };
+  };
+
+  const startRecording = async () => {
+    if (!selectedConversationId || !currentUser?.token || !currentUser?.id) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const { mime, ext } = pickAudioMime();
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      chunksRef.current = [];
+      rec.ondataavailable = (ev) => { if (ev.data.size > 0) chunksRef.current.push(ev.data); };
+      rec.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const duration = Math.max(1, Math.round((Date.now() - recordStartRef.current) / 1000));
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || mime || 'audio/webm' });
+        const token = currentUser.token!;
+        const userId = currentUser.id!;
+        try {
+          const up = await imUpload(token, blob, `voice_${Date.now()}.${ext}`);
+          const content = buildMediaContent({ url: up.url, size: up.size, duration });
+          storeSendMessage(token, userId, selectedConversationId, content, 'voice');
+        } catch (err) {
+          console.error('[ChatDetail] voice upload failed:', err);
+          toast.error('语音发送失败');
+        }
+      };
+      recorderRef.current = rec;
+      recordStartRef.current = Date.now();
+      rec.start();
+      setRecording(true);
+    } catch (err) {
+      console.error('[ChatDetail] mic permission denied:', err);
+      toast.error('无法访问麦克风，请检查授权');
+    }
+  };
+
+  const stopRecording = () => {
+    recorderRef.current?.stop();
+    recorderRef.current = null;
+    setRecording(false);
+  };
+
   const handleOpenCall = (type: 'voice' | 'video') => {
     setCallType(type);
     setCallDialogOpen(true);
@@ -824,8 +881,10 @@ export default function ChatDetail() {
             </button>
           ) : (
             <button
+              onClick={recording ? stopRecording : startRecording}
+              title={recording ? '点击停止并发送' : '按下录音'}
               className="flex items-center justify-center shrink-0"
-              style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer' }}
+              style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: recording ? '#FA5151' : 'transparent', color: recording ? '#FFFFFF' : '#708499', cursor: 'pointer' }}
             >
               <Mic style={{ width: 22, height: 22 }} />
             </button>
