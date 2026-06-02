@@ -1,6 +1,8 @@
 Name: im
 Host: 0.0.0.0
 Port: 8890
+# 富媒体上传上限：120MB（覆盖 go-zero 默认 1MB）
+MaxBytes: 125829120
 
 SocialRpc:
   Target: dns:///127.0.0.1:10001

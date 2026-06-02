@@ -113,7 +113,15 @@ function MessageContent({ message }: { message: Message }) {
 
   if (type === 'voice') {
     const meta = parseMediaContent(content);
-    if (meta) return <audio src={meta.url} controls style={{ maxWidth: 240, height: 36 }} />;
+    if (meta) {
+      const secs = meta.duration ? `${meta.duration}"` : '';
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <audio src={meta.url} controls style={{ maxWidth: 220, height: 36 }} />
+          {secs && <span style={{ fontSize: 12, opacity: 0.6 }}>{secs}</span>}
+        </span>
+      );
+    }
     return <span>{content}</span>;
   }
 
@@ -461,6 +469,11 @@ export default function ChatDetail() {
         stream.getTracks().forEach(t => t.stop());
         const duration = Math.max(1, Math.round((Date.now() - recordStartRef.current) / 1000));
         const blob = new Blob(chunksRef.current, { type: rec.mimeType || mime || 'audio/webm' });
+        // 录音太短 / 空录音（仅有容器头）直接丢弃，避免发出无法播放的空语音
+        if (blob.size < 1024) {
+          toast.error('录音太短，请按住多说一会');
+          return;
+        }
         const token = currentUser.token!;
         const userId = currentUser.id!;
         try {
@@ -474,7 +487,7 @@ export default function ChatDetail() {
       };
       recorderRef.current = rec;
       recordStartRef.current = Date.now();
-      rec.start();
+      rec.start(100); // 100ms 时间片，确保增量收集音频数据（避免空录音）
       setRecording(true);
     } catch (err) {
       console.error('[ChatDetail] mic permission denied:', err);
