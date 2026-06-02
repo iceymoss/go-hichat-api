@@ -30,6 +30,9 @@ type ChatLog struct {
 	// 消息内容
 	MsgContent string `bson:"msgContent"`
 
+	// 引用/回复消息（JSON 字符串：{"id","name","preview"}）
+	Quote string `bson:"quote,omitempty"`
+
 	// 发送时间
 	SendTime int64 `bson:"sendTime"`
 

@@ -22,6 +22,10 @@ type MsgChatTransfer struct {
 
 	// 消息内容
 	MsgContent string `json:"content,omitempty"`
+
+	// 引用/回复消息（JSON 字符串：{"id","name","preview"}）
+	Quote string `json:"quote,omitempty"`
+
 	// 发送时间
 	SendTime int64 `json:"sendTime"`
 

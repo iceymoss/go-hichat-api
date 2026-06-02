@@ -67,6 +67,7 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransf
 		RecvId:         data.RecvId,
 		MsgType:        data.MsgType,
 		MsgContent:     data.MsgContent,
+		Quote:          data.Quote,
 		ChatType:       data.ChatType,
 	}
 

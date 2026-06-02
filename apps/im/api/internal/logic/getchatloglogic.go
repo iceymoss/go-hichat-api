@@ -60,6 +60,7 @@ func (l *GetChatLogLogic) GetChatLog(req *types.ChatLogReq) (resp *types.ChatLog
 			ChatType:       v.ChatType,
 			SendTime:       v.SendTime,
 			ReadRecords:    readRec,
+			Quote:          v.Quote,
 		})
 	}
 

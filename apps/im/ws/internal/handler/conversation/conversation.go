@@ -53,6 +53,7 @@ func Chat(srvCtx *svc.ServiceContext) websocket.HandlerFunc {
 			RecvId:         data.RecvId,
 			MsgType:        data.MType,
 			MsgContent:     data.Content,
+			Quote:          data.Quote,
 			SendTime:       time.Now().UnixNano(),
 		})
 		if err != nil {

@@ -18,6 +18,8 @@ message ChatLog {
   bytes readRecords = 9;
   // 每个成员的已读时间戳（unix nano），仅群聊/已读详情场景填充
   map<string, int64> readTimes = 10;
+  // 引用/回复消息（JSON 字符串：{"id","name","preview"}）
+  string quote = 11;
 }
 
 message Conversation {

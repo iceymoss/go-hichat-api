@@ -368,9 +368,14 @@ export default function ChatDetail() {
   const handleSend = () => {
     if (!input.trim() || !selectedConversationId) return;
 
+    // 引用消息：把被引用消息打包成 quote JSON 随消息发送
+    const quote = replyTo
+      ? JSON.stringify({ id: replyTo.message.id, name: replyTo.senderName, preview: mediaPreview(replyTo.message.type, replyTo.message.content) })
+      : undefined;
+
     // 通过 chat-store 发送（走 WebSocket RigorAck）
     if (currentUser?.token && currentUser?.id) {
-      storeSendMessage(currentUser.token, currentUser.id, selectedConversationId, input.trim());
+      storeSendMessage(currentUser.token, currentUser.id, selectedConversationId, input.trim(), 'text', quote);
     } else {
       // Fallback: 本地 mock 发送
       const newMsg: Message = {

@@ -50,6 +50,16 @@ const frontMsgTypeMap: Record<string, number> = {
   memes: MsgType.Memes,
 };
 
+/** 解析引用消息 JSON（{id,name,preview}）为 Message.replyTo */
+function quoteToReplyTo(quote?: string): Message['replyTo'] {
+  if (!quote) return undefined;
+  try {
+    const q = JSON.parse(quote);
+    if (q && (q.name || q.preview)) return { senderName: q.name || '', content: q.preview || '' };
+  } catch { /* ignore */ }
+  return undefined;
+}
+
 // ========== Store 接口 ==========
 
 /** 用户资料缓存 */
@@ -92,7 +102,7 @@ interface ChatState {
   destroyWs: () => void;
   fetchConversations: (token: string) => Promise<void>;
   fetchMessages: (token: string, conversationId: string, oldestMsgId?: string) => Promise<void>;
-  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string) => void;
+  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string, quote?: string) => void;
   resendMessage: (token: string, userId: string, conversationId: string, msgId: string) => void;
   markRead: (userId: string, conversationId: string, msgIds: string[]) => void;
   getOrCreateConversation: (token: string, userId: string, targetId: string) => Promise<Conversation>;
@@ -263,7 +273,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   // ==================== 发送消息 ====================
 
-  sendMessage: (token, userId, conversationId, content, msgType = 'text') => {
+  sendMessage: (token, userId, conversationId, content, msgType = 'text', quote) => {
     const conv = get().conversations.find(c => c.id === conversationId);
     const chatType = conv?.type === 'group' ? ChatType.Group : ChatType.Single;
 
@@ -285,6 +295,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       timestamp: new Date(),
       type: (msgType as Message['type']) || 'text',
       status: 'sending',
+      replyTo: quoteToReplyTo(quote),
     };
 
     set(s => {
@@ -308,6 +319,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       msg: {
         mType: frontMsgTypeMap[msgType] || MsgType.Text,
         content,
+        quote,
         readRecords: {},
       },
     };
@@ -563,6 +575,7 @@ function mapChatLog(log: ChatLogItem): Message {
     content: log.msgContent,
     timestamp: log.sendTime ? parseTimestamp(log.sendTime) : new Date(),
     type: backMsgTypeMap[log.msgType] || 'text',
+    replyTo: quoteToReplyTo(log.quote),
   };
   // 从 REST 返回的 readRecords 恢复已读状态。
   // 服务端语义：
@@ -757,6 +770,7 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     content: chat.msg?.content || '',
     timestamp: chat.sendTime ? parseTimestamp(chat.sendTime) : new Date(),
     type: backMsgTypeMap[chat.msg?.mType] || 'text',
+    replyTo: quoteToReplyTo(chat.msg?.quote),
   };
   // 消费可能先到的乱序回执
   const msg = consumePendingReceipt(baseMsg);

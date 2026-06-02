@@ -13,6 +13,7 @@ type ChatLog struct {
 	ChatType       int32  `json:"chatType,omitempty"`
 	SendTime       int64  `json:"sendTime,omitempty"`    // 修正字段名统一小写
 	ReadRecords    string `json:"readRecords,omitempty"` // base64(bitmap)。私聊为 "AQ=="（对方已读）/空（未读），群聊为每成员 bit 位图
+	Quote          string `json:"quote,omitempty"`       // 引用/回复消息（JSON 字符串：{"id","name","preview"}）
 }
 
 type ChatLogReq struct {

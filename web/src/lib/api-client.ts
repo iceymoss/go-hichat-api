@@ -192,6 +192,8 @@ export interface ChatLogItem {
   sendTime: number;
   /** base64(bitmap)；私聊 "AQ==" 表示对方已读，空串或缺失视为未读；群聊为成员 bitmap */
   readRecords?: string;
+  /** 引用/回复消息（JSON 字符串：{"id","name","preview"}） */
+  quote?: string;
 }
 
 export interface ConversationItem {
