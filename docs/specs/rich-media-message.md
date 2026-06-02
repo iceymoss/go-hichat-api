@@ -104,8 +104,8 @@
 - UI 用 Semi Design 组件 + Tailwind。
 
 ### 实现步骤（每步可独立 commit）
-1. [ ] 后端：im 新增 `POST /v1/im/upload`（改 `.api` → goctl 生成 → 填 logic → 配 yaml/config）
-2. [ ] 后端：抽取/实现文件类型识别 + 100MB 校验，落盘分目录
+1. [x] 后端：im 新增 `POST /v1/im/upload`（改 `.api` → goctl 生成 → 填 logic → 配 yaml/config）
+2. [x] 后端：抽取/实现文件类型识别 + 100MB 校验，落盘分目录（`pkg/storage.ClassifyMedia` + `uploadMedia`）
 3. [ ] 后端：user 新增 `user_stickers` model（**待 schema 确认**）+ sticker CRUD api/logic
 4. [ ] 前端：富媒体消息渲染（图片/视频/文件/语音/表情，含未知类型降级）
 5. [ ] 前端：上传 + 发送图片/视频/文件
