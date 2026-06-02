@@ -98,8 +98,8 @@
 1. [x] 后端：im 新增 `POST /v1/im/upload`（改 `.api` → goctl 生成 → 填 logic → 配 yaml/config）
 2. [x] 后端：抽取/实现文件类型识别 + 100MB 校验，落盘分目录（`pkg/storage.ClassifyMedia` + `uploadMedia`）
 3. [x] 后端：表情包收藏 —— 复用已存在的 `user_emojis` 功能（`UserEmoji` model + `/emoji*` 接口），不新建表
-4. [ ] 前端：富媒体消息渲染（图片/视频/文件/语音/表情，含未知类型降级）
-5. [ ] 前端：上传 + 发送图片/视频/文件
+4. [~] 前端：富媒体消息渲染（图片/视频/文件 ✅ 含未知类型降级；语音/表情 待后续切片）
+5. [x] 前端：上传 + 发送图片/视频/文件（`media-message.ts` + `imUpload` + ChatDetail 附件入口）
 6. [ ] 前端：语音录制 + 发送
 7. [ ] 前端：emoji 面板 + 内置 emoji 表情包
 8. [ ] 前端：表情收藏面板（上传 / 从聊天添加 / 列表 / 发送）
