@@ -1,115 +1,188 @@
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
-import { Search, X, Send, Loader2, UserCircle, UserPlus } from 'lucide-react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { Search, X, UserPlus, Send, Loader2, UserCircle, Users, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIMStore } from '@/lib/im-store';
+import { useChatStore } from '@/lib/chat-store';
 import { getAvatarColor } from '@/lib/utils';
+import type { Contact } from '@/lib/mock-data';
+import {
+  searchUsers,
+  searchGroups,
+  sendFriendRequest,
+  type GroupSearchItem,
+} from '@/lib/friend-group-api';
+import type { BackendUser } from '@/lib/api-client';
+import UserProfileCard from './UserProfileCard';
+import GroupProfileCard from './GroupProfileCard';
 
-/* ═══════════════════════════════════════
-   API helpers（搜索用户 / 发送好友申请）
-   ═══════════════════════════════════════ */
-
-async function apiSendFriendRequest(token: string, userUid: string, reqMsg?: string): Promise<boolean> {
-  const resp = await fetch('/api/social/friend/putIn', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ user_uid: userUid, ...(reqMsg ? { req_msg: reqMsg } : {}) }),
-  });
-  const json = await resp.json();
-  return json.success === true;
-}
-
-async function apiSearchUsers(token: string, query: string): Promise<any[]> {
-  const isPhone = /^1[3-9]\d{2,10}$/.test(query);
-  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(query);
-  const params = isPhone ? `phone=${query}` : isEmail ? `email=${query}` : `name=${query}`;
-  try {
-    const resp = await fetch(`/api/user/search?${params}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const json = await resp.json();
-    if (json.success && json.data?.users) return json.data.users;
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-/* ═══════════════════════════════════════
-   AddFriendPanel — 搜索并添加好友的浮层卡片
-   会话列表 / 新的朋友页 共用
-   ═══════════════════════════════════════ */
+type Tab = 'user' | 'group';
+const PAGE_SIZE = 20;
 
 interface AddFriendPanelProps {
   open: boolean;
   onClose: () => void;
-  /** 发送成功后回调（如刷新好友请求列表/未读数） */
+  /** 发送好友/入群申请成功后回调（如刷新请求列表） */
   onSent?: () => void;
 }
 
-export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanelProps) {
-  const { currentUser } = useIMStore();
-  const token = currentUser?.token || '';
+/** BackendUser -> Contact（用于复用 UserProfileCard） */
+function userToContact(u: BackendUser): Contact {
+  return {
+    id: u.id,
+    name: u.nickname || u.id,
+    avatar: u.avatar || '',
+    pinyin: '',
+    letter: '#',
+    online: false,
+    gender: u.sex === 1 ? 'male' : u.sex === 2 ? 'female' : undefined,
+    phone: u.mobile || undefined,
+    region: u.region || undefined,
+    signature: u.introduction || undefined,
+    introduction: u.introduction || undefined,
+    occupation: u.occupation || undefined,
+    tags: u.tags || undefined,
+    account: u.id,
+  };
+}
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [sendMsg, setSendMsg] = useState('');
-  const [sendingTo, setSendingTo] = useState<string | null>(null);
-  const [sendLoading, setSendLoading] = useState(false);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanelProps) {
+  const { currentUser, friends, setActiveTab, setSelectedConversationId } = useIMStore();
+  const token = currentUser?.token || '';
+  const myId = currentUser?.id || '';
+
+  const [tab, setTab] = useState<Tab>('user');
+  const [keyword, setKeyword] = useState('');
+  const [users, setUsers] = useState<BackendUser[]>([]);
+  const [groups, setGroups] = useState<GroupSearchItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  // 选中的资料卡片
+  const [selectedUser, setSelectedUser] = useState<BackendUser | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<GroupSearchItem | null>(null);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reqIdRef = useRef(0); // 在途请求作废
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const loaded = tab === 'user' ? users.length : groups.length;
+  const hasMore = loaded < total;
 
   const reset = useCallback(() => {
-    setSearchQuery('');
-    setSearchResults([]);
-    setSendingTo(null);
-    setSendMsg('');
+    setKeyword('');
+    setUsers([]); setGroups([]);
+    setPage(1); setTotal(0); setError(false);
+    setSelectedUser(null); setSelectedGroup(null);
   }, []);
 
-  const handleClose = useCallback(() => {
-    reset();
-    onClose();
-  }, [reset, onClose]);
+  const handleClose = useCallback(() => { reset(); onClose(); }, [reset, onClose]);
 
-  const handleSearchUsers = useCallback((q: string) => {
-    setSearchQuery(q);
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (!q.trim()) { setSearchResults([]); setSearching(false); return; }
-    setSearching(true);
-    searchTimerRef.current = setTimeout(() => {
-      if (!token) return;
-      apiSearchUsers(token, q.trim()).then((users) => {
-        setSearchResults(users);
-        setSearching(false);
-      });
-    }, 400);
+  // 执行搜索（pageToLoad>1 表示加载更多）
+  const runSearch = useCallback(async (kw: string, pageToLoad: number, curTab: Tab) => {
+    const q = kw.trim();
+    if (!q) { setUsers([]); setGroups([]); setTotal(0); setLoading(false); return; }
+    const reqId = ++reqIdRef.current;
+    setLoading(true); setError(false);
+    try {
+      if (curTab === 'user') {
+        const { users: list, total: t } = await searchUsers(token, q, pageToLoad, PAGE_SIZE);
+        if (reqId !== reqIdRef.current) return; // 已过期
+        setUsers((prev) => (pageToLoad === 1 ? list : [...prev, ...list]));
+        setTotal(t);
+      } else {
+        const { list, total: t } = await searchGroups(token, q, pageToLoad, PAGE_SIZE);
+        if (reqId !== reqIdRef.current) return;
+        setGroups((prev) => (pageToLoad === 1 ? list : [...prev, ...list]));
+        setTotal(t);
+      }
+      setPage(pageToLoad);
+    } catch {
+      if (reqId === reqIdRef.current) setError(true);
+    } finally {
+      if (reqId === reqIdRef.current) setLoading(false);
+    }
   }, [token]);
 
-  const handleSendRequest = useCallback(async (userId: string) => {
-    if (!token) return;
-    setSendLoading(true);
-    try {
-      const ok = await apiSendFriendRequest(token, userId, sendMsg || undefined);
-      if (ok) {
-        toast.success('好友请求已发送');
-        setSendingTo(null);
-        setSendMsg('');
-        onSent?.();
-      } else {
-        toast.error('发送失败，请重试');
+  // 关键词/标签变化 → 防抖重置搜索
+  const onKeywordChange = useCallback((v: string) => {
+    setKeyword(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    reqIdRef.current++; // 作废在途
+    setPage(1); setTotal(0);
+    if (!v.trim()) { setUsers([]); setGroups([]); setLoading(false); return; }
+    setLoading(true);
+    debounceRef.current = setTimeout(() => runSearch(v, 1, tab), 400);
+  }, [runSearch, tab]);
+
+  // 切 tab：重置并按当前关键词搜
+  const switchTab = useCallback((t: Tab) => {
+    if (t === tab) return;
+    reqIdRef.current++;
+    setTab(t); setUsers([]); setGroups([]); setPage(1); setTotal(0); setError(false);
+    if (keyword.trim()) { setLoading(true); runSearch(keyword, 1, t); }
+  }, [tab, keyword, runSearch]);
+
+  // 无限滚动：触底加载下一页
+  useEffect(() => {
+    if (!open) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasMore && !loading && keyword.trim()) {
+        runSearch(keyword, page + 1, tab);
       }
-    } catch {
-      toast.error('发送失败，请稍后重试');
-    } finally {
-      setSendLoading(false);
-    }
-  }, [token, sendMsg, onSent]);
+    }, { root: scrollRef.current, rootMargin: '120px' });
+    io.observe(sentinel);
+    return () => io.disconnect();
+  }, [open, hasMore, loading, keyword, page, tab, runSearch]);
 
   if (!open) return null;
+
+  const isFriend = (uid: string) => friends.some((f) => f.id === uid || f.friend_uid === uid);
+
+  const openUserChat = async (uid: string) => {
+    if (!token || !myId) return;
+    try { await useChatStore.getState().getOrCreateConversation(token, myId, uid); } catch { /* ignore */ }
+    const parts = [myId, uid].sort();
+    setActiveTab('chats');
+    setSelectedConversationId(`${parts[0]}_${parts[1]}`);
+    handleClose();
+  };
+
+  const enterGroupChat = (gid: string) => {
+    setActiveTab('chats');
+    setSelectedConversationId(gid);
+    handleClose();
+  };
+
+  const handleSendFriend = async (uid: string, msg?: string) => {
+    if (!token) return false;
+    const ok = await sendFriendRequest(token, uid, msg);
+    if (ok) { toast.success('好友请求已发送'); onSent?.(); }
+    else toast.error('发送失败，请重试');
+    return ok;
+  };
+
+  const tabBtn = (t: Tab, label: string) => (
+    <button
+      onClick={() => switchTab(t)}
+      style={{
+        flex: 1, height: 36, border: 'none', background: 'transparent', cursor: 'pointer',
+        fontSize: 14, fontWeight: tab === t ? 600 : 400,
+        color: tab === t ? '#3390EC' : '#646A73',
+        borderBottom: tab === t ? '2px solid #3390EC' : '2px solid transparent',
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  const placeholder = tab === 'user' ? '搜索手机号/邮箱/昵称' : '搜索群号/群名';
 
   return (
     <div
@@ -120,180 +193,167 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
       <div
         className="relative"
-        style={{
-          background: '#FFFFFF',
-          borderRadius: '16px',
-          width: '90%',
-          maxWidth: '440px',
-          maxHeight: '75vh',
-          overflow: 'hidden',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.15)',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+        style={{ background: '#FFFFFF', borderRadius: 16, width: '90%', maxWidth: 440, height: '75vh', maxHeight: 640, overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column' }}
       >
-        {/* Panel header */}
-        <div className="flex items-center justify-between" style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-          <span style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>添加好友</span>
-          <button
-            onClick={handleClose}
-            style={{
-              width: 28, height: 28,
-              borderRadius: '50%',
-              border: 'none',
-              background: 'rgba(0,0,0,0.04)',
-              color: '#A2ACB5',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
+        {/* Header */}
+        <div className="flex items-center justify-between" style={{ padding: '16px 20px 0' }}>
+          <span style={{ fontSize: 16, fontWeight: 600, color: '#1C2733' }}>添加好友 / 群</span>
+          <button onClick={handleClose} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.04)', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X className="w-4 h-4" />
           </button>
         </div>
 
+        {/* Tabs */}
+        <div className="flex" style={{ padding: '8px 20px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+          {tabBtn('user', '用户')}
+          {tabBtn('group', '群聊')}
+        </div>
+
         {/* Search input */}
         <div style={{ padding: '12px 20px' }}>
-          <div className="flex items-center gap-2" style={{ background: '#F5F7FA', borderRadius: '10px', padding: '8px 12px' }}>
+          <div className="flex items-center gap-2" style={{ background: '#F5F7FA', borderRadius: 10, padding: '8px 12px' }}>
             <Search className="w-4 h-4" style={{ color: '#A2ACB5' }} />
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearchUsers(e.target.value)}
-              placeholder="搜索手机号/邮箱/昵称"
-              style={{
-                flex: 1,
-                border: 'none',
-                background: 'transparent',
-                outline: 'none',
-                fontSize: '14px',
-                color: '#1C2733',
-              }}
+              value={keyword}
+              onChange={(e) => onKeywordChange(e.target.value)}
+              placeholder={placeholder}
               autoFocus
+              style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 14, color: '#1C2733' }}
             />
-            {searching && <Loader2 className="w-4 h-4" style={{ color: '#3390EC', animation: 'spin 1s linear infinite' }} />}
+            {loading && <Loader2 className="w-4 h-4" style={{ color: '#3390EC', animation: 'spin 1s linear infinite' }} />}
           </div>
         </div>
 
-        {/* Search results */}
-        <div className="flex-1 overflow-y-auto im-scroll" style={{ padding: '0 20px 16px' }}>
-          {searchResults.length > 0 ? (
-            searchResults.map((user: any) => (
-              <div
-                key={user.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '10px 0',
-                  borderBottom: '1px solid rgba(0,0,0,0.05)',
-                }}
-              >
-                <div style={{ width: 40, height: 40, flexShrink: 0 }}>
-                  {user.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user.nickname || '?'}
-                      style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const next = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (next) next.style.display = 'flex'; }}
-                    />
-                  ) : null}
-                  <div
-                    className="items-center justify-center"
-                    style={{
-                      width: 40, height: 40,
-                      borderRadius: '50%',
-                      backgroundColor: getAvatarColor(user.nickname || '?'),
-                      fontSize: '16px',
-                      fontWeight: 600,
-                      color: '#FFFFFF',
-                      display: user.avatar ? 'none' : 'flex',
-                    }}
-                  >
-                    {(user.nickname || '?')[0]}
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: '14px', fontWeight: 500, color: '#1C2733' }}>{user.nickname || '未知'}</div>
-                  {user.region && <div style={{ fontSize: '12px', color: '#A2ACB5' }}>{user.region}</div>}
-                </div>
-                {sendingTo === user.id ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={sendMsg}
-                      onChange={(e) => setSendMsg(e.target.value)}
-                      placeholder="附言"
-                      style={{
-                        width: 100,
-                        border: '1px solid rgba(0,0,0,0.1)',
-                        borderRadius: '6px',
-                        padding: '4px 8px',
-                        fontSize: '12px',
-                        outline: 'none',
-                      }}
-                      onFocus={(e) => { e.target.style.borderColor = '#3390EC'; }}
-                      onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; }}
-                    />
-                    <button
-                      onClick={() => handleSendRequest(user.id)}
-                      disabled={sendLoading}
-                      style={{
-                        padding: '4px 12px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        background: '#3390EC',
-                        color: '#FFFFFF',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        cursor: sendLoading ? 'not-allowed' : 'pointer',
-                        opacity: sendLoading ? 0.7 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      {sendLoading ? <Loader2 className="w-3 h-3" style={{ animation: 'spin 1s linear infinite' }} /> : <Send className="w-3 h-3" />}
-                      发送
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => { setSendingTo(user.id); setSendMsg(''); }}
-                    style={{
-                      padding: '5px 14px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      background: '#3390EC',
-                      color: '#FFFFFF',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    添加
-                  </button>
-                )}
-              </div>
-            ))
-          ) : searchQuery.trim() && !searching ? (
-            <div className="flex flex-col items-center" style={{ padding: '30px 0' }}>
-              <UserCircle className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: '8px' }} />
-              <div style={{ fontSize: '13px', color: '#A2ACB5' }}>未找到用户</div>
-            </div>
-          ) : !searchQuery.trim() ? (
-            <div className="flex flex-col items-center" style={{ padding: '30px 0' }}>
-              <Search className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: '8px' }} />
-              <div style={{ fontSize: '13px', color: '#A2ACB5' }}>输入手机号、邮箱或昵称搜索用户</div>
-            </div>
-          ) : null}
+        {/* Results */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto im-scroll" style={{ padding: '0 20px 16px' }}>
+          {!keyword.trim() ? (
+            <Empty icon={<Search className="w-12 h-12" />} text={tab === 'user' ? '输入手机号、邮箱或昵称搜索用户' : '输入群号或群名搜索群聊'} />
+          ) : tab === 'user' ? (
+            users.length > 0 ? (
+              <>
+                {users.map((u) => (
+                  <UserRow key={u.id} user={u} self={u.id === myId} onClick={() => setSelectedUser(u)} />
+                ))}
+                <ListFooter loading={loading} hasMore={hasMore} error={error} onRetry={() => runSearch(keyword, page, tab)} sentinelRef={sentinelRef} count={users.length} total={total} />
+              </>
+            ) : !loading ? (
+              error ? <ErrorState onRetry={() => runSearch(keyword, 1, tab)} /> : <Empty icon={<UserCircle className="w-12 h-12" />} text="未找到用户" />
+            ) : null
+          ) : (
+            groups.length > 0 ? (
+              <>
+                {groups.map((g) => (
+                  <GroupRow key={g.id} group={g} onClick={() => setSelectedGroup(g)} />
+                ))}
+                <ListFooter loading={loading} hasMore={hasMore} error={error} onRetry={() => runSearch(keyword, page, tab)} sentinelRef={sentinelRef} count={groups.length} total={total} />
+              </>
+            ) : !loading ? (
+              error ? <ErrorState onRetry={() => runSearch(keyword, 1, tab)} /> : <Empty icon={<Users className="w-12 h-12" />} text="未找到群聊" />
+            ) : null
+          )}
         </div>
       </div>
+
+      {/* 用户资料卡片 */}
+      {selectedUser && (
+        <div className="fixed inset-0" style={{ zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) setSelectedUser(null); }}>
+          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
+          <div className="relative" style={{ width: '88%', maxWidth: 340 }}>
+            <UserProfileCard
+              contact={userToContact(selectedUser)}
+              compact
+              isStranger={selectedUser.id !== myId && !isFriend(selectedUser.id)}
+              onSendMessage={() => openUserChat(selectedUser.id)}
+              onAddFriend={async () => { const ok = await handleSendFriend(selectedUser.id); if (ok) setSelectedUser(null); }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 群资料卡片 */}
+      {selectedGroup && (
+        <GroupProfileCard group={selectedGroup} onClose={() => setSelectedGroup(null)} onEnterGroup={enterGroupChat} />
+      )}
+    </div>
+  );
+}
+
+/* ── 列表行 ── */
+
+function UserRow({ user, self, onClick }: { user: BackendUser; self: boolean; onClick: () => void }) {
+  return (
+    <div onClick={onClick} className="flex items-center" style={{ gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)', cursor: 'pointer' }}>
+      <Avatar src={user.avatar} name={user.nickname} />
+      <div className="flex-1 min-w-0">
+        <div style={{ fontSize: 14, fontWeight: 500, color: '#1C2733' }}>
+          {user.nickname || '未知'}{self && <span style={{ fontSize: 12, color: '#A2ACB5', marginLeft: 6 }}>（我）</span>}
+        </div>
+        {user.region && <div style={{ fontSize: 12, color: '#A2ACB5' }}>{user.region}</div>}
+      </div>
+    </div>
+  );
+}
+
+function GroupRow({ group, onClick }: { group: GroupSearchItem; onClick: () => void }) {
+  return (
+    <div onClick={onClick} className="flex items-center" style={{ gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)', cursor: 'pointer' }}>
+      <Avatar src={group.icon} name={group.name} square />
+      <div className="flex-1 min-w-0">
+        <div style={{ fontSize: 14, fontWeight: 500, color: '#1C2733' }}>{group.name || '未命名群聊'}</div>
+        <div className="flex items-center gap-1" style={{ fontSize: 12, color: '#A2ACB5' }}>
+          <Users className="w-3 h-3" />{group.member_count} 人 · 群号 {group.id}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Avatar({ src, name, square }: { src?: string; name?: string; square?: boolean }) {
+  const radius = square ? 10 : '50%';
+  return (
+    <div style={{ width: 40, height: 40, flexShrink: 0 }}>
+      {src ? (
+        <img src={src} alt={name || '?'} style={{ width: 40, height: 40, borderRadius: radius, objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const n = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (n) n.style.display = 'flex'; }} />
+      ) : null}
+      <div className="items-center justify-center" style={{ width: 40, height: 40, borderRadius: radius, background: getAvatarColor(name || '?'), color: '#FFF', fontSize: 16, fontWeight: 600, display: src ? 'none' : 'flex' }}>
+        {(name || '?')[0]}
+      </div>
+    </div>
+  );
+}
+
+function ListFooter({ loading, hasMore, error, onRetry, sentinelRef, count, total }: { loading: boolean; hasMore: boolean; error: boolean; onRetry: () => void; sentinelRef: React.RefObject<HTMLDivElement | null>; count: number; total: number }) {
+  return (
+    <div ref={sentinelRef} className="flex items-center justify-center" style={{ padding: '12px 0', fontSize: 12, color: '#A2ACB5' }}>
+      {error ? (
+        <button onClick={onRetry} style={{ color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer' }}>加载失败，点击重试</button>
+      ) : loading ? (
+        <Loader2 className="w-4 h-4" style={{ animation: 'spin 1s linear infinite' }} />
+      ) : hasMore ? (
+        '上滑加载更多'
+      ) : (
+        `共 ${total} 条`
+      )}
+    </div>
+  );
+}
+
+function Empty({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return (
+    <div className="flex flex-col items-center" style={{ padding: '40px 0', color: '#D1D5DB' }}>
+      {icon}
+      <div style={{ fontSize: 13, color: '#A2ACB5', marginTop: 8 }}>{text}</div>
+    </div>
+  );
+}
+
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center" style={{ padding: '40px 0' }}>
+      <Clock className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: 8 }} />
+      <div style={{ fontSize: 13, color: '#A2ACB5', marginBottom: 8 }}>加载失败</div>
+      <button onClick={onRetry} style={{ color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>重试</button>
     </div>
   );
 }

@@ -29,6 +29,45 @@ interface UserProfileCardProps {
   compact?: boolean;
 }
 
+/** 陌生人资料：性别/地区/职业/标签（仅搜索加好友场景展示） */
+function StrangerInfo({ contact }: { contact: Contact }) {
+  const sexLabel = contact.gender === 'male' ? '男' : contact.gender === 'female' ? '女' : '';
+  let tagList: string[] = [];
+  if (contact.tags) {
+    try {
+      const parsed = JSON.parse(contact.tags);
+      if (Array.isArray(parsed)) tagList = parsed.filter(Boolean).map(String);
+    } catch {
+      tagList = contact.tags.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
+  const rows: Array<[string, string]> = [];
+  if (sexLabel) rows.push(['性别', sexLabel]);
+  if (contact.region) rows.push(['地区', contact.region]);
+  if (contact.occupation) rows.push(['职业', contact.occupation]);
+
+  if (rows.length === 0 && tagList.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      {rows.map(([k, v]) => (
+        <div key={k} className="flex" style={{ fontSize: 13, lineHeight: 1.9 }}>
+          <span style={{ width: 44, color: '#A2ACB5', flexShrink: 0 }}>{k}</span>
+          <span style={{ color: '#1C2733' }}>{v}</span>
+        </div>
+      ))}
+      {tagList.length > 0 && (
+        <div className="flex flex-wrap" style={{ gap: 6, marginTop: 6 }}>
+          {tagList.map((t, i) => (
+            <span key={i} style={{ fontSize: 12, color: '#3390EC', background: 'rgba(51,144,236,0.1)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function UserProfileCard({
   contact,
   isStranger = false,
@@ -274,6 +313,11 @@ export default function UserProfileCard({
               {contact.signature}
             </div>
           </div>
+        )}
+
+        {/* Stranger info: 性别/地区/职业/标签 */}
+        {isStranger && (
+          <StrangerInfo contact={contact} />
         )}
 
         {/* Action button */}
