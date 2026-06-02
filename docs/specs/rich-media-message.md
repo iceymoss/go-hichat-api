@@ -98,12 +98,12 @@
 1. [x] 后端：im 新增 `POST /v1/im/upload`（改 `.api` → goctl 生成 → 填 logic → 配 yaml/config）
 2. [x] 后端：抽取/实现文件类型识别 + 100MB 校验，落盘分目录（`pkg/storage.ClassifyMedia` + `uploadMedia`）
 3. [x] 后端：表情包收藏 —— 复用已存在的 `user_emojis` 功能（`UserEmoji` model + `/emoji*` 接口），不新建表
-4. [~] 前端：富媒体消息渲染（图片/视频/文件 ✅ 含未知类型降级；语音/表情 待后续切片）
+4. [x] 前端：富媒体消息渲染（图片/视频/文件/语音/表情，含未知类型降级）—— `MessageContent`
 5. [x] 前端：上传 + 发送图片/视频/文件（`media-message.ts` + `imUpload` + ChatDetail 附件入口）
-6. [ ] 前端：语音录制 + 发送
-7. [ ] 前端：emoji 面板 + 内置 emoji 表情包
-8. [ ] 前端：表情收藏面板（上传 / 从聊天添加 / 列表 / 发送）
-9. [ ] 前端：会话列表最后一条消息富媒体预览 + i18n
+6. [x] 前端：语音录制（Safari→m4a / 其余→webm）+ 发送
+7. [x] 前端：emoji 面板（emoji-mart 全量开源数据集）—— `ChatEmojiPanel`
+8. [x] 前端：表情收藏面板（发送收藏表情 + 从聊天右键「添加到表情」，复用 `/api/user/emojis`）
+9. [x] 前端：会话列表富媒体预览（`mediaPreview`）；ChatDetail 文案沿用组件内中文硬编码约定
 10. [ ] 后端：孤儿文件清理定时任务（apps/task/cron，新 task 注册进 registry，Redis 单实例锁）
 11. [ ] 文档：`/sync-api-docs` 更新 `docs/specs/api.md`
 
