@@ -27,22 +27,27 @@ import {
 import { useIMStore } from './im-store';
 import { playMessageSound, vibrate } from './notification';
 import { useSettingsStore } from './settings-store';
+import { mediaPreview } from './media-message';
 import type { Message, Conversation } from './mock-data';
 
 // ========== 消息类型映射 ==========
 
 const backMsgTypeMap: Record<number, Message['type']> = {
   [MsgType.Text]: 'text',
-  [MsgType.File]: 'text',     // 暂时作为 text 展示
+  [MsgType.File]: 'file',
   [MsgType.Voice]: 'voice',
   [MsgType.Image]: 'image',
-  [MsgType.Memes]: 'text',
+  [MsgType.Memes]: 'memes',
+  [MsgType.Video]: 'video',
 };
 
 const frontMsgTypeMap: Record<string, number> = {
   text: MsgType.Text,
   image: MsgType.Image,
   voice: MsgType.Voice,
+  file: MsgType.File,
+  video: MsgType.Video,
+  memes: MsgType.Memes,
 };
 
 // ========== Store 接口 ==========
@@ -267,7 +272,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const msgs = [...(s.messagesMap[conversationId] || []), localMsg];
       const convs = s.conversations.map(c =>
         c.id === conversationId
-          ? { ...c, lastMessage: content, lastMessageTime: new Date() }
+          ? { ...c, lastMessage: mediaPreview(localMsg.type, content), lastMessageTime: new Date() }
           : c,
       );
       return { messagesMap: { ...s.messagesMap, [conversationId]: msgs }, conversations: convs };
@@ -523,7 +528,7 @@ function mapConversation(raw: ConversationItem): Conversation {
     type: raw.chatType === ChatType.Group ? 'group' : 'private',
     name: (raw as any).targetName || raw.conversationId,
     avatar: (raw as any).targetAvatar || '',
-    lastMessage: msg?.msgContent || '',
+    lastMessage: msg ? mediaPreview(backMsgTypeMap[msg.msgType] || 'text', msg.msgContent) : '',
     lastMessageTime: msg?.sendTime ? parseTimestamp(msg.sendTime) : new Date(),
     unreadCount: calcUnread(raw.seq, raw.read),
     pinned: !!raw.isTop,
@@ -747,7 +752,7 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     if (idx >= 0) {
       convs[idx] = {
         ...convs[idx],
-        lastMessage: msg.content,
+        lastMessage: mediaPreview(msg.type, msg.content),
         lastMessageTime: msg.timestamp,
         unreadCount: convs[idx].unreadCount + (chat.sendId !== currentUserId ? 1 : 0),
       };
@@ -768,7 +773,7 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
         type: isGroup ? 'group' : 'private',
         name,
         avatar,
-        lastMessage: msg.content,
+        lastMessage: mediaPreview(msg.type, msg.content),
         lastMessageTime: msg.timestamp,
         unreadCount: chat.sendId !== currentUserId ? 1 : 0,
         pinned: false,

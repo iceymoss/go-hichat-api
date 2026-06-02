@@ -235,6 +235,27 @@ export function setupConversation(token: string, sendId: string, recvId: string,
   return imPost('/v1/im/setup/conversation', { sendId, recvId, chatType }, token);
 }
 
+export interface ImUploadResp {
+  url: string;
+  name: string;
+  size: number;
+  /** image / video / voice / file */
+  fileType: string;
+}
+
+/** 上传富媒体文件到 im 服务（直连，CORS 已开），返回访问 URL 与类型 */
+export async function imUpload(token: string, file: File | Blob, filename?: string): Promise<ImUploadResp> {
+  const fd = new FormData();
+  fd.append('file', file, filename || (file as File).name);
+  const res = await fetch(`${IM_BASE}/v1/im/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: fd,
+  });
+  if (!res.ok) throw new Error(`IM upload error: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<ImUploadResp>;
+}
+
 /** 更新会话 */
 export function updateConversations(token: string, conversationList: Record<string, Partial<ConversationItem>>) {
   return imPut('/v1/im/conversation', { conversationList }, token);

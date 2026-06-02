@@ -34,7 +34,12 @@ import {
   CheckCheck,
   MessageCircle,
   X,
+  FileText,
+  Download,
+  Play,
 } from 'lucide-react';
+import { imUpload } from '@/lib/api-client';
+import { buildMediaContent, parseMediaContent } from '@/lib/media-message';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CallDialog } from './CallDialog';
 import ChatSettingsMenu from './ChatSettingsMenu';
@@ -42,6 +47,77 @@ import MessageContextMenu from './MessageContextMenu';
 import ForwardDialog from './ForwardDialog';
 import FloatingProfileCard from './FloatingProfileCard';
 import ReadStatusDialog from './ReadStatusDialog';
+
+function formatBytes(n?: number): string {
+  if (!n || n <= 0) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** 按消息类型渲染气泡内容（文本 / 图片 / 视频 / 文件 / 语音 / 表情包） */
+function MessageContent({ message }: { message: Message }) {
+  const { type, content } = message;
+
+  if (type === 'image' || type === 'memes') {
+    const meta = parseMediaContent(content);
+    if (!meta) return <span>{content}</span>;
+    return (
+      <img
+        src={meta.thumbUrl || meta.url}
+        alt=""
+        onClick={() => window.open(meta.url, '_blank')}
+        style={{ maxWidth: type === 'memes' ? 120 : 220, maxHeight: 220, borderRadius: 8, cursor: 'pointer', display: 'block' }}
+      />
+    );
+  }
+
+  if (type === 'video') {
+    const meta = parseMediaContent(content);
+    if (!meta) return <span>{content}</span>;
+    return (
+      <video
+        src={meta.url}
+        poster={meta.coverUrl}
+        controls
+        style={{ maxWidth: 240, maxHeight: 240, borderRadius: 8, display: 'block' }}
+      >
+        <Play size={16} />
+      </video>
+    );
+  }
+
+  if (type === 'file') {
+    const meta = parseMediaContent(content);
+    if (!meta) return <span>{content}</span>;
+    return (
+      <a
+        href={meta.url}
+        target="_blank"
+        rel="noreferrer"
+        download={meta.name}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'inherit', minWidth: 180 }}
+      >
+        <FileText size={32} style={{ flexShrink: 0, color: '#3390EC' }} />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14 }}>
+            {meta.name || '文件'}
+          </span>
+          <span style={{ display: 'block', fontSize: 12, opacity: 0.6 }}>{formatBytes(meta.size)}</span>
+        </span>
+        <Download size={18} style={{ flexShrink: 0, opacity: 0.6 }} />
+      </a>
+    );
+  }
+
+  if (type === 'voice') {
+    const meta = parseMediaContent(content);
+    if (meta) return <audio src={meta.url} controls style={{ maxWidth: 240, height: 36 }} />;
+    return <span>{content}</span>;
+  }
+
+  return <span>{content}</span>;
+}
 
 export default function ChatDetail() {
   const { selectedConversationId, setSelectedConversationId, setShowChatDetail } = useIMStore();
@@ -294,6 +370,64 @@ export default function ChatDetail() {
 
     setInput('');
     setReplyTo(null);
+  };
+
+  // 富媒体文件选择 → 上传 → 发送
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const buildVideoCover = (file: File): Promise<{ coverUrl?: string; width?: number; height?: number; duration?: number }> =>
+    new Promise((resolve) => {
+      try {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.src = URL.createObjectURL(file);
+        video.onloadeddata = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          canvas.getContext('2d')?.drawImage(video, 0, 0);
+          const coverUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve({ coverUrl, width: video.videoWidth, height: video.videoHeight, duration: Math.round(video.duration) });
+          URL.revokeObjectURL(video.src);
+        };
+        video.onerror = () => resolve({});
+      } catch {
+        resolve({});
+      }
+    });
+
+  const handleFilesSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !files.length || !selectedConversationId || !currentUser?.token || !currentUser?.id) return;
+    const token = currentUser.token;
+    const userId = currentUser.id;
+    const convId = selectedConversationId;
+
+    for (const file of Array.from(files)) {
+      try {
+        const up = await imUpload(token, file);
+        const kind = up.fileType === 'image' ? 'image' : up.fileType === 'video' ? 'video' : 'file';
+        let extra: Record<string, unknown> = {};
+        if (kind === 'image') {
+          const dim = await new Promise<{ width?: number; height?: number }>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+            img.onerror = () => resolve({});
+            img.src = up.url;
+          });
+          extra = dim;
+        } else if (kind === 'video') {
+          extra = await buildVideoCover(file);
+        }
+        const content = buildMediaContent({ url: up.url, name: up.name, size: up.size, ...extra });
+        storeSendMessage(token, userId, convId, content, kind);
+      } catch (err) {
+        console.error('[ChatDetail] upload failed:', err);
+        toast.error(`${file.name} 上传失败`);
+      }
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleOpenCall = (type: 'voice' | 'video') => {
@@ -662,7 +796,17 @@ export default function ChatDetail() {
           />
 
           {/* Attach */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z"
+            style={{ display: 'none' }}
+            onChange={handleFilesSelected}
+          />
           <button
+            onClick={() => fileInputRef.current?.click()}
+            title="发送图片 / 视频 / 文件"
             className="flex items-center justify-center shrink-0"
             style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer' }}
           >
@@ -970,7 +1114,7 @@ function MessageList({
                             </div>
                           </div>
                         )}
-                        <span>{m.content}</span>
+                        <MessageContent message={m} />
                       </>
                     )}
                   </div>

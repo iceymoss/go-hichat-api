@@ -29,6 +29,9 @@ const ContentMakeRead MType = 6
 // ContentMsgAck 发送方回响：携带 MongoDB 真实 MsgId，用于把前端本地占位 ID 升级为真实 ID
 const ContentMsgAck MType = 7
 
+// VideoMType 视频类型（追加在 6/7 控制类型之后，编号不复用）
+const VideoMType MType = 8
+
 const (
 	// SingleChatType 单聊
 	SingleChatType ChatType = iota + 1
