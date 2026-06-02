@@ -100,6 +100,9 @@ interface ChatState {
   setConversationSettings: (token: string, conversationId: string, settings: { pinned?: boolean; muted?: boolean }) => Promise<void>;
   clearUnread: (conversationId: string) => void;
   fetchGroupMembers: (token: string, groupId: string) => Promise<void>;
+  /** 已播放语音消息 id 集合（控制未读红点），本地持久化 */
+  playedVoices: Record<string, true>;
+  markVoicePlayed: (msgId: string) => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -110,6 +113,22 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   userProfiles: {},
   loadingConversations: false,
   loadingMessages: {},
+  playedVoices: (() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem('hichat_played_voices') || '{}'); }
+    catch { return {}; }
+  })(),
+
+  markVoicePlayed: (msgId: string) => {
+    if (get().playedVoices[msgId]) return;
+    set(s => {
+      const next = { ...s.playedVoices, [msgId]: true as const };
+      if (typeof window !== 'undefined') {
+        try { localStorage.setItem('hichat_played_voices', JSON.stringify(next)); } catch { /* ignore */ }
+      }
+      return { playedVoices: next };
+    });
+  },
 
   // ==================== WebSocket 生命周期 ====================
 

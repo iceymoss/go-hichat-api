@@ -59,7 +59,13 @@ function formatBytes(n?: number): string {
 }
 
 /** 按消息类型渲染气泡内容（文本 / 图片 / 视频 / 文件 / 语音 / 表情包） */
-function MessageContent({ message, onOpenMedia }: { message: Message; onOpenMedia?: (m: Message) => void }) {
+function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePlayed }: {
+  message: Message;
+  onOpenMedia?: (m: Message) => void;
+  isOwn?: boolean;
+  voiceUnplayed?: boolean;
+  onVoicePlayed?: () => void;
+}) {
   const { type, content } = message;
 
   if (type === 'image' || type === 'memes') {
@@ -122,7 +128,7 @@ function MessageContent({ message, onOpenMedia }: { message: Message; onOpenMedi
 
   if (type === 'voice') {
     const meta = parseMediaContent(content);
-    if (meta) return <VoiceBubble url={meta.url} duration={meta.duration} />;
+    if (meta) return <VoiceBubble url={meta.url} duration={meta.duration} unplayed={!isOwn && voiceUnplayed} onPlayed={onVoicePlayed} />;
     return <span>{content}</span>;
   }
 
@@ -1091,6 +1097,8 @@ function MessageList({
   const { selectedConversationId } = useIMStore();
   const userProfiles = useChatStore(s => s.userProfiles);
   const storeGroupMembers = useChatStore(s => s.groupMembers);
+  const playedVoices = useChatStore(s => s.playedVoices);
+  const markVoicePlayed = useChatStore(s => s.markVoicePlayed);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);
 
@@ -1247,16 +1255,22 @@ function MessageList({
               {msgs.map((m) => {
                 const msgIsSent = isOwnMessage(m.senderId);
                 const senderName = getSenderName(m.senderId);
+                const mediaMeta = parseMediaContent(m.content);
+                // 图片/视频/文件/表情包：裸露展示，不套消息气泡
+                const bareMedia = !recalledIds.has(m.id) && !!mediaMeta &&
+                  (m.type === 'image' || m.type === 'video' || m.type === 'file' || m.type === 'memes');
 
                 return (
                   <div key={m.id} style={{ textAlign: msgIsSent ? 'right' : 'left', marginBottom: 3 }}>
                     <div
-                      className={`im-chat-bubble ${msgIsSent ? 'sent' : 'received'}`}
+                      className={bareMedia ? `im-chat-media ${msgIsSent ? 'sent' : 'received'}` : `im-chat-bubble ${msgIsSent ? 'sent' : 'received'}`}
                       onContextMenu={(e) => onBubbleContext(e, m, senderName, msgIsSent)}
                       onTouchStart={(e) => handleTouchStart(e, m, senderName, msgIsSent)}
                       onTouchEnd={handleTouchEnd}
                       onTouchMove={handleTouchMove}
-                      style={{ cursor: 'context-menu', userSelect: 'none', textAlign: 'left' }}
+                      style={bareMedia
+                        ? { display: 'inline-block', cursor: 'context-menu', userSelect: 'none', textAlign: 'left', background: 'transparent', padding: 0, boxShadow: 'none' }
+                        : { cursor: 'context-menu', userSelect: 'none', textAlign: 'left' }}
                     >
                     {recalledIds.has(m.id) ? (
                       <span style={{ fontStyle: 'italic', opacity: 0.6 }}>
@@ -1283,7 +1297,13 @@ function MessageList({
                             </div>
                           </div>
                         )}
-                        <MessageContent message={m} onOpenMedia={onOpenMedia} />
+                        <MessageContent
+                          message={m}
+                          onOpenMedia={onOpenMedia}
+                          isOwn={msgIsSent}
+                          voiceUnplayed={m.type === 'voice' && !playedVoices[m.id]}
+                          onVoicePlayed={() => markVoicePlayed(m.id)}
+                        />
                       </>
                     )}
                   </div>
