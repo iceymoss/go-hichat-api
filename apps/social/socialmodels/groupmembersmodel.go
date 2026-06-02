@@ -23,6 +23,9 @@ type (
 
 		// UpdateRoleLevel 更新单个成员角色
 		UpdateRoleLevel(ctx context.Context, groupId string, userId string, roleLevel int) error
+
+		// CountByGroupIds 批量统计多个群的成员数，返回 groupId -> count
+		CountByGroupIds(ctx context.Context, groupIds []string) (map[string]int64, error)
 	}
 
 	customGroupMembersModel struct {
@@ -56,4 +59,29 @@ func (m *customGroupMembersModel) UpdateRoleLevel(ctx context.Context, groupId s
 		Where("group_id = ?", groupId).
 		Where("user_id = ?", userId).
 		Updates(map[string]any{"role_level": roleLevel}).Error
+}
+
+// CountByGroupIds 批量统计多个群的成员数（GORM group by，单次查询）。
+func (m *customGroupMembersModel) CountByGroupIds(ctx context.Context, groupIds []string) (map[string]int64, error) {
+	result := make(map[string]int64, len(groupIds))
+	if len(groupIds) == 0 {
+		return result, nil
+	}
+
+	var rows []struct {
+		GroupId string `gorm:"column:group_id"`
+		Cnt     int64  `gorm:"column:cnt"`
+	}
+	err := m.mysqlConn.WithContext(ctx).Table(m.table).
+		Select("group_id, count(*) as cnt").
+		Where("group_id in (?)", groupIds).
+		Group("group_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		result[r.GroupId] = r.Cnt
+	}
+	return result, nil
 }
