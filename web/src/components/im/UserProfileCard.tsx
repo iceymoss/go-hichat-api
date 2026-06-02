@@ -291,7 +291,7 @@ export default function UserProfileCard({
               {displayName}
             </div>
             <div style={{ fontSize: 12, color: '#A2ACB5', lineHeight: 1.3, marginTop: 2 }}>
-              {contact.remark ? `昵称: ${contact.name}` : ''}
+              {contact.remark ? `昵称: ${contact.nickname || contact.name}` : ''}
             </div>
           </div>
           <div style={{ fontSize: 12, color: contact.online ? '#4DCD5E' : '#A2ACB5' }}>
@@ -616,7 +616,7 @@ export default function UserProfileCard({
           {/* Row 3: 用户昵称 + 手机号 并排 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, lineHeight: 1.8 }}>
             <span style={{ fontSize: 14, color: '#646A73' }}>
-              昵称：{contact.name}
+              昵称：{contact.nickname || contact.name}
             </span>
             {contact.phone && (
               <span style={{ fontSize: 14, color: '#8F959E' }}>

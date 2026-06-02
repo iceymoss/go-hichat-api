@@ -32,6 +32,7 @@ function userToContact(u: BackendUser): Contact {
   return {
     id: u.id,
     name: u.nickname || u.id,
+    nickname: u.nickname || undefined,
     avatar: u.avatar || '',
     pinyin: '',
     letter: '#',
