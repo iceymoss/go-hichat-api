@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, Forward, Reply, RotateCcw, Trash2 } from 'lucide-react';
+import { Copy, Forward, Reply, RotateCcw, Trash2, Star } from 'lucide-react';
 import type { Message } from '@/lib/mock-data';
 
 interface MessageContextMenuProps {
@@ -15,6 +15,8 @@ interface MessageContextMenuProps {
   onReply: (msg: Message, senderName: string) => void;
   onRecall: (msgId: string) => void;
   onDelete: (msgId: string) => void;
+  /** 把图片/表情消息收藏到「我的表情」（仅图片/表情类消息显示） */
+  onSaveSticker?: (msg: Message) => void;
 }
 
 const MENU_ITEM_SIZE = 42;
@@ -33,19 +35,25 @@ export default function MessageContextMenu({
   onReply,
   onRecall,
   onDelete,
+  onSaveSticker,
 }: MessageContextMenuProps) {
   const [visible, setVisible] = useState(false);
+
+  const canSaveSticker = (message.type === 'image' || message.type === 'memes') && !!onSaveSticker;
 
   // Build menu items based on ownership
   const items = useMemo(() => [
     { key: 'copy', icon: <Copy size={20} />, label: '复制', color: '#FFFFFF', onClick: () => onCopy(message) },
     { key: 'forward', icon: <Forward size={20} />, label: '转发', color: '#FFFFFF', onClick: () => onForward(message) },
     { key: 'reply', icon: <Reply size={20} />, label: '引用', color: '#FFFFFF', onClick: () => onReply(message, senderName) },
+    ...(canSaveSticker
+      ? [{ key: 'sticker', icon: <Star size={20} />, label: '添加到表情', color: '#FFFFFF', onClick: () => onSaveSticker!(message) }]
+      : []),
     ...(isOwn
       ? [{ key: 'recall', icon: <RotateCcw size={20} />, label: '撤回', color: '#FFFFFF', onClick: () => onRecall(message.id) }]
       : []),
     { key: 'delete', icon: <Trash2 size={20} />, label: '删除', color: '#E53935', onClick: () => onDelete(message.id) },
-  ], [isOwn, message, onCopy, onForward, onReply, onRecall, onDelete, senderName]);
+  ], [isOwn, canSaveSticker, message, onCopy, onForward, onReply, onRecall, onDelete, onSaveSticker, senderName]);
 
   // Calculate total menu width
   const totalItemsWidth = items.length * MENU_ITEM_SIZE + (items.length - 1) * MENU_GAP;

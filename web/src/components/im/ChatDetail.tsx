@@ -495,6 +495,34 @@ export default function ChatDetail() {
     storeSendMessage(currentUser.token, currentUser.id, selectedConversationId, content, 'memes');
   };
 
+  // 把聊天里的图片/表情消息收藏到「我的表情」
+  const handleSaveSticker = async (m: Message) => {
+    if (!currentUser?.token) return;
+    const meta = parseMediaContent(m.content);
+    if (!meta?.url) return;
+    try {
+      const res = await fetch('/api/user/emojis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${currentUser.token}` },
+        body: JSON.stringify({
+          url: meta.url,
+          name: meta.name || '',
+          thumbnail: meta.thumbUrl || '',
+          width: meta.width || 0,
+          height: meta.height || 0,
+          size: meta.size || 0,
+          fileType: 'image',
+        }),
+      });
+      const d = await res.json();
+      if (d.success) toast.success('已添加到表情');
+      else toast.error(d.message || '添加失败');
+    } catch {
+      toast.error('添加失败');
+    }
+    setContextMenu(null);
+  };
+
   const handleOpenCall = (type: 'voice' | 'video') => {
     setCallType(type);
     setCallDialogOpen(true);
@@ -931,6 +959,7 @@ export default function ChatDetail() {
           onReply={handleReplyMessage}
           onRecall={handleRecallMessage}
           onDelete={handleDeleteMessage}
+          onSaveSticker={handleSaveSticker}
         />
       )}
 
