@@ -94,12 +94,12 @@ export async function searchGroups(
   }
 }
 
-/** 发起加好友申请 */
-export async function sendFriendRequest(token: string, userUid: string, reqMsg?: string): Promise<boolean> {
+/** 发起加好友申请（可带验证内容与预设备注） */
+export async function sendFriendRequest(token: string, userUid: string, reqMsg?: string, remark?: string): Promise<boolean> {
   const resp = await fetch('/api/social/friend/putIn', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_uid: userUid, ...(reqMsg ? { req_msg: reqMsg } : {}) }),
+    body: JSON.stringify({ user_uid: userUid, ...(reqMsg ? { req_msg: reqMsg } : {}), ...(remark ? { remark } : {}) }),
   });
   const json = await resp.json();
   return json.success === true;

@@ -65,9 +65,10 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
   const [selectedUser, setSelectedUser] = useState<BackendUser | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupSearchItem | null>(null);
 
-  // 加好友：验证内容输入
+  // 加好友：验证内容 + 备注 输入
   const [friendReqUser, setFriendReqUser] = useState<BackendUser | null>(null);
   const [friendReqMsg, setFriendReqMsg] = useState('');
+  const [friendRemark, setFriendRemark] = useState('');
   const [friendSending, setFriendSending] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -165,9 +166,9 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
     handleClose();
   };
 
-  const handleSendFriend = async (uid: string, msg?: string) => {
+  const handleSendFriend = async (uid: string, msg?: string, remark?: string) => {
     if (!token) return false;
-    const ok = await sendFriendRequest(token, uid, msg);
+    const ok = await sendFriendRequest(token, uid, msg, remark);
     if (ok) { toast.success('好友请求已发送'); onSent?.(); }
     else toast.error('发送失败，请重试');
     return ok;
@@ -278,7 +279,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
               contact={userToContact(selectedUser)}
               isStranger={selectedUser.id !== myId && !isFriend(selectedUser.id)}
               onSendMessage={() => openUserChat(selectedUser.id)}
-              onAddFriend={() => { setFriendReqMsg(''); setFriendReqUser(selectedUser); }}
+              onAddFriend={() => { setFriendReqMsg(''); setFriendRemark(''); setFriendReqUser(selectedUser); }}
             />
           </div>
         </div>
@@ -301,6 +302,15 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
               maxLength={120}
               style={{ width: '100%', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 8, padding: '8px 10px', fontSize: 13, outline: 'none', resize: 'none', color: '#1C2733' }}
             />
+            <div style={{ fontSize: 13, color: '#646A73', margin: '12px 0 6px' }}>备注</div>
+            <input
+              type="text"
+              value={friendRemark}
+              onChange={(e) => setFriendRemark(e.target.value)}
+              placeholder="设置好友备注（对方通过后生效，选填）"
+              maxLength={64}
+              style={{ width: '100%', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 8, padding: '8px 10px', fontSize: 13, outline: 'none', color: '#1C2733' }}
+            />
             <div className="flex" style={{ gap: 10, marginTop: 16 }}>
               <button
                 onClick={() => setFriendReqUser(null)}
@@ -312,7 +322,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
                 onClick={async () => {
                   if (friendSending) return;
                   setFriendSending(true);
-                  const ok = await handleSendFriend(friendReqUser.id, friendReqMsg.trim() || undefined);
+                  const ok = await handleSendFriend(friendReqUser.id, friendReqMsg.trim() || undefined, friendRemark.trim() || undefined);
                   setFriendSending(false);
                   if (ok) { setFriendReqUser(null); setSelectedUser(null); }
                 }}

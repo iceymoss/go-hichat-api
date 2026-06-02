@@ -271,6 +271,7 @@ message FriendPutInReq {
   string reqUid = 3;
   string reqMsg = 4;
   int64  reqTime = 5;
+  string remark = 6; // 申请人为对方预设的备注（对方通过后写入申请人侧好友关系）
 }
 message FriendPutInResp {}
 

@@ -110,6 +110,7 @@ type FriendPutInReq struct {
 	ReqMsg  string `json:"req_msg,optional"`
 	ReqTime int64  `json:"req_time,optional"`
 	UserId  string `json:"user_uid"`
+	Remark  string `json:"remark,optional"` // 申请人为对方预设的备注
 }
 
 type FriendPutInResp struct {
