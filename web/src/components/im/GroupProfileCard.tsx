@@ -25,6 +25,7 @@ export default function GroupProfileCard({ group, onClose, onEnterGroup }: Group
 
   const [isMember, setIsMember] = useState(false);
   const [memberCount, setMemberCount] = useState(group.member_count);
+  const [ownerName, setOwnerName] = useState('');
   const [checking, setChecking] = useState(true);
   const [sending, setSending] = useState(false);
   const [applied, setApplied] = useState(false);
@@ -36,13 +37,17 @@ export default function GroupProfileCard({ group, onClose, onEnterGroup }: Group
     if (!token) { setChecking(false); return; }
     getGroupDetail(token, group.id).then((detail) => {
       if (cancelled || !detail) { setChecking(false); return; }
-      const members = (detail.members || []) as Array<{ user_id?: string; UserId?: string }>;
+      const members = (detail.members || []) as Array<{ user_id?: string; UserId?: string; nickname?: string; role_level?: number }>;
       setIsMember(members.some((m) => (m.user_id || m.UserId) === myId));
       if (members.length) setMemberCount(members.length);
+      // 群主：creator_uid 对应成员，或 role_level 最高者
+      const owner = members.find((m) => (m.user_id || m.UserId) === group.creator_uid)
+        || members.find((m) => m.role_level === 3 || m.role_level === 2);
+      if (owner?.nickname) setOwnerName(owner.nickname);
       setChecking(false);
     });
     return () => { cancelled = true; };
-  }, [token, group.id, myId]);
+  }, [token, group.id, myId, group.creator_uid]);
 
   const handleApply = async () => {
     if (!token) return;
@@ -111,6 +116,7 @@ export default function GroupProfileCard({ group, onClose, onEnterGroup }: Group
             {memberCount} 名成员
           </div>
           <div style={{ fontSize: 12, color: '#C4CDD5', marginTop: 2 }}>群号: {group.id}</div>
+          {ownerName && <div style={{ fontSize: 12, color: '#A2ACB5', marginTop: 2 }}>群主: {ownerName}</div>}
         </div>
 
         {/* 群简介 */}

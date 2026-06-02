@@ -259,10 +259,18 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
       {selectedUser && (
         <div className="fixed inset-0" style={{ zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) setSelectedUser(null); }}>
           <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
-          <div className="relative" style={{ width: '88%', maxWidth: 340 }}>
+          <div
+            className="relative im-scroll"
+            style={{ width: '90%', maxWidth: 380, maxHeight: '82vh', overflowY: 'auto', background: '#FFFFFF', borderRadius: 16, padding: '24px 20px 20px', boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}
+          >
+            <button
+              onClick={() => setSelectedUser(null)}
+              style={{ position: 'absolute', top: 12, right: 12, zIndex: 2, width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.04)', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <X className="w-4 h-4" />
+            </button>
             <UserProfileCard
               contact={userToContact(selectedUser)}
-              compact
               isStranger={selectedUser.id !== myId && !isFriend(selectedUser.id)}
               onSendMessage={() => openUserChat(selectedUser.id)}
               onAddFriend={async () => { const ok = await handleSendFriend(selectedUser.id); if (ok) setSelectedUser(null); }}
@@ -282,6 +290,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
 /* ── 列表行 ── */
 
 function UserRow({ user, self, onClick }: { user: BackendUser; self: boolean; onClick: () => void }) {
+  const sub = user.introduction || user.region || (user.id ? `ID: ${user.id}` : '');
   return (
     <div onClick={onClick} className="flex items-center" style={{ gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)', cursor: 'pointer' }}>
       <Avatar src={user.avatar} name={user.nickname} />
@@ -289,7 +298,7 @@ function UserRow({ user, self, onClick }: { user: BackendUser; self: boolean; on
         <div style={{ fontSize: 14, fontWeight: 500, color: '#1C2733' }}>
           {user.nickname || '未知'}{self && <span style={{ fontSize: 12, color: '#A2ACB5', marginLeft: 6 }}>（我）</span>}
         </div>
-        {user.region && <div style={{ fontSize: 12, color: '#A2ACB5' }}>{user.region}</div>}
+        {sub && <div className="truncate" style={{ fontSize: 12, color: '#A2ACB5' }}>{sub}</div>}
       </div>
     </div>
   );

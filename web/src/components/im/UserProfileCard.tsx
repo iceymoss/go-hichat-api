@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { type Contact, userMomentsImages } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
 import { getAvatarColor } from '@/lib/utils';
-import { Phone, Video, Send, UserPlus, Copy, MapPin } from 'lucide-react';
+import { Phone, Video, Send, UserPlus, Copy, MapPin, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
 import ProfileActionMenu from './ProfileActionMenu';
 import SetRemarkDialog from './SetRemarkDialog';
@@ -87,6 +87,18 @@ export default function UserProfileCard({
   const avatarColor = getAvatarColor(contact.name);
   const displayName = contact.remark || contact.name;
   const moments = userMomentsImages[contact.id] || [];
+
+  // 解析标签（JSON 数组字符串或逗号分隔）
+  const parsedTags: string[] = (() => {
+    if (!contact.tags) return [];
+    try {
+      const p = JSON.parse(contact.tags);
+      if (Array.isArray(p)) return p.filter(Boolean).map(String);
+    } catch {
+      return contact.tags.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+    }
+    return [];
+  })();
 
   // ActionMenu state
   const [showMenu, setShowMenu] = useState(false);
@@ -606,7 +618,7 @@ export default function UserProfileCard({
             <span style={{ fontSize: 14, color: '#646A73' }}>
               昵称：{contact.name}
             </span>
-            {!isStranger && contact.phone && (
+            {contact.phone && (
               <span style={{ fontSize: 14, color: '#8F959E' }}>
                 手机：{contact.phone}
               </span>
@@ -614,10 +626,27 @@ export default function UserProfileCard({
           </div>
 
           {/* Row 4: 地址 */}
-          {!isStranger && contact.region && (
+          {contact.region && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, lineHeight: 1.8 }}>
               <MapPin size={13} style={{ color: '#A2ACB5', flexShrink: 0 }} />
               <span style={{ fontSize: 14, color: '#8F959E' }}>{contact.region}</span>
+            </div>
+          )}
+
+          {/* Row 5: 职业 */}
+          {contact.occupation && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, lineHeight: 1.8 }}>
+              <Briefcase size={13} style={{ color: '#A2ACB5', flexShrink: 0 }} />
+              <span style={{ fontSize: 14, color: '#8F959E' }}>{contact.occupation}</span>
+            </div>
+          )}
+
+          {/* Row 6: 标签 */}
+          {parsedTags.length > 0 && (
+            <div className="flex flex-wrap" style={{ gap: 6, marginTop: 2 }}>
+              {parsedTags.map((t, i) => (
+                <span key={i} style={{ fontSize: 12, color: '#3390EC', background: 'rgba(51,144,236,0.1)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+              ))}
             </div>
           )}
         </div>
