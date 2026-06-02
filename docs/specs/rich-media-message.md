@@ -105,7 +105,7 @@
 8. [x] 前端：表情收藏面板（发送收藏表情 + 从聊天右键「添加到表情」，复用 `/api/user/emojis`）
 9. [x] 前端：会话列表富媒体预览（`mediaPreview`）；ChatDetail 文案沿用组件内中文硬编码约定
 10. [ ] 后端：孤儿文件清理定时任务（apps/task/cron，新 task 注册进 registry，Redis 单实例锁）
-11. [ ] 文档：`/sync-api-docs` 更新 `docs/specs/api.md`
+11. [x] 文档：更新 `docs/specs/api.md`（新增 `POST /v1/im/upload` + 视频类型枚举）
 
 ### 参考的现有模式
 - `apps/user/api/internal/logic/favorite/uploadfilelogic.go` — 上传 + 类型识别 + 大小校验

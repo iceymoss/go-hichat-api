@@ -31,6 +31,7 @@
   - [4.1 聊天记录模块 (REST)](#41-聊天记录模块-rest)
   - [4.2 会话管理模块 (REST)](#42-会话管理模块-rest)
   - [4.3 WebSocket 通讯模块](#43-websocket-通讯模块)
+  - [4.4 富媒体上传模块 (REST)](#44-富媒体上传模块-rest)
 - [附录: 公共数据结构](#附录-公共数据结构)
 
 ---
@@ -4064,7 +4065,7 @@ curl -X PUT http://localhost:8080/v1/trend/like/mark-read \
 | conversationId | string | 所属会话ID |
 | sendId | string | 发送者用户ID |
 | recvId | string | 接收者ID（私聊为用户ID，群聊为群ID） |
-| msgType | int32 | 消息类型 (1-文本, 2-文件, 3-语音, 4-图片, 5-表情包) |
+| msgType | int32 | 消息类型 (1-文本, 2-文件, 3-语音, 4-图片, 5-表情包, 8-视频) |
 | msgContent | string | 消息内容 |
 | chatType | int32 | 聊天类型 (1-私聊, 2-群聊) |
 | sendTime | int64 | 发送时间（Unix 时间戳） |
@@ -4447,7 +4448,7 @@ curl -X PUT http://localhost:8080/v1/im/conversation \
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| mType | int | 消息类型 (1-文本, 2-文件, 3-语音, 4-图片, 5-表情包) |
+| mType | int | 消息类型 (1-文本, 2-文件, 3-语音, 4-图片, 5-表情包, 8-视频) |
 | content | string | 消息内容 |
 | readRecords | map[string]string | 已读记录，key 为消息ID，value 为状态 |
 
@@ -4557,6 +4558,52 @@ curl -X PUT http://localhost:8080/v1/im/conversation \
 
 ---
 
+## 4.4 富媒体上传模块 (REST)
+
+### 4.4.1 上传富媒体文件
+
+- **接口**: `POST /v1/im/upload`
+- **认证**: 需要
+- **描述**: 上传图片/视频/文件/语音，返回访问 URL 与媒体类型。单文件上限 100MB，本地存储按类型归档到 `im/<image|video|voice|file>`。
+
+**请求 (multipart/form-data)**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| file | file | 是 | 待上传的文件（表单字段名固定为 `file`） |
+
+**响应参数 (data)**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| url | string | 文件访问 URL |
+| name | string | 原始文件名 |
+| size | int64 | 文件大小（字节） |
+| fileType | string | 媒体类型：image / video / voice / file |
+
+**说明**：发送富媒体消息时，前端把元数据（url、缩略图、宽高、时长等）序列化为 JSON 字符串放入 WebSocket 消息的 `content`，并设置对应 `mType`（见消息类型枚举）。发送链路对 `content` 原样透传。
+
+**请求示例**
+
+```bash
+curl -X POST "http://localhost:8890/v1/im/upload" \
+  -H "Authorization: Bearer eyJhbGci..." \
+  -F "file=@/path/to/photo.jpg"
+```
+
+**响应示例**
+
+```json
+{
+  "url": "http://localhost:8887/static/im/image/1717300000_photo.jpg",
+  "name": "photo.jpg",
+  "size": 204800,
+  "fileType": "image"
+}
+```
+
+---
+
 # 附录: 公共数据结构
 
 ## User Service - User
@@ -4597,6 +4644,7 @@ curl -X PUT http://localhost:8080/v1/im/conversation \
 | 3 | VoiceMType | 语音消息 |
 | 4 | ImageMType | 图片消息 |
 | 5 | MemesMType | 表情包消息 |
+| 8 | VideoMType | 视频消息（追加在 6/7 控制类型之后） |
 
 ## 聊天类型枚举 (ChatType)
 
