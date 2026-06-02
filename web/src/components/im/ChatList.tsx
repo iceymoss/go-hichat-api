@@ -1006,6 +1006,11 @@ export function ChatListContent() {
   }, [setSelectedIds]);
 
   const handleMarkRead = useCallback(() => {
+    // 走 store.clearUnread：① 更新 store conversations → 触发同步 effect 清空列表气泡，
+    // 并让侧边栏“会话”tab 的总未读数（IMLayout 从 store 重算）一并扣减；② 同步后端已读数。
+    const { clearUnread } = useChatStore.getState();
+    selectedIds.forEach((id) => clearUnread(id));
+    // 乐观更新本地副本，保证即时反馈（store 同步 effect 随后也会覆盖一致）
     setLocalConversations((prev) =>
       prev.map((c) => (selectedIds.has(c.id) ? { ...c, unreadCount: 0 } : c))
     );
