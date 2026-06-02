@@ -11,9 +11,8 @@ type ChatLog struct {
 	MsgType        int32  `json:"msgType,omitempty"`
 	MsgContent     string `json:"msgContent,omitempty"`
 	ChatType       int32  `json:"chatType,omitempty"`
-	SendTime       int64  `json:"sendTime,omitempty"` // 修正字段名统一小写
-	// ReadRecords base64(bitmap)。私聊为 "AQ=="（对方已读）/空（未读），群聊为每成员 bit 位图
-	ReadRecords string `json:"readRecords,omitempty"`
+	SendTime       int64  `json:"sendTime,omitempty"`    // 修正字段名统一小写
+	ReadRecords    string `json:"readRecords,omitempty"` // base64(bitmap)。私聊为 "AQ=="（对方已读）/空（未读），群聊为每成员 bit 位图
 }
 
 type ChatLogReq struct {
@@ -37,23 +36,13 @@ type Conversation struct {
 	Seq            int64   `json:"seq,optional,omitempty"`
 	Read           int32   `json:"read,optional,omitempty"`
 	Msg            ChatLog `json:"message,optional,omitempty"`
-
-	// 附带的用户/群信息（API 层填充，前端无需二次查询）
-	TargetName   string `json:"targetName,optional,omitempty"`
-	TargetAvatar string `json:"targetAvatar,optional,omitempty"`
-	MemberCount  int    `json:"memberCount,optional,omitempty"`
+	TargetName     string  `json:"targetName,optional,omitempty"`
+	TargetAvatar   string  `json:"targetAvatar,optional,omitempty"`
+	MemberCount    int     `json:"memberCount,optional,omitempty"`
 }
 
 type GetChatLogReadRecordsReq struct {
 	MsgId string `form:"msgId"`
-}
-
-type ReadRecordUser struct {
-	Id       string `json:"id"`
-	Nickname string `json:"nickname"`
-	Avatar   string `json:"avatar"`
-	// 已读时间戳（unix nano），仅已读列表里有值；未读列表里为 0
-	ReadAt int64 `json:"readAt,omitempty"`
 }
 
 type GetChatLogReadRecordsResp struct {
@@ -75,6 +64,13 @@ type PutConversationsReq struct {
 type PutConversationsResp struct {
 }
 
+type ReadRecordUser struct {
+	Id       string `json:"id"`
+	Nickname string `json:"nickname"`
+	Avatar   string `json:"avatar"`
+	ReadAt   int64  `json:"readAt,omitempty"` // 已读时间戳（unix nano），仅已读列表里有值；未读列表里为 0
+}
+
 type SetConversationSettingsReq struct {
 	ConversationId string `json:"conversationId"`
 	IsTop          bool   `json:"isTop,optional"`
@@ -91,4 +87,11 @@ type SetUpUserConversationReq struct {
 }
 
 type SetUpUserConversationResp struct {
+}
+
+type UploadResp struct {
+	Url      string `json:"url"`
+	Name     string `json:"name"`
+	Size     int64  `json:"size"`
+	FileType string `json:"fileType"` // image/video/voice/file
 }

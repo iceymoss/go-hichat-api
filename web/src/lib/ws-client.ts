@@ -26,6 +26,8 @@ export const MsgType = {
   Memes: 5,
   // ContentMakeRead = 6：已读回执，不是正常消息类型
   ContentMakeRead: 6,
+  // Video = 8：视频（追加在 6/7 控制类型之后，与后端 constants/im.go 对应）
+  Video: 8,
 } as const;
 
 // ContentType 附加类型（与 MsgType 独立），ws.Chat.contentType 字段

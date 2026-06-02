@@ -50,6 +50,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/setup/conversation",
 				Handler: setUpUserConversationHandler(serverCtx),
 			},
+			{
+				// 上传富媒体文件(图片/视频/文件/语音)
+				Method:  http.MethodPost,
+				Path:    "/upload",
+				Handler: uploadHandler(serverCtx),
+			},
 		},
 		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),
 		rest.WithPrefix("/v1/im"),

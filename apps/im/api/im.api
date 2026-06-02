@@ -37,11 +37,11 @@ type (
 // -------------- im api v1 --------------
 type (
 	ChatLogReq {
-		MsgId          string `json:"msgId"`
-		ConversationId string `json:"conversationId"`
-		StartSendTime  int64  `json:"startSendTime,omitempty"`
-		EndSendTime    int64  `json:"endSendTime,omitempty"`
-		Count          int64  `json:"count,omitempty"`
+		MsgId          string `form:"msgId,optional"`
+		ConversationId string `form:"conversationId"`
+		StartSendTime  int64  `form:"startSendTime,optional"`
+		EndSendTime    int64  `form:"endSendTime,optional"`
+		Count          int64  `form:"count,optional"`
 	}
 	ChatLogResp {
 		List []ChatLog `json:"list"` // 移除多余星号*
@@ -61,11 +61,17 @@ type (
 	}
 	SetUpUserConversationResp  {} // 类型名首字母必须大写
 	GetChatLogReadRecordsReq {
-		MsgId string `json:"msgId"`
+		MsgId string `form:"msgId"`
+	}
+	ReadRecordUser {
+		Id       string `json:"id"`
+		Nickname string `json:"nickname"`
+		Avatar   string `json:"avatar"`
+		ReadAt   int64  `json:"readAt,omitempty"` // 已读时间戳（unix nano），仅已读列表里有值；未读列表里为 0
 	}
 	GetChatLogReadRecordsResp {
-		Reads   []string `json:"reads"`
-		UnReads []string `json:"unReads"`
+		Reads   []ReadRecordUser `json:"reads"`
+		UnReads []ReadRecordUser `json:"unReads"`
 	}
 	SetConversationSettingsReq {
 		ConversationId string `json:"conversationId"`
@@ -73,6 +79,12 @@ type (
 		IsMute         bool   `json:"isMute,optional"`
 	}
 	SetConversationSettingsResp  {}
+	UploadResp {
+		Url      string `json:"url"`
+		Name     string `json:"name"`
+		Size     int64  `json:"size"`
+		FileType string `json:"fileType"` // image/video/voice/file
+	}
 )
 
 @server (
@@ -103,5 +115,9 @@ service im {
 	@doc "设置会话置顶/免打扰"
 	@handler setConversationSettings
 	put /conversation/settings (SetConversationSettingsReq) returns (SetConversationSettingsResp)
+
+	@doc "上传富媒体文件(图片/视频/文件/语音)"
+	@handler upload
+	post /upload returns (UploadResp)
 }
 

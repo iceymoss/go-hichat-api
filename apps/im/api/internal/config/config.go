@@ -17,4 +17,10 @@ type Config struct {
 	UserRpc zrpc.RpcClientConf
 
 	ImRpc zrpc.RpcClientConf
+
+	// Upload 富媒体文件本地存储配置
+	Upload struct {
+		BasePath string `json:",optional"` // 本地存储路径，如 ./temp
+		BaseURL  string `json:",optional"` // 访问URL前缀，如 http://localhost:8887/static
+	}
 }

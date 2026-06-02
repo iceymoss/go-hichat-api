@@ -1,6 +1,8 @@
 Name: im
 Host: 0.0.0.0
 Port: 8890
+# 富媒体上传上限：120MB（覆盖 go-zero 默认 1MB，给 100MB 文件留 multipart 余量）
+MaxBytes: 125829120
 
 SocialRpc:
   Etcd:
@@ -24,3 +26,6 @@ ImRpc:
 JwtAuth:
   AccessSecret: iceymoss.hichat.hichat2.com
   AccessExpire: 8640000
+Upload:
+  BasePath: ./temp
+  BaseURL: http://localhost:8887/static
