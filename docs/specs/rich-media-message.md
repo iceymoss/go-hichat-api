@@ -73,27 +73,18 @@
 - 验证 ws / MQ / push 不对 `content` 做任何针对文本的假设（调研确认为纯透传）。
 - 枚举已就绪：`pkg/constants/im.go` 已有 `FileMType=2 / VoiceMType=3 / ImageMType=4 / MemesMType=5`；前端 `web/src/lib/ws-client.ts` `MsgType` 已对齐。
 
-### 3. 表情包收藏（user 服务，独立功能）
-> ⚠️ **表情包收藏 ≠ 用户收藏（favorites）**，是两个独立功能。本功能**不**复用、**不**写入 `favorites` 表，单独建 `user_stickers` 表、单独的 model 和 CRUD 接口，语义互不混淆。`favoritesmodel.go` 仅作为 GORM 写法参考。
+### 3. 表情包收藏（user 服务，已存在，直接复用）
+> ✅ **后端已实现**：表情包收藏在 main 分支即有，模型为 `apps/user/models/useremojimodel.go` 的 `UserEmoji`（表 `user_emojis`），是独立于 `favorites` 收藏的功能，恰好满足「表情包收藏 ≠ 用户收藏」。**不再新建 `user_stickers`，直接复用。**
 
-新建专表（已确认）：
+现有接口（前缀 `/api/v1/user`，JWT）：
+- `POST   /emoji/upload`  上传表情文件拿 URL（`apps/user/api/internal/logic/emoji/uploademojilogic.go`）
+- `POST   /emoji`         添加表情：`{url, name, thumbnail, width, height, size, fileType}`，按 url 去重；**从聊天图片收藏也走这个**（传图片消息里的 url）
+- `GET    /emojis`        我的表情列表（按 `sort_order DESC, created_at DESC`）
+- `DELETE /emoji`         删除（仅限本人）
 
-```
-表 user_stickers
-- id        主键（GORM 管理，沿用仓库现有 primaryKey;autoIncrement 写法）
-- user_id   uint64  index:idx_user_id
-- url       varchar(512)  not null  表情图片地址
-- width     int           default 0
-- height    int           default 0
-- sort      int           default 0  面板排序（越大越靠前 / 最近使用置顶）
-- created_at / updated_at
-```
-- API（`apps/user/api/user.api`），路径与 favorites 区分开，挂在 `sticker` 命名下：
-  - `POST   /v1/user/sticker`      添加表情（上传得到的 url，或从聊天图片 url 收藏）
-  - `GET    /v1/user/sticker`      我的表情列表
-  - `DELETE /v1/user/sticker/:id`  删除（仅限本人）
-- 自定义表情上传复用 user 现有上传接口拿 URL，再调 `POST /v1/user/sticker` 入库。
-- 参考（仅 GORM 写法，不复用其表/逻辑）：`apps/user/models/favoritesmodel.go`。
+`user_emojis` 字段：id / user_id / url / name / thumbnail / width / height / size / file_type / sort_order / created_at / updated_at —— 比原 spec 设计的 `user_stickers` 更全。
+
+> ⚠️ 已知缺口（本期按用户决定暂不处理）：`user_emojis`（及 `favorites`）未登记进 `pkg/db/objects` + `deploy/sql_init.go` 迁移注册表，新环境部署需手工建表。
 
 ### 4. 前端（web/）
 - 输入区组件扩展：emoji 面板、表情面板、附件按钮（图片/视频/文件）、语音录制按钮。
@@ -106,7 +97,7 @@
 ### 实现步骤（每步可独立 commit）
 1. [x] 后端：im 新增 `POST /v1/im/upload`（改 `.api` → goctl 生成 → 填 logic → 配 yaml/config）
 2. [x] 后端：抽取/实现文件类型识别 + 100MB 校验，落盘分目录（`pkg/storage.ClassifyMedia` + `uploadMedia`）
-3. [ ] 后端：user 新增 `user_stickers` model（**待 schema 确认**）+ sticker CRUD api/logic
+3. [x] 后端：表情包收藏 —— 复用已存在的 `user_emojis` 功能（`UserEmoji` model + `/emoji*` 接口），不新建表
 4. [ ] 前端：富媒体消息渲染（图片/视频/文件/语音/表情，含未知类型降级）
 5. [ ] 前端：上传 + 发送图片/视频/文件
 6. [ ] 前端：语音录制 + 发送
