@@ -24,3 +24,6 @@ ImRpc:
 JwtAuth:
   AccessSecret: iceymoss.hichat.hichat2.com
   AccessExpire: 8640000
+Upload:
+  BasePath: ./temp
+  BaseURL: http://localhost:8887/static

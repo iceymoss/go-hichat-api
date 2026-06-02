@@ -23,3 +23,7 @@ JwtAuth:
 
 Log:
   Level: error
+
+Upload:
+  BasePath: ./temp
+  BaseURL: http://localhost:8887/static
