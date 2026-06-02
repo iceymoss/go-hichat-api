@@ -67,6 +67,7 @@ export interface Contact {
   signature?: string;
   account?: string;  // HiChat ID
   remark?: string;   // 备注 (friend remark name)
+  nickname?: string; // 用户真实昵称（网名）；name 可能是 remark||nickname 的展示名
   introduction?: string;
   occupation?: string;
   tags?: string;

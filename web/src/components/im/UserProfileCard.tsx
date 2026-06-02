@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { type Contact, userMomentsImages } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
 import { getAvatarColor } from '@/lib/utils';
-import { Phone, Video, Send, UserPlus, Copy, MapPin } from 'lucide-react';
+import { Phone, Video, Send, UserPlus, Copy, MapPin, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
 import ProfileActionMenu from './ProfileActionMenu';
 import SetRemarkDialog from './SetRemarkDialog';
@@ -29,6 +29,45 @@ interface UserProfileCardProps {
   compact?: boolean;
 }
 
+/** 陌生人资料：性别/地区/职业/标签（仅搜索加好友场景展示） */
+function StrangerInfo({ contact }: { contact: Contact }) {
+  const sexLabel = contact.gender === 'male' ? '男' : contact.gender === 'female' ? '女' : '';
+  let tagList: string[] = [];
+  if (contact.tags) {
+    try {
+      const parsed = JSON.parse(contact.tags);
+      if (Array.isArray(parsed)) tagList = parsed.filter(Boolean).map(String);
+    } catch {
+      tagList = contact.tags.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
+  const rows: Array<[string, string]> = [];
+  if (sexLabel) rows.push(['性别', sexLabel]);
+  if (contact.region) rows.push(['地区', contact.region]);
+  if (contact.occupation) rows.push(['职业', contact.occupation]);
+
+  if (rows.length === 0 && tagList.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      {rows.map(([k, v]) => (
+        <div key={k} className="flex" style={{ fontSize: 13, lineHeight: 1.9 }}>
+          <span style={{ width: 44, color: '#A2ACB5', flexShrink: 0 }}>{k}</span>
+          <span style={{ color: '#1C2733' }}>{v}</span>
+        </div>
+      ))}
+      {tagList.length > 0 && (
+        <div className="flex flex-wrap" style={{ gap: 6, marginTop: 6 }}>
+          {tagList.map((t, i) => (
+            <span key={i} style={{ fontSize: 12, color: '#3390EC', background: 'rgba(51,144,236,0.1)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function UserProfileCard({
   contact,
   isStranger = false,
@@ -48,6 +87,18 @@ export default function UserProfileCard({
   const avatarColor = getAvatarColor(contact.name);
   const displayName = contact.remark || contact.name;
   const moments = userMomentsImages[contact.id] || [];
+
+  // 解析标签（JSON 数组字符串或逗号分隔）
+  const parsedTags: string[] = (() => {
+    if (!contact.tags) return [];
+    try {
+      const p = JSON.parse(contact.tags);
+      if (Array.isArray(p)) return p.filter(Boolean).map(String);
+    } catch {
+      return contact.tags.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+    }
+    return [];
+  })();
 
   // ActionMenu state
   const [showMenu, setShowMenu] = useState(false);
@@ -240,7 +291,7 @@ export default function UserProfileCard({
               {displayName}
             </div>
             <div style={{ fontSize: 12, color: '#A2ACB5', lineHeight: 1.3, marginTop: 2 }}>
-              {contact.remark ? `昵称: ${contact.name}` : ''}
+              {contact.remark ? `昵称: ${contact.nickname || contact.name}` : ''}
             </div>
           </div>
           <div style={{ fontSize: 12, color: contact.online ? '#4DCD5E' : '#A2ACB5' }}>
@@ -274,6 +325,11 @@ export default function UserProfileCard({
               {contact.signature}
             </div>
           </div>
+        )}
+
+        {/* Stranger info: 性别/地区/职业/标签 */}
+        {isStranger && (
+          <StrangerInfo contact={contact} />
         )}
 
         {/* Action button */}
@@ -560,9 +616,9 @@ export default function UserProfileCard({
           {/* Row 3: 用户昵称 + 手机号 并排 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, lineHeight: 1.8 }}>
             <span style={{ fontSize: 14, color: '#646A73' }}>
-              昵称：{contact.name}
+              昵称：{contact.nickname || contact.name}
             </span>
-            {!isStranger && contact.phone && (
+            {contact.phone && (
               <span style={{ fontSize: 14, color: '#8F959E' }}>
                 手机：{contact.phone}
               </span>
@@ -570,10 +626,27 @@ export default function UserProfileCard({
           </div>
 
           {/* Row 4: 地址 */}
-          {!isStranger && contact.region && (
+          {contact.region && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, lineHeight: 1.8 }}>
               <MapPin size={13} style={{ color: '#A2ACB5', flexShrink: 0 }} />
               <span style={{ fontSize: 14, color: '#8F959E' }}>{contact.region}</span>
+            </div>
+          )}
+
+          {/* Row 5: 职业 */}
+          {contact.occupation && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, lineHeight: 1.8 }}>
+              <Briefcase size={13} style={{ color: '#A2ACB5', flexShrink: 0 }} />
+              <span style={{ fontSize: 14, color: '#8F959E' }}>{contact.occupation}</span>
+            </div>
+          )}
+
+          {/* Row 6: 标签 */}
+          {parsedTags.length > 0 && (
+            <div className="flex flex-wrap" style={{ gap: 6, marginTop: 2 }}>
+              {parsedTags.map((t, i) => (
+                <span key={i} style={{ fontSize: 12, color: '#3390EC', background: 'rgba(51,144,236,0.1)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+              ))}
             </div>
           )}
         </div>

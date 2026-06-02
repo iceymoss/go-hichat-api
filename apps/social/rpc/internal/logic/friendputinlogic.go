@@ -65,6 +65,7 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 	if friendReqs != nil {
 		friendReqs.Status = 1        // 正常显示
 		friendReqs.ReqMsg = in.ReqMsg
+		friendReqs.Remark = in.Remark // 申请人预设备注
 		friendReqs.ReqTime = reqTime
 		friendReqs.HandleResult = 0  // 重置为待处理
 		friendReqs.HandledAt = chinaNow
@@ -88,6 +89,7 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 		UserId:       uint64(uidInt),
 		ReqUid:       uint64(reqUidInt),
 		ReqMsg:       in.ReqMsg,
+		Remark:       in.Remark, // 申请人预设备注
 		Status:       1, // 1-正常显示
 		ReqTime:      reqTime,
 		HandleResult: 0, // 0-待处理

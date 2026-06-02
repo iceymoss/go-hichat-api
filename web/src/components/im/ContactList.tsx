@@ -93,8 +93,12 @@ export default function ContactList() {
               phone: f.phone || undefined,
               region: f.region || undefined,
               signature: f.introduction || undefined,
+              introduction: f.introduction || undefined,
+              occupation: f.occupation || undefined,
+              tags: f.tags || undefined,
               account: String(f.friend_uid),
               remark: f.remark || undefined,
+              nickname: f.nickname || undefined,
             };
           });
           setFriends(mapped);

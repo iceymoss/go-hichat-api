@@ -98,11 +98,16 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 			return nil
 		}
 
-		// 申请人好友列表中添加处理人（处理人的昵称作为默认备注）
+		// 申请人好友列表中添加处理人
+		// 申请人发起申请时若预设了备注，则用预设备注；否则用处理人昵称作默认
+		applicantRemark := firendReq.Remark
+		if applicantRemark == "" {
+			applicantRemark = friendRsep.User.Nickname
+		}
 		friend1 := &socialmodels.Friends{
 			UserId:    firendReq.UserId,
 			FriendUid: firendReq.ReqUid,
-			Remark:    friendRsep.User.Nickname,
+			Remark:    applicantRemark,
 			AddSource: 1,
 			CreatedAt: sql.NullTime{
 				Time:  chinaNow,

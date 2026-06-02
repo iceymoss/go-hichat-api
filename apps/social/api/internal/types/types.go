@@ -110,6 +110,7 @@ type FriendPutInReq struct {
 	ReqMsg  string `json:"req_msg,optional"`
 	ReqTime int64  `json:"req_time,optional"`
 	UserId  string `json:"user_uid"`
+	Remark  string `json:"remark,optional"` // 申请人为对方预设的备注
 }
 
 type FriendPutInResp struct {
@@ -488,6 +489,26 @@ type GroupUserOnlineReq struct {
 
 type GroupUserOnlineResp struct {
 	OnlineList map[string]bool `json:"onLineList"`
+}
+
+type GroupSearchReq struct {
+	Keyword string `form:"keyword"`       // 群号(精确) 或 群名(模糊)
+	Page    int64  `form:"page,optional"` // 页码，从1开始
+	Size    int64  `form:"size,optional"` // 每页大小
+}
+
+type GroupSearchItem struct {
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Icon        string `json:"icon"`
+	Description string `json:"description"`
+	CreatorUid  string `json:"creator_uid"`
+	MemberCount int64  `json:"member_count"`
+}
+
+type GroupSearchResp struct {
+	List  []GroupSearchItem `json:"list"`
+	Total int64             `json:"total"`
 }
 
 type Groups struct {

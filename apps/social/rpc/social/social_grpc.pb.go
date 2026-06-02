@@ -44,6 +44,7 @@ const (
 	Social_GroupList_FullMethodName                  = "/social.social/GroupList"
 	Social_GroupUsers_FullMethodName                 = "/social.social/GroupUsers"
 	Social_FindGroupList_FullMethodName              = "/social.social/FindGroupList"
+	Social_GroupSearch_FullMethodName                = "/social.social/GroupSearch"
 	Social_GroupQuit_FullMethodName                  = "/social.social/GroupQuit"
 	Social_GroupKick_FullMethodName                  = "/social.social/GroupKick"
 	Social_GroupUpdate_FullMethodName                = "/social.social/GroupUpdate"
@@ -98,6 +99,7 @@ type SocialClient interface {
 	GroupList(ctx context.Context, in *GroupListReq, opts ...grpc.CallOption) (*GroupListResp, error)
 	GroupUsers(ctx context.Context, in *GroupUsersReq, opts ...grpc.CallOption) (*GroupUsersResp, error)
 	FindGroupList(ctx context.Context, in *FindGroupListReq, opts ...grpc.CallOption) (*FindGroupListResp, error)
+	GroupSearch(ctx context.Context, in *GroupSearchReq, opts ...grpc.CallOption) (*GroupSearchResp, error)
 	GroupQuit(ctx context.Context, in *GroupQuitReq, opts ...grpc.CallOption) (*GroupQuitResp, error)
 	GroupKick(ctx context.Context, in *GroupKickReq, opts ...grpc.CallOption) (*GroupKickResp, error)
 	GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error)
@@ -379,6 +381,16 @@ func (c *socialClient) FindGroupList(ctx context.Context, in *FindGroupListReq, 
 	return out, nil
 }
 
+func (c *socialClient) GroupSearch(ctx context.Context, in *GroupSearchReq, opts ...grpc.CallOption) (*GroupSearchResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupSearchResp)
+	err := c.cc.Invoke(ctx, Social_GroupSearch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *socialClient) GroupQuit(ctx context.Context, in *GroupQuitReq, opts ...grpc.CallOption) (*GroupQuitResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GroupQuitResp)
@@ -593,6 +605,7 @@ type SocialServer interface {
 	GroupList(context.Context, *GroupListReq) (*GroupListResp, error)
 	GroupUsers(context.Context, *GroupUsersReq) (*GroupUsersResp, error)
 	FindGroupList(context.Context, *FindGroupListReq) (*FindGroupListResp, error)
+	GroupSearch(context.Context, *GroupSearchReq) (*GroupSearchResp, error)
 	GroupQuit(context.Context, *GroupQuitReq) (*GroupQuitResp, error)
 	GroupKick(context.Context, *GroupKickReq) (*GroupKickResp, error)
 	GroupUpdate(context.Context, *GroupUpdateReq) (*GroupUpdateResp, error)
@@ -698,6 +711,9 @@ func (UnimplementedSocialServer) GroupUsers(context.Context, *GroupUsersReq) (*G
 }
 func (UnimplementedSocialServer) FindGroupList(context.Context, *FindGroupListReq) (*FindGroupListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindGroupList not implemented")
+}
+func (UnimplementedSocialServer) GroupSearch(context.Context, *GroupSearchReq) (*GroupSearchResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupSearch not implemented")
 }
 func (UnimplementedSocialServer) GroupQuit(context.Context, *GroupQuitReq) (*GroupQuitResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupQuit not implemented")
@@ -1224,6 +1240,24 @@ func _Social_FindGroupList_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Social_GroupSearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupSearchReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupSearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupSearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupSearch(ctx, req.(*GroupSearchReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Social_GroupQuit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GroupQuitReq)
 	if err := dec(in); err != nil {
@@ -1654,6 +1688,10 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FindGroupList",
 			Handler:    _Social_FindGroupList_Handler,
+		},
+		{
+			MethodName: "GroupSearch",
+			Handler:    _Social_GroupSearch_Handler,
 		},
 		{
 			MethodName: "GroupQuit",

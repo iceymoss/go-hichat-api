@@ -18,14 +18,18 @@ export async function GET(req: NextRequest) {
     const phone = searchParams.get('phone');
     const email = searchParams.get('email');
     const ids = searchParams.get('ids');
+    const page = searchParams.get('page');
+    const size = searchParams.get('size');
 
     if (name) params.set('name', name);
     if (phone) params.set('phone', phone);
     if (email) params.set('email', email);
     if (ids) params.set('ids', ids);
+    if (page) params.set('page', page);
+    if (size) params.set('size', size);
 
     const qs = params.toString();
-    const resp = await backendGet<{ users: BackendUser[] }>(
+    const resp = await backendGet<{ users: BackendUser[]; total?: number }>(
       `/api/v1/user/search${qs ? `?${qs}` : ''}`,
       token,
     );
@@ -40,7 +44,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: '搜索成功',
-      data: { users: resp.data?.users || [] },
+      data: { users: resp.data?.users || [], total: resp.data?.total ?? 0 },
     });
   } catch (error) {
     console.error('Search user error:', error);
