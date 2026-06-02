@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { imUpload } from '@/lib/api-client';
 import { buildMediaContent, parseMediaContent } from '@/lib/media-message';
+import ChatEmojiPanel, { type StickerItem } from './ChatEmojiPanel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CallDialog } from './CallDialog';
 import ChatSettingsMenu from './ChatSettingsMenu';
@@ -487,6 +488,13 @@ export default function ChatDetail() {
     setRecording(false);
   };
 
+  // 发送收藏表情（表情包，memes）
+  const handleSendSticker = (s: StickerItem) => {
+    if (!selectedConversationId || !currentUser?.token || !currentUser?.id) return;
+    const content = buildMediaContent({ url: s.url, thumbUrl: s.thumbnail, width: s.width, height: s.height });
+    storeSendMessage(currentUser.token, currentUser.id, selectedConversationId, content, 'memes');
+  };
+
   const handleOpenCall = (type: 'voice' | 'video') => {
     setCallType(type);
     setCallDialogOpen(true);
@@ -826,12 +834,18 @@ export default function ChatDetail() {
 
         <div className="flex items-center" style={{ gap: 8, padding: '10px 5%', minWidth: 0 }}>
           {/* Emoji */}
-          <button
-            className="flex items-center justify-center shrink-0"
-            style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer' }}
+          <ChatEmojiPanel
+            token={currentUser?.token}
+            onPickEmoji={(native) => setInput((v) => v + native)}
+            onPickSticker={handleSendSticker}
           >
-            <Smile style={{ width: 22, height: 22 }} />
-          </button>
+            <button
+              className="flex items-center justify-center shrink-0"
+              style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer' }}
+            >
+              <Smile style={{ width: 22, height: 22 }} />
+            </button>
+          </ChatEmojiPanel>
 
           {/* Input */}
           <input
