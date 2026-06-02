@@ -65,6 +65,11 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
   const [selectedUser, setSelectedUser] = useState<BackendUser | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupSearchItem | null>(null);
 
+  // 加好友：验证内容输入
+  const [friendReqUser, setFriendReqUser] = useState<BackendUser | null>(null);
+  const [friendReqMsg, setFriendReqMsg] = useState('');
+  const [friendSending, setFriendSending] = useState(false);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reqIdRef = useRef(0); // 在途请求作废
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -273,8 +278,51 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
               contact={userToContact(selectedUser)}
               isStranger={selectedUser.id !== myId && !isFriend(selectedUser.id)}
               onSendMessage={() => openUserChat(selectedUser.id)}
-              onAddFriend={async () => { const ok = await handleSendFriend(selectedUser.id); if (ok) setSelectedUser(null); }}
+              onAddFriend={() => { setFriendReqMsg(''); setFriendReqUser(selectedUser); }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* 加好友：验证内容输入弹窗 */}
+      {friendReqUser && (
+        <div className="fixed inset-0" style={{ zIndex: 10003, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) setFriendReqUser(null); }}>
+          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
+          <div className="relative" style={{ background: '#FFFFFF', borderRadius: 14, width: '88%', maxWidth: 360, padding: 20 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#1C2733', marginBottom: 4 }}>添加好友</div>
+            <div style={{ fontSize: 13, color: '#A2ACB5', marginBottom: 12 }}>发送给「{friendReqUser.nickname || friendReqUser.id}」</div>
+            <div style={{ fontSize: 13, color: '#646A73', marginBottom: 6 }}>验证内容</div>
+            <textarea
+              value={friendReqMsg}
+              onChange={(e) => setFriendReqMsg(e.target.value)}
+              placeholder="我是…（对方通过验证后即可成为好友）"
+              autoFocus
+              rows={3}
+              maxLength={120}
+              style={{ width: '100%', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 8, padding: '8px 10px', fontSize: 13, outline: 'none', resize: 'none', color: '#1C2733' }}
+            />
+            <div className="flex" style={{ gap: 10, marginTop: 16 }}>
+              <button
+                onClick={() => setFriendReqUser(null)}
+                style={{ flex: 1, height: 38, borderRadius: 8, border: '1px solid rgba(0,0,0,0.12)', background: '#FFF', color: '#646A73', fontSize: 14, cursor: 'pointer' }}
+              >
+                取消
+              </button>
+              <button
+                onClick={async () => {
+                  if (friendSending) return;
+                  setFriendSending(true);
+                  const ok = await handleSendFriend(friendReqUser.id, friendReqMsg.trim() || undefined);
+                  setFriendSending(false);
+                  if (ok) { setFriendReqUser(null); setSelectedUser(null); }
+                }}
+                disabled={friendSending}
+                style={{ flex: 1, height: 38, borderRadius: 8, border: 'none', background: friendSending ? '#B9C4CE' : '#3390EC', color: '#FFF', fontSize: 14, fontWeight: 600, cursor: friendSending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              >
+                {friendSending ? <Loader2 className="w-4 h-4" style={{ animation: 'spin 1s linear infinite' }} /> : <UserPlus size={15} />}
+                发送申请
+              </button>
+            </div>
           </div>
         </div>
       )}
