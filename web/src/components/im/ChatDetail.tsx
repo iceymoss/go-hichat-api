@@ -39,8 +39,10 @@ import {
   Play,
 } from 'lucide-react';
 import { imUpload } from '@/lib/api-client';
-import { buildMediaContent, parseMediaContent } from '@/lib/media-message';
+import { buildMediaContent, parseMediaContent, mediaPreview } from '@/lib/media-message';
 import ChatEmojiPanel, { type StickerItem } from './ChatEmojiPanel';
+import MediaLightbox, { type LightboxItem } from './MediaLightbox';
+import VoiceBubble from './VoiceBubble';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CallDialog } from './CallDialog';
 import ChatSettingsMenu from './ChatSettingsMenu';
@@ -57,7 +59,7 @@ function formatBytes(n?: number): string {
 }
 
 /** 按消息类型渲染气泡内容（文本 / 图片 / 视频 / 文件 / 语音 / 表情包） */
-function MessageContent({ message }: { message: Message }) {
+function MessageContent({ message, onOpenMedia }: { message: Message; onOpenMedia?: (m: Message) => void }) {
   const { type, content } = message;
 
   if (type === 'image' || type === 'memes') {
@@ -67,7 +69,7 @@ function MessageContent({ message }: { message: Message }) {
       <img
         src={meta.thumbUrl || meta.url}
         alt=""
-        onClick={() => window.open(meta.url, '_blank')}
+        onClick={() => onOpenMedia?.(message)}
         style={{ maxWidth: type === 'memes' ? 120 : 220, maxHeight: 220, borderRadius: 8, cursor: 'pointer', display: 'block' }}
       />
     );
@@ -77,14 +79,21 @@ function MessageContent({ message }: { message: Message }) {
     const meta = parseMediaContent(content);
     if (!meta) return <span>{content}</span>;
     return (
-      <video
-        src={meta.url}
-        poster={meta.coverUrl}
-        controls
-        style={{ maxWidth: 240, maxHeight: 240, borderRadius: 8, display: 'block' }}
+      <div
+        onClick={() => onOpenMedia?.(message)}
+        style={{ position: 'relative', display: 'inline-block', cursor: 'pointer', lineHeight: 0 }}
       >
-        <Play size={16} />
-      </video>
+        {meta.coverUrl ? (
+          <img src={meta.coverUrl} alt="" style={{ maxWidth: 240, maxHeight: 240, borderRadius: 8, display: 'block' }} />
+        ) : (
+          <video src={meta.url} preload="metadata" style={{ maxWidth: 240, maxHeight: 240, borderRadius: 8, display: 'block', pointerEvents: 'none' }} />
+        )}
+        <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Play size={24} color="#fff" style={{ marginLeft: 2 }} />
+          </span>
+        </span>
+      </div>
     );
   }
 
@@ -113,15 +122,7 @@ function MessageContent({ message }: { message: Message }) {
 
   if (type === 'voice') {
     const meta = parseMediaContent(content);
-    if (meta) {
-      const secs = meta.duration ? `${meta.duration}"` : '';
-      return (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <audio src={meta.url} controls style={{ maxWidth: 220, height: 36 }} />
-          {secs && <span style={{ fontSize: 12, opacity: 0.6 }}>{secs}</span>}
-        </span>
-      );
-    }
+    if (meta) return <VoiceBubble url={meta.url} duration={meta.duration} />;
     return <span>{content}</span>;
   }
 
@@ -159,6 +160,9 @@ export default function ChatDetail() {
 
   // Forward dialog state
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
+
+  // 图片/视频全屏预览
+  const [lightbox, setLightbox] = useState<{ items: LightboxItem[]; index: number } | null>(null);
 
   // Deleted messages tracking
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
@@ -369,7 +373,7 @@ export default function ChatDetail() {
         content: input.trim(),
         timestamp: new Date(),
         type: 'text',
-        replyTo: replyTo ? { senderName: replyTo.senderName, content: replyTo.message.content } : undefined,
+        replyTo: replyTo ? { senderName: replyTo.senderName, content: mediaPreview(replyTo.message.type, replyTo.message.content) } : undefined,
       };
       setSentMap(prev => ({
         ...prev,
@@ -595,11 +599,48 @@ export default function ChatDetail() {
   }, []);
 
   // Context menu action handlers
-  const handleCopyMessage = useCallback((msg: Message) => {
-    navigator.clipboard.writeText(msg.content);
+  const handleCopyMessage = useCallback(async (msg: Message) => {
     setContextMenu(null);
-    toast.success('已复制');
+    // 文本直接复制；图片尝试复制图片本身，失败则复制链接；其他富媒体复制链接
+    if (msg.type === 'text' || msg.type === 'system') {
+      await navigator.clipboard.writeText(msg.content);
+      toast.success('已复制');
+      return;
+    }
+    const meta = parseMediaContent(msg.content);
+    if (!meta?.url) { toast.error('无法复制'); return; }
+    if (msg.type === 'image' || msg.type === 'memes') {
+      try {
+        const blob = await (await fetch(meta.url)).blob();
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]);
+        toast.success('图片已复制');
+        return;
+      } catch {
+        // 跨域或不支持 → 退化为复制链接
+      }
+    }
+    await navigator.clipboard.writeText(meta.url);
+    toast.success('已复制链接');
   }, []);
+
+  // 打开图片/视频全屏预览（同会话内的图片/视频可左右切换；表情包单独预览）
+  const openMedia = useCallback((m: Message) => {
+    if (m.type === 'memes') {
+      const meta = parseMediaContent(m.content);
+      if (meta?.url) setLightbox({ items: [{ type: 'image', url: meta.url }], index: 0 });
+      return;
+    }
+    const gallery: { id: string; item: LightboxItem }[] = [];
+    for (const mm of messages) {
+      if (mm.type === 'image' || mm.type === 'video') {
+        const meta = parseMediaContent(mm.content);
+        if (meta?.url) gallery.push({ id: mm.id, item: { type: mm.type, url: meta.url } });
+      }
+    }
+    if (!gallery.length) return;
+    const idx = Math.max(0, gallery.findIndex(g => g.id === m.id));
+    setLightbox({ items: gallery.map(g => g.item), index: idx });
+  }, [messages]);
 
   const handleForwardMessage = useCallback((msg: Message) => {
     setForwardMsg(msg);
@@ -820,6 +861,7 @@ export default function ChatDetail() {
             peerAvatar={peerAvatar}
             readReceiptEnabled={readReceiptEnabled}
             onShowReadDetail={(mid) => setReadDetailMsgId(mid)}
+            onOpenMedia={openMedia}
           />
           {searchBarOpen && searchKeyword && displayMessages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '24px 0', color: '#A2ACB5', fontSize: 13 }}>
@@ -848,7 +890,7 @@ export default function ChatDetail() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: '#3390EC' }}>{replyTo.senderName}</div>
               <div style={{ fontSize: 13, color: '#708499', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {replyTo.message.content}
+                {mediaPreview(replyTo.message.type, replyTo.message.content)}
               </div>
             </div>
             <button
@@ -1002,6 +1044,16 @@ export default function ChatDetail() {
         />
       )}
 
+      {/* ── 图片/视频全屏预览 ── */}
+      {lightbox && (
+        <MediaLightbox
+          items={lightbox.items}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onIndex={(i) => setLightbox(lb => (lb ? { ...lb, index: i } : lb))}
+        />
+      )}
+
       {/* ── Group Read Status Dialog ── */}
       {readDetailMsgId && (
         <ReadStatusDialog msgId={readDetailMsgId} onClose={() => setReadDetailMsgId(null)} />
@@ -1023,6 +1075,7 @@ function MessageList({
   peerAvatar,
   readReceiptEnabled,
   onShowReadDetail,
+  onOpenMedia,
 }: {
   messages: Message[];
   conversation: any;
@@ -1032,6 +1085,7 @@ function MessageList({
   peerAvatar: string;
   readReceiptEnabled: boolean;
   onShowReadDetail: (msgId: string) => void;
+  onOpenMedia: (m: Message) => void;
 }) {
   const { currentUser } = useIMStore();
   const { selectedConversationId } = useIMStore();
@@ -1229,7 +1283,7 @@ function MessageList({
                             </div>
                           </div>
                         )}
-                        <MessageContent message={m} />
+                        <MessageContent message={m} onOpenMedia={onOpenMedia} />
                       </>
                     )}
                   </div>
