@@ -23,6 +23,7 @@ import {
   BellOff,
 } from 'lucide-react';
 import { getAvatarColor } from '@/lib/utils';
+import AddFriendPanel from './AddFriendPanel';
 import { toast } from 'sonner';
 
 /* ═══════════════════════════════════════
@@ -786,6 +787,7 @@ function ActionBarButton({
 
 export function ChatListToolbar() {
   const { localSearch, setLocalSearch, editMode, setEditMode, setSelectedIds } = useChatListContext();
+  const [showAddFriend, setShowAddFriend] = useState(false);
 
   const enterEditMode = useCallback(() => {
     setEditMode(true);
@@ -903,6 +905,7 @@ export function ChatListToolbar() {
       {!editMode && (
         <button
           style={buttonStyle}
+          onClick={() => setShowAddFriend(true)}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
           }}
@@ -913,6 +916,8 @@ export function ChatListToolbar() {
           <UserPlus size={20} />
         </button>
       )}
+
+      <AddFriendPanel open={showAddFriend} onClose={() => setShowAddFriend(false)} />
     </div>
   );
 }
