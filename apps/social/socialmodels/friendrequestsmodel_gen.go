@@ -108,6 +108,9 @@ func (m *defaultFriendRequestsModel) ListFilterHandler(ctx context.Context, user
 		query = query.Where("user_id = ?", userId)
 	}
 
+	// 最新的申请排在前面
+	query = query.Order("req_time desc")
+
 	err := query.Find(&reqList).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return []*FriendRequests{}, err
@@ -135,7 +138,7 @@ func (m *defaultFriendRequestsModel) FindByReqUidAndUserId(ctx context.Context, 
 
 // ListNoHandler获取好友申请列表
 func (m *defaultFriendRequestsModel) ListNoHandler(ctx context.Context, userId string) ([]*FriendRequests, error) {
-	query := fmt.Sprintf("select %s from %s where `handle_result` = 1 and `user_id` = ?", friendRequestsRows, m.table)
+	query := fmt.Sprintf("select %s from %s where `handle_result` = 1 and `user_id` = ? order by `req_time` desc", friendRequestsRows, m.table)
 
 	var resp []*FriendRequests
 	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, userId)
@@ -150,7 +153,7 @@ func (m *defaultFriendRequestsModel) ListNoHandler(ctx context.Context, userId s
 
 // ListNoHandler获取好友申请列表
 func (m *defaultFriendRequestsModel) ListAllHandler(ctx context.Context, userId string) ([]*FriendRequests, error) {
-	query := fmt.Sprintf("select %s from %s where `user_id` = ?", friendRequestsRows, m.table)
+	query := fmt.Sprintf("select %s from %s where `user_id` = ? order by `req_time` desc", friendRequestsRows, m.table)
 
 	var resp []*FriendRequests
 	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, userId)
