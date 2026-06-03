@@ -202,6 +202,15 @@ message GroupAtListResp {
   repeated AtMember list = 1;
 }
 
+message GetMemberRoleReq {
+  string groupId = 1;
+  string userId = 2;
+}
+message GetMemberRoleResp {
+  int32 roleLevel = 1; // 0=普通 1=管理员 2=群主
+  bool  isMember = 2;  // 不在群时为 false，roleLevel 无意义
+}
+
 // ---------------- 公告历史/置顶 ----------------
 message GroupAnnouncement {
   int64  id = 1;
@@ -542,6 +551,7 @@ service social {
   rpc GetMyGroupMemberSetting(GetMyGroupMemberSettingReq) returns (GetMyGroupMemberSettingResp); // 获取群成员资料
   rpc UpdateMyGroupMemberSetting(UpdateMyGroupMemberSettingReq) returns (UpdateMyGroupMemberSettingResp); // 修改群成员资料
   rpc GroupAtList(GroupAtListReq) returns (GroupAtListResp); // 获取群@列表
+  rpc GetMemberRole(GetMemberRoleReq) returns (GetMemberRoleResp); // 点查群成员角色（撤回/@所有人鉴权用）
 
   // 公告历史/置顶
   rpc GroupAnnouncementCreate(GroupAnnouncementCreateReq) returns (GroupAnnouncementCreateResp); // 创建群公告

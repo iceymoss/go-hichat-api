@@ -54,6 +54,8 @@ type (
 	FriendUpdateRemarkResp         = social.FriendUpdateRemarkResp
 	Friends                        = social.Friends
 	GetGroupPutListByUidReq        = social.GetGroupPutListByUidReq
+	GetMemberRoleReq               = social.GetMemberRoleReq
+	GetMemberRoleResp              = social.GetMemberRoleResp
 	GetMyGroupMemberSettingReq     = social.GetMyGroupMemberSettingReq
 	GetMyGroupMemberSettingResp    = social.GetMyGroupMemberSettingResp
 	GroupAnnouncement              = social.GroupAnnouncement
@@ -158,6 +160,7 @@ type (
 		GetMyGroupMemberSetting(ctx context.Context, in *GetMyGroupMemberSettingReq, opts ...grpc.CallOption) (*GetMyGroupMemberSettingResp, error)
 		UpdateMyGroupMemberSetting(ctx context.Context, in *UpdateMyGroupMemberSettingReq, opts ...grpc.CallOption) (*UpdateMyGroupMemberSettingResp, error)
 		GroupAtList(ctx context.Context, in *GroupAtListReq, opts ...grpc.CallOption) (*GroupAtListResp, error)
+		GetMemberRole(ctx context.Context, in *GetMemberRoleReq, opts ...grpc.CallOption) (*GetMemberRoleResp, error)
 		// 公告历史/置顶
 		GroupAnnouncementCreate(ctx context.Context, in *GroupAnnouncementCreateReq, opts ...grpc.CallOption) (*GroupAnnouncementCreateResp, error)
 		GroupAnnouncementList(ctx context.Context, in *GroupAnnouncementListReq, opts ...grpc.CallOption) (*GroupAnnouncementListResp, error)
@@ -382,6 +385,11 @@ func (m *defaultSocial) UpdateMyGroupMemberSetting(ctx context.Context, in *Upda
 func (m *defaultSocial) GroupAtList(ctx context.Context, in *GroupAtListReq, opts ...grpc.CallOption) (*GroupAtListResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.GroupAtList(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GetMemberRole(ctx context.Context, in *GetMemberRoleReq, opts ...grpc.CallOption) (*GetMemberRoleResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GetMemberRole(ctx, in, opts...)
 }
 
 // 公告历史/置顶

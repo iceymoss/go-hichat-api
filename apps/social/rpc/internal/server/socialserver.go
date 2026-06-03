@@ -232,6 +232,11 @@ func (s *SocialServer) GroupAtList(ctx context.Context, in *social.GroupAtListRe
 	return l.GroupAtList(in)
 }
 
+func (s *SocialServer) GetMemberRole(ctx context.Context, in *social.GetMemberRoleReq) (*social.GetMemberRoleResp, error) {
+	l := logic.NewGetMemberRoleLogic(ctx, s.svcCtx)
+	return l.GetMemberRole(in)
+}
+
 // 公告历史/置顶
 func (s *SocialServer) GroupAnnouncementCreate(ctx context.Context, in *social.GroupAnnouncementCreateReq) (*social.GroupAnnouncementCreateResp, error) {
 	l := logic.NewGroupAnnouncementCreateLogic(ctx, s.svcCtx)
