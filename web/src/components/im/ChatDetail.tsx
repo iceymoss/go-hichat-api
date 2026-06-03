@@ -132,16 +132,17 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
     return <span>{content}</span>;
   }
 
-  return <span>{renderTextWithMentions(content)}</span>;
+  return <span>{renderTextWithMentions(content, isOwn)}</span>;
 }
 
-/** 文本中的 @所有人 / @某人 高亮渲染 */
-function renderTextWithMentions(text: string) {
+/** 文本中的 @所有人 / @某人 高亮渲染。发送方气泡是蓝底，@ 用浅金色才看得清；接收方白底用蓝色。 */
+function renderTextWithMentions(text: string, isOwn?: boolean) {
   if (!text || text.indexOf('@') < 0) return text;
+  const color = isOwn ? '#FFD666' : '#3390EC';
   const parts = text.split(/(@所有人|@\S+)/g);
   return parts.map((part, i) =>
     part.startsWith('@')
-      ? <span key={i} style={{ color: '#3390EC', fontWeight: 500 }}>{part}</span>
+      ? <span key={i} style={{ color, fontWeight: 600 }}>{part}</span>
       : part,
   );
 }
