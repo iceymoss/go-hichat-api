@@ -235,6 +235,8 @@ export default function ChatDetail() {
 
   // 撤回二次确认弹窗：保存待撤回的 msgId（null 表示关闭）
   const [recallConfirmId, setRecallConfirmId] = useState<string | null>(null);
+  // 撤回被拦截/失败时的居中提示（如超时、无权限），null 表示关闭
+  const [recallBlockedReason, setRecallBlockedReason] = useState<string | null>(null);
 
   // 群聊已读详情弹窗（存的是 mongoID）
   const [readDetailMsgId, setReadDetailMsgId] = useState<string | null>(null);
@@ -840,7 +842,8 @@ export default function ChatDetail() {
     if (target && isSelf && !adminBypass && RECALL_WINDOW_SECONDS > 0) {
       const elapsedMs = Date.now() - target.timestamp.getTime();
       if (elapsedMs > RECALL_WINDOW_SECONDS * 1000) {
-        toast.error('消息发送已超过可撤回时间');
+        // 超时不发请求，直接弹居中提示框告知用户原因
+        setRecallBlockedReason(`消息发送已超过可撤回时间（${RECALL_WINDOW_SECONDS} 秒），无法撤回。`);
         return;
       }
     }
@@ -856,7 +859,8 @@ export default function ChatDetail() {
       .then(() => toast.success('消息已撤回'))
       .catch(() => {
         setRecalledIds(prev => { const n = new Set(prev); n.delete(msgId); return n; });
-        toast.error('撤回失败，可能已超过可撤回时间或无权限');
+        // 失败原因（多为超时或无权限）同样用居中提示框，避免 toast 一闪而过用户没察觉
+        setRecallBlockedReason('撤回失败，可能已超过可撤回时间或无权限。');
       });
   }, [currentUser?.token, selectedConversationId, storeRecallMessage]);
 
@@ -1288,6 +1292,18 @@ export default function ChatDetail() {
         confirmText="撤回"
         confirmVariant="danger"
         onConfirm={() => { if (recallConfirmId) doRecall(recallConfirmId); }}
+      />
+
+      {/* ── 撤回被拦截/失败提示（单按钮） ── */}
+      <ConfirmDialog
+        open={recallBlockedReason !== null}
+        onClose={() => setRecallBlockedReason(null)}
+        title="无法撤回"
+        description={recallBlockedReason || ''}
+        confirmText="知道了"
+        confirmVariant="default"
+        hideCancel
+        onConfirm={() => setRecallBlockedReason(null)}
       />
 
       {/* ── Floating Profile Card ── */}
