@@ -273,7 +273,9 @@ export default function ChatDetail() {
     const peerId = parts.find(p => p !== currentUser.id);
     if (!peerId) return null;
     // 优先从 friends 列表查找
-    const friend = friends.find(c => c.id === peerId || c.friend_uid === peerId);
+    // 优先按 friend_uid（对方真实 userId）匹配；friend_uid 是好友关系行号，
+    // 与他人的 userId 可能撞号，故不能用 c.id === peerId 先匹配
+    const friend = friends.find(c => c.friend_uid === peerId) || friends.find(c => c.id === peerId);
     if (friend) return friend;
     // fallback: 从 userProfiles 构造最小 Contact
     const profile = userProfiles[peerId];
@@ -1296,7 +1298,7 @@ function MessageList({
     // 群聊：群昵称 > 用户昵称 > id（groupMemberNames 已按此优先级构建）
     if (conversation?.type === 'group') return groupMemberNames[senderId] || userProfiles[senderId]?.nickname || senderId;
     // 私聊：好友备注 > 用户昵称 > 会话名 > id
-    const friend = friends.find(c => c.id === senderId || c.friend_uid === senderId);
+    const friend = friends.find(c => c.friend_uid === senderId) || friends.find(c => c.id === senderId);
     return friend?.remark || friend?.name || userProfiles[senderId]?.nickname || conversation?.name || senderId;
   }, [conversation, currentUser?.name, isOwnMessage, friends, userProfiles, groupMemberNames]);
 

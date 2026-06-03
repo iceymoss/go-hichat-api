@@ -390,8 +390,8 @@ export default function GroupList() {
   const getContactName = useCallback((userId: string): string => {
     if (userId === myUserId) return currentUser?.name || '我';
     if (memberNameCache.current[userId]) return memberNameCache.current[userId];
-    const friend = friends.find(f => f.id === userId);
-    if (friend) return friend.name;
+    const friend = friends.find(f => f.friend_uid === userId) || friends.find(f => f.id === userId);
+    if (friend) return friend.remark || friend.name;
     return userId;
   }, [myUserId, currentUser?.name, friends]);
 

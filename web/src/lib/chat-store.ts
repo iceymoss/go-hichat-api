@@ -941,9 +941,9 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
       const peerId = convId.split('_').find(p => p !== currentUserId) || '';
       if (peerId) {
         (async () => {
-          // 1. 先从本地好友缓存查
+          // 1. 先从本地好友缓存查（按 friend_uid 优先，避免好友关系行号与他人 userId 撞号）
           let friends = useIMStore.getState().friends;
-          let friend = friends.find(f => f.id === peerId || f.friend_uid === peerId);
+          let friend = friends.find(f => f.friend_uid === peerId) || friends.find(f => f.id === peerId);
 
           // 2. 本地没有则从 API 加载好友列表
           if (!friend && friends.length === 0) {
