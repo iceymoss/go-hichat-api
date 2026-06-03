@@ -47,6 +47,8 @@ message Conversation {
   bool isTop = 10;
   // 消息免打扰（每用户每会话设置）
   bool isMute = 11;
+  // 是否有未读的 @我（仅群聊，进会话/markRead 后清除）
+  bool hasAtMe = 12;
 }
 
 // ------------ req resp ---------------

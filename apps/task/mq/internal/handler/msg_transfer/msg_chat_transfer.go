@@ -97,6 +97,8 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransf
 		MsgContent:     data.MsgContent,
 		Quote:          data.Quote,
 		ChatType:       data.ChatType,
+		AtUsers:        data.AtUsers,
+		AtAll:          data.AtAll,
 	}
 
 	// 消息发起人标记为已读
@@ -137,7 +139,56 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransf
 		}
 	}
 
+	// 群聊 @：给被 @的成员置会话级 HasAtMe 角标
+	m.markAtMe(ctx, data)
+
 	return nil
+}
+
+// markAtMe 为被 @的群成员置会话级 HasAtMe（进会话 / markRead 时清除）。
+// @所有人时拉群成员（排除发送者）；@具体成员时用 atUsers。非群成员没有该会话条目，天然被跳过。
+func (m *MsgChatTransfer) markAtMe(ctx context.Context, data *mq.MsgChatTransfer) {
+	if data.ChatType != constants.GroupChatType || (!data.AtAll && len(data.AtUsers) == 0) {
+		return
+	}
+
+	targets := make(map[string]struct{})
+	if data.AtAll {
+		res, err := m.svcCtx.Social.GroupUsers(ctx, &socialclient.GroupUsersReq{GroupId: data.RecvId})
+		if err != nil {
+			zLog.Error("markAtMe: group users failed", zap.Error(err), zap.String("groupId", data.RecvId))
+			return
+		}
+		for _, mem := range res.List {
+			if mem.UserId != data.SendId {
+				targets[mem.UserId] = struct{}{}
+			}
+		}
+	} else {
+		for _, uid := range data.AtUsers {
+			if uid != "" && uid != data.SendId {
+				targets[uid] = struct{}{}
+			}
+		}
+	}
+
+	for uid := range targets {
+		conversations, err := m.svcCtx.ConversationsModel.FindByUserId(ctx, uid)
+		if err != nil || conversations == nil || conversations.ConversationList == nil {
+			continue
+		}
+		conv, ok := conversations.ConversationList[data.ConversationId]
+		if !ok || conv == nil {
+			continue
+		}
+		if conv.HasAtMe {
+			continue
+		}
+		conv.HasAtMe = true
+		if _, err := m.svcCtx.ConversationsModel.Update(ctx, conversations); err != nil {
+			zLog.Error("markAtMe: update conversations failed", zap.Error(err), zap.String("uid", uid))
+		}
+	}
 }
 
 func (m *MsgChatTransfer) single(ctx context.Context, data *mq.MsgChatTransfer) error {

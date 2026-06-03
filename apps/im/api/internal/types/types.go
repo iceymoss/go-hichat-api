@@ -37,8 +37,9 @@ type Conversation struct {
 	ConversationId string  `json:"conversationId,optional,omitempty"`
 	ChatType       int32   `json:"chatType,optional,omitempty"`
 	IsShow         bool    `json:"isShow,optional,omitempty"`
-	IsTop          bool    `json:"isTop,optional,omitempty"`  // 会话置顶
-	IsMute         bool    `json:"isMute,optional,omitempty"` // 消息免打扰
+	IsTop          bool    `json:"isTop,optional,omitempty"`   // 会话置顶
+	IsMute         bool    `json:"isMute,optional,omitempty"`  // 消息免打扰
+	HasAtMe        bool    `json:"hasAtMe,optional,omitempty"` // 是否有未读的 @我（群聊）
 	Seq            int64   `json:"seq,optional,omitempty"`
 	Read           int32   `json:"read,optional,omitempty"`
 	Msg            ChatLog `json:"message,optional,omitempty"`
