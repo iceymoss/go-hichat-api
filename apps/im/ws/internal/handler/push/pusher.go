@@ -51,11 +51,14 @@ func single(srv *websocket.Server, data *ws.Push, recvId string) error {
 			SendId:         data.SendId,
 			SendTime:       data.SendTime,
 			ContentType:    data.ContentType,
+			RecalledBy:     data.RecalledBy,
 			Msg: ws.Msg{
 				MType:       data.MType,
 				Content:     data.Content,
 				Quote:       data.Quote,
 				ReadRecords: data.ReadRecords,
+				AtUsers:     data.AtUsers,
+				AtAll:       data.AtAll,
 			},
 		})
 	// 把 MongoDB MsgId 写入 WS 帧的顶层 Id 字段，前端据此建立 local_<=>mongoID 的映射

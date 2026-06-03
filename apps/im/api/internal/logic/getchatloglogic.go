@@ -62,6 +62,10 @@ func (l *GetChatLogLogic) GetChatLog(req *types.ChatLogReq) (resp *types.ChatLog
 			SendTime:       v.SendTime,
 			ReadRecords:    readRec,
 			Quote:          v.Quote,
+			Status:         v.Status,
+			RecalledBy:     v.RecalledBy,
+			AtUsers:        v.AtUsers,
+			AtAll:          v.AtAll,
 		})
 	}
 

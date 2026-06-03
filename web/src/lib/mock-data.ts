@@ -28,6 +28,14 @@ export interface Message {
   readCount?: number;
   /** 群聊总人数（不含发送者自己） */
   readTotal?: number;
+  /** 是否已撤回；为 true 时原位渲染"XX撤回了一条消息" */
+  recalled?: boolean;
+  /** 撤回操作者 uid，用于区分"你/对方/管理员撤回了一条消息" */
+  recalledBy?: string;
+  /** 被 @ 的成员 uid 列表（群聊） */
+  atUsers?: string[];
+  /** 是否 @所有人（群聊） */
+  atAll?: boolean;
 }
 
 export interface Conversation {
@@ -42,6 +50,8 @@ export interface Conversation {
   muted: boolean;
   members?: number;
   online?: boolean;
+  /** 是否有未读的 @我（群聊），进会话后清除 */
+  hasAtMe?: boolean;
 }
 
 export interface ContactGroup {

@@ -32,6 +32,19 @@ const ContentMsgAck MType = 7
 // VideoMType 视频类型（追加在 6/7 控制类型之后，编号不复用）
 const VideoMType MType = 8
 
+// ContentRecall 撤回控制帧：复用 MsgChatTransfer 链路下发，携带被撤回的 msgId + 操作者，
+// 前端按此类型把对应消息原位置为"已撤回"。编号续 8 之后，不复用。
+const ContentRecall MType = 9
+
+// 消息状态（ChatLog.Status）
+const (
+	// MsgStatusNormal 正常
+	MsgStatusNormal = 0
+
+	// MsgStatusRecalled 已撤回
+	MsgStatusRecalled = 1
+)
+
 const (
 	// SingleChatType 单聊
 	SingleChatType ChatType = iota + 1

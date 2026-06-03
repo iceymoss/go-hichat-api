@@ -36,6 +36,8 @@ export const ContentType = {
   MakeRead: 6,
   /** 发送方回响：服务端写库后把消息回推给发送方，携带真实 MongoDB MsgId */
   MsgAck: 7,
+  /** 撤回事件：服务端把被撤回的 msgId + 操作者回推，前端原位置为撤回态 */
+  Recall: 9,
 } as const;
 
 // ========== 聊天类型 ==========
@@ -64,12 +66,15 @@ export interface WsChatData {
   sendId: string;
   recvId: string;
   sendTime: number;
-  contentType?: number;   // 7 表示这是给发送方的回响（ContentType.MsgAck）
+  contentType?: number;   // 7 表示这是给发送方的回响（ContentType.MsgAck），9 表示撤回事件
+  recalledBy?: string;    // 撤回操作者 uid，仅 contentType=Recall 时有值
   msg: {
     mType: number;
     content: string;
     quote?: string;
     readRecords?: Record<string, string>;
+    atUsers?: string[];   // 被 @ 的成员 uid 列表（群聊）
+    atAll?: boolean;      // 是否 @所有人（群聊）
   };
 }
 

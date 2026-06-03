@@ -3,6 +3,10 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { formatTime, currentUser as mockCurrentUser, contacts, type Message, type Contact, type Conversation } from '@/lib/mock-data';
 
+// 本人撤回的时间窗（秒），需与后端 im-rpc 配置 RecallWindowSeconds 保持一致（0=不限）。
+// 仅用于普通用户撤回自己消息时的前端预校验；管理员/群主撤回不受此限。
+const RECALL_WINDOW_SECONDS = 120;
+
 /** 气泡时间：今天 HH:mm，昨天 昨天 HH:mm，今年 MM/DD HH:mm，跨年 YYYY/MM/DD HH:mm */
 function formatBubbleTime(date: Date): string {
   const now = new Date();
@@ -47,6 +51,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { CallDialog } from './CallDialog';
 import ChatSettingsMenu from './ChatSettingsMenu';
 import MessageContextMenu from './MessageContextMenu';
+import ConfirmDialog from './ConfirmDialog';
 import ForwardDialog from './ForwardDialog';
 import FloatingProfileCard from './FloatingProfileCard';
 import ReadStatusDialog from './ReadStatusDialog';
@@ -132,12 +137,24 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
     return <span>{content}</span>;
   }
 
-  return <span>{content}</span>;
+  return <span>{renderTextWithMentions(content, isOwn)}</span>;
+}
+
+/** 文本中的 @所有人 / @某人 高亮渲染。发送方气泡是蓝底，@ 用浅金色才看得清；接收方白底用蓝色。 */
+function renderTextWithMentions(text: string, isOwn?: boolean) {
+  if (!text || text.indexOf('@') < 0) return text;
+  const color = isOwn ? '#FFD666' : '#3390EC';
+  const parts = text.split(/(@所有人|@\S+)/g);
+  return parts.map((part, i) =>
+    part.startsWith('@')
+      ? <span key={i} style={{ color, fontWeight: 600 }}>{part}</span>
+      : part,
+  );
 }
 
 /** 引用块：渲染被引用消息（图片/视频显示缩略图，否则文字预览），可点击跳转 */
-function QuoteBlock({ reply, onJump }: { reply: NonNullable<Message['replyTo']>; onJump?: () => void }) {
-  const hasThumb = (reply.mType === 'image' || reply.mType === 'video' || reply.mType === 'memes') && !!reply.thumbUrl;
+function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['replyTo']>; onJump?: () => void; recalled?: boolean }) {
+  const hasThumb = !recalled && (reply.mType === 'image' || reply.mType === 'video' || reply.mType === 'memes') && !!reply.thumbUrl;
   return (
     <div
       onClick={onJump ? (e) => { e.stopPropagation(); onJump(); } : undefined}
@@ -157,8 +174,8 @@ function QuoteBlock({ reply, onJump }: { reply: NonNullable<Message['replyTo']>;
       )}
       <span style={{ minWidth: 0 }}>
         <span style={{ display: 'block', fontWeight: 600, color: '#3390EC' }}>{reply.senderName}</span>
-        <span style={{ display: 'block', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {reply.content}
+        <span style={{ display: 'block', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: recalled ? 'italic' : 'normal' }}>
+          {recalled ? '消息已撤回' : reply.content}
         </span>
       </span>
     </div>
@@ -194,6 +211,13 @@ export default function ChatDetail() {
   // Reply/Quote state
   const [replyTo, setReplyTo] = useState<{ message: Message; senderName: string } | null>(null);
 
+  // 群 @ 状态
+  const [atPicker, setAtPicker] = useState(false);
+  const [atQuery, setAtQuery] = useState('');
+  // 已选 @ 成员（uid→展示名）；发送时按 input 里是否仍含 @名字 过滤
+  const [mentions, setMentions] = useState<{ uid: string; name: string }[]>([]);
+  const [atAll, setAtAll] = useState(false);
+
   // Forward dialog state
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
 
@@ -209,6 +233,11 @@ export default function ChatDetail() {
   // Recalled messages tracking
   const [recalledIds, setRecalledIds] = useState<Set<string>>(new Set());
 
+  // 撤回二次确认弹窗：保存待撤回的 msgId（null 表示关闭）
+  const [recallConfirmId, setRecallConfirmId] = useState<string | null>(null);
+  // 撤回被拦截/失败时的居中提示（如超时、无权限），null 表示关闭
+  const [recallBlockedReason, setRecallBlockedReason] = useState<string | null>(null);
+
   // 群聊已读详情弹窗（存的是 mongoID）
   const [readDetailMsgId, setReadDetailMsgId] = useState<string | null>(null);
 
@@ -221,6 +250,7 @@ export default function ChatDetail() {
   const anchored = useChatStore(s => !!s.anchoredConvs[selectedConversationId || '']);
   const [loadingNewer, setLoadingNewer] = useState(false);
   const storeSendMessage = useChatStore(s => s.sendMessage);
+  const storeRecallMessage = useChatStore(s => s.recallMessage);
   const clearUnread = useChatStore(s => s.clearUnread);
   const storeMarkRead = useChatStore(s => s.markRead);
   const storeGroupMembers = useChatStore(s => s.groupMembers);
@@ -255,6 +285,22 @@ export default function ChatDetail() {
       roleLevel: m.role_level,
     })) };
   }, [selectedConversationId, conversation?.type, storeGroupMembers]);
+
+  // 当前用户在本群是否为管理员/群主（决定能否 @所有人）
+  const isGroupAdmin = useMemo(() => {
+    if (!selectedConversationId || conversation?.type !== 'group' || !currentUser?.id) return false;
+    const me = (storeGroupMembers[selectedConversationId] || []).find(m => m.user_id === currentUser.id);
+    return (me?.role_level ?? 0) >= 1;
+  }, [selectedConversationId, conversation?.type, storeGroupMembers, currentUser?.id]);
+
+  // @ 候选成员（排除自己，按 atQuery 过滤）
+  const atCandidates = useMemo(() => {
+    if (!selectedConversationId || conversation?.type !== 'group') return [];
+    const members = (storeGroupMembers[selectedConversationId] || []).filter(m => m.user_id !== currentUser?.id);
+    const list = members.map(m => ({ uid: m.user_id, name: m.group_nickname || m.nickname || m.user_id, avatar: m.user_avatar_url || '' }));
+    const q = atQuery.trim().toLowerCase();
+    return q ? list.filter(m => m.name.toLowerCase().includes(q)) : list;
+  }, [selectedConversationId, conversation?.type, storeGroupMembers, currentUser?.id, atQuery]);
 
   // Merged conversation data with local overrides
   const conv = useMemo(() => {
@@ -437,9 +483,20 @@ export default function ChatDetail() {
       quote = JSON.stringify({ id: qm.id, uid: qm.senderId, name: replyTo.senderName, preview: mediaPreview(qm.type, qm.content), mType: qm.type, thumb });
     }
 
+    // 群 @：按 input 是否仍含 "@名字" 过滤已选成员，得到最终 atUsers / atAll
+    const text = input.trim();
+    let mentionPayload: { atUsers?: string[]; atAll?: boolean } | undefined;
+    if (conversation?.type === 'group') {
+      const liveUsers = mentions.filter(m => text.includes('@' + m.name)).map(m => m.uid);
+      const liveAtAll = atAll && text.includes('@所有人');
+      if (liveUsers.length > 0 || liveAtAll) {
+        mentionPayload = { atUsers: liveUsers.length > 0 ? Array.from(new Set(liveUsers)) : undefined, atAll: liveAtAll };
+      }
+    }
+
     // 通过 chat-store 发送（走 WebSocket RigorAck）
     if (currentUser?.token && currentUser?.id) {
-      storeSendMessage(currentUser.token, currentUser.id, selectedConversationId, input.trim(), 'text', quote);
+      storeSendMessage(currentUser.token, currentUser.id, selectedConversationId, input.trim(), 'text', quote, mentionPayload);
     } else {
       // Fallback: 本地 mock 发送
       const newMsg: Message = {
@@ -458,6 +515,47 @@ export default function ChatDetail() {
 
     setInput('');
     setReplyTo(null);
+    setMentions([]);
+    setAtAll(false);
+    setAtPicker(false);
+  };
+
+  // 输入变化：群聊里检测光标处的 "@查询串" 决定是否弹出成员候选
+  const handleInputChange = (val: string) => {
+    setInput(val);
+    if (conversation?.type !== 'group') return;
+    const at = val.lastIndexOf('@');
+    if (at >= 0) {
+      const after = val.slice(at + 1);
+      if (!/\s/.test(after)) {
+        setAtQuery(after);
+        setAtPicker(true);
+        if (currentUser?.token && selectedConversationId && (storeGroupMembers[selectedConversationId] || []).length === 0) {
+          fetchGroupMembers(currentUser.token, selectedConversationId);
+        }
+        return;
+      }
+    }
+    setAtPicker(false);
+  };
+
+  // 选中某成员：把光标处的 "@查询" 替换为 "@昵称 "
+  const pickMention = (m: { uid: string; name: string }) => {
+    const at = input.lastIndexOf('@');
+    const base = at >= 0 ? input.slice(0, at) : input;
+    setInput(base + '@' + m.name + ' ');
+    setMentions(prev => (prev.some(x => x.uid === m.uid) ? prev : [...prev, m]));
+    setAtPicker(false);
+    setAtQuery('');
+  };
+
+  const pickAtAll = () => {
+    const at = input.lastIndexOf('@');
+    const base = at >= 0 ? input.slice(0, at) : input;
+    setInput(base + '@所有人 ');
+    setAtAll(true);
+    setAtPicker(false);
+    setAtQuery('');
   };
 
   // 富媒体文件选择 → 上传 → 发送
@@ -727,11 +825,44 @@ export default function ChatDetail() {
     setContextMenu(null);
   }, []);
 
+  // 点击「撤回」：先做本地前置校验，通过后弹二次确认框，确认才真正撤回
   const handleRecallMessage = useCallback((msgId: string) => {
-    setRecalledIds(prev => new Set(prev).add(msgId));
     setContextMenu(null);
-    toast.success('消息已撤回');
-  }, []);
+    if (!currentUser?.token || !selectedConversationId) return;
+    // 本地/未落库的占位消息不能撤回（没有真实 MongoID）
+    if (msgId.startsWith('local_') || msgId.startsWith('push_')) {
+      toast.error('消息尚未发送完成，稍后再试');
+      return;
+    }
+    // 本地时间窗预校验：仅拦"普通用户撤回自己消息超时"这一场景，省掉一次必然失败的请求。
+    // 管理员/群主撤回（自己超时的消息或他人消息）不受时间窗限制，交由后端放行，这里不拦。
+    const target = messages.find(m => m.id === msgId);
+    const isSelf = !!target && (target.senderId === currentUser.id || target.senderId === 'me');
+    const adminBypass = conversation?.type === 'group' && isGroupAdmin;
+    if (target && isSelf && !adminBypass && RECALL_WINDOW_SECONDS > 0) {
+      const elapsedMs = Date.now() - target.timestamp.getTime();
+      if (elapsedMs > RECALL_WINDOW_SECONDS * 1000) {
+        // 超时不发请求，直接弹居中提示框告知用户原因
+        setRecallBlockedReason(`消息发送已超过可撤回时间（${RECALL_WINDOW_SECONDS} 秒），无法撤回。`);
+        return;
+      }
+    }
+    // 弹出二次确认框，等用户确认
+    setRecallConfirmId(msgId);
+  }, [currentUser?.token, currentUser?.id, selectedConversationId, messages, conversation?.type, isGroupAdmin]);
+
+  // 二次确认后真正执行撤回（乐观置态，失败回滚）
+  const doRecall = useCallback((msgId: string) => {
+    if (!currentUser?.token || !selectedConversationId) return;
+    setRecalledIds(prev => new Set(prev).add(msgId));
+    storeRecallMessage(currentUser.token, selectedConversationId, msgId)
+      .then(() => toast.success('消息已撤回'))
+      .catch(() => {
+        setRecalledIds(prev => { const n = new Set(prev); n.delete(msgId); return n; });
+        // 失败原因（多为超时或无权限）同样用居中提示框，避免 toast 一闪而过用户没察觉
+        setRecallBlockedReason('撤回失败，可能已超过可撤回时间或无权限。');
+      });
+  }, [currentUser?.token, selectedConversationId, storeRecallMessage]);
 
   const handleDeleteMessage = useCallback((msgId: string) => {
     setDeletedIds(prev => new Set(prev).add(msgId));
@@ -1009,6 +1140,43 @@ export default function ChatDetail() {
           </div>
         )}
 
+        {/* 群 @ 成员候选 */}
+        {atPicker && conversation?.type === 'group' && (
+          <div style={{
+            maxHeight: 220, overflowY: 'auto', margin: '0 5%',
+            background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.08)',
+            borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+          }}>
+            {isGroupAdmin && (atQuery === '' || '所有人'.includes(atQuery)) && (
+              <div
+                onClick={pickAtAll}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', cursor: 'pointer' }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.background = '#F0F2F5')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.background = 'transparent')}
+              >
+                <span style={{ width: 32, height: 32, borderRadius: '50%', background: '#3390EC', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>@</span>
+                <span style={{ fontSize: 14, color: '#1C2733', fontWeight: 500 }}>所有人</span>
+              </div>
+            )}
+            {atCandidates.length === 0 && !(isGroupAdmin && (atQuery === '' || '所有人'.includes(atQuery))) ? (
+              <div style={{ padding: '12px', fontSize: 13, color: '#A2ACB5', textAlign: 'center' }}>无匹配成员</div>
+            ) : atCandidates.map(m => (
+              <div
+                key={m.uid}
+                onClick={() => pickMention(m)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', cursor: 'pointer' }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.background = '#F0F2F5')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.background = 'transparent')}
+              >
+                {m.avatar
+                  ? <img src={m.avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                  : <span style={{ width: 32, height: 32, borderRadius: '50%', background: getAvatarColor(m.name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{m.name.slice(0, 1)}</span>}
+                <span style={{ fontSize: 14, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center" style={{ gap: 8, padding: '10px 5%', minWidth: 0 }}>
           {/* Emoji */}
           <ChatEmojiPanel
@@ -1027,7 +1195,7 @@ export default function ChatDetail() {
           {/* Input */}
           <input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder={replyTo
               ? `回复 ${conversation?.type === 'private' ? (peerName || replyTo.senderName) : replyTo.senderName}...`
@@ -1103,6 +1271,7 @@ export default function ChatDetail() {
           message={contextMenu.message}
           senderName={contextMenu.senderName}
           isOwn={contextMenu.isOwn}
+          canRecall={contextMenu.isOwn || (conversation?.type === 'group' && isGroupAdmin)}
           position={contextMenu.position}
           onClose={() => setContextMenu(null)}
           onCopy={handleCopyMessage}
@@ -1113,6 +1282,29 @@ export default function ChatDetail() {
           onSaveSticker={handleSaveSticker}
         />
       )}
+
+      {/* ── 撤回二次确认 ── */}
+      <ConfirmDialog
+        open={recallConfirmId !== null}
+        onClose={() => setRecallConfirmId(null)}
+        title="撤回消息"
+        description="确定撤回这条消息吗？撤回后对方将看到“撤回了一条消息”。"
+        confirmText="撤回"
+        confirmVariant="danger"
+        onConfirm={() => { if (recallConfirmId) doRecall(recallConfirmId); }}
+      />
+
+      {/* ── 撤回被拦截/失败提示（单按钮） ── */}
+      <ConfirmDialog
+        open={recallBlockedReason !== null}
+        onClose={() => setRecallBlockedReason(null)}
+        title="无法撤回"
+        description={recallBlockedReason || ''}
+        confirmText="知道了"
+        confirmVariant="default"
+        hideCancel
+        onConfirm={() => setRecallBlockedReason(null)}
+      />
 
       {/* ── Floating Profile Card ── */}
       {showProfileCard && contactMatch && (
@@ -1229,8 +1421,10 @@ function MessageList({
 
   type TimeGroup = { type: 'time'; time: string; key: string };
   type MsgGroup = { type: 'msg'; msgs: Message[]; key: string };
+  // 撤回提示作为独立的居中系统行展示（类似微信），不进入气泡分组
+  type SystemGroup = { type: 'system'; msg: Message; key: string };
 
-  const groups: (TimeGroup | MsgGroup)[] = [];
+  const groups: (TimeGroup | MsgGroup | SystemGroup)[] = [];
   let lastTime = 0;
 
   for (let i = 0; i < messages.length; i++) {
@@ -1242,13 +1436,19 @@ function MessageList({
       groups.push({ type: 'time', time: formatTime(msg.timestamp), key: `t-${msg.id}` });
     }
 
+    // 已撤回消息：单独作为居中系统行，既不并入上一组也不让下一条并入它
+    const recalled = msg.recalled || recalledIds.has(msg.id);
+    if (recalled) {
+      groups.push({ type: 'system', msg, key: `s-${msg.id}` });
+      lastTime = ts;
+      continue;
+    }
+
     // New message group: different sender or >3 min gap
     const last = groups[groups.length - 1];
-    if (!last || last.type === 'time' ||
-      (last.type === 'msg' && (
-        last.msgs[last.msgs.length - 1].senderId !== msg.senderId ||
-        ts - last.msgs[last.msgs.length - 1].timestamp.getTime() > GROUP_INTERVAL
-      ))
+    if (!last || last.type !== 'msg' ||
+      last.msgs[last.msgs.length - 1].senderId !== msg.senderId ||
+      ts - last.msgs[last.msgs.length - 1].timestamp.getTime() > GROUP_INTERVAL
     ) {
       groups.push({ type: 'msg', msgs: [msg], key: `g-${msg.id}` });
     } else {
@@ -1304,6 +1504,17 @@ function MessageList({
     return friend?.remark || friend?.name || userProfiles[senderId]?.nickname || conversation?.name || senderId;
   }, [conversation, currentUser?.name, isOwnMessage, friends, userProfiles, groupMemberNames]);
 
+  // 撤回提示文案：你 / 对方 / 某成员 / 管理员撤回了一条消息
+  const recalledText = useCallback((m: Message) => {
+    const by = m.recalledBy;
+    if (by && by === currentUser?.id) return '你撤回了一条消息';
+    if (by && by !== m.senderId) return '管理员撤回了一条消息';
+    if (isOwnMessage(m.senderId)) return '你撤回了一条消息';
+    return conversation?.type === 'group'
+      ? `${getSenderName(m.senderId)}撤回了一条消息`
+      : '对方撤回了一条消息';
+  }, [currentUser?.id, conversation?.type, isOwnMessage, getSenderName]);
+
   return (
     <>
       {groups.map((group) => {
@@ -1319,6 +1530,16 @@ function MessageList({
                 display: 'inline-block',
               }}>
                 {group.time}
+              </span>
+            </div>
+          );
+        }
+
+        if (group.type === 'system') {
+          return (
+            <div key={group.key} data-msgid={group.msg.id} style={{ textAlign: 'center', padding: '4px 0' }}>
+              <span style={{ fontSize: 12, color: '#A2ACB5', display: 'inline-block', maxWidth: '80%' }}>
+                {recalledText(group.msg)}
               </span>
             </div>
           );
@@ -1371,8 +1592,10 @@ function MessageList({
                 const msgIsSent = isOwnMessage(m.senderId);
                 const senderName = getSenderName(m.senderId);
                 const mediaMeta = parseMediaContent(m.content);
+                // 已撤回：服务端历史(m.recalled) 或 本地乐观态(recalledIds) 任一命中
+                const isRecalled = m.recalled || recalledIds.has(m.id);
                 // 图片/视频/文件/表情包：裸露展示，不套消息气泡
-                const bareMedia = !recalledIds.has(m.id) && !!mediaMeta &&
+                const bareMedia = !isRecalled && !!mediaMeta &&
                   (m.type === 'image' || m.type === 'video' || m.type === 'file' || m.type === 'memes');
 
                 return (
@@ -1387,9 +1610,9 @@ function MessageList({
                         ? { display: 'inline-block', cursor: 'context-menu', userSelect: 'none', textAlign: 'left', background: 'transparent', padding: 0, boxShadow: 'none' }
                         : { cursor: 'context-menu', userSelect: 'none', textAlign: 'left' }}
                     >
-                    {recalledIds.has(m.id) ? (
+                    {isRecalled ? (
                       <span style={{ fontStyle: 'italic', opacity: 0.6 }}>
-                        {isOwnMessage(m.senderId) ? '你撤回了一条消息' : '对方撤回了一条消息'}
+                        {recalledText(m)}
                       </span>
                     ) : (
                       <>
@@ -1401,7 +1624,10 @@ function MessageList({
                             || (m.replyTo.msgId ? messages.find(x => x.id === m.replyTo!.msgId)?.senderId : undefined);
                           const live = sid ? getSenderName(sid) : '';
                           const name = (live && live !== sid) ? live : (m.replyTo.senderName || sid || '');
-                          return <QuoteBlock reply={{ ...m.replyTo, senderName: name }} onJump={() => jumpToMessage(m.replyTo!.msgId)} />;
+                          // 被引用的原消息若已撤回，引用预览降级为"消息已撤回"
+                          const orig = m.replyTo.msgId ? messages.find(x => x.id === m.replyTo!.msgId) : undefined;
+                          const quotedRecalled = !!(orig && (orig.recalled || recalledIds.has(orig.id)));
+                          return <QuoteBlock reply={{ ...m.replyTo, senderName: name }} recalled={quotedRecalled} onJump={() => jumpToMessage(m.replyTo!.msgId)} />;
                         })()}
                         <MessageContent
                           message={m}

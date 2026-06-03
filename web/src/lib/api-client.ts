@@ -194,6 +194,14 @@ export interface ChatLogItem {
   readRecords?: string;
   /** 引用/回复消息（JSON 字符串：{"id","name","preview"}） */
   quote?: string;
+  /** 消息状态：0=正常 1=已撤回（已撤回时 msgContent/quote 被后端置空） */
+  status?: number;
+  /** 撤回操作者 uid */
+  recalledBy?: string;
+  /** 被 @ 的成员 uid 列表（群聊） */
+  atUsers?: string[];
+  /** 是否 @所有人（群聊） */
+  atAll?: boolean;
 }
 
 export interface ConversationItem {
@@ -202,6 +210,8 @@ export interface ConversationItem {
   isShow: boolean;
   isTop?: boolean;
   isMute?: boolean;
+  /** 是否有未读的 @我（群聊） */
+  hasAtMe?: boolean;
   seq: number;
   read: number;
   message?: ChatLogItem;
@@ -267,4 +277,9 @@ export function updateConversations(token: string, conversationList: Record<stri
 /** 设置会话置顶 / 免打扰（全量覆盖两个标记） */
 export function setConversationSettings(token: string, conversationId: string, isTop: boolean, isMute: boolean) {
   return imPut('/v1/im/conversation/settings', { conversationId, isTop, isMute }, token);
+}
+
+/** 撤回消息（本人限时 / 群管理员不限时，校验在后端） */
+export function recallMsg(token: string, conversationId: string, msgId: string, chatType: number) {
+  return imPost('/v1/im/chatlog/recall', { conversationId, msgId, chatType }, token);
 }

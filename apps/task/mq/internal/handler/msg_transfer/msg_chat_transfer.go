@@ -45,6 +45,11 @@ func (m *MsgChatTransfer) Consume(ctx context.Context, key, value string) error 
 
 	fmt.Printf("已经收到消息了: %+v\n", data)
 
+	// 撤回控制帧：DB 已由 im-rpc 更新，这里不落库，仅复用通用 fan-out 推送给会话各端。
+	if data.MsgType == constants.ContentRecall {
+		return m.transferRecall(ctx, &data)
+	}
+
 	// 写入数据库（如 MongoDB 聊天记录）；同时把真实 MsgId 回填到 data，供下游推送
 	if err = m.addChatLog(ctx, &data); err != nil {
 		return err
@@ -58,9 +63,36 @@ func (m *MsgChatTransfer) Consume(ctx context.Context, key, value string) error 
 	return m.echoToSender(&data)
 }
 
+// transferRecall 推送撤回事件给会话各端：
+// 先按会话成员扇出（group 跳过原发送者 / single 推给对端），再单独补推给原发送者本人（含其它在线设备）。
+// 全程不改写 ContentType，保持前端能识别 ContentRecall。撤回幂等，重复推送无副作用。
+func (m *MsgChatTransfer) transferRecall(ctx context.Context, data *mq.MsgChatTransfer) error {
+	if err := m.MsgChatTransfer(ctx, data); err != nil {
+		return err
+	}
+	if data.SendId == "" {
+		return nil
+	}
+	// 补推给原发送者本人：走 single 路径（pusher 会 push 到 RecvId），不改 ContentType。
+	echo := *data
+	echo.RecvIdList = nil
+	echo.RecvId = data.SendId
+	echo.ChatType = constants.SingleChatType
+	return m.svcCtx.WsClient.Send(websocket.Message{
+		FrameType: websocket.FrameNoAck,
+		Method:    "push",
+		FormId:    constants.SYSTEM_ROOT_UID,
+		Data:      &echo,
+	})
+}
+
 // addChatLog 将聊天记录消息持久化到数据库中
 // 注意：入参改为指针，以便把 Insert 后生成的 ObjectID.Hex 回写到 data.MsgId
 func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransfer) error {
+	// TODO(SendTime 单位不一致): 这里未透传 data.SendTime，落库时由 Insert 兜底成 UnixMilli（毫秒），
+	// 而生产端 ws 把 data.SendTime 写成 UnixNano（纳秒），导致库里与推送两套单位。
+	// 目前撤回逻辑已在 recallmsglogic.normalizeUnixMillis 做归一兜底，不影响功能；
+	// 若要从源头统一，应在此显式赋 SendTime 并与 ws/前端的 sendTime 口径一起对齐（统一为毫秒）。
 	chatLog := model.ChatLog{
 		ConversationId: data.ConversationId,
 		SendId:         data.SendId,
@@ -69,6 +101,8 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransf
 		MsgContent:     data.MsgContent,
 		Quote:          data.Quote,
 		ChatType:       data.ChatType,
+		AtUsers:        data.AtUsers,
+		AtAll:          data.AtAll,
 	}
 
 	// 消息发起人标记为已读
@@ -109,7 +143,56 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransf
 		}
 	}
 
+	// 群聊 @：给被 @的成员置会话级 HasAtMe 角标
+	m.markAtMe(ctx, data)
+
 	return nil
+}
+
+// markAtMe 为被 @的群成员置会话级 HasAtMe（进会话 / markRead 时清除）。
+// @所有人时拉群成员（排除发送者）；@具体成员时用 atUsers。非群成员没有该会话条目，天然被跳过。
+func (m *MsgChatTransfer) markAtMe(ctx context.Context, data *mq.MsgChatTransfer) {
+	if data.ChatType != constants.GroupChatType || (!data.AtAll && len(data.AtUsers) == 0) {
+		return
+	}
+
+	targets := make(map[string]struct{})
+	if data.AtAll {
+		res, err := m.svcCtx.Social.GroupUsers(ctx, &socialclient.GroupUsersReq{GroupId: data.RecvId})
+		if err != nil {
+			zLog.Error("markAtMe: group users failed", zap.Error(err), zap.String("groupId", data.RecvId))
+			return
+		}
+		for _, mem := range res.List {
+			if mem.UserId != data.SendId {
+				targets[mem.UserId] = struct{}{}
+			}
+		}
+	} else {
+		for _, uid := range data.AtUsers {
+			if uid != "" && uid != data.SendId {
+				targets[uid] = struct{}{}
+			}
+		}
+	}
+
+	for uid := range targets {
+		conversations, err := m.svcCtx.ConversationsModel.FindByUserId(ctx, uid)
+		if err != nil || conversations == nil || conversations.ConversationList == nil {
+			continue
+		}
+		conv, ok := conversations.ConversationList[data.ConversationId]
+		if !ok || conv == nil {
+			continue
+		}
+		if conv.HasAtMe {
+			continue
+		}
+		conv.HasAtMe = true
+		if _, err := m.svcCtx.ConversationsModel.Update(ctx, conversations); err != nil {
+			zLog.Error("markAtMe: update conversations failed", zap.Error(err), zap.String("uid", uid))
+		}
+	}
 }
 
 func (m *MsgChatTransfer) single(ctx context.Context, data *mq.MsgChatTransfer) error {

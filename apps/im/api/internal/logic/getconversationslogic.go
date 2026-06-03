@@ -70,6 +70,7 @@ func (l *GetConversationsLogic) GetConversations(req *types.GetConversationsReq)
 			IsShow:         v.IsShow,
 			IsTop:          v.IsTop,
 			IsMute:         v.IsMute,
+			HasAtMe:        v.HasAtMe,
 			Seq:            v.Seq,
 			Read:           v.ToRead,
 			Msg:            message,

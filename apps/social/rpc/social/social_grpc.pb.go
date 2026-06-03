@@ -60,6 +60,7 @@ const (
 	Social_GetMyGroupMemberSetting_FullMethodName    = "/social.social/GetMyGroupMemberSetting"
 	Social_UpdateMyGroupMemberSetting_FullMethodName = "/social.social/UpdateMyGroupMemberSetting"
 	Social_GroupAtList_FullMethodName                = "/social.social/GroupAtList"
+	Social_GetMemberRole_FullMethodName              = "/social.social/GetMemberRole"
 	Social_GroupAnnouncementCreate_FullMethodName    = "/social.social/GroupAnnouncementCreate"
 	Social_GroupAnnouncementList_FullMethodName      = "/social.social/GroupAnnouncementList"
 	Social_GroupAnnouncementPin_FullMethodName       = "/social.social/GroupAnnouncementPin"
@@ -117,6 +118,7 @@ type SocialClient interface {
 	GetMyGroupMemberSetting(ctx context.Context, in *GetMyGroupMemberSettingReq, opts ...grpc.CallOption) (*GetMyGroupMemberSettingResp, error)
 	UpdateMyGroupMemberSetting(ctx context.Context, in *UpdateMyGroupMemberSettingReq, opts ...grpc.CallOption) (*UpdateMyGroupMemberSettingResp, error)
 	GroupAtList(ctx context.Context, in *GroupAtListReq, opts ...grpc.CallOption) (*GroupAtListResp, error)
+	GetMemberRole(ctx context.Context, in *GetMemberRoleReq, opts ...grpc.CallOption) (*GetMemberRoleResp, error)
 	// 公告历史/置顶
 	GroupAnnouncementCreate(ctx context.Context, in *GroupAnnouncementCreateReq, opts ...grpc.CallOption) (*GroupAnnouncementCreateResp, error)
 	GroupAnnouncementList(ctx context.Context, in *GroupAnnouncementListReq, opts ...grpc.CallOption) (*GroupAnnouncementListResp, error)
@@ -541,6 +543,16 @@ func (c *socialClient) GroupAtList(ctx context.Context, in *GroupAtListReq, opts
 	return out, nil
 }
 
+func (c *socialClient) GetMemberRole(ctx context.Context, in *GetMemberRoleReq, opts ...grpc.CallOption) (*GetMemberRoleResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMemberRoleResp)
+	err := c.cc.Invoke(ctx, Social_GetMemberRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *socialClient) GroupAnnouncementCreate(ctx context.Context, in *GroupAnnouncementCreateReq, opts ...grpc.CallOption) (*GroupAnnouncementCreateResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GroupAnnouncementCreateResp)
@@ -623,6 +635,7 @@ type SocialServer interface {
 	GetMyGroupMemberSetting(context.Context, *GetMyGroupMemberSettingReq) (*GetMyGroupMemberSettingResp, error)
 	UpdateMyGroupMemberSetting(context.Context, *UpdateMyGroupMemberSettingReq) (*UpdateMyGroupMemberSettingResp, error)
 	GroupAtList(context.Context, *GroupAtListReq) (*GroupAtListResp, error)
+	GetMemberRole(context.Context, *GetMemberRoleReq) (*GetMemberRoleResp, error)
 	// 公告历史/置顶
 	GroupAnnouncementCreate(context.Context, *GroupAnnouncementCreateReq) (*GroupAnnouncementCreateResp, error)
 	GroupAnnouncementList(context.Context, *GroupAnnouncementListReq) (*GroupAnnouncementListResp, error)
@@ -759,6 +772,9 @@ func (UnimplementedSocialServer) UpdateMyGroupMemberSetting(context.Context, *Up
 }
 func (UnimplementedSocialServer) GroupAtList(context.Context, *GroupAtListReq) (*GroupAtListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupAtList not implemented")
+}
+func (UnimplementedSocialServer) GetMemberRole(context.Context, *GetMemberRoleReq) (*GetMemberRoleResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMemberRole not implemented")
 }
 func (UnimplementedSocialServer) GroupAnnouncementCreate(context.Context, *GroupAnnouncementCreateReq) (*GroupAnnouncementCreateResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupAnnouncementCreate not implemented")
@@ -1528,6 +1544,24 @@ func _Social_GroupAtList_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Social_GetMemberRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMemberRoleReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GetMemberRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GetMemberRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GetMemberRole(ctx, req.(*GetMemberRoleReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Social_GroupAnnouncementCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GroupAnnouncementCreateReq)
 	if err := dec(in); err != nil {
@@ -1752,6 +1786,10 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GroupAtList",
 			Handler:    _Social_GroupAtList_Handler,
+		},
+		{
+			MethodName: "GetMemberRole",
+			Handler:    _Social_GetMemberRole_Handler,
 		},
 		{
 			MethodName: "GroupAnnouncementCreate",
