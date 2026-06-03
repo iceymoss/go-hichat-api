@@ -36,6 +36,7 @@ func (l *GetChatLogLogic) GetChatLog(req *types.ChatLogReq) (resp *types.ChatLog
 		EndSendTime:    req.EndSendTime,
 		Count:          req.Count,
 		MsgId:          req.MsgId,
+		Direction:      req.Direction,
 	})
 	if err != nil {
 		zLog.Error("get chatlog failed", zap.Error(err))

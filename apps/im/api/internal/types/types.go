@@ -22,6 +22,7 @@ type ChatLogReq struct {
 	StartSendTime  int64  `form:"startSendTime,optional"`
 	EndSendTime    int64  `form:"endSendTime,optional"`
 	Count          int64  `form:"count,optional"`
+	Direction      string `form:"direction,optional"` // older(默认)/newer/around
 }
 
 type ChatLogResp struct {
