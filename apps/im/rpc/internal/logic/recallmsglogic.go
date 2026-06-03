@@ -84,7 +84,10 @@ func (l *RecallMsgLogic) checkPermission(in *im.RecallMsgReq, chatLog *model.Cha
 	// 本人撤回：受时间窗限制
 	if in.OperatorUid == chatLog.SendId {
 		window := l.svcCtx.Config.RecallWindowSeconds
-		if window > 0 && time.Now().UnixNano()-chatLog.SendTime > window*int64(time.Second) {
+		// ChatLog.SendTime 历史上由 Insert 默认写成 UnixMilli，其它路径可能是 UnixNano，
+		// 统一归一到毫秒再比较，避免单位不一致导致永远判超时。SendTime<=0（未知）则不限制。
+		sentMs := normalizeUnixMillis(chatLog.SendTime)
+		if window > 0 && sentMs > 0 && time.Now().UnixMilli()-sentMs > window*1000 {
 			return xerr.NewMsg("消息发送已超过可撤回时间")
 		}
 		return nil
@@ -106,4 +109,23 @@ func (l *RecallMsgLogic) checkPermission(in *im.RecallMsgReq, chatLog *model.Cha
 	}
 
 	return xerr.NewMsg("无权限撤回该消息")
+}
+
+// normalizeUnixMillis 把可能为秒 / 毫秒 / 微秒 / 纳秒的 unix 时间戳统一归一到毫秒。
+// 历史数据里 ChatLog.SendTime 单位不一致（Insert 默认写毫秒，旧逻辑写过纳秒），
+// 按数量级归一可避免单位不一致导致的时间窗误判。ts<=0 视为未知，返回 0。
+func normalizeUnixMillis(ts int64) int64 {
+	if ts <= 0 {
+		return 0
+	}
+	switch {
+	case ts >= 1e18: // 纳秒
+		return ts / 1e6
+	case ts >= 1e15: // 微秒
+		return ts / 1e3
+	case ts >= 1e12: // 毫秒
+		return ts
+	default: // 秒
+		return ts * 1000
+	}
 }
