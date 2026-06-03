@@ -132,7 +132,18 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
     return <span>{content}</span>;
   }
 
-  return <span>{content}</span>;
+  return <span>{renderTextWithMentions(content)}</span>;
+}
+
+/** 文本中的 @所有人 / @某人 高亮渲染 */
+function renderTextWithMentions(text: string) {
+  if (!text || text.indexOf('@') < 0) return text;
+  const parts = text.split(/(@所有人|@\S+)/g);
+  return parts.map((part, i) =>
+    part.startsWith('@')
+      ? <span key={i} style={{ color: '#3390EC', fontWeight: 500 }}>{part}</span>
+      : part,
+  );
 }
 
 /** 引用块：渲染被引用消息（图片/视频显示缩略图，否则文字预览），可点击跳转 */
@@ -193,6 +204,13 @@ export default function ChatDetail() {
 
   // Reply/Quote state
   const [replyTo, setReplyTo] = useState<{ message: Message; senderName: string } | null>(null);
+
+  // 群 @ 状态
+  const [atPicker, setAtPicker] = useState(false);
+  const [atQuery, setAtQuery] = useState('');
+  // 已选 @ 成员（uid→展示名）；发送时按 input 里是否仍含 @名字 过滤
+  const [mentions, setMentions] = useState<{ uid: string; name: string }[]>([]);
+  const [atAll, setAtAll] = useState(false);
 
   // Forward dialog state
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
@@ -256,6 +274,22 @@ export default function ChatDetail() {
       roleLevel: m.role_level,
     })) };
   }, [selectedConversationId, conversation?.type, storeGroupMembers]);
+
+  // 当前用户在本群是否为管理员/群主（决定能否 @所有人）
+  const isGroupAdmin = useMemo(() => {
+    if (!selectedConversationId || conversation?.type !== 'group' || !currentUser?.id) return false;
+    const me = (storeGroupMembers[selectedConversationId] || []).find(m => m.user_id === currentUser.id);
+    return (me?.role_level ?? 0) >= 1;
+  }, [selectedConversationId, conversation?.type, storeGroupMembers, currentUser?.id]);
+
+  // @ 候选成员（排除自己，按 atQuery 过滤）
+  const atCandidates = useMemo(() => {
+    if (!selectedConversationId || conversation?.type !== 'group') return [];
+    const members = (storeGroupMembers[selectedConversationId] || []).filter(m => m.user_id !== currentUser?.id);
+    const list = members.map(m => ({ uid: m.user_id, name: m.group_nickname || m.nickname || m.user_id, avatar: m.user_avatar_url || '' }));
+    const q = atQuery.trim().toLowerCase();
+    return q ? list.filter(m => m.name.toLowerCase().includes(q)) : list;
+  }, [selectedConversationId, conversation?.type, storeGroupMembers, currentUser?.id, atQuery]);
 
   // Merged conversation data with local overrides
   const conv = useMemo(() => {
@@ -438,9 +472,20 @@ export default function ChatDetail() {
       quote = JSON.stringify({ id: qm.id, uid: qm.senderId, name: replyTo.senderName, preview: mediaPreview(qm.type, qm.content), mType: qm.type, thumb });
     }
 
+    // 群 @：按 input 是否仍含 "@名字" 过滤已选成员，得到最终 atUsers / atAll
+    const text = input.trim();
+    let mentionPayload: { atUsers?: string[]; atAll?: boolean } | undefined;
+    if (conversation?.type === 'group') {
+      const liveUsers = mentions.filter(m => text.includes('@' + m.name)).map(m => m.uid);
+      const liveAtAll = atAll && text.includes('@所有人');
+      if (liveUsers.length > 0 || liveAtAll) {
+        mentionPayload = { atUsers: liveUsers.length > 0 ? Array.from(new Set(liveUsers)) : undefined, atAll: liveAtAll };
+      }
+    }
+
     // 通过 chat-store 发送（走 WebSocket RigorAck）
     if (currentUser?.token && currentUser?.id) {
-      storeSendMessage(currentUser.token, currentUser.id, selectedConversationId, input.trim(), 'text', quote);
+      storeSendMessage(currentUser.token, currentUser.id, selectedConversationId, input.trim(), 'text', quote, mentionPayload);
     } else {
       // Fallback: 本地 mock 发送
       const newMsg: Message = {
@@ -459,6 +504,47 @@ export default function ChatDetail() {
 
     setInput('');
     setReplyTo(null);
+    setMentions([]);
+    setAtAll(false);
+    setAtPicker(false);
+  };
+
+  // 输入变化：群聊里检测光标处的 "@查询串" 决定是否弹出成员候选
+  const handleInputChange = (val: string) => {
+    setInput(val);
+    if (conversation?.type !== 'group') return;
+    const at = val.lastIndexOf('@');
+    if (at >= 0) {
+      const after = val.slice(at + 1);
+      if (!/\s/.test(after)) {
+        setAtQuery(after);
+        setAtPicker(true);
+        if (currentUser?.token && selectedConversationId && (storeGroupMembers[selectedConversationId] || []).length === 0) {
+          fetchGroupMembers(currentUser.token, selectedConversationId);
+        }
+        return;
+      }
+    }
+    setAtPicker(false);
+  };
+
+  // 选中某成员：把光标处的 "@查询" 替换为 "@昵称 "
+  const pickMention = (m: { uid: string; name: string }) => {
+    const at = input.lastIndexOf('@');
+    const base = at >= 0 ? input.slice(0, at) : input;
+    setInput(base + '@' + m.name + ' ');
+    setMentions(prev => (prev.some(x => x.uid === m.uid) ? prev : [...prev, m]));
+    setAtPicker(false);
+    setAtQuery('');
+  };
+
+  const pickAtAll = () => {
+    const at = input.lastIndexOf('@');
+    const base = at >= 0 ? input.slice(0, at) : input;
+    setInput(base + '@所有人 ');
+    setAtAll(true);
+    setAtPicker(false);
+    setAtQuery('');
   };
 
   // 富媒体文件选择 → 上传 → 发送
@@ -1022,6 +1108,43 @@ export default function ChatDetail() {
           </div>
         )}
 
+        {/* 群 @ 成员候选 */}
+        {atPicker && conversation?.type === 'group' && (
+          <div style={{
+            maxHeight: 220, overflowY: 'auto', margin: '0 5%',
+            background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.08)',
+            borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+          }}>
+            {isGroupAdmin && (atQuery === '' || '所有人'.includes(atQuery)) && (
+              <div
+                onClick={pickAtAll}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', cursor: 'pointer' }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.background = '#F0F2F5')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.background = 'transparent')}
+              >
+                <span style={{ width: 32, height: 32, borderRadius: '50%', background: '#3390EC', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>@</span>
+                <span style={{ fontSize: 14, color: '#1C2733', fontWeight: 500 }}>所有人</span>
+              </div>
+            )}
+            {atCandidates.length === 0 && !(isGroupAdmin && (atQuery === '' || '所有人'.includes(atQuery))) ? (
+              <div style={{ padding: '12px', fontSize: 13, color: '#A2ACB5', textAlign: 'center' }}>无匹配成员</div>
+            ) : atCandidates.map(m => (
+              <div
+                key={m.uid}
+                onClick={() => pickMention(m)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', cursor: 'pointer' }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.background = '#F0F2F5')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.background = 'transparent')}
+              >
+                {m.avatar
+                  ? <img src={m.avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                  : <span style={{ width: 32, height: 32, borderRadius: '50%', background: getAvatarColor(m.name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{m.name.slice(0, 1)}</span>}
+                <span style={{ fontSize: 14, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center" style={{ gap: 8, padding: '10px 5%', minWidth: 0 }}>
           {/* Emoji */}
           <ChatEmojiPanel
@@ -1040,7 +1163,7 @@ export default function ChatDetail() {
           {/* Input */}
           <input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder={replyTo
               ? `回复 ${conversation?.type === 'private' ? (peerName || replyTo.senderName) : replyTo.senderName}...`

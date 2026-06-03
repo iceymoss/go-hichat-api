@@ -112,7 +112,7 @@ interface ChatState {
   /** 向下增量加载更新的消息（浏览历史态用），返回是否已到最新 */
   fetchNewer: (token: string, conversationId: string) => Promise<boolean>;
   /** 回到最新页（退出浏览历史态） */
-  backToLatest: (token: string, conversationId: string) => Promise<void>;  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string, quote?: string) => void;
+  backToLatest: (token: string, conversationId: string) => Promise<void>;  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string, quote?: string, mentions?: { atUsers?: string[]; atAll?: boolean }) => void;
   resendMessage: (token: string, userId: string, conversationId: string, msgId: string) => void;
   markRead: (userId: string, conversationId: string, msgIds: string[]) => void;
   /** 撤回消息：调后端校验，成功后原位置为撤回态（ws 事件会同步其它端） */
@@ -347,9 +347,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   // ==================== 发送消息 ====================
 
-  sendMessage: (token, userId, conversationId, content, msgType = 'text', quote) => {
+  sendMessage: (token, userId, conversationId, content, msgType = 'text', quote, mentions) => {
     const conv = get().conversations.find(c => c.id === conversationId);
     const chatType = conv?.type === 'group' ? ChatType.Group : ChatType.Single;
+
+    // @ 仅群聊生效
+    const atUsers = chatType === ChatType.Group ? (mentions?.atUsers || undefined) : undefined;
+    const atAll = chatType === ChatType.Group ? !!mentions?.atAll : false;
 
     // 解析接收者 ID
     let recvId = '';
@@ -370,6 +374,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       type: (msgType as Message['type']) || 'text',
       status: 'sending',
       replyTo: quoteToReplyTo(quote),
+      atUsers,
+      atAll,
     };
 
     set(s => {
@@ -395,6 +401,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         content,
         quote,
         readRecords: {},
+        atUsers,
+        atAll: atAll || undefined,
       },
     };
 
@@ -561,10 +569,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     const conv = get().conversations.find(c => c.id === conversationId);
     const unreadCount = conv?.unreadCount || 0;
 
-    // 1. 清除前端未读计数
+    // 1. 清除前端未读计数（含 @我 角标）
     set(s => ({
       conversations: s.conversations.map(c =>
-        c.id === conversationId ? { ...c, unreadCount: 0 } : c,
+        c.id === conversationId ? { ...c, unreadCount: 0, hasAtMe: false } : c,
       ),
     }));
 
@@ -895,9 +903,15 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     timestamp: chat.sendTime ? parseTimestamp(chat.sendTime) : new Date(),
     type: backMsgTypeMap[chat.msg?.mType] || 'text',
     replyTo: quoteToReplyTo(chat.msg?.quote),
+    atUsers: chat.msg?.atUsers,
+    atAll: chat.msg?.atAll,
   };
   // 消费可能先到的乱序回执
   const msg = consumePendingReceipt(baseMsg);
+
+  // 这条群消息是否 @了我（别人发的 + @所有人 或 @列表含我）
+  const atMe = chat.sendId !== currentUserId && chat.chatType === ChatType.Group &&
+    (!!chat.msg?.atAll || (chat.msg?.atUsers || []).includes(currentUserId));
 
   useChatStore.setState(s => {
     // 添加消息（若正在浏览历史窗口，则不追加到该窗口，避免新消息与旧上下文错误相邻；
@@ -913,6 +927,7 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
         ...convs[idx],
         lastMessage: mediaPreview(msg.type, msg.content),
         lastMessageTime: msg.timestamp,
+        hasAtMe: convs[idx].hasAtMe || atMe,
         unreadCount: convs[idx].unreadCount + (chat.sendId !== currentUserId ? 1 : 0),
       };
     } else {
@@ -937,6 +952,7 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
         unreadCount: chat.sendId !== currentUserId ? 1 : 0,
         pinned: false,
         muted: false,
+        hasAtMe: atMe,
       }, ...convs];
     }
 

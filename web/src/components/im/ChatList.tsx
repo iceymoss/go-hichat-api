@@ -433,6 +433,9 @@ function ConversationItem({
               whiteSpace: 'nowrap',
             }}
           >
+            {conversation.hasAtMe && (
+              <span style={{ color: '#FA5151', fontWeight: 600, marginRight: 4 }}>[有人@你]</span>
+            )}
             {conversation.lastMessage}
           </span>
           {conversation.unreadCount > 0 && (
