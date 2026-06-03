@@ -1386,8 +1386,10 @@ function MessageList({
                       <>
                         {/* Reply quote preview */}
                         {m.replyTo && (() => {
-                          // 用固定的 senderId 实时解析当前昵称/备注（名字会变，id 不变），解析不到回退到引用时存的名字
-                          const sid = m.replyTo.senderId;
+                          // 用固定的 senderId 实时解析当前昵称/备注（名字会变，id 不变）。
+                          // 旧引用没存 senderId 时，回退用 msgId 在已加载列表里找原消息取其 senderId。
+                          const sid = m.replyTo.senderId
+                            || (m.replyTo.msgId ? messages.find(x => x.id === m.replyTo!.msgId)?.senderId : undefined);
                           const live = sid ? getSenderName(sid) : '';
                           const name = (live && live !== sid) ? live : (m.replyTo.senderName || sid || '');
                           return <QuoteBlock reply={{ ...m.replyTo, senderName: name }} onJump={() => jumpToMessage(m.replyTo!.msgId)} />;
