@@ -19,7 +19,7 @@ export interface Message {
   timestamp: Date;
   type: 'text' | 'image' | 'video' | 'file' | 'voice' | 'memes' | 'system';
   imageUrl?: string;
-  replyTo?: { senderName: string; content: string; msgId?: string; mType?: Message['type']; thumbUrl?: string };
+  replyTo?: { senderName: string; content: string; msgId?: string; senderId?: string; mType?: Message['type']; thumbUrl?: string };
   /** 发送状态: sending=发送中, sent=已发送, failed=发送失败 */
   status?: 'sending' | 'sent' | 'failed';
   /** 已读状态（用于发送方显示 ✓✓）；私聊为布尔，群聊用 readCount/readTotal 细化 */

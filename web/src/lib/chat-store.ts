@@ -50,13 +50,13 @@ const frontMsgTypeMap: Record<string, number> = {
   memes: MsgType.Memes,
 };
 
-/** 解析引用消息 JSON（{id,name,preview,mType,thumb}）为 Message.replyTo */
+/** 解析引用消息 JSON（{id,uid,name,preview,mType,thumb}）为 Message.replyTo */
 function quoteToReplyTo(quote?: string): Message['replyTo'] {
   if (!quote) return undefined;
   try {
     const q = JSON.parse(quote);
     if (q && (q.name || q.preview)) {
-      return { senderName: q.name || '', content: q.preview || '', msgId: q.id, mType: q.mType, thumbUrl: q.thumb };
+      return { senderName: q.name || '', content: q.preview || '', msgId: q.id, senderId: q.uid, mType: q.mType, thumbUrl: q.thumb };
     }
   } catch { /* ignore */ }
   return undefined;
