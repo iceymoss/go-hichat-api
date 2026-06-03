@@ -115,6 +115,16 @@ message RecallMsgResp {
   string recalledBy = 4; // 撤回操作者
 }
 
+message GetAtMeMessagesReq {
+  string conversationId = 1;
+  string userId = 2;       // 当前用户（被 @ 方）
+  int64  count = 3;        // 返回上限，0 取默认值
+}
+message GetAtMeMessagesResp {
+  // 该会话中 @我 且我尚未读的消息，按 sendTime 升序（最早的 @ 在前）
+  repeated ChatLog list = 1;
+}
+
 service Im {
   // 获取会话记录
   rpc GetChatLog(GetChatLogReq) returns(GetChatLogResp);
@@ -136,5 +146,8 @@ service Im {
 
   // 撤回消息（本人限时 / 群管理员不限时）
   rpc RecallMsg(RecallMsgReq) returns(RecallMsgResp);
+
+  // 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+  rpc GetAtMeMessages(GetAtMeMessagesReq) returns(GetAtMeMessagesResp);
 }
 

@@ -26,6 +26,7 @@ const (
 	Im_CreateGroupConversation_FullMethodName = "/im.Im/CreateGroupConversation"
 	Im_SetConversationSettings_FullMethodName = "/im.Im/SetConversationSettings"
 	Im_RecallMsg_FullMethodName               = "/im.Im/RecallMsg"
+	Im_GetAtMeMessages_FullMethodName         = "/im.Im/GetAtMeMessages"
 )
 
 // ImClient is the client API for Im service.
@@ -46,6 +47,8 @@ type ImClient interface {
 	SetConversationSettings(ctx context.Context, in *SetConversationSettingsReq, opts ...grpc.CallOption) (*SetConversationSettingsResp, error)
 	// 撤回消息（本人限时 / 群管理员不限时）
 	RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc.CallOption) (*RecallMsgResp, error)
+	// 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+	GetAtMeMessages(ctx context.Context, in *GetAtMeMessagesReq, opts ...grpc.CallOption) (*GetAtMeMessagesResp, error)
 }
 
 type imClient struct {
@@ -126,6 +129,16 @@ func (c *imClient) RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc
 	return out, nil
 }
 
+func (c *imClient) GetAtMeMessages(ctx context.Context, in *GetAtMeMessagesReq, opts ...grpc.CallOption) (*GetAtMeMessagesResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAtMeMessagesResp)
+	err := c.cc.Invoke(ctx, Im_GetAtMeMessages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ImServer is the server API for Im service.
 // All implementations must embed UnimplementedImServer
 // for forward compatibility.
@@ -144,6 +157,8 @@ type ImServer interface {
 	SetConversationSettings(context.Context, *SetConversationSettingsReq) (*SetConversationSettingsResp, error)
 	// 撤回消息（本人限时 / 群管理员不限时）
 	RecallMsg(context.Context, *RecallMsgReq) (*RecallMsgResp, error)
+	// 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+	GetAtMeMessages(context.Context, *GetAtMeMessagesReq) (*GetAtMeMessagesResp, error)
 	mustEmbedUnimplementedImServer()
 }
 
@@ -174,6 +189,9 @@ func (UnimplementedImServer) SetConversationSettings(context.Context, *SetConver
 }
 func (UnimplementedImServer) RecallMsg(context.Context, *RecallMsgReq) (*RecallMsgResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RecallMsg not implemented")
+}
+func (UnimplementedImServer) GetAtMeMessages(context.Context, *GetAtMeMessagesReq) (*GetAtMeMessagesResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAtMeMessages not implemented")
 }
 func (UnimplementedImServer) mustEmbedUnimplementedImServer() {}
 func (UnimplementedImServer) testEmbeddedByValue()            {}
@@ -322,6 +340,24 @@ func _Im_RecallMsg_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Im_GetAtMeMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAtMeMessagesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImServer).GetAtMeMessages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Im_GetAtMeMessages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImServer).GetAtMeMessages(ctx, req.(*GetAtMeMessagesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Im_ServiceDesc is the grpc.ServiceDesc for Im service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -356,6 +392,10 @@ var Im_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RecallMsg",
 			Handler:    _Im_RecallMsg_Handler,
+		},
+		{
+			MethodName: "GetAtMeMessages",
+			Handler:    _Im_GetAtMeMessages_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

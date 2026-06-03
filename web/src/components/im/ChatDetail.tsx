@@ -56,6 +56,9 @@ import ForwardDialog from './ForwardDialog';
 import FloatingProfileCard from './FloatingProfileCard';
 import ReadStatusDialog from './ReadStatusDialog';
 
+/** 稳定的空数组引用，避免 zustand selector 每次返回新数组导致无限重渲染 */
+const EMPTY_STR_ARR: string[] = [];
+
 function formatBytes(n?: number): string {
   if (!n || n <= 0) return '';
   if (n < 1024) return `${n} B`;
@@ -248,6 +251,11 @@ export default function ChatDetail() {
   const fetchNewer = useChatStore(s => s.fetchNewer);
   const backToLatest = useChatStore(s => s.backToLatest);
   const anchored = useChatStore(s => !!s.anchoredConvs[selectedConversationId || '']);
+  const jumpToContext = useChatStore(s => s.jumpToContext);
+  const atMeIds = useChatStore(s => s.atMeMap[selectedConversationId || ''] || EMPTY_STR_ARR);
+  const fetchAtMe = useChatStore(s => s.fetchAtMe);
+  const consumeAtMe = useChatStore(s => s.consumeAtMe);
+  const clearAtMe = useChatStore(s => s.clearAtMe);
   const [loadingNewer, setLoadingNewer] = useState(false);
   const storeSendMessage = useChatStore(s => s.sendMessage);
   const storeRecallMessage = useChatStore(s => s.recallMessage);
@@ -343,6 +351,11 @@ export default function ChatDetail() {
     if (selectedConversationId && currentUser?.token) {
       resetNoMoreHistory();
       markedReadRef.current = new Set();
+      // 先拉取"@我未读"列表：必须早于 markRead（markRead 走 Kafka 异步会清未读位），
+      // 仅群聊有 @；拉到的 id 用于顶部"有人@我"横幅逐条跳转
+      if (conversation?.type === 'group') {
+        fetchAtMe(currentUser.token, selectedConversationId);
+      }
       fetchMessages(currentUser.token, selectedConversationId);
       clearUnread(selectedConversationId);
       // 群聊自动加载群成员
@@ -354,7 +367,7 @@ export default function ChatDetail() {
         if (peerId) ensureUserProfiles(currentUser.token, [peerId]);
       }
     }
-  }, [selectedConversationId, currentUser?.token, currentUser?.id, resetNoMoreHistory, fetchMessages, clearUnread, conversation?.type, fetchGroupMembers, ensureUserProfiles]);
+  }, [selectedConversationId, currentUser?.token, currentUser?.id, resetNoMoreHistory, fetchMessages, clearUnread, conversation?.type, fetchGroupMembers, ensureUserProfiles, fetchAtMe]);
 
   // 进入会话/新消息到达时自动上报已读：对自己收到的消息 ID 批量调用 markRead。
   // - 只处理 MongoDB 真实 id（排除 local_/push_ 临时 id）
@@ -400,6 +413,34 @@ export default function ChatDetail() {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, []);
+
+  // 跳转到"@我"列表里最早的一条：在当前列表则直接滚动高亮，否则按 around 加载其上下文窗口；
+  // 跳转后从列表里移除该条（横幅计数递减），列表清空后横幅自动消失。
+  const jumpToAtMe = useCallback(async () => {
+    if (!currentUser?.token || !selectedConversationId) return;
+    const msgId = atMeIds[0];
+    if (!msgId) return;
+    const scrollTo = () => {
+      const el = document.querySelector(`[data-msgid="${msgId}"]`);
+      if (!el) return false;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('msg-flash');
+      setTimeout(() => el.classList.remove('msg-flash'), 1600);
+      return true;
+    };
+    if (scrollTo()) {
+      consumeAtMe(selectedConversationId, msgId);
+      return;
+    }
+    const ok = await jumpToContext(currentUser.token, selectedConversationId, msgId);
+    if (!ok) {
+      toast.error('未找到 @我的消息');
+      consumeAtMe(selectedConversationId, msgId);
+      return;
+    }
+    setTimeout(() => { if (!scrollTo()) setTimeout(scrollTo, 250); }, 80);
+    consumeAtMe(selectedConversationId, msgId);
+  }, [currentUser?.token, selectedConversationId, atMeIds, jumpToContext, consumeAtMe]);
 
   // Scroll to bottom when messages change (new message sent/loaded)
   const prevMsgCount = useRef(0);
@@ -1078,6 +1119,24 @@ export default function ChatDetail() {
           <div ref={messagesEndRef} />
         </div>
       </div>
+        {atMeIds.length > 0 && (
+          <button
+            onClick={jumpToAtMe}
+            title="跳转到 @我的消息"
+            style={{ position: 'absolute', right: 16, top: 16, padding: '8px 14px', borderRadius: 18, border: 'none', background: '#FA5151', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(250,81,81,0.35)', display: 'flex', alignItems: 'center', gap: 6, zIndex: 6 }}
+          >
+            <span>{atMeIds.length > 1 ? `${atMeIds.length} 条@我的消息` : '有人@我'}</span>
+            <span style={{ fontSize: 12 }}>↓</span>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); if (selectedConversationId) clearAtMe(selectedConversationId); }}
+              style={{ display: 'inline-flex', alignItems: 'center', marginLeft: 2, opacity: 0.85 }}
+            >
+              <X size={13} />
+            </span>
+          </button>
+        )}
         {anchored && (
           <button
             onClick={() => { if (currentUser?.token && selectedConversationId) backToLatest(currentUser.token, selectedConversationId); }}

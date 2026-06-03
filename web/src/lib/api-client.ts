@@ -238,6 +238,13 @@ export function getChatLogReadRecords(token: string, msgId: string) {
   return imGet<{ reads: ReadRecordUser[]; unReads: ReadRecordUser[] }>(`/v1/im/chatlog/readRecords?msgId=${msgId}`, token);
 }
 
+/** 获取会话中 @我 且未读的消息列表（按 sendTime 升序），用于"有人@我"快速跳转 */
+export function getAtMeMessages(token: string, conversationId: string, count = 0) {
+  const params = new URLSearchParams({ conversationId });
+  if (count > 0) params.set('count', String(count));
+  return imGet<{ list: ChatLogItem[] }>(`/v1/im/chatlog/atme?${params}`, token);
+}
+
 /** 获取会话列表 — 返回 {conversationList: Record<string, ConversationItem>} */
 export function getConversations(token: string) {
   return imGet<{ conversationList: Record<string, ConversationItem> }>('/v1/im/conversation', token);

@@ -64,3 +64,9 @@ func (s *ImServer) RecallMsg(ctx context.Context, in *im.RecallMsgReq) (*im.Reca
 	l := logic.NewRecallMsgLogic(ctx, s.svcCtx)
 	return l.RecallMsg(in)
 }
+
+// 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+func (s *ImServer) GetAtMeMessages(ctx context.Context, in *im.GetAtMeMessagesReq) (*im.GetAtMeMessagesResp, error) {
+	l := logic.NewGetAtMeMessagesLogic(ctx, s.svcCtx)
+	return l.GetAtMeMessages(in)
+}

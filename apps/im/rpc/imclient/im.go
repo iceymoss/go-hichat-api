@@ -18,6 +18,8 @@ type (
 	Conversation                = im.Conversation
 	CreateGroupConversationReq  = im.CreateGroupConversationReq
 	CreateGroupConversationResp = im.CreateGroupConversationResp
+	GetAtMeMessagesReq          = im.GetAtMeMessagesReq
+	GetAtMeMessagesResp         = im.GetAtMeMessagesResp
 	GetChatLogReq               = im.GetChatLogReq
 	GetChatLogResp              = im.GetChatLogResp
 	GetConversationsReq         = im.GetConversationsReq
@@ -46,6 +48,8 @@ type (
 		SetConversationSettings(ctx context.Context, in *SetConversationSettingsReq, opts ...grpc.CallOption) (*SetConversationSettingsResp, error)
 		// 撤回消息（本人限时 / 群管理员不限时）
 		RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc.CallOption) (*RecallMsgResp, error)
+		// 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+		GetAtMeMessages(ctx context.Context, in *GetAtMeMessagesReq, opts ...grpc.CallOption) (*GetAtMeMessagesResp, error)
 	}
 
 	defaultIm struct {
@@ -99,4 +103,10 @@ func (m *defaultIm) SetConversationSettings(ctx context.Context, in *SetConversa
 func (m *defaultIm) RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc.CallOption) (*RecallMsgResp, error) {
 	client := im.NewImClient(m.cli.Conn())
 	return client.RecallMsg(ctx, in, opts...)
+}
+
+// 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+func (m *defaultIm) GetAtMeMessages(ctx context.Context, in *GetAtMeMessagesReq, opts ...grpc.CallOption) (*GetAtMeMessagesResp, error) {
+	client := im.NewImClient(m.cli.Conn())
+	return client.GetAtMeMessages(ctx, in, opts...)
 }

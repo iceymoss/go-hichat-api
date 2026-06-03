@@ -21,6 +21,7 @@ import {
   updateConversations,
   setConversationSettings as apiSetConversationSettings,
   recallMsg,
+  getAtMeMessages,
   type ChatLogItem,
   type ConversationItem,
   type BackendUser,
@@ -121,6 +122,14 @@ interface ChatState {
   deleteConversation: (token: string, conversationId: string) => void;
   setConversationSettings: (token: string, conversationId: string, settings: { pinned?: boolean; muted?: boolean }) => Promise<void>;
   clearUnread: (conversationId: string) => void;
+  /** 各会话中"@我且未读"的消息 id 列表（按时间升序），供"有人@我"横幅逐条跳转 */
+  atMeMap: Record<string, string[]>;
+  /** 拉取某会话 @我未读消息列表（进会话时调用，先于 markRead 生效以避免被标已读清空） */
+  fetchAtMe: (token: string, conversationId: string) => Promise<void>;
+  /** 消费（移除）一条已跳转的 @我消息 */
+  consumeAtMe: (conversationId: string, msgId: string) => void;
+  /** 清空某会话的 @我列表（关闭横幅 / 离开会话） */
+  clearAtMe: (conversationId: string) => void;
   fetchGroupMembers: (token: string, groupId: string) => Promise<void>;
   ensureUserProfiles: (token: string, userIds: string[]) => void;
   /** 已播放语音消息 id 集合（控制未读红点），本地持久化 */
@@ -343,6 +352,34 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   backToLatest: async (token, conversationId) => {
     set(s => ({ anchoredConvs: { ...s.anchoredConvs, [conversationId]: false } }));
     await get().fetchMessages(token, conversationId);
+  },
+
+  atMeMap: {},
+
+  fetchAtMe: async (token, conversationId) => {
+    try {
+      const resp = await getAtMeMessages(token, conversationId);
+      const ids = (resp?.list || []).map(m => m.id).filter(Boolean) as string[];
+      set(s => ({ atMeMap: { ...s.atMeMap, [conversationId]: ids } }));
+    } catch (e) {
+      console.error('[ChatStore] fetchAtMe error:', e);
+    }
+  },
+
+  consumeAtMe: (conversationId, msgId) => {
+    set(s => {
+      const cur = s.atMeMap[conversationId];
+      if (!cur || cur.length === 0) return s;
+      const next = cur.filter(id => id !== msgId);
+      return { atMeMap: { ...s.atMeMap, [conversationId]: next } };
+    });
+  },
+
+  clearAtMe: (conversationId) => {
+    set(s => {
+      if (!s.atMeMap[conversationId]?.length) return s;
+      return { atMeMap: { ...s.atMeMap, [conversationId]: [] } };
+    });
   },
 
   // ==================== 发送消息 ====================

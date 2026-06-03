@@ -98,6 +98,13 @@ type (
 		Size     int64  `json:"size"`
 		FileType string `json:"fileType"` // image/video/voice/file
 	}
+	GetAtMeMessagesReq {
+		ConversationId string `form:"conversationId"`
+		Count          int64  `form:"count,optional"`
+	}
+	GetAtMeMessagesResp {
+		List []ChatLog `json:"list"` // @我且未读的消息，按 sendTime 升序
+	}
 )
 
 @server (
@@ -112,6 +119,10 @@ service im {
 	@doc "获取聊天记录已读情况"
 	@handler getChatLogReadRecords
 	get /chatlog/readRecords (GetChatLogReadRecordsReq) returns (GetChatLogReadRecordsResp)
+
+	@doc "获取会话中@我且未读的消息列表(用于有人@我快速跳转)"
+	@handler getAtMeMessages
+	get /chatlog/atme (GetAtMeMessagesReq) returns (GetAtMeMessagesResp)
 
 	@doc "建立会话"
 	@handler setUpUserConversation
