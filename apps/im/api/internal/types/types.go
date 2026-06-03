@@ -4,16 +4,20 @@
 package types
 
 type ChatLog struct {
-	Id             string `json:"id,omitempty"`
-	ConversationId string `json:"conversationId,omitempty"`
-	SendId         string `json:"sendId,omitempty"`
-	RecvId         string `json:"recvId,omitempty"`
-	MsgType        int32  `json:"msgType,omitempty"`
-	MsgContent     string `json:"msgContent,omitempty"`
-	ChatType       int32  `json:"chatType,omitempty"`
-	SendTime       int64  `json:"sendTime,omitempty"`    // 修正字段名统一小写
-	ReadRecords    string `json:"readRecords,omitempty"` // base64(bitmap)。私聊为 "AQ=="（对方已读）/空（未读），群聊为每成员 bit 位图
-	Quote          string `json:"quote,omitempty"`       // 引用/回复消息（JSON 字符串：{"id","name","preview"}）
+	Id             string   `json:"id,omitempty"`
+	ConversationId string   `json:"conversationId,omitempty"`
+	SendId         string   `json:"sendId,omitempty"`
+	RecvId         string   `json:"recvId,omitempty"`
+	MsgType        int32    `json:"msgType,omitempty"`
+	MsgContent     string   `json:"msgContent,omitempty"`
+	ChatType       int32    `json:"chatType,omitempty"`
+	SendTime       int64    `json:"sendTime,omitempty"`    // 修正字段名统一小写
+	ReadRecords    string   `json:"readRecords,omitempty"` // base64(bitmap)。私聊为 "AQ=="（对方已读）/空（未读），群聊为每成员 bit 位图
+	Quote          string   `json:"quote,omitempty"`       // 引用/回复消息（JSON 字符串：{"id","name","preview"}）
+	Status         int32    `json:"status,omitempty"`      // 0=正常 1=已撤回
+	RecalledBy     string   `json:"recalledBy,omitempty"`  // 撤回操作者 uid
+	AtUsers        []string `json:"atUsers,omitempty"`     // 被 @ 的成员 uid 列表（群聊）
+	AtAll          bool     `json:"atAll,omitempty"`       // 是否 @所有人（群聊）
 }
 
 type ChatLogReq struct {

@@ -6,6 +6,7 @@ import (
 	model "github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/pkg/errors"
@@ -13,7 +14,7 @@ import (
 )
 
 func toChatLogPb(c *model.ChatLog) *im.ChatLog {
-	return &im.ChatLog{
+	pb := &im.ChatLog{
 		Id:             c.ID.Hex(),
 		ConversationId: c.ConversationId,
 		SendId:         c.SendId,
@@ -25,7 +26,17 @@ func toChatLogPb(c *model.ChatLog) *im.ChatLog {
 		ReadRecords:    c.ReadRecords,
 		ReadTimes:      c.ReadTimes,
 		Quote:          c.Quote,
+		Status:         int32(c.Status),
+		RecalledBy:     c.RecalledBy,
+		AtUsers:        c.AtUsers,
+		AtAll:          c.AtAll,
 	}
+	// 已撤回消息：原文保留在库中作审计，但绝不下发；引用预览同理交由前端按 status 降级。
+	if c.Status == constants.MsgStatusRecalled {
+		pb.MsgContent = ""
+		pb.Quote = ""
+	}
+	return pb
 }
 
 func toChatLogPbList(list []*model.ChatLog) []*im.ChatLog {
