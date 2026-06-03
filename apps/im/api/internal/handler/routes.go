@@ -21,6 +21,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: getChatLogHandler(serverCtx),
 			},
 			{
+				// 获取会话中@我且未读的消息列表(用于有人@我快速跳转)
+				Method:  http.MethodGet,
+				Path:    "/chatlog/atme",
+				Handler: getAtMeMessagesHandler(serverCtx),
+			},
+			{
 				// 获取聊天记录已读情况
 				Method:  http.MethodGet,
 				Path:    "/chatlog/readRecords",

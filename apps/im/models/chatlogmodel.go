@@ -15,6 +15,9 @@ import (
 
 var _ ChatLogModel = (*customChatLogModel)(nil)
 
+// DefaultAtMeCount @我消息列表默认返回上限：足够覆盖一次会话内未读的 @，又避免一次拉太多。
+const DefaultAtMeCount int64 = 50
+
 type (
 	// ChatLogModel is an interface to be customized, add more methods here,
 	// and implement the added methods in customChatLogModel.
@@ -24,6 +27,8 @@ type (
 		ListAfter(ctx context.Context, conversationId string, afterSendTime, count int64) ([]*ChatLog, error)
 		// UpdateRecalled 条件撤回：仅当消息当前为正常态时置为已撤回，返回本次是否真正改动（用于幂等区分是否需要推送）
 		UpdateRecalled(ctx context.Context, id primitive.ObjectID, recalledBy string, recalledAt int64) (bool, error)
+		// ListAtMe 返回会话中 @我（atAll 或 atUsers 含 uid）且非撤回的消息，按 sendTime 降序取最近 count 条（用于"有人@我"跳转）
+		ListAtMe(ctx context.Context, conversationId, uid string, count int64) ([]*ChatLog, error)
 	}
 
 	customChatLogModel struct {
@@ -51,6 +56,38 @@ func (m *customChatLogModel) ListAfter(ctx context.Context, conversationId strin
 	}
 	opt := options.Find().
 		SetSort(bson.D{{Key: "sendTime", Value: 1}}).
+		SetLimit(count)
+
+	var data []*ChatLog
+	cursor, err := m.Conn.Database(HiChat2).Collection(ChatLogs).Find(ctx, filter, opt)
+	if err != nil {
+		return nil, fmt.Errorf("数据库查询失败: %w", err)
+	}
+	defer cursor.Close(ctx)
+	if err = cursor.All(ctx, &data); err != nil {
+		return nil, fmt.Errorf("数据解码失败: %w", err)
+	}
+	return data, nil
+}
+
+// ListAtMe 查询某会话中 @当前用户 的消息：atAll=true 或 atUsers 数组含 uid，排除已撤回，
+// 并排除自己发的（理论上 @ 不会 @ 自己，这里兜底）。按 sendTime 降序取最近 count 条，
+// 调用方再按已读状态过滤、并反转为升序展示。
+func (m *customChatLogModel) ListAtMe(ctx context.Context, conversationId, uid string, count int64) ([]*ChatLog, error) {
+	if count <= 0 {
+		count = DefaultAtMeCount
+	}
+	filter := bson.M{
+		"conversationId": conversationId,
+		"status":         constants.MsgStatusNormal,
+		"sendId":         bson.M{"$ne": uid},
+		"$or": []bson.M{
+			{"atAll": true},
+			{"atUsers": uid},
+		},
+	}
+	opt := options.Find().
+		SetSort(bson.D{{Key: "sendTime", Value: -1}}).
 		SetLimit(count)
 
 	var data []*ChatLog

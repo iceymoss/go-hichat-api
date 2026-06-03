@@ -48,6 +48,15 @@ type Conversation struct {
 	MemberCount    int     `json:"memberCount,optional,omitempty"`
 }
 
+type GetAtMeMessagesReq struct {
+	ConversationId string `form:"conversationId"`
+	Count          int64  `form:"count,optional"`
+}
+
+type GetAtMeMessagesResp struct {
+	List []ChatLog `json:"list"` // @我且未读的消息，按 sendTime 升序
+}
+
 type GetChatLogReadRecordsReq struct {
 	MsgId string `form:"msgId"`
 }
