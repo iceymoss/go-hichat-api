@@ -216,6 +216,10 @@ export default function ChatDetail() {
   const chatConversations = useChatStore(s => s.conversations);
   const chatMessages = useChatStore(s => s.messagesMap);
   const fetchMessages = useChatStore(s => s.fetchMessages);
+  const fetchNewer = useChatStore(s => s.fetchNewer);
+  const backToLatest = useChatStore(s => s.backToLatest);
+  const anchored = useChatStore(s => !!s.anchoredConvs[selectedConversationId || '']);
+  const [loadingNewer, setLoadingNewer] = useState(false);
   const storeSendMessage = useChatStore(s => s.sendMessage);
   const clearUnread = useChatStore(s => s.clearUnread);
   const storeMarkRead = useChatStore(s => s.markRead);
@@ -348,11 +352,13 @@ export default function ChatDetail() {
   const prevMsgCount = useRef(0);
   useEffect(() => {
     if (messages.length === 0) return;
+    // 浏览历史（跳转到非最新窗口）时不要自动滚到底，保持在目标位置
+    if (anchored) { prevMsgCount.current = messages.length; return; }
     // If switching conversation (count changed drastically) → instant, otherwise smooth
     const isNewConv = Math.abs(messages.length - prevMsgCount.current) > 1;
     scrollToBottom(isNewConv);
     prevMsgCount.current = messages.length;
-  }, [messages, scrollToBottom]);
+  }, [messages, scrollToBottom, anchored]);
 
   // Also scroll when conversation switches (even if messages haven't changed yet)
   useEffect(() => {
@@ -364,7 +370,20 @@ export default function ChatDetail() {
   // 滚动到顶部时加载更早的聊天记录
   const handleMessagesScroll = useCallback(() => {
     const el = messagesContainerRef.current;
-    if (!el || loadingMore || noMoreHistory) return;
+    if (!el) return;
+
+    // 浏览历史态：滚到接近底部 → 增量加载更新的消息
+    if (anchored && !loadingNewer) {
+      const distToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distToBottom < 80) {
+        setLoadingNewer(true);
+        // 新内容追加在下方，不影响已有内容位置，无需校正 scrollTop
+        fetchNewer(currentUser!.token, selectedConversationId!)
+          .finally(() => setLoadingNewer(false));
+      }
+    }
+
+    if (loadingMore || noMoreHistory) return;
     if (el.scrollTop < 50) {
       const msgs = chatMessages[selectedConversationId!] || [];
       if (msgs.length === 0) return;
@@ -385,7 +404,7 @@ export default function ChatDetail() {
         });
       }).catch(() => setLoadingMore(false));
     }
-  }, [selectedConversationId, loadingMore, noMoreHistory, chatMessages, currentUser, fetchMessages]);
+  }, [selectedConversationId, loadingMore, noMoreHistory, chatMessages, currentUser, fetchMessages, anchored, loadingNewer, fetchNewer]);
 
   const handleBack = () => {
     if (isMobile) {
@@ -881,6 +900,7 @@ export default function ChatDetail() {
       )}
 
       {/* ── Messages Area: light gray background ── */}
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div
         ref={messagesContainerRef}
         onScroll={handleMessagesScroll}
@@ -919,6 +939,15 @@ export default function ChatDetail() {
           )}
           <div ref={messagesEndRef} />
         </div>
+      </div>
+        {anchored && (
+          <button
+            onClick={() => { if (currentUser?.token && selectedConversationId) backToLatest(currentUser.token, selectedConversationId); }}
+            style={{ position: 'absolute', right: 16, bottom: 16, padding: '8px 14px', borderRadius: 18, border: 'none', background: '#3390EC', color: '#fff', fontSize: 13, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', gap: 4, zIndex: 5 }}
+          >
+            回到最新 ↓
+          </button>
+        )}
       </div>
 
       {/* ── Input Area: clean white, single row ── */}
@@ -1151,15 +1180,26 @@ function MessageList({
   const storeGroupMembers = useChatStore(s => s.groupMembers);
   const playedVoices = useChatStore(s => s.playedVoices);
   const markVoicePlayed = useChatStore(s => s.markVoicePlayed);
+  const jumpToContext = useChatStore(s => s.jumpToContext);
 
-  // 点击引用块跳转到原消息并高亮
-  const jumpToMessage = (msgId?: string) => {
+  // 点击引用块跳转到原消息并高亮；若不在当前已加载列表，则按 msgId 加载其上下文窗口
+  const jumpToMessage = async (msgId?: string) => {
     if (!msgId) return;
-    const el = document.querySelector(`[data-msgid="${msgId}"]`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    el.classList.add('msg-flash');
-    setTimeout(() => el.classList.remove('msg-flash'), 1600);
+    const scrollTo = () => {
+      const el = document.querySelector(`[data-msgid="${msgId}"]`);
+      if (!el) return false;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('msg-flash');
+      setTimeout(() => el.classList.remove('msg-flash'), 1600);
+      return true;
+    };
+    if (scrollTo()) return;
+    // 不在当前列表 → 加载目标上下文窗口（进入浏览历史态）
+    if (!currentUser?.token || !selectedConversationId) return;
+    const ok = await jumpToContext(currentUser.token, selectedConversationId, msgId);
+    if (!ok) { toast.error('未找到原消息'); return; }
+    // 等待新列表渲染后再滚动
+    setTimeout(() => { if (!scrollTo()) setTimeout(scrollTo, 250); }, 80);
   };
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);

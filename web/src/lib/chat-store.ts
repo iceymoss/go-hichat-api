@@ -104,7 +104,14 @@ interface ChatState {
   destroyWs: () => void;
   fetchConversations: (token: string) => Promise<void>;
   fetchMessages: (token: string, conversationId: string, oldestMsgId?: string) => Promise<void>;
-  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string, quote?: string) => void;
+  /** 哪些会话处于"浏览历史"态（跳转到了非最新窗口） */
+  anchoredConvs: Record<string, boolean>;
+  /** 跳转到某条消息的上下文窗口（替换当前列表），返回是否命中目标 */
+  jumpToContext: (token: string, conversationId: string, msgId: string) => Promise<boolean>;
+  /** 向下增量加载更新的消息（浏览历史态用），返回是否已到最新 */
+  fetchNewer: (token: string, conversationId: string) => Promise<boolean>;
+  /** 回到最新页（退出浏览历史态） */
+  backToLatest: (token: string, conversationId: string) => Promise<void>;  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string, quote?: string) => void;
   resendMessage: (token: string, userId: string, conversationId: string, msgId: string) => void;
   markRead: (userId: string, conversationId: string, msgIds: string[]) => void;
   getOrCreateConversation: (token: string, userId: string, targetId: string) => Promise<Conversation>;
@@ -264,13 +271,65 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         const existing = s.messagesMap[conversationId] || [];
         // 加载更早的历史：放在前面；首次加载：替换
         const merged = oldestMsgId ? [...list, ...existing] : list;
-        return { messagesMap: { ...s.messagesMap, [conversationId]: merged } };
+        // 全量加载（无游标）= 回到最新，清除浏览历史态
+        const anchoredConvs = oldestMsgId ? s.anchoredConvs : { ...s.anchoredConvs, [conversationId]: false };
+        return { messagesMap: { ...s.messagesMap, [conversationId]: merged }, anchoredConvs };
       });
     } catch (e) {
       console.error('[ChatStore] fetch messages error:', e);
     } finally {
       set(s => ({ loadingMessages: { ...s.loadingMessages, [conversationId]: false } }));
     }
+  },
+
+  anchoredConvs: {},
+
+  jumpToContext: async (token, conversationId, msgId) => {
+    try {
+      // around：目标消息 + 其前若干条（含目标），API 返回倒序 → reverse 成正序
+      const resp = await getChatLog(token, conversationId, msgId, 30, 'around');
+      const list = (resp?.list || []).map(mapChatLog).reverse();
+      const hit = list.some(m => m.id === msgId);
+      if (!hit) return false;
+      set(s => ({
+        messagesMap: { ...s.messagesMap, [conversationId]: list },
+        anchoredConvs: { ...s.anchoredConvs, [conversationId]: true },
+      }));
+      return true;
+    } catch (e) {
+      console.error('[ChatStore] jumpToContext error:', e);
+      return false;
+    }
+  },
+
+  fetchNewer: async (token, conversationId) => {
+    const existing = get().messagesMap[conversationId] || [];
+    const newest = existing[existing.length - 1];
+    if (!newest) return true;
+    try {
+      // newer：严格晚于游标的若干条，API 已按时间升序返回 → 不 reverse，直接追加
+      const resp = await getChatLog(token, conversationId, newest.id, 30, 'newer');
+      const list = (resp?.list || []).map(mapChatLog);
+      // 去重（防止边界重复）
+      const seen = new Set(existing.map(m => m.id));
+      const fresh = list.filter(m => !seen.has(m.id));
+      const reachedLatest = list.length < 30; // 不足一页 → 已到最新
+      set(s => ({
+        messagesMap: { ...s.messagesMap, [conversationId]: [...(s.messagesMap[conversationId] || []), ...fresh] },
+        anchoredConvs: reachedLatest
+          ? { ...s.anchoredConvs, [conversationId]: false }
+          : s.anchoredConvs,
+      }));
+      return reachedLatest;
+    } catch (e) {
+      console.error('[ChatStore] fetchNewer error:', e);
+      return false;
+    }
+  },
+
+  backToLatest: async (token, conversationId) => {
+    set(s => ({ anchoredConvs: { ...s.anchoredConvs, [conversationId]: false } }));
+    await get().fetchMessages(token, conversationId);
   },
 
   // ==================== 发送消息 ====================
@@ -778,8 +837,10 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
   const msg = consumePendingReceipt(baseMsg);
 
   useChatStore.setState(s => {
-    // 添加消息
-    const msgs = [...(s.messagesMap[convId] || []), msg];
+    // 添加消息（若正在浏览历史窗口，则不追加到该窗口，避免新消息与旧上下文错误相邻；
+    // 回到最新页时会从服务端重新拉取）
+    const anchored = s.anchoredConvs[convId];
+    const msgs = anchored ? (s.messagesMap[convId] || []) : [...(s.messagesMap[convId] || []), msg];
 
     // 更新或创建会话
     let convs = [...s.conversations];

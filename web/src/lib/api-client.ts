@@ -207,10 +207,11 @@ export interface ConversationItem {
   message?: ChatLogItem;
 }
 
-/** 获取聊天记录 — 返回 {list: ChatLogItem[]} */
-export function getChatLog(token: string, conversationId: string, msgId = '', count = 30) {
+/** 获取聊天记录 — 返回 {list: ChatLogItem[]}。direction: older(默认)/newer/around */
+export function getChatLog(token: string, conversationId: string, msgId = '', count = 30, direction = '') {
   const params = new URLSearchParams({ conversationId, count: String(count) });
   if (msgId) params.set('msgId', msgId);
+  if (direction) params.set('direction', direction);
   return imGet<{ list: ChatLogItem[] }>(`/v1/im/chatlog?${params}`, token);
 }
 
