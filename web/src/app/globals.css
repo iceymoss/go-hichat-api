@@ -462,6 +462,16 @@
   animation: voice-wave 0.9s ease-in-out infinite;
 }
 
+/* 点击引用跳转到原消息时的高亮闪烁 */
+@keyframes msg-flash {
+  0%, 100% { background-color: transparent; }
+  30% { background-color: rgba(51,144,236,0.18); }
+}
+.msg-flash {
+  animation: msg-flash 1.5s ease-in-out;
+  border-radius: 8px;
+}
+
 /* ═══════════════════════════════════════════════════════
    HiChat Auth — Telegram Web Color Palette
    ═══════════════════════════════════════════════════════ */

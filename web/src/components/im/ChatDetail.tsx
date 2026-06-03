@@ -135,6 +135,36 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
   return <span>{content}</span>;
 }
 
+/** 引用块：渲染被引用消息（图片/视频显示缩略图，否则文字预览），可点击跳转 */
+function QuoteBlock({ reply, onJump }: { reply: NonNullable<Message['replyTo']>; onJump?: () => void }) {
+  const hasThumb = (reply.mType === 'image' || reply.mType === 'video' || reply.mType === 'memes') && !!reply.thumbUrl;
+  return (
+    <div
+      onClick={onJump ? (e) => { e.stopPropagation(); onJump(); } : undefined}
+      style={{
+        display: 'flex', gap: 8, alignItems: 'center', padding: '4px 8px', marginBottom: 4,
+        borderLeft: '3px solid #3390EC', background: 'rgba(51,144,236,0.06)', borderRadius: '0 6px 6px 0',
+        fontSize: 12, lineHeight: 1.4, cursor: onJump ? 'pointer' : 'default', maxWidth: 240,
+      }}
+    >
+      {hasThumb && (
+        <span style={{ position: 'relative', flexShrink: 0, lineHeight: 0 }}>
+          <img src={reply.thumbUrl} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', display: 'block' }} />
+          {reply.mType === 'video' && (
+            <Play size={14} color="#fff" style={{ position: 'absolute', inset: 0, margin: 'auto' }} />
+          )}
+        </span>
+      )}
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: 'block', fontWeight: 600, color: '#3390EC' }}>{reply.senderName}</span>
+        <span style={{ display: 'block', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {reply.content}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export default function ChatDetail() {
   const { selectedConversationId, setSelectedConversationId, setShowChatDetail } = useIMStore();
   const [input, setInput] = useState('');
@@ -368,10 +398,18 @@ export default function ChatDetail() {
   const handleSend = () => {
     if (!input.trim() || !selectedConversationId) return;
 
-    // 引用消息：把被引用消息打包成 quote JSON 随消息发送
-    const quote = replyTo
-      ? JSON.stringify({ id: replyTo.message.id, name: replyTo.senderName, preview: mediaPreview(replyTo.message.type, replyTo.message.content) })
-      : undefined;
+    // 引用消息：把被引用消息打包成 quote JSON（含类型与缩略图）随消息发送
+    let quote: string | undefined;
+    if (replyTo) {
+      const qm = replyTo.message;
+      const meta = parseMediaContent(qm.content);
+      let thumb: string | undefined;
+      if (meta) {
+        if (qm.type === 'image' || qm.type === 'memes') thumb = meta.thumbUrl || meta.url;
+        else if (qm.type === 'video') thumb = meta.coverUrl;
+      }
+      quote = JSON.stringify({ id: qm.id, name: replyTo.senderName, preview: mediaPreview(qm.type, qm.content), mType: qm.type, thumb });
+    }
 
     // 通过 chat-store 发送（走 WebSocket RigorAck）
     if (currentUser?.token && currentUser?.id) {
@@ -898,6 +936,15 @@ export default function ChatDetail() {
             background: '#FFFFFF', borderTop: '1px solid rgba(0,0,0,0.06)',
           }}>
             <div style={{ width: 3, height: 32, borderRadius: 2, background: '#3390EC', flexShrink: 0 }} />
+            {(() => {
+              const meta = parseMediaContent(replyTo.message.content);
+              const thumb = meta
+                ? (replyTo.message.type === 'video' ? meta.coverUrl
+                  : (replyTo.message.type === 'image' || replyTo.message.type === 'memes') ? (meta.thumbUrl || meta.url)
+                  : undefined)
+                : undefined;
+              return thumb ? <img src={thumb} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} /> : null;
+            })()}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: '#3390EC' }}>{replyTo.senderName}</div>
               <div style={{ fontSize: 13, color: '#708499', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1104,6 +1151,16 @@ function MessageList({
   const storeGroupMembers = useChatStore(s => s.groupMembers);
   const playedVoices = useChatStore(s => s.playedVoices);
   const markVoicePlayed = useChatStore(s => s.markVoicePlayed);
+
+  // 点击引用块跳转到原消息并高亮
+  const jumpToMessage = (msgId?: string) => {
+    if (!msgId) return;
+    const el = document.querySelector(`[data-msgid="${msgId}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('msg-flash');
+    setTimeout(() => el.classList.remove('msg-flash'), 1600);
+  };
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);
 
@@ -1266,7 +1323,7 @@ function MessageList({
                   (m.type === 'image' || m.type === 'video' || m.type === 'file' || m.type === 'memes');
 
                 return (
-                  <div key={m.id} style={{ textAlign: msgIsSent ? 'right' : 'left', marginBottom: 3 }}>
+                  <div key={m.id} data-msgid={m.id} style={{ textAlign: msgIsSent ? 'right' : 'left', marginBottom: 3 }}>
                     <div
                       className={bareMedia ? `im-chat-media ${msgIsSent ? 'sent' : 'received'}` : `im-chat-bubble ${msgIsSent ? 'sent' : 'received'}`}
                       onContextMenu={(e) => onBubbleContext(e, m, senderName, msgIsSent)}
@@ -1285,22 +1342,7 @@ function MessageList({
                       <>
                         {/* Reply quote preview */}
                         {m.replyTo && (
-                          <div style={{
-                            padding: '4px 8px',
-                            marginBottom: 4,
-                            borderLeft: '3px solid #3390EC',
-                            background: 'rgba(51,144,236,0.06)',
-                            borderRadius: '0 6px 6px 0',
-                            fontSize: 12,
-                            lineHeight: 1.4,
-                          }}>
-                            <div style={{ fontWeight: 600, color: '#3390EC', marginBottom: 1 }}>
-                              {m.replyTo.senderName}
-                            </div>
-                            <div style={{ opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {m.replyTo.content}
-                            </div>
-                          </div>
+                          <QuoteBlock reply={m.replyTo} onJump={() => jumpToMessage(m.replyTo!.msgId)} />
                         )}
                         <MessageContent
                           message={m}
