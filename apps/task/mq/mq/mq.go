@@ -33,6 +33,15 @@ type MsgChatTransfer struct {
 
 	// MongoDB 持久化后的聊天记录 ID（hex），用于前端把 local_ 占位 ID 替换为真实 ID
 	MsgId string `json:"msgId,omitempty"`
+
+	// RecalledBy 撤回操作者 uid，仅 MsgType=ContentRecall 的撤回控制帧填充
+	RecalledBy string `json:"recalledBy,omitempty"`
+
+	// AtUsers 被 @ 的成员 uid 列表（仅群聊普通消息）
+	AtUsers []string `json:"atUsers,omitempty"`
+
+	// AtAll 是否 @所有人（仅群聊普通消息，权限已在生产端把关）
+	AtAll bool `json:"atAll,omitempty"`
 }
 
 // MsgMarkRead 标记已读消息结构体

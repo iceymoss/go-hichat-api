@@ -22,6 +22,12 @@ ImRpc:
       - 127.0.0.1:2379
     Key: im.rpc
 
+# 撤回事件推送复用的 Kafka topic（与 ws/mq 一致）
+MsgChatTransfer:
+  Topic: msgChatTransfer
+  Addrs:
+    - 127.0.0.1:9092
+
 
 JwtAuth:
   AccessSecret: iceymoss.hichat.hichat2.com

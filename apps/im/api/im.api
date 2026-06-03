@@ -81,6 +81,12 @@ type (
 		IsMute         bool   `json:"isMute,optional"`
 	}
 	SetConversationSettingsResp  {}
+	RecallMsgReq {
+		ConversationId string `json:"conversationId"`
+		MsgId          string `json:"msgId"`
+		ChatType       int32  `json:"chatType"`
+	}
+	RecallMsgResp  {}
 	UploadResp {
 		Url      string `json:"url"`
 		Name     string `json:"name"`
@@ -117,6 +123,10 @@ service im {
 	@doc "设置会话置顶/免打扰"
 	@handler setConversationSettings
 	put /conversation/settings (SetConversationSettingsReq) returns (SetConversationSettingsResp)
+
+	@doc "撤回消息"
+	@handler recallMsg
+	post /chatlog/recall (RecallMsgReq) returns (RecallMsgResp)
 
 	@doc "上传富媒体文件(图片/视频/文件/语音)"
 	@handler upload

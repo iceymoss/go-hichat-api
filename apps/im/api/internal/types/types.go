@@ -73,6 +73,15 @@ type ReadRecordUser struct {
 	ReadAt   int64  `json:"readAt,omitempty"` // 已读时间戳（unix nano），仅已读列表里有值；未读列表里为 0
 }
 
+type RecallMsgReq struct {
+	ConversationId string `json:"conversationId"`
+	MsgId          string `json:"msgId"`
+	ChatType       int32  `json:"chatType"`
+}
+
+type RecallMsgResp struct {
+}
+
 type SetConversationSettingsReq struct {
 	ConversationId string `json:"conversationId"`
 	IsTop          bool   `json:"isTop,optional"`

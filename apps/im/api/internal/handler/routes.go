@@ -27,6 +27,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: getChatLogReadRecordsHandler(serverCtx),
 			},
 			{
+				// 撤回消息
+				Method:  http.MethodPost,
+				Path:    "/chatlog/recall",
+				Handler: recallMsgHandler(serverCtx),
+			},
+			{
 				// 获取会话
 				Method:  http.MethodGet,
 				Path:    "/conversation",
