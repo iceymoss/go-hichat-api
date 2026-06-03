@@ -147,8 +147,8 @@ function renderTextWithMentions(text: string) {
 }
 
 /** 引用块：渲染被引用消息（图片/视频显示缩略图，否则文字预览），可点击跳转 */
-function QuoteBlock({ reply, onJump }: { reply: NonNullable<Message['replyTo']>; onJump?: () => void }) {
-  const hasThumb = (reply.mType === 'image' || reply.mType === 'video' || reply.mType === 'memes') && !!reply.thumbUrl;
+function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['replyTo']>; onJump?: () => void; recalled?: boolean }) {
+  const hasThumb = !recalled && (reply.mType === 'image' || reply.mType === 'video' || reply.mType === 'memes') && !!reply.thumbUrl;
   return (
     <div
       onClick={onJump ? (e) => { e.stopPropagation(); onJump(); } : undefined}
@@ -168,8 +168,8 @@ function QuoteBlock({ reply, onJump }: { reply: NonNullable<Message['replyTo']>;
       )}
       <span style={{ minWidth: 0 }}>
         <span style={{ display: 'block', fontWeight: 600, color: '#3390EC' }}>{reply.senderName}</span>
-        <span style={{ display: 'block', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {reply.content}
+        <span style={{ display: 'block', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: recalled ? 'italic' : 'normal' }}>
+          {recalled ? '消息已撤回' : reply.content}
         </span>
       </span>
     </div>
@@ -1547,7 +1547,10 @@ function MessageList({
                             || (m.replyTo.msgId ? messages.find(x => x.id === m.replyTo!.msgId)?.senderId : undefined);
                           const live = sid ? getSenderName(sid) : '';
                           const name = (live && live !== sid) ? live : (m.replyTo.senderName || sid || '');
-                          return <QuoteBlock reply={{ ...m.replyTo, senderName: name }} onJump={() => jumpToMessage(m.replyTo!.msgId)} />;
+                          // 被引用的原消息若已撤回，引用预览降级为"消息已撤回"
+                          const orig = m.replyTo.msgId ? messages.find(x => x.id === m.replyTo!.msgId) : undefined;
+                          const quotedRecalled = !!(orig && (orig.recalled || recalledIds.has(orig.id)));
+                          return <QuoteBlock reply={{ ...m.replyTo, senderName: name }} recalled={quotedRecalled} onJump={() => jumpToMessage(m.replyTo!.msgId)} />;
                         })()}
                         <MessageContent
                           message={m}
