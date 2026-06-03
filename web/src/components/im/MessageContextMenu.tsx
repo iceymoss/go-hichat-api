@@ -8,6 +8,8 @@ interface MessageContextMenuProps {
   message: Message;
   senderName: string;
   isOwn: boolean;
+  /** 是否展示「撤回」入口：本人消息，或群管理员/群主撤回他人消息。未传时回退到 isOwn */
+  canRecall?: boolean;
   position: { x: number; y: number };
   onClose: () => void;
   onCopy: (msg: Message) => void;
@@ -28,6 +30,7 @@ export default function MessageContextMenu({
   message,
   senderName,
   isOwn,
+  canRecall,
   position,
   onClose,
   onCopy,
@@ -40,6 +43,8 @@ export default function MessageContextMenu({
   const [visible, setVisible] = useState(false);
 
   const canSaveSticker = (message.type === 'image' || message.type === 'memes') && !!onSaveSticker;
+  // 撤回入口：优先用显式 canRecall（含管理员撤回他人消息），未传时回退到本人消息
+  const showRecall = canRecall ?? isOwn;
 
   // Build menu items based on ownership
   const items = useMemo(() => [
@@ -49,11 +54,11 @@ export default function MessageContextMenu({
     ...(canSaveSticker
       ? [{ key: 'sticker', icon: <Star size={20} />, label: '添加到表情', color: '#FFFFFF', onClick: () => onSaveSticker!(message) }]
       : []),
-    ...(isOwn
+    ...(showRecall
       ? [{ key: 'recall', icon: <RotateCcw size={20} />, label: '撤回', color: '#FFFFFF', onClick: () => onRecall(message.id) }]
       : []),
     { key: 'delete', icon: <Trash2 size={20} />, label: '删除', color: '#E53935', onClick: () => onDelete(message.id) },
-  ], [isOwn, canSaveSticker, message, onCopy, onForward, onReply, onRecall, onDelete, onSaveSticker, senderName]);
+  ], [showRecall, canSaveSticker, message, onCopy, onForward, onReply, onRecall, onDelete, onSaveSticker, senderName]);
 
   // Calculate total menu width
   const totalItemsWidth = items.length * MENU_ITEM_SIZE + (items.length - 1) * MENU_GAP;

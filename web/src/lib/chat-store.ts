@@ -76,7 +76,7 @@ export interface GroupMember {
   user_id: string;
   nickname: string;
   user_avatar_url: string;
-  role_level: number; // 1=member, 2=admin, 3=owner
+  role_level: number; // 与后端 GroupRoleLevel 一致：0=普通成员 1=管理员 2=群主
   group_nickname: string;
 }
 

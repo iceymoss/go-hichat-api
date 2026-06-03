@@ -89,6 +89,10 @@ func (m *MsgChatTransfer) transferRecall(ctx context.Context, data *mq.MsgChatTr
 // addChatLog 将聊天记录消息持久化到数据库中
 // 注意：入参改为指针，以便把 Insert 后生成的 ObjectID.Hex 回写到 data.MsgId
 func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransfer) error {
+	// TODO(SendTime 单位不一致): 这里未透传 data.SendTime，落库时由 Insert 兜底成 UnixMilli（毫秒），
+	// 而生产端 ws 把 data.SendTime 写成 UnixNano（纳秒），导致库里与推送两套单位。
+	// 目前撤回逻辑已在 recallmsglogic.normalizeUnixMillis 做归一兜底，不影响功能；
+	// 若要从源头统一，应在此显式赋 SendTime 并与 ws/前端的 sendTime 口径一起对齐（统一为毫秒）。
 	chatLog := model.ChatLog{
 		ConversationId: data.ConversationId,
 		SendId:         data.SendId,

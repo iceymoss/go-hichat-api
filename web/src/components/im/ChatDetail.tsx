@@ -1240,6 +1240,7 @@ export default function ChatDetail() {
           message={contextMenu.message}
           senderName={contextMenu.senderName}
           isOwn={contextMenu.isOwn}
+          canRecall={contextMenu.isOwn || (conversation?.type === 'group' && isGroupAdmin)}
           position={contextMenu.position}
           onClose={() => setContextMenu(null)}
           onCopy={handleCopyMessage}
@@ -1366,8 +1367,10 @@ function MessageList({
 
   type TimeGroup = { type: 'time'; time: string; key: string };
   type MsgGroup = { type: 'msg'; msgs: Message[]; key: string };
+  // 撤回提示作为独立的居中系统行展示（类似微信），不进入气泡分组
+  type SystemGroup = { type: 'system'; msg: Message; key: string };
 
-  const groups: (TimeGroup | MsgGroup)[] = [];
+  const groups: (TimeGroup | MsgGroup | SystemGroup)[] = [];
   let lastTime = 0;
 
   for (let i = 0; i < messages.length; i++) {
@@ -1379,13 +1382,19 @@ function MessageList({
       groups.push({ type: 'time', time: formatTime(msg.timestamp), key: `t-${msg.id}` });
     }
 
+    // 已撤回消息：单独作为居中系统行，既不并入上一组也不让下一条并入它
+    const recalled = msg.recalled || recalledIds.has(msg.id);
+    if (recalled) {
+      groups.push({ type: 'system', msg, key: `s-${msg.id}` });
+      lastTime = ts;
+      continue;
+    }
+
     // New message group: different sender or >3 min gap
     const last = groups[groups.length - 1];
-    if (!last || last.type === 'time' ||
-      (last.type === 'msg' && (
-        last.msgs[last.msgs.length - 1].senderId !== msg.senderId ||
-        ts - last.msgs[last.msgs.length - 1].timestamp.getTime() > GROUP_INTERVAL
-      ))
+    if (!last || last.type !== 'msg' ||
+      last.msgs[last.msgs.length - 1].senderId !== msg.senderId ||
+      ts - last.msgs[last.msgs.length - 1].timestamp.getTime() > GROUP_INTERVAL
     ) {
       groups.push({ type: 'msg', msgs: [msg], key: `g-${msg.id}` });
     } else {
@@ -1441,6 +1450,17 @@ function MessageList({
     return friend?.remark || friend?.name || userProfiles[senderId]?.nickname || conversation?.name || senderId;
   }, [conversation, currentUser?.name, isOwnMessage, friends, userProfiles, groupMemberNames]);
 
+  // 撤回提示文案：你 / 对方 / 某成员 / 管理员撤回了一条消息
+  const recalledText = useCallback((m: Message) => {
+    const by = m.recalledBy;
+    if (by && by === currentUser?.id) return '你撤回了一条消息';
+    if (by && by !== m.senderId) return '管理员撤回了一条消息';
+    if (isOwnMessage(m.senderId)) return '你撤回了一条消息';
+    return conversation?.type === 'group'
+      ? `${getSenderName(m.senderId)}撤回了一条消息`
+      : '对方撤回了一条消息';
+  }, [currentUser?.id, conversation?.type, isOwnMessage, getSenderName]);
+
   return (
     <>
       {groups.map((group) => {
@@ -1456,6 +1476,16 @@ function MessageList({
                 display: 'inline-block',
               }}>
                 {group.time}
+              </span>
+            </div>
+          );
+        }
+
+        if (group.type === 'system') {
+          return (
+            <div key={group.key} data-msgid={group.msg.id} style={{ textAlign: 'center', padding: '4px 0' }}>
+              <span style={{ fontSize: 12, color: '#A2ACB5', display: 'inline-block', maxWidth: '80%' }}>
+                {recalledText(group.msg)}
               </span>
             </div>
           );
@@ -1528,15 +1558,7 @@ function MessageList({
                     >
                     {isRecalled ? (
                       <span style={{ fontStyle: 'italic', opacity: 0.6 }}>
-                        {(() => {
-                          const by = m.recalledBy;
-                          if (by && by === currentUser?.id) return '你撤回了一条消息';
-                          if (by && by !== m.senderId) return '管理员撤回了一条消息';
-                          if (msgIsSent) return '你撤回了一条消息';
-                          return conversation?.type === 'group'
-                            ? `${senderName}撤回了一条消息`
-                            : '对方撤回了一条消息';
-                        })()}
+                        {recalledText(m)}
                       </span>
                     ) : (
                       <>
