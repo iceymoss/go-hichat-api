@@ -20,6 +20,7 @@ import {
   setupConversation,
   updateConversations,
   setConversationSettings as apiSetConversationSettings,
+  recallMsg,
   type ChatLogItem,
   type ConversationItem,
   type BackendUser,
@@ -114,6 +115,8 @@ interface ChatState {
   backToLatest: (token: string, conversationId: string) => Promise<void>;  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string, quote?: string) => void;
   resendMessage: (token: string, userId: string, conversationId: string, msgId: string) => void;
   markRead: (userId: string, conversationId: string, msgIds: string[]) => void;
+  /** 撤回消息：调后端校验，成功后原位置为撤回态（ws 事件会同步其它端） */
+  recallMessage: (token: string, conversationId: string, msgId: string) => Promise<void>;
   getOrCreateConversation: (token: string, userId: string, targetId: string) => Promise<Conversation>;
   deleteConversation: (token: string, conversationId: string) => void;
   setConversationSettings: (token: string, conversationId: string, settings: { pinned?: boolean; muted?: boolean }) => Promise<void>;
@@ -452,6 +455,15 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }).catch(err => console.error('[ChatStore] markRead failed:', err));
   },
 
+  recallMessage: async (token, conversationId, msgId) => {
+    const conv = get().conversations.find(c => c.id === conversationId);
+    const chatType = conv?.type === 'group' ? ChatType.Group : ChatType.Single;
+    const userId = useIMStore.getState().currentUser?.id;
+    // 调后端校验+撤回；成功后乐观置态（ws 撤回事件会同步本人其它端及会话各端）
+    await recallMsg(token, conversationId, msgId, chatType);
+    applyRecall(conversationId, msgId, userId);
+  },
+
   // ==================== 建立会话 ====================
 
   getOrCreateConversation: async (token, userId, targetId) => {
@@ -641,6 +653,7 @@ function mapConversation(raw: ConversationItem): Conversation {
     pinned: !!raw.isTop,
     muted: !!raw.isMute,
     members: (raw as any).memberCount || undefined,
+    hasAtMe: !!(raw as any).hasAtMe,
   };
 }
 
@@ -652,6 +665,10 @@ function mapChatLog(log: ChatLogItem): Message {
     timestamp: log.sendTime ? parseTimestamp(log.sendTime) : new Date(),
     type: backMsgTypeMap[log.msgType] || 'text',
     replyTo: quoteToReplyTo(log.quote),
+    recalled: log.status === 1,
+    recalledBy: log.recalledBy,
+    atUsers: log.atUsers,
+    atAll: log.atAll,
   };
   // 从 REST 返回的 readRecords 恢复已读状态。
   // 服务端语义：
@@ -817,6 +834,31 @@ function consumePendingReceipt(m: Message): Message {
   return { ...m, isRead: pend.isRead, readCount: pend.readCount };
 }
 
+/** 把某条消息原位置为撤回态（撤回事件 / 本人撤回乐观更新共用） */
+function applyRecall(convId: string, msgId: string | undefined, recalledBy?: string) {
+  if (!msgId) return;
+  useChatStore.setState(s => {
+    const list = s.messagesMap[convId];
+    if (!list) return {};
+    let changed = false;
+    const msgs = list.map(m => {
+      if (m.id === msgId && !m.recalled) {
+        changed = true;
+        return { ...m, recalled: true, recalledBy };
+      }
+      return m;
+    });
+    if (!changed) return {};
+    // 同步会话列表的最后一条预览（若被撤回的就是最新一条）
+    const convs = s.conversations.map(c =>
+      c.id === convId && msgs.length > 0 && msgs[msgs.length - 1].id === msgId
+        ? { ...c, lastMessage: '撤回了一条消息' }
+        : c,
+    );
+    return { messagesMap: { ...s.messagesMap, [convId]: msgs }, conversations: convs };
+  });
+}
+
 /** 处理服务端推送的消息 */
 function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: string) {
   // 先拦截已读回执：不落为一条新消息，只去更新既有消息的 isRead
@@ -835,6 +877,12 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
   }
   if (chat.contentType === ContentType.MsgAck) {
     // 回响来了但 ID 异常，静默丢弃
+    return;
+  }
+
+  // 撤回事件：把对应消息原位置为撤回态，并刷新会话最后一条预览
+  if (chat.contentType === ContentType.Recall) {
+    applyRecall(chat.conversationId, rawId, chat.recalledBy);
     return;
   }
 

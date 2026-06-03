@@ -221,6 +221,7 @@ export default function ChatDetail() {
   const anchored = useChatStore(s => !!s.anchoredConvs[selectedConversationId || '']);
   const [loadingNewer, setLoadingNewer] = useState(false);
   const storeSendMessage = useChatStore(s => s.sendMessage);
+  const storeRecallMessage = useChatStore(s => s.recallMessage);
   const clearUnread = useChatStore(s => s.clearUnread);
   const storeMarkRead = useChatStore(s => s.markRead);
   const storeGroupMembers = useChatStore(s => s.groupMembers);
@@ -728,10 +729,22 @@ export default function ChatDetail() {
   }, []);
 
   const handleRecallMessage = useCallback((msgId: string) => {
-    setRecalledIds(prev => new Set(prev).add(msgId));
     setContextMenu(null);
-    toast.success('消息已撤回');
-  }, []);
+    if (!currentUser?.token || !selectedConversationId) return;
+    // 本地/未落库的占位消息不能撤回（没有真实 MongoID）
+    if (msgId.startsWith('local_') || msgId.startsWith('push_')) {
+      toast.error('消息尚未发送完成，稍后再试');
+      return;
+    }
+    // 乐观置态，失败回滚
+    setRecalledIds(prev => new Set(prev).add(msgId));
+    storeRecallMessage(currentUser.token, selectedConversationId, msgId)
+      .then(() => toast.success('消息已撤回'))
+      .catch(() => {
+        setRecalledIds(prev => { const n = new Set(prev); n.delete(msgId); return n; });
+        toast.error('撤回失败，可能已超过可撤回时间或无权限');
+      });
+  }, [currentUser?.token, selectedConversationId, storeRecallMessage]);
 
   const handleDeleteMessage = useCallback((msgId: string) => {
     setDeletedIds(prev => new Set(prev).add(msgId));
@@ -1371,8 +1384,10 @@ function MessageList({
                 const msgIsSent = isOwnMessage(m.senderId);
                 const senderName = getSenderName(m.senderId);
                 const mediaMeta = parseMediaContent(m.content);
+                // 已撤回：服务端历史(m.recalled) 或 本地乐观态(recalledIds) 任一命中
+                const isRecalled = m.recalled || recalledIds.has(m.id);
                 // 图片/视频/文件/表情包：裸露展示，不套消息气泡
-                const bareMedia = !recalledIds.has(m.id) && !!mediaMeta &&
+                const bareMedia = !isRecalled && !!mediaMeta &&
                   (m.type === 'image' || m.type === 'video' || m.type === 'file' || m.type === 'memes');
 
                 return (
@@ -1387,9 +1402,17 @@ function MessageList({
                         ? { display: 'inline-block', cursor: 'context-menu', userSelect: 'none', textAlign: 'left', background: 'transparent', padding: 0, boxShadow: 'none' }
                         : { cursor: 'context-menu', userSelect: 'none', textAlign: 'left' }}
                     >
-                    {recalledIds.has(m.id) ? (
+                    {isRecalled ? (
                       <span style={{ fontStyle: 'italic', opacity: 0.6 }}>
-                        {isOwnMessage(m.senderId) ? '你撤回了一条消息' : '对方撤回了一条消息'}
+                        {(() => {
+                          const by = m.recalledBy;
+                          if (by && by === currentUser?.id) return '你撤回了一条消息';
+                          if (by && by !== m.senderId) return '管理员撤回了一条消息';
+                          if (msgIsSent) return '你撤回了一条消息';
+                          return conversation?.type === 'group'
+                            ? `${senderName}撤回了一条消息`
+                            : '对方撤回了一条消息';
+                        })()}
                       </span>
                     ) : (
                       <>
