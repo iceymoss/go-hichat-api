@@ -119,6 +119,7 @@ interface ChatState {
   setConversationSettings: (token: string, conversationId: string, settings: { pinned?: boolean; muted?: boolean }) => Promise<void>;
   clearUnread: (conversationId: string) => void;
   fetchGroupMembers: (token: string, groupId: string) => Promise<void>;
+  ensureUserProfiles: (token: string, userIds: string[]) => void;
   /** 已播放语音消息 id 集合（控制未读红点），本地持久化 */
   playedVoices: Record<string, true>;
   markVoicePlayed: (msgId: string) => void;
@@ -252,6 +253,15 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         for (const gc of groupConvs) {
           get().fetchGroupMembers(token, gc.id);
         }
+
+        // 预加载私聊对方的用户资料（昵称/头像），保证会话标题、引用归属、回复名稳定可解析
+        const peerIds = new Set<string>();
+        for (const c of list) {
+          if (c.type !== 'private') continue;
+          const peerId = c.id.split('_').find(p => p !== currentUserId);
+          if (peerId && !get().userProfiles[peerId]) peerIds.add(peerId);
+        }
+        if (peerIds.size > 0) resolveUserProfiles(token, Array.from(peerIds));
       }
     } catch (e) {
       console.error('[ChatStore] fetch conversations error:', e);
@@ -588,6 +598,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     } catch (e) {
       console.error('[ChatStore] fetchGroupMembers error:', e);
     }
+  },
+
+  ensureUserProfiles: (token, userIds) => {
+    const missing = userIds.filter(id => id && !get().userProfiles[id]);
+    if (missing.length > 0) resolveUserProfiles(token, missing);
   },
 }));
 

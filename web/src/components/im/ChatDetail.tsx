@@ -225,6 +225,7 @@ export default function ChatDetail() {
   const storeMarkRead = useChatStore(s => s.markRead);
   const storeGroupMembers = useChatStore(s => s.groupMembers);
   const fetchGroupMembers = useChatStore(s => s.fetchGroupMembers);
+  const ensureUserProfiles = useChatStore(s => s.ensureUserProfiles);
   const readReceiptEnabled = useSettingsStore(s => s.readReceiptEnabled);
   const { currentUser } = useIMStore();
 
@@ -299,9 +300,13 @@ export default function ChatDetail() {
       // 群聊自动加载群成员
       if (conversation?.type === 'group') {
         fetchGroupMembers(currentUser.token, selectedConversationId);
+      } else {
+        // 私聊预加载对方资料，保证标题/引用归属/回复名稳定可解析
+        const peerId = selectedConversationId.split('_').find(p => p !== currentUser.id);
+        if (peerId) ensureUserProfiles(currentUser.token, [peerId]);
       }
     }
-  }, [selectedConversationId, currentUser?.token, resetNoMoreHistory, fetchMessages, clearUnread, conversation?.type, fetchGroupMembers]);
+  }, [selectedConversationId, currentUser?.token, currentUser?.id, resetNoMoreHistory, fetchMessages, clearUnread, conversation?.type, fetchGroupMembers, ensureUserProfiles]);
 
   // 进入会话/新消息到达时自动上报已读：对自己收到的消息 ID 批量调用 markRead。
   // - 只处理 MongoDB 真实 id（排除 local_/push_ 临时 id）
