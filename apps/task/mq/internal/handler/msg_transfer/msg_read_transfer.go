@@ -46,6 +46,9 @@ func (m *MsgReadTransfer) Consume(ctx context.Context, key, value string) error 
 
 	fmt.Printf("已经收到消息了用户已读标识: %+v\n", data)
 
+	// 进会话/已读即清除该会话的 @我 角标（与回执开关无关，必须在 shouldDeliverReceipt 门禁之前执行）
+	m.clearAtMe(ctx, data.ConversationId, data.SendId)
+
 	// 三层开关判定（任一关闭 → 既不写 bitmap，也不推回执）
 	// 关键：要在写 bitmap 之前拦截，否则"关闭方"的 bit 会永久留在 bitmap 里，
 	// 后续其他成员读取触发新一轮 receipt 时会泄漏"关闭方已读"这个事实。
@@ -72,6 +75,25 @@ func (m *MsgReadTransfer) Consume(ctx context.Context, key, value string) error 
 		ContentType: constants.ContentMakeRead,
 		ReadRecords: readRecords,
 	})
+}
+
+// clearAtMe 清除某用户某会话的 @我 角标（reader 进会话/已读时调用）。无该会话条目或已是 false 时不写库。
+func (m *MsgReadTransfer) clearAtMe(ctx context.Context, conversationId, readerId string) {
+	if conversationId == "" || readerId == "" {
+		return
+	}
+	conversations, err := m.svcCtx.ConversationsModel.FindByUserId(ctx, readerId)
+	if err != nil || conversations == nil || conversations.ConversationList == nil {
+		return
+	}
+	conv, ok := conversations.ConversationList[conversationId]
+	if !ok || conv == nil || !conv.HasAtMe {
+		return
+	}
+	conv.HasAtMe = false
+	if _, err := m.svcCtx.ConversationsModel.Update(ctx, conversations); err != nil {
+		m.Errorf("clearAtMe update failed: %v, reader=%s, conv=%s", err, readerId, conversationId)
+	}
 }
 
 // shouldDeliverReceipt 三层开关：系统 ∧ 阅读者愿意回执 ∧ 原发送者愿意看到回执。
