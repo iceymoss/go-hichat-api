@@ -14,6 +14,12 @@ type Msg struct {
 
 	// 已读记录 key为消息id、value为消息值
 	ReadRecords map[string]string `json:"readRecords" mapstructure:"readRecords"`
+
+	// 被 @ 的成员 uid 列表（仅群聊）
+	AtUsers []string `json:"atUsers,omitempty" mapstructure:"atUsers"`
+
+	// 是否 @所有人（仅群聊）
+	AtAll bool `json:"atAll,omitempty" mapstructure:"atAll"`
 }
 
 // Chat 聊天会话， message 结构中的data字段
@@ -33,8 +39,11 @@ type Chat struct {
 	// 发送时间
 	SendTime int64 `json:"sendTime" mapstructure:"sendTime"`
 
-	// 附加内容类型（如 ContentMakeRead=6 已读回执, ContentMsgAck=7 发送方回响），0 表示普通消息
+	// 附加内容类型（如 ContentMakeRead=6 已读回执, ContentMsgAck=7 发送方回响, ContentRecall=9 撤回），0 表示普通消息
 	ContentType constants.MType `json:"contentType,omitempty" mapstructure:"contentType"`
+
+	// 撤回操作者 uid，仅 ContentType=ContentRecall 时有值，前端据此区分"你/对方/管理员撤回了一条消息"
+	RecalledBy string `json:"recalledBy,omitempty" mapstructure:"recalledBy"`
 
 	// 发送内容
 	Msg `json:"msg" mapstructure:"msg"`
@@ -71,6 +80,15 @@ type Push struct {
 	MsgId string `json:"msgId" mapstructure:"msgId"`
 	// 附加内容类型（ContentType=7 表示给发送方的回响）
 	ContentType constants.MType `json:"contentType" mapstructure:"contentType"`
+
+	// 撤回操作者 uid，仅 ContentType=ContentRecall 时有值
+	RecalledBy string `json:"recalledBy,omitempty" mapstructure:"recalledBy"`
+
+	// 被 @ 的成员 uid 列表（仅群聊普通消息）
+	AtUsers []string `json:"atUsers,omitempty" mapstructure:"atUsers"`
+
+	// 是否 @所有人（仅群聊普通消息）
+	AtAll bool `json:"atAll,omitempty" mapstructure:"atAll"`
 }
 
 // MarkRead 已读标记
