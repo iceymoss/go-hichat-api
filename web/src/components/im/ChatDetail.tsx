@@ -1176,6 +1176,7 @@ function MessageList({
 }) {
   const { currentUser } = useIMStore();
   const { selectedConversationId } = useIMStore();
+  const { friends } = useIMStore();
   const userProfiles = useChatStore(s => s.userProfiles);
   const storeGroupMembers = useChatStore(s => s.groupMembers);
   const playedVoices = useChatStore(s => s.playedVoices);
@@ -1287,9 +1288,12 @@ function MessageList({
   // Get sender name for a message
   const getSenderName = useCallback((senderId: string) => {
     if (isOwnMessage(senderId)) return currentUser?.name || mockCurrentUser.name;
-    if (conversation?.type === 'group') return groupMemberNames[senderId] || senderId;
-    return conversation?.name || senderId;
-  }, [conversation, currentUser?.name, isOwnMessage]);
+    // 群聊：群昵称 > 用户昵称 > id（groupMemberNames 已按此优先级构建）
+    if (conversation?.type === 'group') return groupMemberNames[senderId] || userProfiles[senderId]?.nickname || senderId;
+    // 私聊：好友备注 > 用户昵称 > 会话名 > id
+    const friend = friends.find(c => c.id === senderId || c.friend_uid === senderId);
+    return friend?.remark || friend?.name || userProfiles[senderId]?.nickname || conversation?.name || senderId;
+  }, [conversation, currentUser?.name, isOwnMessage, friends, userProfiles, groupMemberNames]);
 
   return (
     <>
