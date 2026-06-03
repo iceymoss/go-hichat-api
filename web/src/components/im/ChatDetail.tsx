@@ -3,6 +3,10 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { formatTime, currentUser as mockCurrentUser, contacts, type Message, type Contact, type Conversation } from '@/lib/mock-data';
 
+// 本人撤回的时间窗（秒），需与后端 im-rpc 配置 RecallWindowSeconds 保持一致（0=不限）。
+// 仅用于普通用户撤回自己消息时的前端预校验；管理员/群主撤回不受此限。
+const RECALL_WINDOW_SECONDS = 120;
+
 /** 气泡时间：今天 HH:mm，昨天 昨天 HH:mm，今年 MM/DD HH:mm，跨年 YYYY/MM/DD HH:mm */
 function formatBubbleTime(date: Date): string {
   const now = new Date();
@@ -47,6 +51,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { CallDialog } from './CallDialog';
 import ChatSettingsMenu from './ChatSettingsMenu';
 import MessageContextMenu from './MessageContextMenu';
+import ConfirmDialog from './ConfirmDialog';
 import ForwardDialog from './ForwardDialog';
 import FloatingProfileCard from './FloatingProfileCard';
 import ReadStatusDialog from './ReadStatusDialog';
@@ -227,6 +232,9 @@ export default function ChatDetail() {
 
   // Recalled messages tracking
   const [recalledIds, setRecalledIds] = useState<Set<string>>(new Set());
+
+  // 撤回二次确认弹窗：保存待撤回的 msgId（null 表示关闭）
+  const [recallConfirmId, setRecallConfirmId] = useState<string | null>(null);
 
   // 群聊已读详情弹窗（存的是 mongoID）
   const [readDetailMsgId, setReadDetailMsgId] = useState<string | null>(null);
@@ -815,6 +823,7 @@ export default function ChatDetail() {
     setContextMenu(null);
   }, []);
 
+  // 点击「撤回」：先做本地前置校验，通过后弹二次确认框，确认才真正撤回
   const handleRecallMessage = useCallback((msgId: string) => {
     setContextMenu(null);
     if (!currentUser?.token || !selectedConversationId) return;
@@ -823,7 +832,25 @@ export default function ChatDetail() {
       toast.error('消息尚未发送完成，稍后再试');
       return;
     }
-    // 乐观置态，失败回滚
+    // 本地时间窗预校验：仅拦"普通用户撤回自己消息超时"这一场景，省掉一次必然失败的请求。
+    // 管理员/群主撤回（自己超时的消息或他人消息）不受时间窗限制，交由后端放行，这里不拦。
+    const target = messages.find(m => m.id === msgId);
+    const isSelf = !!target && (target.senderId === currentUser.id || target.senderId === 'me');
+    const adminBypass = conversation?.type === 'group' && isGroupAdmin;
+    if (target && isSelf && !adminBypass && RECALL_WINDOW_SECONDS > 0) {
+      const elapsedMs = Date.now() - target.timestamp.getTime();
+      if (elapsedMs > RECALL_WINDOW_SECONDS * 1000) {
+        toast.error('消息发送已超过可撤回时间');
+        return;
+      }
+    }
+    // 弹出二次确认框，等用户确认
+    setRecallConfirmId(msgId);
+  }, [currentUser?.token, currentUser?.id, selectedConversationId, messages, conversation?.type, isGroupAdmin]);
+
+  // 二次确认后真正执行撤回（乐观置态，失败回滚）
+  const doRecall = useCallback((msgId: string) => {
+    if (!currentUser?.token || !selectedConversationId) return;
     setRecalledIds(prev => new Set(prev).add(msgId));
     storeRecallMessage(currentUser.token, selectedConversationId, msgId)
       .then(() => toast.success('消息已撤回'))
@@ -1251,6 +1278,17 @@ export default function ChatDetail() {
           onSaveSticker={handleSaveSticker}
         />
       )}
+
+      {/* ── 撤回二次确认 ── */}
+      <ConfirmDialog
+        open={recallConfirmId !== null}
+        onClose={() => setRecallConfirmId(null)}
+        title="撤回消息"
+        description="确定撤回这条消息吗？撤回后对方将看到“撤回了一条消息”。"
+        confirmText="撤回"
+        confirmVariant="danger"
+        onConfirm={() => { if (recallConfirmId) doRecall(recallConfirmId); }}
+      />
 
       {/* ── Floating Profile Card ── */}
       {showProfileCard && contactMatch && (

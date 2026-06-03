@@ -79,35 +79,49 @@ func (l *RecallMsgLogic) RecallMsg(in *im.RecallMsgReq) (*im.RecallMsgResp, erro
 	}, nil
 }
 
-// checkPermission 本人限时撤回；群管理员/群主可撤回他人消息且不限时；私聊仅本人可撤回。
+// checkPermission 撤回权限校验，区分两种场景：
+//   - 本人在时间窗内撤回：普通用户行为，直接放行（任何聊天类型）。
+//   - 本人超过时间窗 / 撤回他人消息：仅群聊里的管理员/群主可撤回，视为管理员行为，不受时间窗限制。
+//
+// 即管理员/群主撤回自己 2 分钟前的消息也按"管理员行为"放行；私聊仅本人限时撤回。
 func (l *RecallMsgLogic) checkPermission(in *im.RecallMsgReq, chatLog *model.ChatLog) error {
-	// 本人撤回：受时间窗限制
-	if in.OperatorUid == chatLog.SendId {
+	isSelf := in.OperatorUid == chatLog.SendId
+
+	// 本人撤回：先看是否在时间窗内（普通用户行为）
+	if isSelf {
 		window := l.svcCtx.Config.RecallWindowSeconds
 		// ChatLog.SendTime 历史上由 Insert 默认写成 UnixMilli，其它路径可能是 UnixNano，
 		// 统一归一到毫秒再比较，避免单位不一致导致永远判超时。SendTime<=0（未知）则不限制。
 		sentMs := normalizeUnixMillis(chatLog.SendTime)
-		if window > 0 && sentMs > 0 && time.Now().UnixMilli()-sentMs > window*1000 {
+		if window <= 0 || sentMs <= 0 || time.Now().UnixMilli()-sentMs <= window*1000 {
+			return nil
+		}
+		// 超时：私聊本人无法再撤回；群聊则继续按管理员行为判定（落到下方角色校验）
+		if constants.ChatType(in.ChatType) != constants.GroupChatType {
 			return xerr.NewMsg("消息发送已超过可撤回时间")
 		}
+	} else if constants.ChatType(in.ChatType) != constants.GroupChatType {
+		// 非本人且非群聊：私聊不允许撤回他人消息
+		return xerr.NewMsg("无权限撤回该消息")
+	}
+
+	// 群聊：管理员/群主可撤回（本人超时的消息 或 他人消息），不受时间窗限制
+	role, err := l.svcCtx.Social.GetMemberRole(l.ctx, &socialclient.GetMemberRoleReq{
+		GroupId: chatLog.RecvId, // 群聊 RecvId 即 groupId
+		UserId:  in.OperatorUid,
+	})
+	if err != nil {
+		l.Errorf("recall get member role err: %v, groupId: %s, uid: %s", err, chatLog.RecvId, in.OperatorUid)
+		return xerr.NewDBErr()
+	}
+	if role.IsMember && role.RoleLevel >= int32(constants.ManagerGroupRoleLevel) {
 		return nil
 	}
 
-	// 群聊：管理员/群主可撤回他人消息，不受时间窗限制
-	if constants.ChatType(in.ChatType) == constants.GroupChatType {
-		role, err := l.svcCtx.Social.GetMemberRole(l.ctx, &socialclient.GetMemberRoleReq{
-			GroupId: chatLog.RecvId, // 群聊 RecvId 即 groupId
-			UserId:  in.OperatorUid,
-		})
-		if err != nil {
-			l.Errorf("recall get member role err: %v, groupId: %s, uid: %s", err, chatLog.RecvId, in.OperatorUid)
-			return xerr.NewDBErr()
-		}
-		if role.IsMember && role.RoleLevel >= int32(constants.ManagerGroupRoleLevel) {
-			return nil
-		}
+	// 群普通成员：本人撤回超时报超时错误；撤回他人消息则无权限
+	if isSelf {
+		return xerr.NewMsg("消息发送已超过可撤回时间")
 	}
-
 	return xerr.NewMsg("无权限撤回该消息")
 }
 
