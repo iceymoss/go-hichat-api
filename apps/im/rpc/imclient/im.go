@@ -24,6 +24,8 @@ type (
 	GetConversationsResp        = im.GetConversationsResp
 	PutConversationsReq         = im.PutConversationsReq
 	PutConversationsResp        = im.PutConversationsResp
+	RecallMsgReq                = im.RecallMsgReq
+	RecallMsgResp               = im.RecallMsgResp
 	SetConversationSettingsReq  = im.SetConversationSettingsReq
 	SetConversationSettingsResp = im.SetConversationSettingsResp
 	SetUpUserConversationReq    = im.SetUpUserConversationReq
@@ -42,6 +44,8 @@ type (
 		CreateGroupConversation(ctx context.Context, in *CreateGroupConversationReq, opts ...grpc.CallOption) (*CreateGroupConversationResp, error)
 		// 设置会话置顶/免打扰
 		SetConversationSettings(ctx context.Context, in *SetConversationSettingsReq, opts ...grpc.CallOption) (*SetConversationSettingsResp, error)
+		// 撤回消息（本人限时 / 群管理员不限时）
+		RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc.CallOption) (*RecallMsgResp, error)
 	}
 
 	defaultIm struct {
@@ -89,4 +93,10 @@ func (m *defaultIm) CreateGroupConversation(ctx context.Context, in *CreateGroup
 func (m *defaultIm) SetConversationSettings(ctx context.Context, in *SetConversationSettingsReq, opts ...grpc.CallOption) (*SetConversationSettingsResp, error) {
 	client := im.NewImClient(m.cli.Conn())
 	return client.SetConversationSettings(ctx, in, opts...)
+}
+
+// 撤回消息（本人限时 / 群管理员不限时）
+func (m *defaultIm) RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc.CallOption) (*RecallMsgResp, error) {
+	client := im.NewImClient(m.cli.Conn())
+	return client.RecallMsg(ctx, in, opts...)
 }

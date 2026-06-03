@@ -25,6 +25,7 @@ const (
 	Im_PutConversations_FullMethodName        = "/im.Im/PutConversations"
 	Im_CreateGroupConversation_FullMethodName = "/im.Im/CreateGroupConversation"
 	Im_SetConversationSettings_FullMethodName = "/im.Im/SetConversationSettings"
+	Im_RecallMsg_FullMethodName               = "/im.Im/RecallMsg"
 )
 
 // ImClient is the client API for Im service.
@@ -43,6 +44,8 @@ type ImClient interface {
 	CreateGroupConversation(ctx context.Context, in *CreateGroupConversationReq, opts ...grpc.CallOption) (*CreateGroupConversationResp, error)
 	// 设置会话置顶/免打扰
 	SetConversationSettings(ctx context.Context, in *SetConversationSettingsReq, opts ...grpc.CallOption) (*SetConversationSettingsResp, error)
+	// 撤回消息（本人限时 / 群管理员不限时）
+	RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc.CallOption) (*RecallMsgResp, error)
 }
 
 type imClient struct {
@@ -113,6 +116,16 @@ func (c *imClient) SetConversationSettings(ctx context.Context, in *SetConversat
 	return out, nil
 }
 
+func (c *imClient) RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc.CallOption) (*RecallMsgResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecallMsgResp)
+	err := c.cc.Invoke(ctx, Im_RecallMsg_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ImServer is the server API for Im service.
 // All implementations must embed UnimplementedImServer
 // for forward compatibility.
@@ -129,6 +142,8 @@ type ImServer interface {
 	CreateGroupConversation(context.Context, *CreateGroupConversationReq) (*CreateGroupConversationResp, error)
 	// 设置会话置顶/免打扰
 	SetConversationSettings(context.Context, *SetConversationSettingsReq) (*SetConversationSettingsResp, error)
+	// 撤回消息（本人限时 / 群管理员不限时）
+	RecallMsg(context.Context, *RecallMsgReq) (*RecallMsgResp, error)
 	mustEmbedUnimplementedImServer()
 }
 
@@ -156,6 +171,9 @@ func (UnimplementedImServer) CreateGroupConversation(context.Context, *CreateGro
 }
 func (UnimplementedImServer) SetConversationSettings(context.Context, *SetConversationSettingsReq) (*SetConversationSettingsResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetConversationSettings not implemented")
+}
+func (UnimplementedImServer) RecallMsg(context.Context, *RecallMsgReq) (*RecallMsgResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RecallMsg not implemented")
 }
 func (UnimplementedImServer) mustEmbedUnimplementedImServer() {}
 func (UnimplementedImServer) testEmbeddedByValue()            {}
@@ -286,6 +304,24 @@ func _Im_SetConversationSettings_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Im_RecallMsg_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecallMsgReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImServer).RecallMsg(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Im_RecallMsg_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImServer).RecallMsg(ctx, req.(*RecallMsgReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Im_ServiceDesc is the grpc.ServiceDesc for Im service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -316,6 +352,10 @@ var Im_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetConversationSettings",
 			Handler:    _Im_SetConversationSettings_Handler,
+		},
+		{
+			MethodName: "RecallMsg",
+			Handler:    _Im_RecallMsg_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

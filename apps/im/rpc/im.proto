@@ -20,6 +20,14 @@ message ChatLog {
   map<string, int64> readTimes = 10;
   // 引用/回复消息（JSON 字符串：{"id","name","preview"}）
   string quote = 11;
+  // 消息状态：0=正常 1=已撤回
+  int32 status = 12;
+  // 撤回操作者 uid（本人或群管理员）
+  string recalledBy = 13;
+  // 被 @ 的成员 uid 列表（仅群聊）
+  repeated string atUsers = 14;
+  // 是否 @所有人（仅群聊）
+  bool atAll = 15;
 }
 
 message Conversation {
@@ -92,6 +100,19 @@ message SetConversationSettingsReq {
 }
 message SetConversationSettingsResp {}
 
+message RecallMsgReq {
+  string conversationId = 1;
+  string msgId = 2;
+  string operatorUid = 3; // 操作者（本人或群管理员）
+  int32  chatType = 4;
+}
+message RecallMsgResp {
+  bool   recalled = 1;   // 本次调用是否真正执行了撤回（幂等：已撤回则为 false）
+  string sendId = 2;     // 原消息发送者，供上游构造推送路由
+  string recvId = 3;     // 原消息接收者（群=groupId，私聊=对端）
+  string recalledBy = 4; // 撤回操作者
+}
+
 service Im {
   // 获取会话记录
   rpc GetChatLog(GetChatLogReq) returns(GetChatLogResp);
@@ -110,5 +131,8 @@ service Im {
 
   // 设置会话置顶/免打扰
   rpc SetConversationSettings(SetConversationSettingsReq) returns(SetConversationSettingsResp);
+
+  // 撤回消息（本人限时 / 群管理员不限时）
+  rpc RecallMsg(RecallMsgReq) returns(RecallMsgResp);
 }
 

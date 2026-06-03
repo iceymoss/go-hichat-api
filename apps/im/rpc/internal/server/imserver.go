@@ -58,3 +58,9 @@ func (s *ImServer) SetConversationSettings(ctx context.Context, in *im.SetConver
 	l := logic.NewSetConversationSettingsLogic(ctx, s.svcCtx)
 	return l.SetConversationSettings(in)
 }
+
+// 撤回消息（本人限时 / 群管理员不限时）
+func (s *ImServer) RecallMsg(ctx context.Context, in *im.RecallMsgReq) (*im.RecallMsgResp, error) {
+	l := logic.NewRecallMsgLogic(ctx, s.svcCtx)
+	return l.RecallMsg(in)
+}

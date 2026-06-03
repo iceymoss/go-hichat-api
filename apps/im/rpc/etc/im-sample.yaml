@@ -1,6 +1,9 @@
 Name: im.rpc
 ListenOn: 0.0.0.0:10002
 
+# 发送者本人撤回的时间窗（秒），默认 120；0=不限时（群管理员撤回不受此限制）
+RecallWindowSeconds: 120
+
 Etcd:
   Hosts:
   - 127.0.0.1:2379
