@@ -1029,7 +1029,9 @@ export default function ChatDetail() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={replyTo ? `回复 ${replyTo.senderName}...` : '输入消息...'}
+            placeholder={replyTo
+              ? `回复 ${conversation?.type === 'private' ? (peerName || replyTo.senderName) : replyTo.senderName}...`
+              : '输入消息...'}
             type="text"
             className="flex-1 outline-none"
             style={{
