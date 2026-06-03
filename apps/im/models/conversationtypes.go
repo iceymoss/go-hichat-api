@@ -28,6 +28,9 @@ type Conversation struct {
 	// 消息免打扰（不能用 omitempty，否则 false 不会存储）
 	IsMute bool `bson:"isMute"`
 
+	// 是否有未读的 @我（仅群聊，进会话/markRead 后清除；不能用 omitempty，否则 false 不会存储）
+	HasAtMe bool `bson:"hasAtMe"`
+
 	// 会话下消息总数（不能用 omitempty，否则 0 不会存储）
 	Total int `bson:"total"`
 
