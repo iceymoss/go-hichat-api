@@ -192,6 +192,8 @@ export interface ChatLogItem {
   sendTime: number;
   /** base64(bitmap)；私聊 "AQ==" 表示对方已读，空串或缺失视为未读；群聊为成员 bitmap */
   readRecords?: string;
+  /** 引用/回复消息（JSON 字符串：{"id","name","preview"}） */
+  quote?: string;
 }
 
 export interface ConversationItem {
@@ -205,10 +207,11 @@ export interface ConversationItem {
   message?: ChatLogItem;
 }
 
-/** 获取聊天记录 — 返回 {list: ChatLogItem[]} */
-export function getChatLog(token: string, conversationId: string, msgId = '', count = 30) {
+/** 获取聊天记录 — 返回 {list: ChatLogItem[]}。direction: older(默认)/newer/around */
+export function getChatLog(token: string, conversationId: string, msgId = '', count = 30, direction = '') {
   const params = new URLSearchParams({ conversationId, count: String(count) });
   if (msgId) params.set('msgId', msgId);
+  if (direction) params.set('direction', direction);
   return imGet<{ list: ChatLogItem[] }>(`/v1/im/chatlog?${params}`, token);
 }
 

@@ -68,6 +68,7 @@ export interface WsChatData {
   msg: {
     mType: number;
     content: string;
+    quote?: string;
     readRecords?: Record<string, string>;
   };
 }

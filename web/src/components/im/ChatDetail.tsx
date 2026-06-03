@@ -39,8 +39,10 @@ import {
   Play,
 } from 'lucide-react';
 import { imUpload } from '@/lib/api-client';
-import { buildMediaContent, parseMediaContent } from '@/lib/media-message';
+import { buildMediaContent, parseMediaContent, mediaPreview } from '@/lib/media-message';
 import ChatEmojiPanel, { type StickerItem } from './ChatEmojiPanel';
+import MediaLightbox, { type LightboxItem } from './MediaLightbox';
+import VoiceBubble from './VoiceBubble';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CallDialog } from './CallDialog';
 import ChatSettingsMenu from './ChatSettingsMenu';
@@ -57,7 +59,13 @@ function formatBytes(n?: number): string {
 }
 
 /** 按消息类型渲染气泡内容（文本 / 图片 / 视频 / 文件 / 语音 / 表情包） */
-function MessageContent({ message }: { message: Message }) {
+function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePlayed }: {
+  message: Message;
+  onOpenMedia?: (m: Message) => void;
+  isOwn?: boolean;
+  voiceUnplayed?: boolean;
+  onVoicePlayed?: () => void;
+}) {
   const { type, content } = message;
 
   if (type === 'image' || type === 'memes') {
@@ -67,7 +75,7 @@ function MessageContent({ message }: { message: Message }) {
       <img
         src={meta.thumbUrl || meta.url}
         alt=""
-        onClick={() => window.open(meta.url, '_blank')}
+        onClick={() => onOpenMedia?.(message)}
         style={{ maxWidth: type === 'memes' ? 120 : 220, maxHeight: 220, borderRadius: 8, cursor: 'pointer', display: 'block' }}
       />
     );
@@ -77,14 +85,21 @@ function MessageContent({ message }: { message: Message }) {
     const meta = parseMediaContent(content);
     if (!meta) return <span>{content}</span>;
     return (
-      <video
-        src={meta.url}
-        poster={meta.coverUrl}
-        controls
-        style={{ maxWidth: 240, maxHeight: 240, borderRadius: 8, display: 'block' }}
+      <div
+        onClick={() => onOpenMedia?.(message)}
+        style={{ position: 'relative', display: 'inline-block', cursor: 'pointer', lineHeight: 0 }}
       >
-        <Play size={16} />
-      </video>
+        {meta.coverUrl ? (
+          <img src={meta.coverUrl} alt="" style={{ maxWidth: 240, maxHeight: 240, borderRadius: 8, display: 'block' }} />
+        ) : (
+          <video src={meta.url} preload="metadata" style={{ maxWidth: 240, maxHeight: 240, borderRadius: 8, display: 'block', pointerEvents: 'none' }} />
+        )}
+        <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Play size={24} color="#fff" style={{ marginLeft: 2 }} />
+          </span>
+        </span>
+      </div>
     );
   }
 
@@ -113,19 +128,41 @@ function MessageContent({ message }: { message: Message }) {
 
   if (type === 'voice') {
     const meta = parseMediaContent(content);
-    if (meta) {
-      const secs = meta.duration ? `${meta.duration}"` : '';
-      return (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <audio src={meta.url} controls style={{ maxWidth: 220, height: 36 }} />
-          {secs && <span style={{ fontSize: 12, opacity: 0.6 }}>{secs}</span>}
-        </span>
-      );
-    }
+    if (meta) return <VoiceBubble url={meta.url} duration={meta.duration} unplayed={!isOwn && voiceUnplayed} onPlayed={onVoicePlayed} />;
     return <span>{content}</span>;
   }
 
   return <span>{content}</span>;
+}
+
+/** 引用块：渲染被引用消息（图片/视频显示缩略图，否则文字预览），可点击跳转 */
+function QuoteBlock({ reply, onJump }: { reply: NonNullable<Message['replyTo']>; onJump?: () => void }) {
+  const hasThumb = (reply.mType === 'image' || reply.mType === 'video' || reply.mType === 'memes') && !!reply.thumbUrl;
+  return (
+    <div
+      onClick={onJump ? (e) => { e.stopPropagation(); onJump(); } : undefined}
+      style={{
+        display: 'flex', gap: 8, alignItems: 'center', padding: '4px 8px', marginBottom: 4,
+        borderLeft: '3px solid #3390EC', background: 'rgba(51,144,236,0.06)', borderRadius: '0 6px 6px 0',
+        fontSize: 12, lineHeight: 1.4, cursor: onJump ? 'pointer' : 'default', maxWidth: 240,
+      }}
+    >
+      {hasThumb && (
+        <span style={{ position: 'relative', flexShrink: 0, lineHeight: 0 }}>
+          <img src={reply.thumbUrl} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', display: 'block' }} />
+          {reply.mType === 'video' && (
+            <Play size={14} color="#fff" style={{ position: 'absolute', inset: 0, margin: 'auto' }} />
+          )}
+        </span>
+      )}
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: 'block', fontWeight: 600, color: '#3390EC' }}>{reply.senderName}</span>
+        <span style={{ display: 'block', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {reply.content}
+        </span>
+      </span>
+    </div>
+  );
 }
 
 export default function ChatDetail() {
@@ -160,6 +197,9 @@ export default function ChatDetail() {
   // Forward dialog state
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
 
+  // 图片/视频全屏预览
+  const [lightbox, setLightbox] = useState<{ items: LightboxItem[]; index: number } | null>(null);
+
   // Deleted messages tracking
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
 
@@ -176,11 +216,16 @@ export default function ChatDetail() {
   const chatConversations = useChatStore(s => s.conversations);
   const chatMessages = useChatStore(s => s.messagesMap);
   const fetchMessages = useChatStore(s => s.fetchMessages);
+  const fetchNewer = useChatStore(s => s.fetchNewer);
+  const backToLatest = useChatStore(s => s.backToLatest);
+  const anchored = useChatStore(s => !!s.anchoredConvs[selectedConversationId || '']);
+  const [loadingNewer, setLoadingNewer] = useState(false);
   const storeSendMessage = useChatStore(s => s.sendMessage);
   const clearUnread = useChatStore(s => s.clearUnread);
   const storeMarkRead = useChatStore(s => s.markRead);
   const storeGroupMembers = useChatStore(s => s.groupMembers);
   const fetchGroupMembers = useChatStore(s => s.fetchGroupMembers);
+  const ensureUserProfiles = useChatStore(s => s.ensureUserProfiles);
   const readReceiptEnabled = useSettingsStore(s => s.readReceiptEnabled);
   const { currentUser } = useIMStore();
 
@@ -228,7 +273,9 @@ export default function ChatDetail() {
     const peerId = parts.find(p => p !== currentUser.id);
     if (!peerId) return null;
     // 优先从 friends 列表查找
-    const friend = friends.find(c => c.id === peerId || c.friend_uid === peerId);
+    // 优先按 friend_uid（对方真实 userId）匹配；friend_uid 是好友关系行号，
+    // 与他人的 userId 可能撞号，故不能用 c.id === peerId 先匹配
+    const friend = friends.find(c => c.friend_uid === peerId) || friends.find(c => c.id === peerId);
     if (friend) return friend;
     // fallback: 从 userProfiles 构造最小 Contact
     const profile = userProfiles[peerId];
@@ -255,9 +302,13 @@ export default function ChatDetail() {
       // 群聊自动加载群成员
       if (conversation?.type === 'group') {
         fetchGroupMembers(currentUser.token, selectedConversationId);
+      } else {
+        // 私聊预加载对方资料，保证标题/引用归属/回复名稳定可解析
+        const peerId = selectedConversationId.split('_').find(p => p !== currentUser.id);
+        if (peerId) ensureUserProfiles(currentUser.token, [peerId]);
       }
     }
-  }, [selectedConversationId, currentUser?.token, resetNoMoreHistory, fetchMessages, clearUnread, conversation?.type, fetchGroupMembers]);
+  }, [selectedConversationId, currentUser?.token, currentUser?.id, resetNoMoreHistory, fetchMessages, clearUnread, conversation?.type, fetchGroupMembers, ensureUserProfiles]);
 
   // 进入会话/新消息到达时自动上报已读：对自己收到的消息 ID 批量调用 markRead。
   // - 只处理 MongoDB 真实 id（排除 local_/push_ 临时 id）
@@ -308,11 +359,13 @@ export default function ChatDetail() {
   const prevMsgCount = useRef(0);
   useEffect(() => {
     if (messages.length === 0) return;
+    // 浏览历史（跳转到非最新窗口）时不要自动滚到底，保持在目标位置
+    if (anchored) { prevMsgCount.current = messages.length; return; }
     // If switching conversation (count changed drastically) → instant, otherwise smooth
     const isNewConv = Math.abs(messages.length - prevMsgCount.current) > 1;
     scrollToBottom(isNewConv);
     prevMsgCount.current = messages.length;
-  }, [messages, scrollToBottom]);
+  }, [messages, scrollToBottom, anchored]);
 
   // Also scroll when conversation switches (even if messages haven't changed yet)
   useEffect(() => {
@@ -324,7 +377,20 @@ export default function ChatDetail() {
   // 滚动到顶部时加载更早的聊天记录
   const handleMessagesScroll = useCallback(() => {
     const el = messagesContainerRef.current;
-    if (!el || loadingMore || noMoreHistory) return;
+    if (!el) return;
+
+    // 浏览历史态：滚到接近底部 → 增量加载更新的消息
+    if (anchored && !loadingNewer) {
+      const distToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distToBottom < 80) {
+        setLoadingNewer(true);
+        // 新内容追加在下方，不影响已有内容位置，无需校正 scrollTop
+        fetchNewer(currentUser!.token, selectedConversationId!)
+          .finally(() => setLoadingNewer(false));
+      }
+    }
+
+    if (loadingMore || noMoreHistory) return;
     if (el.scrollTop < 50) {
       const msgs = chatMessages[selectedConversationId!] || [];
       if (msgs.length === 0) return;
@@ -345,7 +411,7 @@ export default function ChatDetail() {
         });
       }).catch(() => setLoadingMore(false));
     }
-  }, [selectedConversationId, loadingMore, noMoreHistory, chatMessages, currentUser, fetchMessages]);
+  }, [selectedConversationId, loadingMore, noMoreHistory, chatMessages, currentUser, fetchMessages, anchored, loadingNewer, fetchNewer]);
 
   const handleBack = () => {
     if (isMobile) {
@@ -358,9 +424,22 @@ export default function ChatDetail() {
   const handleSend = () => {
     if (!input.trim() || !selectedConversationId) return;
 
+    // 引用消息：把被引用消息打包成 quote JSON（含类型与缩略图）随消息发送
+    let quote: string | undefined;
+    if (replyTo) {
+      const qm = replyTo.message;
+      const meta = parseMediaContent(qm.content);
+      let thumb: string | undefined;
+      if (meta) {
+        if (qm.type === 'image' || qm.type === 'memes') thumb = meta.thumbUrl || meta.url;
+        else if (qm.type === 'video') thumb = meta.coverUrl;
+      }
+      quote = JSON.stringify({ id: qm.id, uid: qm.senderId, name: replyTo.senderName, preview: mediaPreview(qm.type, qm.content), mType: qm.type, thumb });
+    }
+
     // 通过 chat-store 发送（走 WebSocket RigorAck）
     if (currentUser?.token && currentUser?.id) {
-      storeSendMessage(currentUser.token, currentUser.id, selectedConversationId, input.trim());
+      storeSendMessage(currentUser.token, currentUser.id, selectedConversationId, input.trim(), 'text', quote);
     } else {
       // Fallback: 本地 mock 发送
       const newMsg: Message = {
@@ -369,7 +448,7 @@ export default function ChatDetail() {
         content: input.trim(),
         timestamp: new Date(),
         type: 'text',
-        replyTo: replyTo ? { senderName: replyTo.senderName, content: replyTo.message.content } : undefined,
+        replyTo: replyTo ? { senderName: replyTo.senderName, content: mediaPreview(replyTo.message.type, replyTo.message.content) } : undefined,
       };
       setSentMap(prev => ({
         ...prev,
@@ -595,11 +674,48 @@ export default function ChatDetail() {
   }, []);
 
   // Context menu action handlers
-  const handleCopyMessage = useCallback((msg: Message) => {
-    navigator.clipboard.writeText(msg.content);
+  const handleCopyMessage = useCallback(async (msg: Message) => {
     setContextMenu(null);
-    toast.success('已复制');
+    // 文本直接复制；图片尝试复制图片本身，失败则复制链接；其他富媒体复制链接
+    if (msg.type === 'text' || msg.type === 'system') {
+      await navigator.clipboard.writeText(msg.content);
+      toast.success('已复制');
+      return;
+    }
+    const meta = parseMediaContent(msg.content);
+    if (!meta?.url) { toast.error('无法复制'); return; }
+    if (msg.type === 'image' || msg.type === 'memes') {
+      try {
+        const blob = await (await fetch(meta.url)).blob();
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]);
+        toast.success('图片已复制');
+        return;
+      } catch {
+        // 跨域或不支持 → 退化为复制链接
+      }
+    }
+    await navigator.clipboard.writeText(meta.url);
+    toast.success('已复制链接');
   }, []);
+
+  // 打开图片/视频全屏预览（同会话内的图片/视频可左右切换；表情包单独预览）
+  const openMedia = useCallback((m: Message) => {
+    if (m.type === 'memes') {
+      const meta = parseMediaContent(m.content);
+      if (meta?.url) setLightbox({ items: [{ type: 'image', url: meta.url }], index: 0 });
+      return;
+    }
+    const gallery: { id: string; item: LightboxItem }[] = [];
+    for (const mm of messages) {
+      if (mm.type === 'image' || mm.type === 'video') {
+        const meta = parseMediaContent(mm.content);
+        if (meta?.url) gallery.push({ id: mm.id, item: { type: mm.type, url: meta.url } });
+      }
+    }
+    if (!gallery.length) return;
+    const idx = Math.max(0, gallery.findIndex(g => g.id === m.id));
+    setLightbox({ items: gallery.map(g => g.item), index: idx });
+  }, [messages]);
 
   const handleForwardMessage = useCallback((msg: Message) => {
     setForwardMsg(msg);
@@ -791,6 +907,7 @@ export default function ChatDetail() {
       )}
 
       {/* ── Messages Area: light gray background ── */}
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div
         ref={messagesContainerRef}
         onScroll={handleMessagesScroll}
@@ -820,6 +937,7 @@ export default function ChatDetail() {
             peerAvatar={peerAvatar}
             readReceiptEnabled={readReceiptEnabled}
             onShowReadDetail={(mid) => setReadDetailMsgId(mid)}
+            onOpenMedia={openMedia}
           />
           {searchBarOpen && searchKeyword && displayMessages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '24px 0', color: '#A2ACB5', fontSize: 13 }}>
@@ -828,6 +946,15 @@ export default function ChatDetail() {
           )}
           <div ref={messagesEndRef} />
         </div>
+      </div>
+        {anchored && (
+          <button
+            onClick={() => { if (currentUser?.token && selectedConversationId) backToLatest(currentUser.token, selectedConversationId); }}
+            style={{ position: 'absolute', right: 16, bottom: 16, padding: '8px 14px', borderRadius: 18, border: 'none', background: '#3390EC', color: '#fff', fontSize: 13, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', gap: 4, zIndex: 5 }}
+          >
+            回到最新 ↓
+          </button>
+        )}
       </div>
 
       {/* ── Input Area: clean white, single row ── */}
@@ -845,10 +972,19 @@ export default function ChatDetail() {
             background: '#FFFFFF', borderTop: '1px solid rgba(0,0,0,0.06)',
           }}>
             <div style={{ width: 3, height: 32, borderRadius: 2, background: '#3390EC', flexShrink: 0 }} />
+            {(() => {
+              const meta = parseMediaContent(replyTo.message.content);
+              const thumb = meta
+                ? (replyTo.message.type === 'video' ? meta.coverUrl
+                  : (replyTo.message.type === 'image' || replyTo.message.type === 'memes') ? (meta.thumbUrl || meta.url)
+                  : undefined)
+                : undefined;
+              return thumb ? <img src={thumb} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} /> : null;
+            })()}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: '#3390EC' }}>{replyTo.senderName}</div>
               <div style={{ fontSize: 13, color: '#708499', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {replyTo.message.content}
+                {mediaPreview(replyTo.message.type, replyTo.message.content)}
               </div>
             </div>
             <button
@@ -893,7 +1029,9 @@ export default function ChatDetail() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={replyTo ? `回复 ${replyTo.senderName}...` : '输入消息...'}
+            placeholder={replyTo
+              ? `回复 ${conversation?.type === 'private' ? (peerName || replyTo.senderName) : replyTo.senderName}...`
+              : '输入消息...'}
             type="text"
             className="flex-1 outline-none"
             style={{
@@ -1002,6 +1140,16 @@ export default function ChatDetail() {
         />
       )}
 
+      {/* ── 图片/视频全屏预览 ── */}
+      {lightbox && (
+        <MediaLightbox
+          items={lightbox.items}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onIndex={(i) => setLightbox(lb => (lb ? { ...lb, index: i } : lb))}
+        />
+      )}
+
       {/* ── Group Read Status Dialog ── */}
       {readDetailMsgId && (
         <ReadStatusDialog msgId={readDetailMsgId} onClose={() => setReadDetailMsgId(null)} />
@@ -1023,6 +1171,7 @@ function MessageList({
   peerAvatar,
   readReceiptEnabled,
   onShowReadDetail,
+  onOpenMedia,
 }: {
   messages: Message[];
   conversation: any;
@@ -1032,11 +1181,36 @@ function MessageList({
   peerAvatar: string;
   readReceiptEnabled: boolean;
   onShowReadDetail: (msgId: string) => void;
+  onOpenMedia: (m: Message) => void;
 }) {
   const { currentUser } = useIMStore();
   const { selectedConversationId } = useIMStore();
+  const { friends } = useIMStore();
   const userProfiles = useChatStore(s => s.userProfiles);
   const storeGroupMembers = useChatStore(s => s.groupMembers);
+  const playedVoices = useChatStore(s => s.playedVoices);
+  const markVoicePlayed = useChatStore(s => s.markVoicePlayed);
+  const jumpToContext = useChatStore(s => s.jumpToContext);
+
+  // 点击引用块跳转到原消息并高亮；若不在当前已加载列表，则按 msgId 加载其上下文窗口
+  const jumpToMessage = async (msgId?: string) => {
+    if (!msgId) return;
+    const scrollTo = () => {
+      const el = document.querySelector(`[data-msgid="${msgId}"]`);
+      if (!el) return false;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('msg-flash');
+      setTimeout(() => el.classList.remove('msg-flash'), 1600);
+      return true;
+    };
+    if (scrollTo()) return;
+    // 不在当前列表 → 加载目标上下文窗口（进入浏览历史态）
+    if (!currentUser?.token || !selectedConversationId) return;
+    const ok = await jumpToContext(currentUser.token, selectedConversationId, msgId);
+    if (!ok) { toast.error('未找到原消息'); return; }
+    // 等待新列表渲染后再滚动
+    setTimeout(() => { if (!scrollTo()) setTimeout(scrollTo, 250); }, 80);
+  };
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);
 
@@ -1123,9 +1297,12 @@ function MessageList({
   // Get sender name for a message
   const getSenderName = useCallback((senderId: string) => {
     if (isOwnMessage(senderId)) return currentUser?.name || mockCurrentUser.name;
-    if (conversation?.type === 'group') return groupMemberNames[senderId] || senderId;
-    return conversation?.name || senderId;
-  }, [conversation, currentUser?.name, isOwnMessage]);
+    // 群聊：群昵称 > 用户昵称 > id（groupMemberNames 已按此优先级构建）
+    if (conversation?.type === 'group') return groupMemberNames[senderId] || userProfiles[senderId]?.nickname || senderId;
+    // 私聊：好友备注 > 用户昵称 > 会话名 > id
+    const friend = friends.find(c => c.friend_uid === senderId) || friends.find(c => c.id === senderId);
+    return friend?.remark || friend?.name || userProfiles[senderId]?.nickname || conversation?.name || senderId;
+  }, [conversation, currentUser?.name, isOwnMessage, friends, userProfiles, groupMemberNames]);
 
   return (
     <>
@@ -1193,16 +1370,22 @@ function MessageList({
               {msgs.map((m) => {
                 const msgIsSent = isOwnMessage(m.senderId);
                 const senderName = getSenderName(m.senderId);
+                const mediaMeta = parseMediaContent(m.content);
+                // 图片/视频/文件/表情包：裸露展示，不套消息气泡
+                const bareMedia = !recalledIds.has(m.id) && !!mediaMeta &&
+                  (m.type === 'image' || m.type === 'video' || m.type === 'file' || m.type === 'memes');
 
                 return (
-                  <div key={m.id} style={{ textAlign: msgIsSent ? 'right' : 'left', marginBottom: 3 }}>
+                  <div key={m.id} data-msgid={m.id} style={{ textAlign: msgIsSent ? 'right' : 'left', marginBottom: 3 }}>
                     <div
-                      className={`im-chat-bubble ${msgIsSent ? 'sent' : 'received'}`}
+                      className={bareMedia ? `im-chat-media ${msgIsSent ? 'sent' : 'received'}` : `im-chat-bubble ${msgIsSent ? 'sent' : 'received'}`}
                       onContextMenu={(e) => onBubbleContext(e, m, senderName, msgIsSent)}
                       onTouchStart={(e) => handleTouchStart(e, m, senderName, msgIsSent)}
                       onTouchEnd={handleTouchEnd}
                       onTouchMove={handleTouchMove}
-                      style={{ cursor: 'context-menu', userSelect: 'none', textAlign: 'left' }}
+                      style={bareMedia
+                        ? { display: 'inline-block', cursor: 'context-menu', userSelect: 'none', textAlign: 'left', background: 'transparent', padding: 0, boxShadow: 'none' }
+                        : { cursor: 'context-menu', userSelect: 'none', textAlign: 'left' }}
                     >
                     {recalledIds.has(m.id) ? (
                       <span style={{ fontStyle: 'italic', opacity: 0.6 }}>
@@ -1211,25 +1394,22 @@ function MessageList({
                     ) : (
                       <>
                         {/* Reply quote preview */}
-                        {m.replyTo && (
-                          <div style={{
-                            padding: '4px 8px',
-                            marginBottom: 4,
-                            borderLeft: '3px solid #3390EC',
-                            background: 'rgba(51,144,236,0.06)',
-                            borderRadius: '0 6px 6px 0',
-                            fontSize: 12,
-                            lineHeight: 1.4,
-                          }}>
-                            <div style={{ fontWeight: 600, color: '#3390EC', marginBottom: 1 }}>
-                              {m.replyTo.senderName}
-                            </div>
-                            <div style={{ opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {m.replyTo.content}
-                            </div>
-                          </div>
-                        )}
-                        <MessageContent message={m} />
+                        {m.replyTo && (() => {
+                          // 用固定的 senderId 实时解析当前昵称/备注（名字会变，id 不变）。
+                          // 旧引用没存 senderId 时，回退用 msgId 在已加载列表里找原消息取其 senderId。
+                          const sid = m.replyTo.senderId
+                            || (m.replyTo.msgId ? messages.find(x => x.id === m.replyTo!.msgId)?.senderId : undefined);
+                          const live = sid ? getSenderName(sid) : '';
+                          const name = (live && live !== sid) ? live : (m.replyTo.senderName || sid || '');
+                          return <QuoteBlock reply={{ ...m.replyTo, senderName: name }} onJump={() => jumpToMessage(m.replyTo!.msgId)} />;
+                        })()}
+                        <MessageContent
+                          message={m}
+                          onOpenMedia={onOpenMedia}
+                          isOwn={msgIsSent}
+                          voiceUnplayed={m.type === 'voice' && !playedVoices[m.id]}
+                          onVoicePlayed={() => markVoicePlayed(m.id)}
+                        />
                       </>
                     )}
                   </div>

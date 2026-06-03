@@ -18,6 +18,8 @@ message ChatLog {
   bytes readRecords = 9;
   // 每个成员的已读时间戳（unix nano），仅群聊/已读详情场景填充
   map<string, int64> readTimes = 10;
+  // 引用/回复消息（JSON 字符串：{"id","name","preview"}）
+  string quote = 11;
 }
 
 message Conversation {
@@ -61,6 +63,8 @@ message GetChatLogReq {
   int64 endSendTime = 3;
   int64 count = 4;
   string msgId = 5;
+  // 分页方向：""/older=查更早（默认）, newer=查更新, around=目标消息及其前若干条（含目标）
+  string direction = 6;
 }
 message GetChatLogResp {
   repeated ChatLog List = 1;

@@ -54,6 +54,7 @@ func single(srv *websocket.Server, data *ws.Push, recvId string) error {
 			Msg: ws.Msg{
 				MType:       data.MType,
 				Content:     data.Content,
+				Quote:       data.Quote,
 				ReadRecords: data.ReadRecords,
 			},
 		})

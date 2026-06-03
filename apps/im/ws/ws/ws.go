@@ -9,6 +9,9 @@ type Msg struct {
 	// 消息内容
 	Content string `json:"content" mapstructure:"content"`
 
+	// 引用/回复消息（JSON 字符串：{"id","name","preview"}），空表示非引用消息
+	Quote string `json:"quote,omitempty" mapstructure:"quote"`
+
 	// 已读记录 key为消息id、value为消息值
 	ReadRecords map[string]string `json:"readRecords" mapstructure:"readRecords"`
 }
@@ -60,6 +63,9 @@ type Push struct {
 
 	constants.MType `json:"mType" mapstructure:"mType"`
 	Content         string `json:"content" mapstructure:"content"`
+
+	// 引用/回复消息（JSON 字符串），随推送转发给接收方
+	Quote string `json:"quote,omitempty" mapstructure:"quote"`
 
 	// MongoDB 聊天记录 ObjectID（hex），用于前端把 local_ 占位 ID 替换为真实 ID
 	MsgId string `json:"msgId" mapstructure:"msgId"`

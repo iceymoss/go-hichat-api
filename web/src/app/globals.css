@@ -447,6 +447,31 @@
   animation: fade-in 0.15s ease-out;
 }
 
+/* 语音播放波形动画（微信风格） */
+@keyframes voice-wave {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+.voice-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  transform-origin: center;
+}
+.voice-bar.playing {
+  animation: voice-wave 0.9s ease-in-out infinite;
+}
+
+/* 点击引用跳转到原消息时的高亮闪烁 */
+@keyframes msg-flash {
+  0%, 100% { background-color: transparent; }
+  30% { background-color: rgba(51,144,236,0.18); }
+}
+.msg-flash {
+  animation: msg-flash 1.5s ease-in-out;
+  border-radius: 8px;
+}
+
 /* ═══════════════════════════════════════════════════════
    HiChat Auth — Telegram Web Color Palette
    ═══════════════════════════════════════════════════════ */

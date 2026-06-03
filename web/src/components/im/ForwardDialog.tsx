@@ -3,6 +3,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { type Message } from '@/lib/mock-data';
+import { mediaPreview } from '@/lib/media-message';
 import { useChatStore } from '@/lib/chat-store';
 import { getAvatarColor } from '@/lib/utils';
 
@@ -73,7 +74,7 @@ export default function ForwardDialog({ message, onClose, onForward }: ForwardDi
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           padding: '6px 0',
         }}>
-          {message.content}
+          {mediaPreview(message.type, message.content)}
         </div>
 
         {/* Conversation list */}

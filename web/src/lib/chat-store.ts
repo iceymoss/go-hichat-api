@@ -50,6 +50,18 @@ const frontMsgTypeMap: Record<string, number> = {
   memes: MsgType.Memes,
 };
 
+/** 解析引用消息 JSON（{id,uid,name,preview,mType,thumb}）为 Message.replyTo */
+function quoteToReplyTo(quote?: string): Message['replyTo'] {
+  if (!quote) return undefined;
+  try {
+    const q = JSON.parse(quote);
+    if (q && (q.name || q.preview)) {
+      return { senderName: q.name || '', content: q.preview || '', msgId: q.id, senderId: q.uid, mType: q.mType, thumbUrl: q.thumb };
+    }
+  } catch { /* ignore */ }
+  return undefined;
+}
+
 // ========== Store 接口 ==========
 
 /** 用户资料缓存 */
@@ -92,7 +104,14 @@ interface ChatState {
   destroyWs: () => void;
   fetchConversations: (token: string) => Promise<void>;
   fetchMessages: (token: string, conversationId: string, oldestMsgId?: string) => Promise<void>;
-  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string) => void;
+  /** 哪些会话处于"浏览历史"态（跳转到了非最新窗口） */
+  anchoredConvs: Record<string, boolean>;
+  /** 跳转到某条消息的上下文窗口（替换当前列表），返回是否命中目标 */
+  jumpToContext: (token: string, conversationId: string, msgId: string) => Promise<boolean>;
+  /** 向下增量加载更新的消息（浏览历史态用），返回是否已到最新 */
+  fetchNewer: (token: string, conversationId: string) => Promise<boolean>;
+  /** 回到最新页（退出浏览历史态） */
+  backToLatest: (token: string, conversationId: string) => Promise<void>;  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string, quote?: string) => void;
   resendMessage: (token: string, userId: string, conversationId: string, msgId: string) => void;
   markRead: (userId: string, conversationId: string, msgIds: string[]) => void;
   getOrCreateConversation: (token: string, userId: string, targetId: string) => Promise<Conversation>;
@@ -100,6 +119,10 @@ interface ChatState {
   setConversationSettings: (token: string, conversationId: string, settings: { pinned?: boolean; muted?: boolean }) => Promise<void>;
   clearUnread: (conversationId: string) => void;
   fetchGroupMembers: (token: string, groupId: string) => Promise<void>;
+  ensureUserProfiles: (token: string, userIds: string[]) => void;
+  /** 已播放语音消息 id 集合（控制未读红点），本地持久化 */
+  playedVoices: Record<string, true>;
+  markVoicePlayed: (msgId: string) => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -110,6 +133,22 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   userProfiles: {},
   loadingConversations: false,
   loadingMessages: {},
+  playedVoices: (() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem('hichat_played_voices') || '{}'); }
+    catch { return {}; }
+  })(),
+
+  markVoicePlayed: (msgId: string) => {
+    if (get().playedVoices[msgId]) return;
+    set(s => {
+      const next = { ...s.playedVoices, [msgId]: true as const };
+      if (typeof window !== 'undefined') {
+        try { localStorage.setItem('hichat_played_voices', JSON.stringify(next)); } catch { /* ignore */ }
+      }
+      return { playedVoices: next };
+    });
+  },
 
   // ==================== WebSocket 生命周期 ====================
 
@@ -214,6 +253,15 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         for (const gc of groupConvs) {
           get().fetchGroupMembers(token, gc.id);
         }
+
+        // 预加载私聊对方的用户资料（昵称/头像），保证会话标题、引用归属、回复名稳定可解析
+        const peerIds = new Set<string>();
+        for (const c of list) {
+          if (c.type !== 'private') continue;
+          const peerId = c.id.split('_').find(p => p !== currentUserId);
+          if (peerId && !get().userProfiles[peerId]) peerIds.add(peerId);
+        }
+        if (peerIds.size > 0) resolveUserProfiles(token, Array.from(peerIds));
       }
     } catch (e) {
       console.error('[ChatStore] fetch conversations error:', e);
@@ -233,7 +281,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         const existing = s.messagesMap[conversationId] || [];
         // 加载更早的历史：放在前面；首次加载：替换
         const merged = oldestMsgId ? [...list, ...existing] : list;
-        return { messagesMap: { ...s.messagesMap, [conversationId]: merged } };
+        // 全量加载（无游标）= 回到最新，清除浏览历史态
+        const anchoredConvs = oldestMsgId ? s.anchoredConvs : { ...s.anchoredConvs, [conversationId]: false };
+        return { messagesMap: { ...s.messagesMap, [conversationId]: merged }, anchoredConvs };
       });
     } catch (e) {
       console.error('[ChatStore] fetch messages error:', e);
@@ -242,9 +292,59 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }
   },
 
+  anchoredConvs: {},
+
+  jumpToContext: async (token, conversationId, msgId) => {
+    try {
+      // around：目标消息 + 其前若干条（含目标），API 返回倒序 → reverse 成正序
+      const resp = await getChatLog(token, conversationId, msgId, 30, 'around');
+      const list = (resp?.list || []).map(mapChatLog).reverse();
+      const hit = list.some(m => m.id === msgId);
+      if (!hit) return false;
+      set(s => ({
+        messagesMap: { ...s.messagesMap, [conversationId]: list },
+        anchoredConvs: { ...s.anchoredConvs, [conversationId]: true },
+      }));
+      return true;
+    } catch (e) {
+      console.error('[ChatStore] jumpToContext error:', e);
+      return false;
+    }
+  },
+
+  fetchNewer: async (token, conversationId) => {
+    const existing = get().messagesMap[conversationId] || [];
+    const newest = existing[existing.length - 1];
+    if (!newest) return true;
+    try {
+      // newer：严格晚于游标的若干条，API 已按时间升序返回 → 不 reverse，直接追加
+      const resp = await getChatLog(token, conversationId, newest.id, 30, 'newer');
+      const list = (resp?.list || []).map(mapChatLog);
+      // 去重（防止边界重复）
+      const seen = new Set(existing.map(m => m.id));
+      const fresh = list.filter(m => !seen.has(m.id));
+      const reachedLatest = list.length < 30; // 不足一页 → 已到最新
+      set(s => ({
+        messagesMap: { ...s.messagesMap, [conversationId]: [...(s.messagesMap[conversationId] || []), ...fresh] },
+        anchoredConvs: reachedLatest
+          ? { ...s.anchoredConvs, [conversationId]: false }
+          : s.anchoredConvs,
+      }));
+      return reachedLatest;
+    } catch (e) {
+      console.error('[ChatStore] fetchNewer error:', e);
+      return false;
+    }
+  },
+
+  backToLatest: async (token, conversationId) => {
+    set(s => ({ anchoredConvs: { ...s.anchoredConvs, [conversationId]: false } }));
+    await get().fetchMessages(token, conversationId);
+  },
+
   // ==================== 发送消息 ====================
 
-  sendMessage: (token, userId, conversationId, content, msgType = 'text') => {
+  sendMessage: (token, userId, conversationId, content, msgType = 'text', quote) => {
     const conv = get().conversations.find(c => c.id === conversationId);
     const chatType = conv?.type === 'group' ? ChatType.Group : ChatType.Single;
 
@@ -266,6 +366,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       timestamp: new Date(),
       type: (msgType as Message['type']) || 'text',
       status: 'sending',
+      replyTo: quoteToReplyTo(quote),
     };
 
     set(s => {
@@ -289,6 +390,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       msg: {
         mType: frontMsgTypeMap[msgType] || MsgType.Text,
         content,
+        quote,
         readRecords: {},
       },
     };
@@ -497,6 +599,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       console.error('[ChatStore] fetchGroupMembers error:', e);
     }
   },
+
+  ensureUserProfiles: (token, userIds) => {
+    const missing = userIds.filter(id => id && !get().userProfiles[id]);
+    if (missing.length > 0) resolveUserProfiles(token, missing);
+  },
 }));
 
 // ========== 内部辅助函数 ==========
@@ -544,6 +651,7 @@ function mapChatLog(log: ChatLogItem): Message {
     content: log.msgContent,
     timestamp: log.sendTime ? parseTimestamp(log.sendTime) : new Date(),
     type: backMsgTypeMap[log.msgType] || 'text',
+    replyTo: quoteToReplyTo(log.quote),
   };
   // 从 REST 返回的 readRecords 恢复已读状态。
   // 服务端语义：
@@ -738,13 +846,16 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     content: chat.msg?.content || '',
     timestamp: chat.sendTime ? parseTimestamp(chat.sendTime) : new Date(),
     type: backMsgTypeMap[chat.msg?.mType] || 'text',
+    replyTo: quoteToReplyTo(chat.msg?.quote),
   };
   // 消费可能先到的乱序回执
   const msg = consumePendingReceipt(baseMsg);
 
   useChatStore.setState(s => {
-    // 添加消息
-    const msgs = [...(s.messagesMap[convId] || []), msg];
+    // 添加消息（若正在浏览历史窗口，则不追加到该窗口，避免新消息与旧上下文错误相邻；
+    // 回到最新页时会从服务端重新拉取）
+    const anchored = s.anchoredConvs[convId];
+    const msgs = anchored ? (s.messagesMap[convId] || []) : [...(s.messagesMap[convId] || []), msg];
 
     // 更新或创建会话
     let convs = [...s.conversations];
@@ -830,9 +941,9 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
       const peerId = convId.split('_').find(p => p !== currentUserId) || '';
       if (peerId) {
         (async () => {
-          // 1. 先从本地好友缓存查
+          // 1. 先从本地好友缓存查（按 friend_uid 优先，避免好友关系行号与他人 userId 撞号）
           let friends = useIMStore.getState().friends;
-          let friend = friends.find(f => f.id === peerId || f.friend_uid === peerId);
+          let friend = friends.find(f => f.friend_uid === peerId) || friends.find(f => f.id === peerId);
 
           // 2. 本地没有则从 API 加载好友列表
           if (!friend && friends.length === 0) {
