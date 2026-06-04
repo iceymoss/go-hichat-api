@@ -19,6 +19,7 @@ export interface AuthUser {
   region: string;
   occupation: string;
   tags: string;
+  momentsCover?: string;
 }
 
 interface IMState {

@@ -1048,12 +1048,30 @@ type NotifTab = 'all' | 'reply' | 'like';
 
 export default function MomentsFeed() {
   const isMobile = useIsMobile();
-  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion, openUserProfile } = useIMStore();
+  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion, openUserProfile, updateCurrentUser } = useIMStore();
   const meName = meAuth?.name || '';
   const meAvatar = meAuth?.avatar || '';
   const meSignature = meAuth?.introduction || '';
+  const meCover = meAuth?.momentsCover || '';
   const meUserId = meAuth?.id || '';
   const token = meAuth?.token || '';
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCoverUpload = useCallback(async (file: File) => {
+    if (!token) return;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const up = await fetch('/api/user/avatar', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+      const upData = await up.json();
+      if (!upData.success || !upData.data?.url) { toast.error('封面上传失败'); return; }
+      const url = upData.data.url as string;
+      const save = await fetch('/api/user/update', { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ moments_cover: url }) });
+      const saveData = await save.json();
+      if (saveData.success) { updateCurrentUser({ momentsCover: url }); toast.success('朋友圈封面已更新'); }
+      else toast.error(saveData.message || '保存封面失败');
+    } catch { toast.error('封面上传失败'); }
+  }, [token, updateCurrentUser]);
 
   // ── View state ──
   const [view, setView] = useState<View>('feed');
@@ -1593,18 +1611,41 @@ export default function MomentsFeed() {
         className="relative overflow-hidden"
         style={{ height: 176 }}
       >
-        <img
-          src="https://picsum.photos/seed/tg-cover-feed/800/400"
-          alt="cover"
-          className="w-full h-full object-cover"
-          style={{ opacity: 0.3, mixBlendMode: 'overlay' }}
+        {meCover ? (
+          <img
+            src={meCover}
+            alt="cover"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <>
+            <img
+              src="https://picsum.photos/seed/tg-cover-feed/800/400"
+              alt="cover"
+              className="w-full h-full object-cover"
+              style={{ opacity: 0.3, mixBlendMode: 'overlay' }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'linear-gradient(135deg, rgba(51,144,236,0.7), rgba(111,177,252,0.5))',
+              }}
+            />
+          </>
+        )}
+        <input
+          ref={coverInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f); e.target.value = ''; }}
         />
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(135deg, rgba(51,144,236,0.7), rgba(111,177,252,0.5))',
-          }}
-        />
+        <button
+          onClick={() => coverInputRef.current?.click()}
+          style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, border: 'none', borderRadius: 14, padding: '4px 10px', background: 'rgba(0,0,0,0.35)', color: '#FFF', fontSize: 12, cursor: 'pointer' }}
+        >
+          更换封面
+        </button>
         <div
           className="absolute inset-0"
           style={{
