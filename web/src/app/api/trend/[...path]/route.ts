@@ -73,19 +73,22 @@ async function proxyToTrend(req: NextRequest, params: { path: string[] }) {
       return NextResponse.json({ success: true, data: {} });
     }
 
-    // go-zero may return either a wrapped {code,msg,data} body (if an OkHandler
-    // is configured) or the raw payload. Handle both.
-    const obj = data as Record<string, unknown>;
-    if (typeof obj.code === 'number' && obj.code !== 200) {
+    // go-zero may return either a wrapped {code,msg,data} envelope or the raw
+    // payload. Only treat it as an envelope when BOTH `code` and `msg` are
+    // present — otherwise a raw payload that carries its own `code` field
+    // (e.g. CreateTrendResponse {trend_id, code:1000}) is misread as an error.
+    const obj = (typeof data === 'object' ? data : {}) as Record<string, unknown>;
+    const isEnvelope = typeof obj.code === 'number' && typeof obj.msg === 'string';
+    if (isEnvelope && obj.code !== 200) {
       return NextResponse.json(
-        { success: false, message: (obj.msg as string) || '请求失败', data: obj },
+        { success: false, message: (obj.msg as string) || '请求失败', data: obj.data },
         { status: 400 },
       );
     }
 
     return NextResponse.json({
       success: true,
-      data: obj.data !== undefined ? obj.data : obj,
+      data: isEnvelope ? (obj.data ?? {}) : data,
     });
   } catch (error) {
     console.error('Trend proxy error:', error);
