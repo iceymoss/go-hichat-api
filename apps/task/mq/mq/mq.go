@@ -44,6 +44,25 @@ type MsgChatTransfer struct {
 	AtAll bool `json:"atAll,omitempty"`
 }
 
+// MsgRecallTransfer 撤回事件消息结构体。
+// 撤回与普通聊天消息是两类语义不同的领域事件，走独立 topic（msgRecallTransfer），
+// 消费端据此扇出撤回控制帧，避免与聊天消息共享通道造成的领域耦合与吞吐相互影响。
+// 注意：仅承载撤回所需字段；推送给前端的帧仍由消费端翻译成 ContentRecall 控制帧，对外协议不变。
+type MsgRecallTransfer struct {
+	// 消息类型：1. 私聊、2. 群聊
+	ChatType constants.ChatType `json:"chatType"`
+	// 会话id
+	ConversationId string `json:"conversationId"`
+	// 原消息发送者
+	SendId string `json:"sendId"`
+	// 原消息接收者（私聊为对端 uid，群聊为群 id）
+	RecvId string `json:"recvId"`
+	// 被撤回的消息 ID
+	MsgId string `json:"msgId"`
+	// RecalledBy 撤回操作者 uid
+	RecalledBy string `json:"recalledBy"`
+}
+
 // MsgMarkRead 标记已读消息结构体
 type MsgMarkRead struct {
 	// 消息类型：1. 私聊、2. 群聊

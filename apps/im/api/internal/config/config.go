@@ -18,8 +18,8 @@ type Config struct {
 
 	ImRpc zrpc.RpcClientConf
 
-	// MsgChatTransfer 撤回事件复用的消息推送 Kafka topic（生产端）
-	MsgChatTransfer struct {
+	// MsgRecallTransfer 撤回事件专用的 Kafka topic（生产端）
+	MsgRecallTransfer struct {
 		Addrs []string
 		Topic string
 	}
