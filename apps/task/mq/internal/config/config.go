@@ -22,6 +22,8 @@ type Config struct {
 
 	MsgReadTransfer kq.KqConf
 
+	MsgRecallTransfer kq.KqConf
+
 	Ws struct {
 		Host string
 	}

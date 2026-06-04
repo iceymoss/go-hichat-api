@@ -22,9 +22,9 @@ ImRpc:
       - 127.0.0.1:2379
     Key: im.rpc
 
-# 撤回事件推送复用的 Kafka topic（与 ws/mq 一致）
-MsgChatTransfer:
-  Topic: msgChatTransfer
+# 撤回事件专用的 Kafka topic（与 mq 消费端一致）
+MsgRecallTransfer:
+  Topic: msgRecallTransfer
   Addrs:
     - 127.0.0.1:9092
 

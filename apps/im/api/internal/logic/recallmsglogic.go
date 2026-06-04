@@ -30,7 +30,7 @@ func NewRecallMsgLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RecallM
 }
 
 // RecallMsg 编排：调 im-rpc 完成校验+撤回（业务在 rpc），成功且本次真正翻转时，
-// 向通用 MsgChatTransfer 链路投递一条 ContentRecall 控制帧做推送（状态变更与推送副作用分离）。
+// 向撤回专用 MsgRecallTransfer 链路投递一条撤回事件做推送（状态变更与推送副作用分离）。
 func (l *RecallMsgLogic) RecallMsg(req *types.RecallMsgReq) (resp *types.RecallMsgResp, err error) {
 	uid := l.ctx.Value(Identify).(string)
 
@@ -55,17 +55,15 @@ func (l *RecallMsgLogic) RecallMsg(req *types.RecallMsgReq) (resp *types.RecallM
 	return &types.RecallMsgResp{}, nil
 }
 
-// publishRecall 复用 MsgChatTransfer 通用 topic，以 ContentRecall 控制帧下发；
-// 路由沿用原消息的 SendId/RecvId/ChatType，消费端据 MsgType 分流（跳过落库，仅扇出）。
+// publishRecall 向撤回专用 topic 投递撤回事件；路由沿用原消息的 SendId/RecvId/ChatType，
+// 消费端据此翻译成 ContentRecall 控制帧扇出（不落库，仅推送）。
 func (l *RecallMsgLogic) publishRecall(req *types.RecallMsgReq, rpcResp *im.RecallMsgResp) error {
-	return l.svcCtx.MsgChatTransferClient.Push(&mq.MsgChatTransfer{
+	return l.svcCtx.MsgRecallTransferClient.Push(&mq.MsgRecallTransfer{
 		ChatType:       constants.ChatType(req.ChatType),
 		ConversationId: req.ConversationId,
 		SendId:         rpcResp.SendId,
 		RecvId:         rpcResp.RecvId,
 		MsgId:          req.MsgId,
-		MsgType:        constants.ContentRecall,
-		ContentType:    constants.ContentRecall,
 		RecalledBy:     rpcResp.RecalledBy,
 	})
 }

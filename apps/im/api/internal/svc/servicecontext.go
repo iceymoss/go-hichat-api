@@ -18,8 +18,8 @@ type ServiceContext struct {
 	User   userclient.User
 	IM     imclient.Im
 
-	// 撤回事件推送生产者（复用 MsgChatTransfer 通用链路）
-	MsgChatTransferClient mq_client.MsgChatTransferClient
+	// 撤回事件推送生产者（独立 msgRecallTransfer topic）
+	MsgRecallTransferClient mq_client.MsgRecallTransferClient
 
 	FileStorage storage.FileStorage
 }
@@ -39,7 +39,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Social:                socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
 		User:                  userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),
 		IM:                    imclient.NewIm(zrpc.MustNewClient(c.ImRpc)),
-		MsgChatTransferClient: mq_client.NewMsgChatTransferClient(c.MsgChatTransfer.Addrs, c.MsgChatTransfer.Topic),
+		MsgRecallTransferClient: mq_client.NewMsgRecallTransferClient(c.MsgRecallTransfer.Addrs, c.MsgRecallTransfer.Topic),
 		FileStorage:           storage.NewLocalStorage(basePath, baseURL),
 	}
 }

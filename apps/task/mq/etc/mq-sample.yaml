@@ -26,6 +26,15 @@ MsgReadTransfer:
   Offset: first
   Consumers: 1
 
+MsgRecallTransfer:
+  Name: msgRecallTrans
+  Brokers:
+    - 127.0.0.1:9092
+  Group: kafka
+  Topic: msgRecallTransfer
+  Offset: first
+  Consumers: 1
+
 Ws:
   Host: 127.0.0.1:10090
 

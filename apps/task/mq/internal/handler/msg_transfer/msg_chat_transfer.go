@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 
 	model "github.com/iceymoss/go-hichat-api/apps/im/models"
-	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
@@ -45,11 +44,6 @@ func (m *MsgChatTransfer) Consume(ctx context.Context, key, value string) error 
 
 	fmt.Printf("已经收到消息了: %+v\n", data)
 
-	// 撤回控制帧：DB 已由 im-rpc 更新，这里不落库，仅复用通用 fan-out 推送给会话各端。
-	if data.MsgType == constants.ContentRecall {
-		return m.transferRecall(ctx, &data)
-	}
-
 	// 写入数据库（如 MongoDB 聊天记录）；同时把真实 MsgId 回填到 data，供下游推送
 	if err = m.addChatLog(ctx, &data); err != nil {
 		return err
@@ -61,29 +55,6 @@ func (m *MsgChatTransfer) Consume(ctx context.Context, key, value string) error 
 	}
 	// 2) 额外回响给发送方：携带 MongoDB MsgId，前端把 local_ 占位 ID 升级为真实 ID
 	return m.echoToSender(&data)
-}
-
-// transferRecall 推送撤回事件给会话各端：
-// 先按会话成员扇出（group 跳过原发送者 / single 推给对端），再单独补推给原发送者本人（含其它在线设备）。
-// 全程不改写 ContentType，保持前端能识别 ContentRecall。撤回幂等，重复推送无副作用。
-func (m *MsgChatTransfer) transferRecall(ctx context.Context, data *mq.MsgChatTransfer) error {
-	if err := m.MsgChatTransfer(ctx, data); err != nil {
-		return err
-	}
-	if data.SendId == "" {
-		return nil
-	}
-	// 补推给原发送者本人：走 single 路径（pusher 会 push 到 RecvId），不改 ContentType。
-	echo := *data
-	echo.RecvIdList = nil
-	echo.RecvId = data.SendId
-	echo.ChatType = constants.SingleChatType
-	return m.svcCtx.WsClient.Send(websocket.Message{
-		FrameType: websocket.FrameNoAck,
-		Method:    "push",
-		FormId:    constants.SYSTEM_ROOT_UID,
-		Data:      &echo,
-	})
 }
 
 // addChatLog 将聊天记录消息持久化到数据库中
@@ -193,38 +164,4 @@ func (m *MsgChatTransfer) markAtMe(ctx context.Context, data *mq.MsgChatTransfer
 			zLog.Error("markAtMe: update conversations failed", zap.Error(err), zap.String("uid", uid))
 		}
 	}
-}
-
-func (m *MsgChatTransfer) single(ctx context.Context, data *mq.MsgChatTransfer) error {
-	return m.svcCtx.WsClient.Send(websocket.Message{
-		FrameType: websocket.FrameNoAck,
-		Method:    "push",
-		FormId:    constants.SYSTEM_ROOT_UID,
-		Data:      data,
-	})
-}
-
-func (m *MsgChatTransfer) group(ctx context.Context, data *mq.MsgChatTransfer) error {
-	res, err := m.svcCtx.Social.GroupUsers(ctx, &socialclient.GroupUsersReq{
-		GroupId: data.RecvId,
-	})
-	if err != nil {
-		return err
-	}
-
-	data.RecvIdList = make([]string, 0, len(res.List))
-	for _, member := range res.List {
-		// 跳过发送人
-		if member.UserId == data.SendId {
-			continue
-		}
-		data.RecvIdList = append(data.RecvIdList, member.UserId)
-	}
-
-	return m.svcCtx.WsClient.Send(websocket.Message{
-		FrameType: websocket.FrameNoAck,
-		Method:    "push",
-		FormId:    constants.SYSTEM_ROOT_UID,
-		Data:      data,
-	})
 }
