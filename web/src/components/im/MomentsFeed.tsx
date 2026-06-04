@@ -38,8 +38,6 @@ import { getAvatarColor } from '@/lib/utils';
 import { useIMStore } from '@/lib/im-store';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
-  currentUser as mockCurrentUser,
-  contacts,
   type Trend,
   type TrendComment,
   type MomentsNotification,
@@ -84,10 +82,10 @@ function fmtTime(date: Date): string {
 }
 
 function getUserName(userId: string, fallback?: string): string {
-  if (userId === 'me') return fallback || mockCurrentUser.name;
+  if (userId === 'me') return fallback || useIMStore.getState().currentUser?.name || '我';
   if (fallback) return fallback;
-  const c = contacts.find(ct => ct.id === userId);
-  return c ? c.name : userId;
+  const c = useIMStore.getState().friends.find(ct => ct.id === userId);
+  return c ? (c.remark || c.name) : userId;
 }
 
 function trendDisplayName(trend: Trend): string {
@@ -509,7 +507,7 @@ function TrendCard({
                 <Heart className="w-3 h-3 shrink-0 mt-0.5" style={{ color: '#3390EC', fill: '#3390EC' }} />
                 <span style={{ color: '#708499' }}>
                   {(likeNamesExpanded ? likeUsers : likeUsers.slice(0, FEED_LIKE_COLLAPSE_LIMIT)).map((u, i) => {
-                    const displayName = u.id === 'me' ? '我' : (contacts.find(ct => ct.id === u.id)?.remark || u.name);
+                    const displayName = u.id === 'me' ? '我' : (useIMStore.getState().friends.find(ct => ct.id === u.id)?.remark || u.name);
                     return (
                       <span key={u.id || `like-${i}`}>
                         {i > 0 && <span style={{ margin: '0 2px' }}>、</span>}
@@ -1051,9 +1049,9 @@ type NotifTab = 'all' | 'reply' | 'like';
 export default function MomentsFeed() {
   const isMobile = useIsMobile();
   const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion } = useIMStore();
-  const meName = meAuth?.name || mockCurrentUser.name;
-  const meAvatar = meAuth?.avatar || mockCurrentUser.avatar;
-  const meSignature = meAuth?.introduction || mockCurrentUser.signature;
+  const meName = meAuth?.name || '';
+  const meAvatar = meAuth?.avatar || '';
+  const meSignature = meAuth?.introduction || '';
   const meUserId = meAuth?.id || '';
   const token = meAuth?.token || '';
 

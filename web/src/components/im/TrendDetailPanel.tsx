@@ -11,8 +11,6 @@ import { toast } from 'sonner';
 import { getAvatarColor } from '@/lib/utils';
 import { useIMStore } from '@/lib/im-store';
 import {
-  currentUser as mockCurrentUser,
-  contacts,
   type Trend,
   type TrendComment,
 } from '@/lib/mock-data';
@@ -45,10 +43,10 @@ function fmtTime(date: Date): string {
 }
 
 function getUserName(userId: string, fallback?: string): string {
-  if (userId === 'me') return fallback || mockCurrentUser.name;
+  if (userId === 'me') return fallback || useIMStore.getState().currentUser?.name || '我';
   if (fallback) return fallback;
-  const c = contacts.find(ct => ct.id === userId);
-  return c ? c.name : userId;
+  const c = useIMStore.getState().friends.find(ct => ct.id === userId);
+  return c ? (c.remark || c.name) : userId;
 }
 
 const scopeLabels: Record<number, { label: string; icon: React.ReactNode }> = {
@@ -196,8 +194,8 @@ export default function TrendDetailPanel() {
   const trendVersion = selectedTrendId != null ? (trendVersions[selectedTrendId] || 0) : 0;
   const token = meAuth?.token || '';
   const meUserId = meAuth?.id || '';
-  const meName = meAuth?.name || mockCurrentUser.name;
-  const meAvatar = meAuth?.avatar || mockCurrentUser.avatar;
+  const meName = meAuth?.name || '';
+  const meAvatar = meAuth?.avatar || '';
 
   const [trend, setTrend] = useState<Trend | null>(null);
   const [comments, setComments] = useState<TrendComment[]>([]);
