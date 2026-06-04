@@ -287,6 +287,9 @@ func (m *defaultTrendModel) IncAgreeOrReply(ctx context.Context, id uint64, clas
 	updateData := "agree_count"
 	if inc < 0 {
 		count = trend.AgreeCount - 1
+		if trend.AgreeCount == 0 {
+			count = 0
+		}
 	}
 
 	if class == 1 {
@@ -294,6 +297,9 @@ func (m *defaultTrendModel) IncAgreeOrReply(ctx context.Context, id uint64, clas
 		count = trend.ReplyCount + 1
 		if inc < 0 {
 			count = trend.ReplyCount - 1
+			if trend.ReplyCount == 0 {
+				count = 0
+			}
 		}
 	}
 
