@@ -121,9 +121,30 @@
 A/B/C 与 K/L/H/I 视待定事项结论纳入或转后续迭代。
 
 ## 七、实现步骤（每步可独立 commit）
-1. [ ] 后端修复 E（create 校验）+ G（user-trends）+ H/I 健壮性
-2. [ ] 后端实现 D（batch-summary）
-3. [ ] `.api` 字段名修正 K + 删死类型 L + goctl 重生成
-4. [ ] 文档补全 `docs/specs/api.md` 第 3 章（9-13）
-5. [ ] 前端复核 + mock 清理（14-15）
-6. [ ] 起服务端到端联调验证（第四节清单）
+1. [x] 后端修复 E（create 校验）+ G（user-trends）+ H/I 健壮性 — commit `fix(trend): align api contract`
+2. [x] 后端实现 D（batch-summary，复用已存在的 rpc `BatchGetTrendLikeSummary`）— 同上
+3. [~] `.api` 字段名修正 K + 删死类型 L — **已撤销**，见下「联调发现」
+4. [x] 文档补全 `docs/specs/api.md` 第 3 章（9-13）— commit `docs(trend): sync api.md`
+5. [x] 前端复核 + mock 清理（14-15）— commit `refactor(web): drop mock-data fallbacks`
+6. [x] 起服务端到端联调验证 — 见下「联调结果」
+
+## 八、联调发现：goctl 重生成会破坏 GET 查询绑定（重要）
+- 本仓库的 `apps/trend/api/internal/types/types.go` 中，所有 **GET 请求体**字段用的是 `form:"xxx"` 标签（由较老版本 goctl 生成）。
+- 用 **goctl 1.8.2** 重新生成会把这些 `form:` 标签改成 `json:`，导致 go-zero **无法再从 query 绑定参数**——实测每个 GET 接口都返回 `field "xxx" is not set` / `type mismatch`。
+- 因此 K（修 `.api` 小写字段名）+ L（删死类型）所触发的 `goctl api go` 重生成被**整体撤销**（commit `revert(trend): restore form tags`）。原始 `types.go` 本就已是导出的 `IsTop`/`Like{Id,User,Trend_id,Like_time}`，K 实际上没有必要。
+- ⚠️ 后续若需再次 `goctl api go`，必须先解决 goctl 版本/模板把 GET 字段 `form→json` 降级的问题，否则会回归此 bug。
+
+## 九、联调结果（2026-06-04，账号 17585710998 / user_id=11，临时实例 :8896 跑新代码）
+| 验证项 | 结果 |
+|--------|------|
+| 发纯文字动态 type1 | ✅ `trend_id:25` 创建成功（E 修复前会被拒） |
+| 发图文 type2（仅图无标题）| ✅ 通过 api 校验（命中 rpc「发布太频繁」限流，校验层 OK）|
+| type1 空内容 / type6 广告 | ✅ 分别被拒「请填写动态内容」/「不支持该类型的动态」(F) |
+| 最新动态流 `/trends/latest` | ✅ 返回好友+自己动态 |
+| 动态详情 `/trend/detail` | ✅ 返回 trend 25 |
+| 点赞 `/trend/like` | ✅ 成功 |
+| 批量点赞摘要 `/like/batch-summary` | ✅ `{"trend_likes":{"25":[{user 11}]}}`（D 实现验证）|
+| 点赞用户列表 `/like/users` | ✅ total=1 |
+| 发评论 / 评论树 / 根评论 | ✅ 评论 id=38 正常 |
+| 未读 `/trend/unread` | ✅ 返回 replies |
+| 用户动态 `/user/trends` | ✅ `last_time=1751090955` 已赋值（G 修复验证）|
