@@ -3,15 +3,6 @@
 
 package types
 
-type BatchTrendLikeSummaryRequest struct {
-	UserID   string   `form:"user_id"`
-	TrendIDs []string `form:"trend_ids"`
-}
-
-type BatchTrendLikeSummaryResponse struct {
-	SummariesJSON string `json:"summaries_json"`
-}
-
 type CreateDiscussReq struct {
 	TrendID   uint64   `json:"trend_id"`
 	Father    uint64   `json:"father,optional"` //一级评论是不需要的
@@ -94,15 +85,15 @@ type DiscussesTreeResp struct {
 }
 
 type GetChildDiscussesReq struct {
-	Father   uint64 `form:"father"`
-	LastID   int    `form:"last_id,optional"`
-	LastTime uint64 `form:"last_time,optional"`
+	Father   uint64 `json:"father"`
+	LastID   int    `json:"last_id,optional"`
+	LastTime uint64 `json:"last_time,optional"`
 }
 
 type GetDiscussesListReq struct {
-	TrendID  []uint64 `form:"trend_id"`
-	LastID   int      `form:"last_id,optional"`
-	LastTime int      `form:"last_time,optional"`
+	TrendID  []uint64 `json:"trend_id"`
+	LastID   int      `json:"last_id,optional"`
+	LastTime int      `json:"last_time,optional"`
 }
 
 type GetDiscussesListResp struct {
@@ -110,14 +101,14 @@ type GetDiscussesListResp struct {
 }
 
 type GetDiscussesReq struct {
-	TrendID  uint64 `form:"trend_id"`
-	LastID   int    `form:"last_id,optional"`
-	LastTime int    `form:"last_time,optional"`
+	TrendID  uint64 `json:"trend_id"`
+	LastID   int    `json:"last_id,optional"`
+	LastTime int    `json:"last_time,optional"`
 }
 
 type GetLatestTrendsRequest struct {
-	LastTrendID int `form:"last_trend_id,optional"`
-	Count       int `form:"count,optional"`
+	LastTrendID int `json:"last_trend_id,optional"`
+	Count       int `json:"count,optional"`
 }
 
 type GetLatestTrendsResponse struct {
@@ -127,9 +118,9 @@ type GetLatestTrendsResponse struct {
 }
 
 type GetLikeListReq struct {
-	TrendID  []uint64 `form:"trend_id"`
-	LastID   int      `form:"last_id,optional"`
-	LastTime int      `form:"last_time,optional"`
+	TrendID  []uint64 `json:"trend_id"`
+	LastID   int      `json:"last_id,optional"`
+	LastTime int      `json:"last_time,optional"`
 }
 
 type GetLikeListResp struct {
@@ -137,9 +128,9 @@ type GetLikeListResp struct {
 }
 
 type GetLikedUsersRequest struct {
-	TrendID uint32 `form:"trend_id"`
-	Cursor  uint32 `form:"cursor,optional"`
-	Limit   uint32 `form:"limit,optional"`
+	TrendID uint32 `json:"trend_id"`
+	Cursor  uint32 `json:"cursor,optional"`
+	Limit   uint32 `json:"limit,optional"`
 }
 
 type GetLikedUsersResponse struct {
@@ -150,7 +141,7 @@ type GetLikedUsersResponse struct {
 }
 
 type GetTrendDetailRequest struct {
-	TrendID int `form:"trend_id"`
+	TrendID int `json:"trend_id"`
 }
 
 type GetTrendDetailResponse struct {
@@ -158,8 +149,8 @@ type GetTrendDetailResponse struct {
 }
 
 type GetTrendLikeSummaryRequest struct {
-	UserID  string `form:"user_id"`
-	TrendID string `form:"trend_id"`
+	UserID  string `json:"user_id"`
+	TrendID string `json:"trend_id"`
 }
 
 type GetTrendLikeSummaryResponse struct {
@@ -167,8 +158,8 @@ type GetTrendLikeSummaryResponse struct {
 }
 
 type GetUnreadLikesRequest struct {
-	UserID string `form:"user_id"`
-	LastID int    `form:"last_id"`
+	UserID string `json:"user_id"`
+	LastID int    `json:"last_id"`
 }
 
 type GetUnreadLikesResponse struct {
@@ -178,14 +169,14 @@ type GetUnreadLikesResponse struct {
 }
 
 type GetUnreadRepliesReq struct {
-	LikeLastID   int `form:"like_last_id,optional"`
-	DiscussLasID int `form:"discuss_last_id,optional"`
-	LastTime     int `form:"last_time,optional"`
+	LikeLastID   int `json:"like_last_id,optional"`
+	DiscussLasID int `json:"discuss_last_id,optional"`
+	LastTime     int `json:"last_time,optional"`
 }
 
 type GetUserTrendsRequest struct {
-	TargetUserID int `form:"target_user_id"`
-	LastID       int `form:"last_id,optional"`
+	TargetUserID int `json:"target_user_id"`
+	LastID       int `json:"last_id,optional"`
 }
 
 type GetUserTrendsResponse struct {

@@ -51,7 +51,7 @@ func (l *GetLikedUsersLogic) GetLikedUsers(req *types.GetLikedUsersRequest) (res
 	})
 	if err != nil {
 		zLog.Error("获取用户信息失败", zap.Any("userIdList", userIdList), zap.Error(err))
-		return nil, nil
+		return nil, err
 	}
 
 	userBind := make(map[string]*types.User, len(userInfo.User))

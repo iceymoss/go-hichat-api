@@ -210,7 +210,7 @@ type Trend {
 	OpenReply     int32     `json:"open_reply,omitempty"` // 是否允许评论
 	DeviceId      string    `json:"device_id,omitempty"` // 发布设备ID
 	Ip            string    `json:"ip,omitempty"` // IP信息
-	isTop         int       `json:"is_top,omitempty"` // 是否置顶
+	IsTop         int       `json:"is_top,omitempty"` // 是否置顶
 }
 
 type User {
@@ -378,10 +378,10 @@ type LikeToggleRequest {
 
 // 点赞信息 (与微信接口对齐)
 type Like {
-	id        int    `json:"id"` // 点赞记录ID
-	user      *User  `json:"user"` // 点赞用户ID
-	trend_id  uint64 `json:"trend_id"` // 动态ID
-	like_time uint64 `json:"like_time"` // 点赞时间
+	Id        int    `json:"id"` // 点赞记录ID
+	User      *User  `json:"user"` // 点赞用户ID
+	Trend_id  uint64 `json:"trend_id"` // 动态ID
+	Like_time uint64 `json:"like_time"` // 点赞时间
 }
 
 // 点赞操作响应
@@ -396,17 +396,6 @@ type GetTrendLikeSummaryRequest {
 // 点赞摘要响应
 type GetTrendLikeSummaryResponse {
 	SummaryJSON string `json:"summary_json"`
-}
-
-// 批量摘要请求
-type BatchTrendLikeSummaryRequest {
-	UserID   string   `json:"user_id"`
-	TrendIDs []string `json:"trend_ids"`
-}
-
-// 批量摘要响应
-type BatchTrendLikeSummaryResponse {
-	SummariesJSON string `json:"summaries_json"`
 }
 
 // 点赞用户列表请求
