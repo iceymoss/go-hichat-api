@@ -1616,11 +1616,19 @@ export default function MomentsFeed() {
         />
       </div>
       <div className="absolute" style={{ bottom: -16, left: 12 }}>
-        <div
-          style={{ width: 68, height: 68, borderRadius: '50%', backgroundColor: getAvatarColor(meName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 600, color: '#FFF', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
-        >
-          {meName[0]}
-        </div>
+        {meAvatar ? (
+          <img
+            src={meAvatar}
+            alt={meName}
+            style={{ width: 68, height: 68, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
+          />
+        ) : (
+          <div
+            style={{ width: 68, height: 68, borderRadius: '50%', backgroundColor: getAvatarColor(meName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 600, color: '#FFF', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
+          >
+            {meName ? meName[0] : '?'}
+          </div>
+        )}
       </div>
     </div>
   );
