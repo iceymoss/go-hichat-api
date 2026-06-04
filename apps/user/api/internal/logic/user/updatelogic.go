@@ -43,6 +43,7 @@ func (l *UpdateLogic) Update(req *types.UpdateUserReq) (resp *types.UpdateUserRe
 		Region:       req.Region,
 		Occupation:   req.Occupation,
 		Tags:         req.Tags,
+		MomentsCover: req.MomentsCover,
 		// Phone 和 Email 不传递，不允许通过此 API 更新
 	})
 	if err != nil {

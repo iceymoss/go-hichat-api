@@ -20,6 +20,7 @@ message UserEntity {
   string  region = 12;           // 地区
   string  occupation = 13;       // 职业
   string  tags = 14;             // 个人标签（JSON数组）
+  string  moments_cover = 15;    // 朋友圈封面图URL
 }
 
 // req 与 respo
@@ -94,6 +95,7 @@ message UpdateUserReq {
   string occupation = 12;        // 职业
   string tags = 13;              // 个人标签（JSON数组）
   string emailCode = 14;         // 邮箱验证码（绑定或修改邮箱时需要）
+  string moments_cover = 15;     // 朋友圈封面图URL
 }
 
 message UpdateUserResp {

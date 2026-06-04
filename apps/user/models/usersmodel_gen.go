@@ -67,6 +67,7 @@ type (
 		Region       sql.NullString `db:"region"`       // 地区
 		Occupation   sql.NullString `db:"occupation"`   // 职业
 		Tags         sql.NullString `db:"tags"`         // 个人标签（JSON数组）
+		MomentsCover string         `db:"moments_cover"` // 朋友圈封面图URL
 		CreatedAt    time.Time      `db:"created_at"`   // 创建时间
 		UpdatedAt    time.Time      `db:"updated_at"`   // 更新时间
 	}
@@ -216,8 +217,8 @@ func (m *defaultUsersModel) Insert(ctx context.Context, data *Users) (sql.Result
 	usersIdKey := fmt.Sprintf("%s%v", cacheUsersIdPrefix, data.Id)
 	usersPhoneKey := fmt.Sprintf("%s%v", cacheUsersPhonePrefix, data.Phone)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, usersRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Avatar, data.Nickname, data.Phone, data.Email, data.Type, data.LastLogin, data.Password, data.Status, data.Sex, data.Introduction, data.Region, data.Occupation, data.Tags)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, usersRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.Avatar, data.Nickname, data.Phone, data.Email, data.Type, data.LastLogin, data.Password, data.Status, data.Sex, data.Introduction, data.Region, data.Occupation, data.Tags, data.MomentsCover)
 	}, usersEmailKey, usersIdKey, usersPhoneKey)
 	return ret, err
 }
@@ -247,7 +248,7 @@ func (m *defaultUsersModel) Update(ctx context.Context, newData *Users) error {
 	usersPhoneKey := fmt.Sprintf("%s%v", cacheUsersPhonePrefix, data.Phone)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, usersRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.Avatar, newData.Nickname, newData.Phone, newData.Email, newData.Type, newData.LastLogin, newData.Password, newData.Status, newData.Sex, newData.Introduction, newData.Region, newData.Occupation, newData.Tags, newData.Id)
+		return conn.ExecCtx(ctx, query, newData.Avatar, newData.Nickname, newData.Phone, newData.Email, newData.Type, newData.LastLogin, newData.Password, newData.Status, newData.Sex, newData.Introduction, newData.Region, newData.Occupation, newData.Tags, newData.MomentsCover, newData.Id)
 	}, usersEmailKey, usersIdKey, usersPhoneKey)
 	return err
 }

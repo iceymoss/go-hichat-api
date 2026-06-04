@@ -126,6 +126,10 @@ func (l *UpdateUserLogic) UpdateUser(in *user.UpdateUserReq) (*user.UpdateUserRe
 		userObj.Introduction = in.Introduction
 	}
 
+	if in.MomentsCover != "" {
+		userObj.MomentsCover = in.MomentsCover
+	}
+
 	if in.Type != "" {
 		userType, err := strconv.ParseInt(in.Type, 10, 64)
 		if err == nil {
