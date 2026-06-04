@@ -40,6 +40,10 @@ interface IMState {
   setSelectedConversationId: (id: string | null) => void;
   selectedContactId: string | null;
   setSelectedContactId: (id: string | null) => void;
+  // Profile of the user currently being viewed in the contact detail panel.
+  // Lets us open detail for self / non-friends (not in the friends list).
+  viewedProfile: Contact | null;
+  openUserProfile: (uid: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   showChatDetail: boolean;
@@ -114,6 +118,35 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   setSelectedConversationId: (id) => set({ selectedConversationId: id, showChatDetail: true }),
   selectedContactId: null,
   setSelectedContactId: (id) => set({ selectedContactId: id }),
+  viewedProfile: null,
+  openUserProfile: (uid) => {
+    if (!uid) return;
+    const st = useIMStore.getState();
+    set({ activeTab: 'contacts', selectedContactId: uid, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null, meSubPage: null });
+
+    const friend = st.friends.find(f => f.id === uid);
+    if (friend) { set({ viewedProfile: friend }); return; }
+
+    const me = st.currentUser;
+    if (me && uid === me.id) {
+      set({ viewedProfile: { id: me.id, name: me.name, nickname: me.name, avatar: me.avatar, pinyin: '', letter: '', gender: me.sex === 1 ? 'male' : me.sex === 2 ? 'female' : undefined, phone: me.phone, email: me.email || undefined, region: me.region, signature: me.introduction, introduction: me.introduction, occupation: me.occupation } });
+      return;
+    }
+
+    // Non-friend: fetch the basic profile by id.
+    set({ viewedProfile: { id: uid, name: uid, avatar: '', pinyin: '', letter: '' } });
+    if (me?.token) {
+      fetch(`/api/user/search?ids=${encodeURIComponent(uid)}`, { headers: { Authorization: `Bearer ${me.token}` } })
+        .then(r => r.json())
+        .then(j => {
+          const u = (j?.data?.users || j?.users || [])[0];
+          if (u && useIMStore.getState().selectedContactId === uid) {
+            set({ viewedProfile: { id: String(u.id), name: u.nickname || uid, nickname: u.nickname, avatar: u.avatar || '', pinyin: '', letter: '', gender: u.sex === 1 ? 'male' : u.sex === 2 ? 'female' : undefined, region: u.region, signature: u.introduction, introduction: u.introduction, occupation: u.occupation } });
+          }
+        })
+        .catch(() => {});
+    }
+  },
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
   showChatDetail: false,

@@ -190,7 +190,7 @@ function LikeAvatarItem({ user }: { user: { id: string; name: string; avatar: st
    ═══════════════════════════════════════ */
 
 export default function TrendDetailPanel() {
-  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion } = useIMStore();
+  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion, openUserProfile } = useIMStore();
   const trendVersion = selectedTrendId != null ? (trendVersions[selectedTrendId] || 0) : 0;
   const token = meAuth?.token || '';
   const meUserId = meAuth?.id || '';
@@ -402,8 +402,9 @@ export default function TrendDetailPanel() {
                   width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
                   backgroundColor: getAvatarColor(userName),
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 18, fontWeight: 600, color: '#FFF',
+                  fontSize: 18, fontWeight: 600, color: '#FFF', cursor: 'pointer',
                 }}
+                onClick={() => openUserProfile(trend.userId === 'me' ? meUserId : trend.userId)}
               >
                 {userAvatar ? (
                   <img src={userAvatar} alt="" className="w-full h-full object-cover" />
@@ -413,7 +414,7 @@ export default function TrendDetailPanel() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span style={{ fontSize: '15px', fontWeight: 600, color: '#3390EC' }}>{userName}</span>
+                  <span style={{ fontSize: '15px', fontWeight: 600, color: '#3390EC', cursor: 'pointer' }} onClick={() => openUserProfile(trend.userId === 'me' ? meUserId : trend.userId)}>{userName}</span>
                   {trend.isTop && (
                     <span style={{ fontSize: '10px', fontWeight: 500, color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 6px', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                       <Pin className="w-3 h-3" />置顶

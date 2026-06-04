@@ -1048,7 +1048,7 @@ type NotifTab = 'all' | 'reply' | 'like';
 
 export default function MomentsFeed() {
   const isMobile = useIsMobile();
-  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion } = useIMStore();
+  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion, openUserProfile } = useIMStore();
   const meName = meAuth?.name || '';
   const meAvatar = meAuth?.avatar || '';
   const meSignature = meAuth?.introduction || '';
@@ -1493,14 +1493,11 @@ export default function MomentsFeed() {
   }, [token, selectedTrendId, setSelectedTrendId, bumpTrendVersion]);
 
   // ── Navigation ──
-  const handleAvatarClick = useCallback((userId: string, userName?: string) => {
-    if (userId === 'me') return;
-    setUserTrendsUserId(userId);
-    setUserTrendsUserName(userName || '');
-    setView('userTrends');
-    setSearchQuery('');
-    setExpandedTrendIds(new Set());
-  }, []);
+  const handleAvatarClick = useCallback((userId: string, _userName?: string) => {
+    const uid = userId === 'me' ? meUserId : userId;
+    if (!uid) return;
+    openUserProfile(uid);
+  }, [meUserId, openUserProfile]);
 
   // Load user-trends when entering that view.
   useEffect(() => {
@@ -1615,7 +1612,7 @@ export default function MomentsFeed() {
           }}
         />
       </div>
-      <div className="absolute" style={{ bottom: -16, left: 12 }}>
+      <div className="absolute" style={{ bottom: -16, left: 12, cursor: 'pointer' }} onClick={() => meUserId && openUserProfile(meUserId)}>
         {meAvatar ? (
           <img
             src={meAvatar}
@@ -1635,7 +1632,7 @@ export default function MomentsFeed() {
 
   const renderUserInfo = () => (
     <div style={{ padding: '20px 12px 10px' }}>
-      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>{meName}</h3>
+      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', cursor: 'pointer', display: 'inline-block' }} onClick={() => meUserId && openUserProfile(meUserId)}>{meName}</h3>
       <p style={{ fontSize: '12px', color: '#708499', marginTop: 2 }}>{meSignature}</p>
     </div>
   );
