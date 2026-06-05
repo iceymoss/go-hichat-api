@@ -261,6 +261,7 @@ const FEED_LIKE_COLLAPSE_LIMIT = 70;
 
 interface TrendCardProps {
   trend: Trend;
+  showTopBadge?: boolean;
   liked: boolean;
   likeCount: number;
   likeUsers: { id: string; name: string; avatar: string }[];
@@ -282,7 +283,7 @@ interface TrendCardProps {
 }
 
 function TrendCard({
-  trend, liked, likeCount, likeUsers, comments, expanded,
+  trend, showTopBadge = true, liked, likeCount, likeUsers, comments, expanded,
   replyTarget, commentText, selected,
   onToggleLike, onLikeCountClick, onExpandComments,
   onSetReplyTarget, onCommentTextChange, onSubmitComment, onDeleteComment,
@@ -362,7 +363,7 @@ function TrendCard({
             >
               {userName}
             </span>
-            {trend.isTop && (
+            {showTopBadge && trend.isTop && (
               <span style={{ fontSize: '10px', fontWeight: 500, color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 6px', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                 <Pin className="w-3 h-3" />置顶
               </span>
@@ -1231,7 +1232,7 @@ export default function MomentsFeed() {
 
   const filteredTrends = useMemo(() => {
     let list = [...trends].sort((a, b) => {
-      if (a.isTop !== b.isTop) return a.isTop ? -1 : 1;
+      if (view === 'userTrends' && a.isTop !== b.isTop) return a.isTop ? -1 : 1;
       return b.createTime.getTime() - a.createTime.getTime();
     });
     if (view === 'userTrends') {
@@ -1716,6 +1717,7 @@ export default function MomentsFeed() {
                 <TrendCard
                   key={trend.id}
                   trend={trend}
+                  showTopBadge={false}
                   liked={likedTrends.has(trend.id)}
                   likeCount={trend.agreeCount}
                   likeUsers={likeUsersMap[trend.id] || []}
