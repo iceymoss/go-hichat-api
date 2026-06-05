@@ -90,6 +90,7 @@ type UpdateUserReq struct {
 	Region       string `json:"region,optional"`
 	Occupation   string `json:"occupation,optional"`
 	Tags         string `json:"tags,optional"`
+	MomentsCover string `json:"moments_cover,optional"`
 }
 
 type UpdateUserResp struct {
@@ -114,6 +115,7 @@ type User struct {
 	Region       string `json:"region"`
 	Occupation   string `json:"occupation"`
 	Tags         string `json:"tags"`
+	MomentsCover string `json:"moments_cover"`
 }
 
 type UserInfoReq struct {

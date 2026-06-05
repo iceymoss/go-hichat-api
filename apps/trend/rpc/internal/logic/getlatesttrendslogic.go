@@ -62,12 +62,15 @@ func (l *GetLatestTrendsLogic) GetLatestTrends(in *trend.GetLatestTrendsRequest)
 }
 
 func trendToResp(v models.Trend) *trend.Trend {
-	readScope := trend.VisibilityScope_SCOPE_UNSPECIFIED
-	switch v.CircleState {
-	case 2:
-		readScope = trend.VisibilityScope_PRIVATE
-	case 1:
-		readScope = trend.VisibilityScope_FRIENDS
+	// 可见范围以 scope 列为准(1-仅自己,2-仅好友,3-所有人)
+	// 历史数据 scope 未回填(0)时，用 circle_state 兜底派生
+	readScope := trend.VisibilityScope(v.Scope)
+	if readScope == trend.VisibilityScope_SCOPE_UNSPECIFIED {
+		if v.CircleState == 1 {
+			readScope = trend.VisibilityScope_FRIENDS // 仅好友
+		} else {
+			readScope = trend.VisibilityScope_PRIVATE // 仅自己
+		}
 	}
 
 	var positionPoint []float32

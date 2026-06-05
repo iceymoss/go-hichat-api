@@ -37,14 +37,16 @@ const navItems: { tab: TabType; icon: React.ReactNode }[] = [
 ];
 
 export default function IMLayout() {
-  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends } = useIMStore();
+  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile } = useIMStore();
   const chatConversations = useChatStore(s => s.conversations);
 
-  // Resolve selected contact for detail panel from store friends
+  // Resolve selected contact for detail panel from store friends, falling back
+  // to viewedProfile (set when opening self / a non-friend from moments).
   const selectedContact: Contact | null = React.useMemo(() => {
     if (!selectedContactId) return null;
-    return friends.find(c => c.id === selectedContactId) || null;
-  }, [selectedContactId, friends]);
+    return friends.find(c => c.id === selectedContactId)
+      || (viewedProfile && viewedProfile.id === selectedContactId ? viewedProfile : null);
+  }, [selectedContactId, friends, viewedProfile]);
   const isMobile = useIsMobile();
   // 免打扰会话不计入侧边栏总未读气泡（与会话列表只显示小灰点保持一致）
   const totalUnread = chatConversations.reduce((sum, c) => sum + (c.muted ? 0 : c.unreadCount), 0);

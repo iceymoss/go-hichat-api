@@ -23,6 +23,7 @@ export interface BackendUser {
   region: string;
   occupation: string;
   tags: string;
+  moments_cover: string;
 }
 
 export async function backendFetch<T = unknown>(

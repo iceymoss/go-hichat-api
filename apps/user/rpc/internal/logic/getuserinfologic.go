@@ -81,5 +81,6 @@ func ToUserEntity(userEntiy *models.Users) *user.UserEntity {
 		Region:       getStringValue(userEntiy.Region),
 		Occupation:   getStringValue(userEntiy.Occupation),
 		Tags:         getStringValue(userEntiy.Tags),
+		MomentsCover: userEntiy.MomentsCover,
 	}
 }

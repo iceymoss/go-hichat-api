@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
         region: info.region,
         occupation: info.occupation,
         tags: info.tags,
+        momentsCover: info.moments_cover,
       },
     });
   } catch (error) {

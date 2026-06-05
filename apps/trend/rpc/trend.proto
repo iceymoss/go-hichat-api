@@ -24,9 +24,9 @@ enum TrendType {
 // 动态可见范围
 enum VisibilityScope {
   SCOPE_UNSPECIFIED = 0;  // 未指定范围（应避免使用）
-  PRIVATE = 1;      // 好友圈可见（朋友圈）
-  FRIENDS = 2;      // 仅自己可见
-  ALL     = 3;      // 全部
+  PRIVATE = 1;      // 仅自己可见
+  FRIENDS = 2;      // 仅好友可见
+  ALL     = 3;      // 所有人可见
 }
 
 // 公共论坛状态

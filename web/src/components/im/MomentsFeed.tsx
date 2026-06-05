@@ -38,8 +38,6 @@ import { getAvatarColor } from '@/lib/utils';
 import { useIMStore } from '@/lib/im-store';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
-  currentUser as mockCurrentUser,
-  contacts,
   type Trend,
   type TrendComment,
   type MomentsNotification,
@@ -84,10 +82,10 @@ function fmtTime(date: Date): string {
 }
 
 function getUserName(userId: string, fallback?: string): string {
-  if (userId === 'me') return fallback || mockCurrentUser.name;
+  if (userId === 'me') return fallback || useIMStore.getState().currentUser?.name || '我';
   if (fallback) return fallback;
-  const c = contacts.find(ct => ct.id === userId);
-  return c ? c.name : userId;
+  const c = useIMStore.getState().friends.find(ct => ct.id === userId);
+  return c ? (c.remark || c.name) : userId;
 }
 
 function trendDisplayName(trend: Trend): string {
@@ -509,7 +507,7 @@ function TrendCard({
                 <Heart className="w-3 h-3 shrink-0 mt-0.5" style={{ color: '#3390EC', fill: '#3390EC' }} />
                 <span style={{ color: '#708499' }}>
                   {(likeNamesExpanded ? likeUsers : likeUsers.slice(0, FEED_LIKE_COLLAPSE_LIMIT)).map((u, i) => {
-                    const displayName = u.id === 'me' ? '我' : (contacts.find(ct => ct.id === u.id)?.remark || u.name);
+                    const displayName = u.id === 'me' ? '我' : (useIMStore.getState().friends.find(ct => ct.id === u.id)?.remark || u.name);
                     return (
                       <span key={u.id || `like-${i}`}>
                         {i > 0 && <span style={{ margin: '0 2px' }}>、</span>}
@@ -1050,12 +1048,30 @@ type NotifTab = 'all' | 'reply' | 'like';
 
 export default function MomentsFeed() {
   const isMobile = useIsMobile();
-  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion } = useIMStore();
-  const meName = meAuth?.name || mockCurrentUser.name;
-  const meAvatar = meAuth?.avatar || mockCurrentUser.avatar;
-  const meSignature = meAuth?.introduction || mockCurrentUser.signature;
+  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion, openUserProfile, updateCurrentUser } = useIMStore();
+  const meName = meAuth?.name || '';
+  const meAvatar = meAuth?.avatar || '';
+  const meSignature = meAuth?.introduction || '';
+  const meCover = meAuth?.momentsCover || '';
   const meUserId = meAuth?.id || '';
   const token = meAuth?.token || '';
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCoverUpload = useCallback(async (file: File) => {
+    if (!token) return;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const up = await fetch('/api/user/avatar', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+      const upData = await up.json();
+      if (!upData.success || !upData.data?.url) { toast.error('封面上传失败'); return; }
+      const url = upData.data.url as string;
+      const save = await fetch('/api/user/update', { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ moments_cover: url }) });
+      const saveData = await save.json();
+      if (saveData.success) { updateCurrentUser({ momentsCover: url }); toast.success('朋友圈封面已更新'); }
+      else toast.error(saveData.message || '保存封面失败');
+    } catch { toast.error('封面上传失败'); }
+  }, [token, updateCurrentUser]);
 
   // ── View state ──
   const [view, setView] = useState<View>('feed');
@@ -1306,7 +1322,7 @@ export default function MomentsFeed() {
       } : t));
       toast.error('点赞操作失败');
     });
-  }, [token, likedTrends, meName, meAvatar, trendAuthorBackendId]);
+  }, [token, likedTrends, meName, meAvatar, trendAuthorBackendId, trendVersions, bumpTrendVersion]);
 
   // Refetch the comment tree for a single trend, merging it into the map.
   const refreshCommentsFor = useCallback(async (trendId: number) => {
@@ -1495,14 +1511,11 @@ export default function MomentsFeed() {
   }, [token, selectedTrendId, setSelectedTrendId, bumpTrendVersion]);
 
   // ── Navigation ──
-  const handleAvatarClick = useCallback((userId: string, userName?: string) => {
-    if (userId === 'me') return;
-    setUserTrendsUserId(userId);
-    setUserTrendsUserName(userName || '');
-    setView('userTrends');
-    setSearchQuery('');
-    setExpandedTrendIds(new Set());
-  }, []);
+  const handleAvatarClick = useCallback((userId: string, _userName?: string) => {
+    const uid = userId === 'me' ? meUserId : userId;
+    if (!uid) return;
+    openUserProfile(uid);
+  }, [meUserId, openUserProfile]);
 
   // Load user-trends when entering that view.
   useEffect(() => {
@@ -1598,18 +1611,41 @@ export default function MomentsFeed() {
         className="relative overflow-hidden"
         style={{ height: 176 }}
       >
-        <img
-          src="https://picsum.photos/seed/tg-cover-feed/800/400"
-          alt="cover"
-          className="w-full h-full object-cover"
-          style={{ opacity: 0.3, mixBlendMode: 'overlay' }}
+        {meCover ? (
+          <img
+            src={meCover}
+            alt="cover"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <>
+            <img
+              src="https://picsum.photos/seed/tg-cover-feed/800/400"
+              alt="cover"
+              className="w-full h-full object-cover"
+              style={{ opacity: 0.3, mixBlendMode: 'overlay' }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'linear-gradient(135deg, rgba(51,144,236,0.7), rgba(111,177,252,0.5))',
+              }}
+            />
+          </>
+        )}
+        <input
+          ref={coverInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f); e.target.value = ''; }}
         />
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(135deg, rgba(51,144,236,0.7), rgba(111,177,252,0.5))',
-          }}
-        />
+        <button
+          onClick={() => coverInputRef.current?.click()}
+          style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, border: 'none', borderRadius: 14, padding: '4px 10px', background: 'rgba(0,0,0,0.35)', color: '#FFF', fontSize: 12, cursor: 'pointer' }}
+        >
+          更换封面
+        </button>
         <div
           className="absolute inset-0"
           style={{
@@ -1617,19 +1653,27 @@ export default function MomentsFeed() {
           }}
         />
       </div>
-      <div className="absolute" style={{ bottom: -16, left: 12 }}>
-        <div
-          style={{ width: 68, height: 68, borderRadius: '50%', backgroundColor: getAvatarColor(meName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 600, color: '#FFF', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
-        >
-          {meName[0]}
-        </div>
+      <div className="absolute" style={{ bottom: -16, left: 12, cursor: 'pointer' }} onClick={() => meUserId && openUserProfile(meUserId)}>
+        {meAvatar ? (
+          <img
+            src={meAvatar}
+            alt={meName}
+            style={{ width: 68, height: 68, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
+          />
+        ) : (
+          <div
+            style={{ width: 68, height: 68, borderRadius: '50%', backgroundColor: getAvatarColor(meName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 600, color: '#FFF', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
+          >
+            {meName ? meName[0] : '?'}
+          </div>
+        )}
       </div>
     </div>
   );
 
   const renderUserInfo = () => (
     <div style={{ padding: '20px 12px 10px' }}>
-      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>{meName}</h3>
+      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', cursor: 'pointer', display: 'inline-block' }} onClick={() => meUserId && openUserProfile(meUserId)}>{meName}</h3>
       <p style={{ fontSize: '12px', color: '#708499', marginTop: 2 }}>{meSignature}</p>
     </div>
   );

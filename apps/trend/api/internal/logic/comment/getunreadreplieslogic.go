@@ -41,7 +41,8 @@ func (l *GetUnreadRepliesLogic) GetUnreadReplies(req *types.GetUnreadRepliesReq)
 		},
 	})
 	if err != nil {
-		zLog.Error("获取未读评论失败")
+		zLog.Error("获取未读评论失败", zap.Any("uid", uid), zap.Error(err))
+		return nil, err
 	}
 
 	// 获取未读点赞
@@ -54,7 +55,7 @@ func (l *GetUnreadRepliesLogic) GetUnreadReplies(req *types.GetUnreadRepliesReq)
 		return nil, err
 	}
 
-	userIds := make([]string, len(unRead.Replies)+len(unReadLike.Likes))
+	userIds := make([]string, 0, len(unRead.Replies)+len(unReadLike.Likes))
 	discussList := make([]*types.Discuss, 0, len(unRead.Replies))
 	for _, v := range unRead.Replies {
 		discussList = append(discussList, discuss2Resp(v))

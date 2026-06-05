@@ -26,6 +26,20 @@ async function fetchFriendsForStore(token: string) {
   } catch { /* ignore */ }
 }
 
+// Refresh the persisted currentUser with the latest profile so views that
+// read name/avatar/introduction/momentsCover don't show stale or empty data.
+async function refreshCurrentUser(token: string) {
+  try {
+    const resp = await fetch('/api/user/detail', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await resp.json();
+    if (json?.success && json.data) {
+      useIMStore.getState().updateCurrentUser(json.data);
+    }
+  } catch { /* ignore */ }
+}
+
 export default function Home() {
   const { isAuthenticated, currentUser } = useIMStore();
   const initWs = useChatStore(s => s.initWs);
@@ -34,6 +48,7 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
 
   const fetchFriendsAndConversations = async (token: string) => {
+    await refreshCurrentUser(token);
     await fetchFriendsForStore(token);
     await fetchConversations(token);
   };

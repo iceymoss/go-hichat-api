@@ -1,7 +1,7 @@
 # HiChat API 接口文档
 
 > 版本: v1.0  
-> 更新时间: 2026-04-09  
+> 更新时间: 2026-06-04  
 > 框架: go-zero (REST + gRPC + WebSocket)  
 > 认证方式: JWT Token (请求头 `Authorization: Bearer <token>`)
 
@@ -2904,6 +2904,14 @@ curl -X POST http://localhost:8080/v1/social/group/memberSetting \
 | device | string | 否 | 发布设备信息 |
 | ip | string | 否 | 发布者IP |
 
+> **类型与必填校验**（后端按 `type` 校验内容是否为空）：
+> - `type=1` 纯文本：`content` 必填
+> - `type=2` 图文混合：`content` 与 `resources` 至少其一
+> - `type=3` 文章：`title` 必填，且 `content` 与 `resources` 至少其一
+> - `type=4` 分享：`share_url` 必填
+> - `type=5` 视频：`resources` 必填
+> - `type=0` 与 `type=6`（广告）**不对普通用户开放**，调用会返回「不支持该类型的动态」。广告动态由运营侧投放，不经此接口。
+
 **响应参数 (data)**
 
 | 字段 | 类型 | 说明 |
@@ -3138,7 +3146,7 @@ curl -X GET "http://localhost:8080/v1/trend/detail?trend_id=50001" \
 
 - **接口**: `GET /v1/trends/latest`
 - **认证**: 需要
-- **描述**: 获取最新动态列表（推荐流），支持分页加载
+- **描述**: 获取最新动态流，支持游标分页。当前实现的数据范围为**当前用户本人 + 其好友**发布的动态（并非全站推荐流）。
 
 **请求参数 (Query/JSON)**
 
@@ -3264,7 +3272,9 @@ curl -X GET "http://localhost:8080/v1/user/trends?target_user_id=10001" \
 
 - **接口**: `GET /v1/trends`
 - **认证**: 需要
-- **描述**: 获取动态列表，支持按类型、排序方式、用户筛选
+- **描述**: 获取动态列表，支持按类型、排序方式、用户筛选。
+
+> ⚠️ **当前未实现**：该接口为预留的高级筛选入口，logic 尚未实现，恒返回空结果。前端动态流请使用 [3.1.5 获取最新动态列表](#315-获取最新动态列表)（`GET /v1/trends/latest`）与 [3.1.6 获取用户动态列表](#316-获取用户动态列表)。
 
 **请求参数 (Query/JSON)**
 
@@ -3774,7 +3784,7 @@ curl -X PUT http://localhost:8080/v1/trend/comment/mark-read \
 |------|------|------|------|
 | trend_id | uint32 | 是 | 动态ID |
 | author_id | uint32 | 是 | 动态作者用户ID |
-| like_type | int | 是 | 点赞类型 |
+| like_type | int | 是 | 点赞类型：`1`-点赞，`0`-取消点赞（服务端按 `like_type > 0` 判定为点赞，否则取消） |
 
 **响应参数 (data)**
 
@@ -3810,6 +3820,8 @@ curl -X POST http://localhost:8080/v1/trend/like \
 - **接口**: `GET /v1/trend/like/summary`
 - **认证**: 需要
 - **描述**: 获取指定动态的点赞摘要信息
+
+> ⚠️ **当前未实现**：该接口 logic 为空桩，恒返回空 `summary_json`。批量获取点赞用户请使用 [3.3.3 批量获取动态点赞摘要](#333-批量获取动态点赞摘要)（`GET /v1/trend/like/batch-summary`）。
 
 **请求参数 (Query/JSON)**
 
@@ -3949,6 +3961,8 @@ curl -X GET "http://localhost:8080/v1/trend/like/users?trend_id=50001&limit=20" 
 - **接口**: `GET /v1/trend/like/unread`
 - **认证**: 需要
 - **描述**: 获取用户未读的点赞通知
+
+> ⚠️ **当前未实现**：该独立接口 logic 为空桩。未读点赞已合并进 [3.2.6 获取未读回复](#326-获取未读回复)（`GET /v1/trend/unread`）的 `likes` 字段一并返回，前端从该接口读取未读点赞。
 
 **请求参数 (Query/JSON)**
 

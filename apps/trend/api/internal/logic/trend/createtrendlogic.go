@@ -3,6 +3,7 @@ package trend
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/types"
@@ -30,17 +31,36 @@ func NewCreateTrendLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Creat
 }
 
 func (l *CreateTrendLogic) CreateTrend(req *types.CreateTrendRequest) (resp *types.CreateTrendResponse, err error) {
-	// 参数校验
+	// 类型校验：0 与 6(广告) 不对普通用户开放
 	if isContain(req.TrendType) {
 		return nil, errors.New("不支持该类型的动态")
 	}
 
-	if req.TrendType == 4 && req.ShareUrl == "" {
-		return nil, errors.New("请选择你要分享的内容")
-	}
-
-	if len(req.Title) == 0 && req.CoverUrl == "" {
-		return nil, errors.New("请填写你要发表的内容或者图片")
+	// 按动态类型校验内容是否为空
+	switch req.TrendType {
+	case 1: // 纯文本
+		if strings.TrimSpace(req.Content) == "" {
+			return nil, errors.New("请填写动态内容")
+		}
+	case 2: // 图文混合
+		if strings.TrimSpace(req.Content) == "" && len(req.Resources) == 0 {
+			return nil, errors.New("请填写内容或上传图片")
+		}
+	case 3: // 文章
+		if strings.TrimSpace(req.Title) == "" {
+			return nil, errors.New("请填写文章标题")
+		}
+		if strings.TrimSpace(req.Content) == "" && len(req.Resources) == 0 {
+			return nil, errors.New("请填写文章内容")
+		}
+	case 4: // 分享
+		if req.ShareUrl == "" {
+			return nil, errors.New("请选择你要分享的内容")
+		}
+	case 5: // 视频
+		if len(req.Resources) == 0 {
+			return nil, errors.New("请上传视频")
+		}
 	}
 
 	uid := utils.GetUser(l.ctx)

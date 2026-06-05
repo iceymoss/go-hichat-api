@@ -2,7 +2,6 @@ package trend
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/svc"
@@ -45,14 +44,13 @@ func (l *GetUserTrendsLogic) GetUserTrends(req *types.GetUserTrendsRequest) (res
 		})
 		if topErr != nil {
 			zLog.Error("获取置顶动态失败", zap.Error(topErr))
-			return nil, err
+			return nil, topErr
 		}
 		tops := make([]*types.Trend, 0, len(topList.Trends))
 		for _, v := range topList.Trends {
 			tops = append(tops, trendRpc2api(v))
 		}
 
-		fmt.Println("len:", tops)
 		resp.TopTrends = tops
 	}
 
@@ -106,6 +104,7 @@ func (l *GetUserTrendsLogic) GetUserTrends(req *types.GetUserTrendsRequest) (res
 
 	resp.Trends = list
 	resp.LastID = int(trend.PageInfo.LastId)
+	resp.LastTime = int(trend.PageInfo.LastTime)
 
 	return
 }

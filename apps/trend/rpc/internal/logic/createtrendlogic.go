@@ -95,10 +95,16 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 		}, errors.New("The image content is illegal")
 	}
 
-	// 发版 => 朋友圈：直接发
-	circleState := 2                                         //默认可见
-	if int(in.Scope) == int(trend.VisibilityScope_PRIVATE) { //朋友圈
-		circleState = 1
+	// 可见范围(前端语义)：1-仅自己，2-仅好友，3-所有人
+	// circle_state(朋友圈流可见状态)：1-可见，2-不可见
+	// 仅自己(1) 不进好友/朋友圈流；仅好友(2)、所有人(3) 进朋友圈流
+	scope := int(in.Scope)
+	if scope < 1 || scope > 3 {
+		scope = 2 // 容错：非法值默认仅好友
+	}
+	circleState := 1 // 默认进朋友圈
+	if scope == 1 {  // 仅自己
+		circleState = 2
 	}
 
 	var openReply int64
@@ -153,6 +159,7 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 		Createtime:    time.Now(),
 		Updatetime:    time.Now(),
 		CircleState:   int64(circleState),
+		Scope:         int64(scope),
 		State:         1,
 		Idlist:        atUserIdsStr,
 		OpenReply:     openReply,

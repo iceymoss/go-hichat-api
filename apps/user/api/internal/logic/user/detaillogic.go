@@ -49,6 +49,7 @@ func (l *DetailLogic) Detail(req *types.UserInfoReq) (resp *types.UserInfoResp, 
 		Region:       rpcUserInfoResp.User.Region,
 		Occupation:   rpcUserInfoResp.User.Occupation,
 		Tags:         rpcUserInfoResp.User.Tags,
+		MomentsCover: rpcUserInfoResp.User.MomentsCover,
 	}
 
 	return &types.UserInfoResp{Info: res}, nil

@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
         region: info.region,
         occupation: info.occupation,
         tags: info.tags,
+        momentsCover: info.moments_cover,
       },
     });
   } catch (error) {
