@@ -15,7 +15,11 @@ async function fetchFriendsForStore(token: string) {
     const json = await resp.json();
     const list = json?.list || json?.data?.list || [];
     const mapped = list.map((f: any) => ({
-      id: String(f.id || f.friend_uid || ''),
+      // friend_uid is the friend's USER id — the canonical key used everywhere
+      // (moments comments/likes/author look up friends by user id). f.id is the
+      // friendship row id; using it here misclassifies friends as strangers in
+      // the profile card. Keep friend_uid first.
+      id: String(f.friend_uid || f.id || ''),
       friend_uid: String(f.friend_uid || ''),
       name: f.nickname || f.remark || String(f.friend_uid || ''),
       remark: f.remark || '',

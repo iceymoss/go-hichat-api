@@ -45,6 +45,12 @@ interface IMState {
   // Lets us open detail for self / non-friends (not in the friends list).
   viewedProfile: Contact | null;
   openUserProfile: (uid: string) => void;
+  // Floating profile card overlay (does NOT navigate away — used from moments so
+  // closing the card returns to the exact trend underneath).
+  floatingProfile: Contact | null;
+  floatingProfileIsStranger: boolean;
+  showUserCard: (uid: string) => void;
+  closeUserCard: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   showChatDetail: boolean;
@@ -81,6 +87,14 @@ interface IMState {
   setFriends: (friends: Contact[]) => void;
   friendsVersion: number;
   invalidateFriends: () => void;
+}
+
+// ── Shared profile resolvers (used by openUserProfile + showUserCard) ──
+function meToContact(me: AuthUser): Contact {
+  return { id: me.id, name: me.name, nickname: me.name, avatar: me.avatar, pinyin: '', letter: '', gender: me.sex === 1 ? 'male' : me.sex === 2 ? 'female' : undefined, phone: me.phone, email: me.email || undefined, region: me.region, signature: me.introduction, introduction: me.introduction, occupation: me.occupation };
+}
+function searchUserToContact(u: { id: string | number; nickname?: string; avatar?: string; sex?: number; region?: string; introduction?: string; occupation?: string }, fallbackId: string): Contact {
+  return { id: String(u.id), name: u.nickname || fallbackId, nickname: u.nickname, avatar: u.avatar || '', pinyin: '', letter: '', gender: u.sex === 1 ? 'male' : u.sex === 2 ? 'female' : undefined, region: u.region, signature: u.introduction, introduction: u.introduction, occupation: u.occupation };
 }
 
 export const useIMStore = create<IMState>()(persist((set) => ({
@@ -130,7 +144,7 @@ export const useIMStore = create<IMState>()(persist((set) => ({
 
     const me = st.currentUser;
     if (me && uid === me.id) {
-      set({ viewedProfile: { id: me.id, name: me.name, nickname: me.name, avatar: me.avatar, pinyin: '', letter: '', gender: me.sex === 1 ? 'male' : me.sex === 2 ? 'female' : undefined, phone: me.phone, email: me.email || undefined, region: me.region, signature: me.introduction, introduction: me.introduction, occupation: me.occupation } });
+      set({ viewedProfile: meToContact(me) });
       return;
     }
 
@@ -142,12 +156,44 @@ export const useIMStore = create<IMState>()(persist((set) => ({
         .then(j => {
           const u = (j?.data?.users || j?.users || [])[0];
           if (u && useIMStore.getState().selectedContactId === uid) {
-            set({ viewedProfile: { id: String(u.id), name: u.nickname || uid, nickname: u.nickname, avatar: u.avatar || '', pinyin: '', letter: '', gender: u.sex === 1 ? 'male' : u.sex === 2 ? 'female' : undefined, region: u.region, signature: u.introduction, introduction: u.introduction, occupation: u.occupation } });
+            set({ viewedProfile: searchUserToContact(u, uid) });
           }
         })
         .catch(() => {});
     }
   },
+  floatingProfile: null,
+  floatingProfileIsStranger: false,
+  showUserCard: (uidRaw) => {
+    if (!uidRaw) return;
+    const st = useIMStore.getState();
+    const me = st.currentUser;
+    // Comment/like ids may be the literal 'me' — normalize to the real id.
+    const uid = (uidRaw === 'me' && me) ? me.id : uidRaw;
+
+    const friend = st.friends.find(f => f.id === uid);
+    if (friend) { set({ floatingProfile: friend, floatingProfileIsStranger: false }); return; }
+
+    if (me && uid === me.id) {
+      set({ floatingProfile: meToContact(me), floatingProfileIsStranger: false });
+      return;
+    }
+
+    // Non-friend: show a placeholder immediately, then refine via search.
+    set({ floatingProfile: { id: uid, name: uid, avatar: '', pinyin: '', letter: '' }, floatingProfileIsStranger: true });
+    if (me?.token) {
+      fetch(`/api/user/search?ids=${encodeURIComponent(uid)}`, { headers: { Authorization: `Bearer ${me.token}` } })
+        .then(r => r.json())
+        .then(j => {
+          const u = (j?.data?.users || j?.users || [])[0];
+          if (u && useIMStore.getState().floatingProfile?.id === uid) {
+            set({ floatingProfile: searchUserToContact(u, uid) });
+          }
+        })
+        .catch(() => {});
+    }
+  },
+  closeUserCard: () => set({ floatingProfile: null }),
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
   showChatDetail: false,

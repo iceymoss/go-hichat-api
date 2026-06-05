@@ -220,13 +220,14 @@ interface CommentItemProps {
 }
 
 function CommentItem({ comment, onReply, onDelete, depth = 0 }: CommentItemProps) {
+  const showUserCard = useIMStore(s => s.showUserCard);
   return (
     <div>
       <div className="flex items-start gap-2" style={{ padding: '4px 0' }}>
         <div style={{ fontSize: '12px', lineHeight: '1.6', flex: 1 }}>
-          <span style={{ color: '#3390EC', fontWeight: 600, cursor: 'pointer' }}>{comment.replyer.name}</span>
+          <span style={{ color: '#3390EC', fontWeight: 600, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{comment.replyer.name}</span>
           {comment.father !== 0 && comment.user && comment.user.id !== comment.replyer.id && (
-            <span> 回复 <span style={{ color: '#3390EC', fontWeight: 500 }}>{comment.user.name}</span></span>
+            <span> 回复 <span style={{ color: '#3390EC', fontWeight: 500, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.user.id); }}>{comment.user.name}</span></span>
           )}
           <span style={{ color: '#1C2733' }}>：{comment.content}</span>
         </div>
@@ -289,6 +290,7 @@ function TrendCard({
 }: TrendCardProps) {
   const [likeAnim, setLikeAnim] = useState(false);
   const [likeNamesExpanded, setLikeNamesExpanded] = useState(false);
+  const showUserCard = useIMStore(s => s.showUserCard);
   const userName = trendDisplayName(trend);
   const userAvatar = trend.userAvatar || '';
   const totalComments = trend.replyCount + (expanded ? comments.reduce((acc, c) => acc + 1 + (c.children?.length || 0), 0) - comments.reduce((acc, c) => acc, 0) : 0);
@@ -312,7 +314,7 @@ function TrendCard({
     return parts.map((part, i) => {
       if (part.startsWith('@')) {
         const atUser = trend.atUsers.find(u => `@${u.name}` === part);
-        return <span key={i} style={{ color: '#3390EC', cursor: 'pointer' }}>{atUser ? atUser.name : part}</span>;
+        return <span key={i} style={{ color: '#3390EC', cursor: 'pointer' }} onClick={(e) => { if (atUser) { e.stopPropagation(); showUserCard(atUser.id); } }}>{atUser ? atUser.name : part}</span>;
       }
       return <span key={i}>{part}</span>;
     });
@@ -513,6 +515,7 @@ function TrendCard({
                         {i > 0 && <span style={{ margin: '0 2px' }}>、</span>}
                         <span
                           style={{ color: '#3390EC', cursor: 'pointer' }}
+                          onClick={(e) => { e.stopPropagation(); showUserCard(u.id); }}
                           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.textDecoration = 'underline'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.textDecoration = 'none'; }}
                         >
@@ -791,6 +794,7 @@ function PublishModal({ open, onClose, onSubmit }: PublishModalProps) {
    ═══════════════════════════════════════ */
 
 function LikeListModal({ open, users, onClose }: { open: boolean; users: { id: string; name: string; avatar: string }[]; onClose: () => void }) {
+  const showUserCard = useIMStore(s => s.showUserCard);
   if (!open) return null;
   return (
     <div className="fixed inset-0" style={{ zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -810,7 +814,7 @@ function LikeListModal({ open, users, onClose }: { open: boolean; users: { id: s
             </div>
           ) : (
             users.map(user => (
-              <div key={user.id} className="flex items-center gap-3" style={{ padding: '8px 8px', borderRadius: 8, cursor: 'pointer' }} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.02)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+              <div key={user.id} className="flex items-center gap-3" style={{ padding: '8px 8px', borderRadius: 8, cursor: 'pointer' }} onClick={() => showUserCard(user.id)} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.02)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                 {avatarCircle(user.name, 36)}
                 <span style={{ fontSize: '14px', fontWeight: 500, color: '#1C2733' }}>{user.name}</span>
               </div>
@@ -1048,7 +1052,7 @@ type NotifTab = 'all' | 'reply' | 'like';
 
 export default function MomentsFeed() {
   const isMobile = useIsMobile();
-  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion, openUserProfile, updateCurrentUser } = useIMStore();
+  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion, showUserCard, updateCurrentUser } = useIMStore();
   const meName = meAuth?.name || '';
   const meAvatar = meAuth?.avatar || '';
   const meSignature = meAuth?.introduction || '';
@@ -1512,10 +1516,9 @@ export default function MomentsFeed() {
 
   // ── Navigation ──
   const handleAvatarClick = useCallback((userId: string, _userName?: string) => {
-    const uid = userId === 'me' ? meUserId : userId;
-    if (!uid) return;
-    openUserProfile(uid);
-  }, [meUserId, openUserProfile]);
+    if (!userId) return;
+    showUserCard(userId);
+  }, [showUserCard]);
 
   // Load user-trends when entering that view.
   useEffect(() => {
@@ -1653,7 +1656,7 @@ export default function MomentsFeed() {
           }}
         />
       </div>
-      <div className="absolute" style={{ bottom: -16, left: 12, cursor: 'pointer' }} onClick={() => meUserId && openUserProfile(meUserId)}>
+      <div className="absolute" style={{ bottom: -16, left: 12, cursor: 'pointer' }} onClick={() => meUserId && showUserCard(meUserId)}>
         {meAvatar ? (
           <img
             src={meAvatar}
@@ -1673,7 +1676,7 @@ export default function MomentsFeed() {
 
   const renderUserInfo = () => (
     <div style={{ padding: '20px 12px 10px' }}>
-      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', cursor: 'pointer', display: 'inline-block' }} onClick={() => meUserId && openUserProfile(meUserId)}>{meName}</h3>
+      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', cursor: 'pointer', display: 'inline-block' }} onClick={() => meUserId && showUserCard(meUserId)}>{meName}</h3>
       <p style={{ fontSize: '12px', color: '#708499', marginTop: 2 }}>{meSignature}</p>
     </div>
   );
@@ -1978,7 +1981,7 @@ export default function MomentsFeed() {
                   onSubmitComment={() => handleSubmitComment(trend.id, commentTexts[trend.id] || '', replyTargets[trend.id] || null)}
                   onDeleteComment={(c) => handleDeleteComment(trend.id, c)}
                   onOpenDetail={() => handleOpenDetail(trend.id)}
-                  onAvatarClick={() => {}}
+                  onAvatarClick={() => handleAvatarClick(trend.userId, trendDisplayName(trend))}
                   onManage={(x, y) => handleManageTrend(trend.id, x, y)}
                 />
               ))}
