@@ -151,7 +151,7 @@ type UpdateTrendRequest {
 	TrendId   uint32 `json:"trend_id"` // 动态id
 	IsTop     int32  `json:"is_top,optional"` // 设置置顶: 0否，1是
 	OpenReply int32  `json:"open_reply,optional"` // 是否开启评论区: 0否，1是
-	Scope     int32  `json:"scope,optional"` // 可见范围:2不可见，1可见
+	Scope     int32  `json:"scope,optional"` // 可见范围:1-仅自己,2-仅好友,3-所有人(0=不修改)
 }
 
 // 更新动态响应

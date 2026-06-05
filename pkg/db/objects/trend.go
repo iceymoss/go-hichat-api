@@ -18,6 +18,7 @@ type Trend struct {
 	Createtime    time.Time    `gorm:"column:createtime;type:DATETIME;not null;default:CURRENT_TIMESTAMP;index:idx_circle_time;index:idx_userid_circle,priority:2;comment:原始创建时间"`
 	Updatetime    time.Time    `gorm:"column:updatetime;type:DATETIME;not null;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;comment:最后更新时间"`
 	CircleState   int64        `gorm:"column:circle_state;type:BIGINT;not null;default:1;comment:朋友圈状态：2-不可见，1-可见，0-朋友圈删除"`
+	Scope         int64        `gorm:"column:scope;type:BIGINT;not null;default:2;comment:可见范围：1-仅自己，2-仅好友，3-所有人"`
 	State         int64        `gorm:"column:state;type:BIGINT;not null;default:0;comment:是否删除 0-删除，1-正常"`
 	IsAd          int64        `gorm:"column:is_ad;type:BIGINT;default:0;comment:是否广告：0-普通，1-广告"`
 	URL           string       `gorm:"column:url;type:VARCHAR(255);default:'';comment:广告/视频链接（类型5使用）"`

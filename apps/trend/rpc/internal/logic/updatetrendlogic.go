@@ -49,15 +49,18 @@ func (l *UpdateTrendLogic) UpdateTrend(in *trend.UpdateTrendRequest) (*trend.Upd
 		return nil, err
 	}
 
-	// 更新范围
-	isScope := 1
-	if in.Scope == 2 {
-		isScope = 2
-	}
-	err = l.svcCtx.Trend.SetCircleState(l.ctx, uint64(in.TrendId), isScope)
-	if err != nil {
-		zLog.Error("设置动态权限失败", zap.Error(err))
-		return nil, err
+	// 更新可见范围(1-仅自己,2-仅好友,3-所有人)。scope 为 0 表示本次不修改范围
+	scope := int(in.Scope)
+	if scope >= 1 && scope <= 3 {
+		circleState := 1 // 仅好友/所有人 进朋友圈流
+		if scope == 1 {  // 仅自己
+			circleState = 2
+		}
+		err = l.svcCtx.Trend.SetScope(l.ctx, uint64(in.TrendId), scope, circleState)
+		if err != nil {
+			zLog.Error("设置动态权限失败", zap.Error(err))
+			return nil, err
+		}
 	}
 
 	return &trend.UpdateTrendResponse{}, nil

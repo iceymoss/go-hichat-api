@@ -1322,7 +1322,7 @@ export default function MomentsFeed() {
       } : t));
       toast.error('点赞操作失败');
     });
-  }, [token, likedTrends, meName, meAvatar, trendAuthorBackendId]);
+  }, [token, likedTrends, meName, meAvatar, trendAuthorBackendId, trendVersions, bumpTrendVersion]);
 
   // Refetch the comment tree for a single trend, merging it into the map.
   const refreshCommentsFor = useCallback(async (trendId: number) => {

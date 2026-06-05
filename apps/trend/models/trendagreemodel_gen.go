@@ -277,7 +277,8 @@ func (m *defaultTrendAgreeModel) GetAgreeByTrendId(ctx context.Context, trendId 
 	var list []*TrendAgree
 	query := mysqlConn.Table(m.table).
 		Select(field).
-		Where("trend_id = ?", trendId)
+		Where("trend_id = ?", trendId).
+		Where("state = ?", 1) // 仅统计有效点赞(state=1)，取消点赞的记录(state=0)保留但不计入
 
 	var count int64
 	countQuery := query
