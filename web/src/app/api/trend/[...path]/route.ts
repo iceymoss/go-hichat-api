@@ -33,14 +33,19 @@ async function proxyToTrend(req: NextRequest, params: { path: string[] }) {
       Authorization: `Bearer ${token}`,
     };
 
-    let body: string | undefined;
+    let body: BodyInit | undefined;
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      try {
-        const json = await req.json();
-        body = JSON.stringify(json);
-        headers['Content-Type'] = 'application/json';
-      } catch {
-        // no body
+      const contentType = req.headers.get('content-type') || '';
+      if (contentType.includes('multipart/form-data')) {
+        body = await req.formData();
+      } else {
+        try {
+          const json = await req.json();
+          body = JSON.stringify(json);
+          headers['Content-Type'] = 'application/json';
+        } catch {
+          // no body
+        }
       }
     }
 

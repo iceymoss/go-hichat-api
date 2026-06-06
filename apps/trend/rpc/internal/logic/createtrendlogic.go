@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/models"
@@ -88,11 +90,11 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 		}, errors.New(fmt.Sprintf("动态标题或内容包含敏感词:%s", sensitiveWord))
 	}
 
-	// 图片检查
-	if !checkTrendPic(in.Resources) {
+	// 媒体资源检查。上传接口会做文件级安全校验，这里兜底校验数量和类型。
+	if !checkTrendResources(in.Type, in.Resources) {
 		return &trend.CreateTrendResponse{
 			Code: 3000,
-		}, errors.New("The image content is illegal")
+		}, errors.New("动态媒体资源不合法")
 	}
 
 	// 可见范围(前端语义)：1-仅自己，2-仅好友，3-所有人
@@ -190,7 +192,39 @@ func checkTrendContent(content string) (bool, string, error) {
 	return pass, sensitiveWord, nil
 }
 
-func checkTrendPic(urls []string) bool {
-	//TODO:
+func checkTrendResources(trendType trend.TrendType, urls []string) bool {
+	if len(urls) == 0 {
+		return true
+	}
+	switch trendType {
+	case trend.TrendType_MIXED:
+		if len(urls) > 9 {
+			return false
+		}
+		for _, url := range urls {
+			if !hasAllowedExt(url, []string{".jpg", ".jpeg", ".png", ".webp", ".gif"}) {
+				return false
+			}
+		}
+	case trend.TrendType_VIDEO:
+		if len(urls) != 1 {
+			return false
+		}
+		return hasAllowedExt(urls[0], []string{".mp4", ".mov", ".webm"})
+	}
 	return true
+}
+
+func hasAllowedExt(rawURL string, allowed []string) bool {
+	path := rawURL
+	if idx := strings.Index(path, "?"); idx >= 0 {
+		path = path[:idx]
+	}
+	ext := strings.ToLower(filepath.Ext(path))
+	for _, item := range allowed {
+		if ext == item {
+			return true
+		}
+	}
+	return false
 }

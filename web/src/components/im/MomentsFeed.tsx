@@ -58,6 +58,12 @@ import {
   markLikesRead,
   toggleLike as apiToggleLike,
   getBatchLikeSummary,
+  getTrendPublishConfig,
+  uploadTrendMedia,
+  getTrendDraft,
+  saveTrendDraft,
+  deleteTrendDraft,
+  type TrendPublishConfig,
   mapBackendTrend,
   commentTreeToMap,
   batchSummaryToLikeUsersMap,
@@ -606,6 +612,7 @@ function TrendCard({
 
 interface PublishModalProps {
   open: boolean;
+  token: string | null;
   onClose: () => void;
   onSubmit: (data: {
     type: number;
@@ -618,22 +625,130 @@ interface PublishModalProps {
   }) => void;
 }
 
-function PublishModal({ open, onClose, onSubmit }: PublishModalProps) {
+async function compressImageFile(file: File): Promise<File> {
+  if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new window.Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = imageUrl;
+    });
+    const maxSide = 1920;
+    const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+    const width = Math.max(1, Math.round(img.width * scale));
+    const height = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', 0.82));
+    if (!blob || blob.size >= file.size) return file;
+    const name = file.name.replace(/\.[^.]+$/, '.webp');
+    return new File([blob], name, { type: 'image/webp', lastModified: Date.now() });
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
   const [type, setType] = useState<number>(1);
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
-  const [imageInput, setImageInput] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [config, setConfig] = useState<TrendPublishConfig | null>(null);
+  const [draftId, setDraftId] = useState<number | undefined>();
+  const [dragMediaIndex, setDragMediaIndex] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [shareUrl, setShareUrl] = useState('');
   const [location, setLocation] = useState('');
   const [scope, setScope] = useState<number>(3);
 
+  useEffect(() => {
+    if (!open || !token) return;
+    getTrendPublishConfig(token).then(r => {
+      if (r.success && r.data) setConfig(r.data);
+    }).catch(() => undefined);
+  }, [open, token]);
+
+  useEffect(() => {
+    if (!open || !token) return;
+    getTrendDraft(token).then(r => {
+      const draft = r.data?.draft;
+      if (!r.success || !draft || content || images.length > 0) return;
+      setDraftId(draft.id);
+      setType(draft.type || 1);
+      setContent(draft.content || '');
+      setTitle(draft.title || '');
+      setImages(draft.resources || []);
+      setShareUrl(draft.share_url || '');
+      setLocation(draft.position_name || '');
+      setScope(draft.scope || 3);
+    }).catch(() => undefined);
+  }, [open, token]);
+
+  useEffect(() => {
+    if (!open || !token) return;
+    const hasDraft = content.trim() || title.trim() || images.length > 0 || shareUrl.trim() || location.trim();
+    if (!hasDraft) return;
+    const timer = window.setTimeout(() => {
+      saveTrendDraft(token, {
+        id: draftId,
+        type,
+        content,
+        title,
+        resources: images,
+        share_url: shareUrl,
+        position_name: location,
+        scope,
+        open_reply: 1,
+      }).then(r => {
+        if (r.success && r.data?.draft?.id) setDraftId(r.data.draft.id);
+      }).catch(() => undefined);
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [open, token, draftId, type, content, title, images, shareUrl, location, scope]);
+
   if (!open) return null;
 
-  const handleAddImage = () => {
-    if (imageInput.trim()) {
-      setImages(prev => [...prev, imageInput.trim()]);
-      setImageInput('');
+  const maxMediaCount = type === 5 ? (config?.max_video_count || 1) : (config?.max_image_count || 9);
+
+  const handleFiles = async (files: FileList | File[]) => {
+    if (!token) {
+      toast.error('请先登录');
+      return;
+    }
+    const nextFiles = Array.from(files);
+    if (nextFiles.length === 0) return;
+    const allowed = Math.max(0, maxMediaCount - images.length);
+    if (allowed <= 0) {
+      toast.error(`最多只能上传 ${maxMediaCount} 个媒体文件`);
+      return;
+    }
+    const picked = nextFiles.slice(0, allowed);
+    if (picked.length < nextFiles.length) toast.warning(`最多只能上传 ${maxMediaCount} 个媒体文件，已忽略超出部分`);
+
+    setUploading(true);
+    try {
+      const urls: string[] = [];
+      for (const file of picked) {
+        const uploadFile = config?.image_compression_enabled && file.type.startsWith('image/')
+          ? await compressImageFile(file).catch(() => file)
+          : file;
+        const r = await uploadTrendMedia(token, uploadFile);
+        if (!r.success || !r.data?.url) throw new Error(r.message || '上传失败');
+        urls.push(r.data.url);
+      }
+      setImages(prev => [...prev, ...urls]);
+      toast.success('媒体上传成功');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '上传失败，请重试');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -641,9 +756,30 @@ function PublishModal({ open, onClose, onSubmit }: PublishModalProps) {
     setImages(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const moveImage = (from: number, to: number) => {
+    setImages(prev => {
+      const next = [...prev];
+      if (from < 0 || to < 0 || from >= next.length || to >= next.length || from === to) return prev;
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
+
+  const requestClose = () => {
+    if (uploading) return;
+    const hasDraft = content.trim() || title.trim() || images.length > 0 || shareUrl.trim() || location.trim();
+    if (hasDraft && !window.confirm('当前动态还没有发布，关闭后会保留草稿，确定关闭吗？')) return;
+    onClose();
+  };
+
   const handleSubmit = () => {
-    if (type !== 4 && !content.trim()) {
-      toast.error('请输入内容');
+    if (uploading) {
+      toast.error('媒体上传中，请稍候');
+      return;
+    }
+    if (type !== 4 && !content.trim() && images.length === 0) {
+      toast.error(type === 1 ? '请输入内容' : '请输入内容或上传媒体');
       return;
     }
     if (type === 3 && !title.trim()) {
@@ -655,10 +791,11 @@ function PublishModal({ open, onClose, onSubmit }: PublishModalProps) {
       return;
     }
     onSubmit({ type, content: content.trim(), title: title.trim(), images, shareUrl: shareUrl.trim(), location: location.trim(), scope });
+    if (token && draftId) deleteTrendDraft(token, draftId).catch(() => undefined);
     // Reset
+    setDraftId(undefined);
     setContent('');
     setTitle('');
-    setImageInput('');
     setImages([]);
     setShareUrl('');
     setLocation('');
@@ -667,20 +804,21 @@ function PublishModal({ open, onClose, onSubmit }: PublishModalProps) {
   };
 
   return (
-    <div className="fixed inset-0" style={{ zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="fixed inset-0" style={{ zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}>
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
       <div className="relative" style={{ background: '#FFF', borderRadius: '16px', width: '92%', maxWidth: '480px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
         {/* Header */}
         <div className="flex items-center justify-between shrink-0" style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={requestClose} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: uploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X className="w-5 h-5" />
           </button>
           <span style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>发布动态</span>
           <button
             onClick={handleSubmit}
-            style={{ padding: '6px 16px', borderRadius: '16px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+            disabled={uploading}
+            style={{ padding: '6px 16px', borderRadius: '16px', border: 'none', background: uploading ? '#A2ACB5' : '#3390EC', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: uploading ? 'not-allowed' : 'pointer' }}
           >
-            发布
+            {uploading ? '上传中' : '发布'}
           </button>
         </div>
 
@@ -726,21 +864,59 @@ function PublishModal({ open, onClose, onSubmit }: PublishModalProps) {
             </div>
           )}
 
-          {/* Image URLs (type 2 or 5) */}
+          {/* Media upload (type 2 or 5) */}
           {(type === 2 || type === 5) && (
             <div style={{ marginBottom: 12 }}>
-              <div className="flex items-center gap-2 mb-2">
-                <input value={imageInput} onChange={(e) => setImageInput(e.target.value)} placeholder="输入图片URL" style={{ ...inputStyle, flex: 1 }} onKeyDown={(e) => { if (e.key === 'Enter') handleAddImage(); }} onFocus={focusInput} onBlur={blurInput} />
-                <button onClick={handleAddImage} style={{ padding: '8px 14px', borderRadius: '10px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>添加</button>
-              </div>
+              {images.length < maxMediaCount ? (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={type === 5 ? 'video/*' : 'image/*'}
+                    multiple={type !== 5}
+                    className="hidden"
+                    onChange={(e) => { if (e.target.files) handleFiles(e.target.files); e.currentTarget.value = ''; }}
+                  />
+                  <div
+                    className="flex flex-col items-center justify-center gap-2"
+                    style={{ border: '1.5px dashed rgba(51,144,236,0.35)', borderRadius: 12, padding: '18px 12px', background: 'rgba(51,144,236,0.04)', cursor: 'pointer', marginBottom: 10 }}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); }}
+                    onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
+                  >
+                    <ImagePlus className="w-7 h-7" style={{ color: '#3390EC' }} />
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#1C2733' }}>{type === 5 ? '选择或拖拽视频' : '选择或拖拽图片'}</div>
+                    <div style={{ fontSize: '12px', color: '#708499' }}>{type === 5 ? '视频限制由系统配置控制' : `最多 ${maxMediaCount} 张，单张默认 ${config?.max_image_size_mb || 50}MB`}</div>
+                    {uploading && <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#3390EC' }} />}
+                  </div>
+                </>
+              ) : (
+                <div style={{ borderRadius: 10, padding: '10px 12px', background: 'rgba(245,166,35,0.08)', color: '#A06400', fontSize: 12, marginBottom: 10 }}>
+                  已达到最多 {maxMediaCount} 张，删除图片后可继续添加
+                </div>
+              )}
               {images.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="grid grid-cols-3 gap-2">
                   {images.map((img, idx) => (
-                    <div key={idx} className="relative" style={{ width: 60, height: 60, borderRadius: 8, overflow: 'hidden' }}>
-                      <img src={img} alt="" className="w-full h-full object-cover" />
-                      <button onClick={() => handleRemoveImage(idx)} className="absolute" style={{ top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>
-                        <X className="w-3 h-3" />
+                    <div
+                      key={img}
+                      draggable
+                      className="relative"
+                      style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden', background: '#E8EDEF', cursor: 'grab', opacity: dragMediaIndex === idx ? 0.55 : 1 }}
+                      onDragStart={() => setDragMediaIndex(idx)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => { e.preventDefault(); if (dragMediaIndex !== null) moveImage(dragMediaIndex, idx); setDragMediaIndex(null); }}
+                      onDragEnd={() => setDragMediaIndex(null)}
+                    >
+                      {type === 5 ? (
+                        <div className="w-full h-full flex items-center justify-center" style={{ color: '#708499' }}><Video className="w-7 h-7" /></div>
+                      ) : (
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                      )}
+                      <button onClick={() => handleRemoveImage(idx)} className="absolute" style={{ top: 5, right: 5, width: 24, height: 24, borderRadius: '50%', background: '#E53935', border: '2px solid #FFF', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>
+                        <X className="w-4 h-4" strokeWidth={3} />
                       </button>
+                      <div className="absolute" style={{ left: 4, bottom: 4, borderRadius: 999, background: 'rgba(0,0,0,0.45)', color: '#FFF', fontSize: 10, padding: '1px 6px' }}>拖动排序</div>
                     </div>
                   ))}
                 </div>
@@ -1768,7 +1944,7 @@ export default function MomentsFeed() {
         </button>
 
         {/* Modals */}
-        <PublishModal open={showPublish} onClose={() => setShowPublish(false)} onSubmit={handlePublish} />
+        <PublishModal open={showPublish} token={token} onClose={() => setShowPublish(false)} onSubmit={handlePublish} />
         <TrendDetailModal
           open={!!detailTrendId}
           trend={detailTrend}
@@ -1998,7 +2174,7 @@ export default function MomentsFeed() {
         </div>
 
         {/* Modals */}
-        <PublishModal open={showPublish} onClose={() => setShowPublish(false)} onSubmit={handlePublish} />
+        <PublishModal open={showPublish} token={token} onClose={() => setShowPublish(false)} onSubmit={handlePublish} />
         <TrendDetailModal
           open={!!detailTrendId}
           trend={detailTrend}

@@ -116,6 +116,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: trend.CreateTrendHandler(serverCtx),
 			},
 			{
+				// 获取动态发布配置
+				Method:  http.MethodGet,
+				Path:    "/trend/config",
+				Handler: trend.GetTrendPublishConfigHandler(serverCtx),
+			},
+			{
 				// 删除动态
 				Method:  http.MethodPost,
 				Path:    "/trend/delete",
@@ -126,6 +132,30 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodGet,
 				Path:    "/trend/detail",
 				Handler: trend.GetTrendDetailHandler(serverCtx),
+			},
+			{
+				// 保存动态草稿
+				Method:  http.MethodPost,
+				Path:    "/trend/draft",
+				Handler: trend.SaveTrendDraftHandler(serverCtx),
+			},
+			{
+				// 获取动态草稿
+				Method:  http.MethodGet,
+				Path:    "/trend/draft",
+				Handler: trend.GetTrendDraftHandler(serverCtx),
+			},
+			{
+				// 删除动态草稿
+				Method:  http.MethodDelete,
+				Path:    "/trend/draft",
+				Handler: trend.DeleteTrendDraftHandler(serverCtx),
+			},
+			{
+				// 上传动态媒体
+				Method:  http.MethodPost,
+				Path:    "/trend/media/upload",
+				Handler: trend.UploadTrendMediaHandler(serverCtx),
 			},
 			{
 				// 更新动态内容

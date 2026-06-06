@@ -444,6 +444,51 @@ message BatchTrendLikeSummaryResponse {
   map<uint32, TrendLikeSummary> summaries = 1; // key=trend_id
 }
 
+message TrendDraft {
+  uint64 id = 1;
+  uint64 user_id = 2;
+  int32 type = 3;
+  string content = 4;
+  string title = 5;
+  repeated string resources = 6;
+  string cover_url = 7;
+  string share_url = 8;
+  string position_name = 9;
+  double longitude = 10;
+  double latitude = 11;
+  int32 scope = 12;
+  int32 open_reply = 13;
+  int32 state = 14;
+  int64 create_time = 15;
+  int64 update_time = 16;
+}
+
+message SaveTrendDraftRequest {
+  TrendDraft draft = 1;
+}
+
+message SaveTrendDraftResponse {
+  TrendDraft draft = 1;
+}
+
+message GetTrendDraftRequest {
+  uint64 user_id = 1;
+  uint64 draft_id = 2;
+}
+
+message GetTrendDraftResponse {
+  TrendDraft draft = 1;
+}
+
+message DeleteTrendDraftRequest {
+  uint64 user_id = 1;
+  uint64 draft_id = 2;
+}
+
+message DeleteTrendDraftResponse {
+  bool success = 1;
+}
+
 // 动态服务接口定义
 service TrendService {
   // 发布动态
@@ -513,4 +558,13 @@ service TrendService {
 
   // 标记点赞为已读
   rpc MarkLikesRead(MarkLikesReadRequest) returns (MarkLikesReadResponse);
+
+  // 保存动态草稿
+  rpc SaveTrendDraft(SaveTrendDraftRequest) returns (SaveTrendDraftResponse);
+
+  // 获取动态草稿
+  rpc GetTrendDraft(GetTrendDraftRequest) returns (GetTrendDraftResponse);
+
+  // 删除动态草稿
+  rpc DeleteTrendDraft(DeleteTrendDraftRequest) returns (DeleteTrendDraftResponse);
 }

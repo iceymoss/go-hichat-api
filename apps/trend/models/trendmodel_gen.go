@@ -388,7 +388,7 @@ func (m *defaultTrendModel) Update(ctx context.Context, data *Trend) error {
 	}
 
 	if res.RowsAffected == 0 {
-		return errors.New(fmt.Sprintf("update failed id: %s", data.Id))
+		return errors.New(fmt.Sprintf("update failed id: %d", data.Id))
 	}
 
 	return nil
