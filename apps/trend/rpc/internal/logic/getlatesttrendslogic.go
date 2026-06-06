@@ -44,7 +44,10 @@ func (l *GetLatestTrendsLogic) GetLatestTrends(in *trend.GetLatestTrendsRequest)
 
 	trendList := make([]*trend.Trend, 0, len(*list))
 	for _, v := range *list {
-		trendList = append(trendList, trendToResp(v))
+		item := trendToResp(v)
+		// 公共朋友圈只按时间流展示；个人主页置顶通过 GetUserTopTrend 单独返回。
+		item.IsTop = 0
+		trendList = append(trendList, item)
 	}
 
 	// TODO: 获取评论和点赞数据

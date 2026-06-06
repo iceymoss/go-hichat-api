@@ -41,6 +41,26 @@ service trend {
 	@doc "获取用户个人动态"
 	@handler getUserTrends
 	get /user/trends (GetUserTrendsRequest) returns (GetUserTrendsResponse)
+
+	@doc "获取动态发布配置"
+	@handler getTrendPublishConfig
+	get /trend/config returns (TrendPublishConfigResponse)
+
+	@doc "上传动态媒体"
+	@handler uploadTrendMedia
+	post /trend/media/upload returns (UploadTrendMediaResponse)
+
+	@doc "保存动态草稿"
+	@handler saveTrendDraft
+	post /trend/draft (SaveTrendDraftRequest) returns (SaveTrendDraftResponse)
+
+	@doc "获取动态草稿"
+	@handler getTrendDraft
+	get /trend/draft (GetTrendDraftRequest) returns (GetTrendDraftResponse)
+
+	@doc "删除动态草稿"
+	@handler deleteTrendDraft
+	delete /trend/draft (DeleteTrendDraftRequest) returns (DeleteTrendDraftResponse)
 }
 
 // ===== 评论服务 =====
@@ -239,6 +259,73 @@ type GetUserTrendsResponse {
 	TopTrends []*Trend `json:"top_list"`
 	LastID    int      `json:"last_id"`
 	LastTime  int      `json:"last_time"`
+}
+
+type TrendPublishConfigResponse {
+	MaxImageCount          int      `json:"max_image_count"`
+	MaxImageSizeMB         int      `json:"max_image_size_mb"`
+	AllowedImageTypes      []string `json:"allowed_image_types"`
+	MaxVideoCount          int      `json:"max_video_count"`
+	MaxVideoSizeMB         int      `json:"max_video_size_mb"`
+	MaxVideoDurationSec    int      `json:"max_video_duration_sec"`
+	AllowedVideoTypes      []string `json:"allowed_video_types"`
+	ImageCompressionEnable bool     `json:"image_compression_enabled"`
+	VideoCompressionEnable bool     `json:"video_compression_enabled"`
+	MediaReviewEnable      bool     `json:"media_review_enabled"`
+}
+
+type UploadTrendMediaResponse {
+	Url         string `json:"url"`
+	Name        string `json:"name"`
+	Size        int64  `json:"size"`
+	FileType    string `json:"file_type"`
+	ContentType string `json:"content_type"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
+	Duration    int    `json:"duration"`
+	CoverUrl    string `json:"cover_url"`
+}
+
+type TrendDraft {
+	Id           uint64   `json:"id,optional"`
+	Type         int32    `json:"type"`
+	Content      string   `json:"content,optional"`
+	Title        string   `json:"title,optional"`
+	Resources    []string `json:"resources,optional"`
+	CoverUrl     string   `json:"cover_url,optional"`
+	ShareUrl     string   `json:"share_url,optional"`
+	PositionName string   `json:"position_name,optional"`
+	Longitude    float64  `json:"longitude,optional"`
+	Latitude     float64  `json:"latitude,optional"`
+	Scope        int32    `json:"scope"`
+	OpenReply    int32    `json:"open_reply"`
+	State        int32    `json:"state,optional"`
+	CreateTime   int64    `json:"create_time,optional"`
+	UpdateTime   int64    `json:"update_time,optional"`
+}
+
+type SaveTrendDraftRequest {
+	Draft *TrendDraft `json:"draft"`
+}
+
+type SaveTrendDraftResponse {
+	Draft *TrendDraft `json:"draft"`
+}
+
+type GetTrendDraftRequest {
+	DraftId uint64 `json:"draft_id,optional"`
+}
+
+type GetTrendDraftResponse {
+	Draft *TrendDraft `json:"draft"`
+}
+
+type DeleteTrendDraftRequest {
+	DraftId uint64 `json:"draft_id"`
+}
+
+type DeleteTrendDraftResponse {
+	Success bool `json:"success"`
 }
 
 type Discuss {
@@ -444,4 +531,3 @@ type MarkLikesReadRequest {
 
 // 标记点赞已读响应
 type MarkLikesReadResponse {}
-

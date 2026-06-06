@@ -90,6 +90,9 @@ func (l *GetTrendDetailLogic) GetTrendDetail(req *types.GetTrendDetailRequest) (
 	}
 
 	detail := trendRpc2api(trendDetail.Trend)
+	if authorID != currentUID {
+		detail.IsTop = 0
+	}
 	for _, v := range userInfo.User {
 		if v.Id == authorID {
 			detail.User = &types.User{

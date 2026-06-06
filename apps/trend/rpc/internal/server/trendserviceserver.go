@@ -154,3 +154,21 @@ func (s *TrendServiceServer) MarkLikesRead(ctx context.Context, in *trend.MarkLi
 	l := logic.NewMarkLikesReadLogic(ctx, s.svcCtx)
 	return l.MarkLikesRead(in)
 }
+
+// 保存动态草稿
+func (s *TrendServiceServer) SaveTrendDraft(ctx context.Context, in *trend.SaveTrendDraftRequest) (*trend.SaveTrendDraftResponse, error) {
+	l := logic.NewSaveTrendDraftLogic(ctx, s.svcCtx)
+	return l.SaveTrendDraft(in)
+}
+
+// 获取动态草稿
+func (s *TrendServiceServer) GetTrendDraft(ctx context.Context, in *trend.GetTrendDraftRequest) (*trend.GetTrendDraftResponse, error) {
+	l := logic.NewGetTrendDraftLogic(ctx, s.svcCtx)
+	return l.GetTrendDraft(in)
+}
+
+// 删除动态草稿
+func (s *TrendServiceServer) DeleteTrendDraft(ctx context.Context, in *trend.DeleteTrendDraftRequest) (*trend.DeleteTrendDraftResponse, error) {
+	l := logic.NewDeleteTrendDraftLogic(ctx, s.svcCtx)
+	return l.DeleteTrendDraft(in)
+}

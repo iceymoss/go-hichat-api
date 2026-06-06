@@ -68,6 +68,46 @@ export interface ApiEnvelope<T> {
   message?: string;
 }
 
+export interface TrendPublishConfig {
+  max_image_count: number;
+  max_image_size_mb: number;
+  allowed_image_types: string[];
+  max_video_count: number;
+  max_video_size_mb: number;
+  max_video_duration_sec: number;
+  allowed_video_types: string[];
+  image_compression_enabled: boolean;
+  video_compression_enabled: boolean;
+  media_review_enabled: boolean;
+}
+
+export interface UploadedTrendMedia {
+  url: string;
+  name: string;
+  size: number;
+  file_type: 'image' | 'video';
+  content_type: string;
+  width: number;
+  height: number;
+  duration: number;
+  cover_url: string;
+}
+
+export interface TrendDraftPayload {
+  id?: number;
+  type: number;
+  content?: string;
+  title?: string;
+  resources?: string[];
+  cover_url?: string;
+  share_url?: string;
+  position_name?: string;
+  longitude?: number;
+  latitude?: number;
+  scope: number;
+  open_reply: number;
+}
+
 /* ──────────────────────────────────────────────────────────────
    HTTP helpers
    ────────────────────────────────────────────────────────────── */
@@ -207,6 +247,46 @@ export function updateTrend(token: string, body: UpdateTrendPayload) {
 
 export function getTrendDetail(token: string, trendId: number) {
   return send<{ trend: BackendTrend }>('GET', `trend/detail${buildQuery({ trend_id: trendId })}`, token);
+}
+
+export function getTrendPublishConfig(token: string) {
+  return send<TrendPublishConfig>('GET', 'trend/config', token);
+}
+
+export async function uploadTrendMedia(token: string, file: File): Promise<ApiEnvelope<UploadedTrendMedia>> {
+  const form = new FormData();
+  form.set('file', file);
+  const res = await fetch('/api/trend/trend/media/upload', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  try {
+    return (await res.json()) as ApiEnvelope<UploadedTrendMedia>;
+  } catch {
+    return { success: false, message: '解析响应失败' };
+  }
+}
+
+export function saveTrendDraft(token: string, draft: TrendDraftPayload) {
+  return send<{ draft: TrendDraftPayload & { id: number; create_time: number; update_time: number } }>(
+    'POST',
+    'trend/draft',
+    token,
+    { draft },
+  );
+}
+
+export function getTrendDraft(token: string, draftId?: number) {
+  return send<{ draft: (TrendDraftPayload & { id: number; create_time: number; update_time: number }) | null }>(
+    'GET',
+    `trend/draft${buildQuery({ draft_id: draftId })}`,
+    token,
+  );
+}
+
+export function deleteTrendDraft(token: string, draftId: number) {
+  return send<{ success: boolean }>('DELETE', 'trend/draft', token, { draft_id: draftId });
 }
 
 export interface LatestTrendsResp {

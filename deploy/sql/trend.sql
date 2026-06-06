@@ -28,3 +28,25 @@ CREATE TABLE trend (
                        INDEX idx_userid_circle (userid, updatetime) COMMENT '用户朋友圈动态索引',
                        INDEX idx_circle_time (createtime) COMMENT '朋友圈时间排序索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='社交动态表（朋友圈）';
+
+CREATE TABLE trend_drafts (
+                              id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '动态草稿ID',
+                              user_id BIGINT UNSIGNED NOT NULL COMMENT '草稿所属用户ID',
+                              type TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '动态类型：1文本，2混合(图片)，3长文，4第三方分享，5视频',
+                              content TEXT COMMENT '动态内容',
+                              title VARCHAR(255) DEFAULT '' COMMENT '长文标题',
+                              resources TEXT COMMENT '媒体资源JSON数组',
+                              cover_url VARCHAR(255) DEFAULT '' COMMENT '封面图URL',
+                              share_url VARCHAR(255) DEFAULT '' COMMENT '第三方内容URL',
+                              position_name VARCHAR(255) DEFAULT '' COMMENT '位置名称',
+                              longitude DOUBLE DEFAULT 0 COMMENT '经度',
+                              latitude DOUBLE DEFAULT 0 COMMENT '纬度',
+                              scope TINYINT UNSIGNED NOT NULL DEFAULT 2 COMMENT '可见范围：1仅自己，2仅好友，3所有人',
+                              open_reply TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '是否开启评论：0关闭，1开启',
+                              state TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '草稿状态：0删除，1正常，2已发布',
+                              created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                              updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+
+                              PRIMARY KEY (id),
+                              INDEX idx_user_state_updated (user_id, state, updated_at) COMMENT '用户草稿查询索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='动态草稿表';

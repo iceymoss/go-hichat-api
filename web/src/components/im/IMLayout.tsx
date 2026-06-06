@@ -8,6 +8,7 @@ import { ChatListProvider, ChatListToolbar, ChatListContent } from './ChatList';
 import ChatDetail from './ChatDetail';
 import ContactList from './ContactList';
 import ContactDetailPanel from './ContactDetailPanel';
+import FloatingProfileCard from './FloatingProfileCard';
 import FriendRequestList from './FriendRequestList';
 import GroupList from './GroupList';
 import MomentsFeed from './MomentsFeed';
@@ -20,6 +21,7 @@ import EmojisPage from './EmojisPage';
 import SettingsPage from './SettingsPage';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from 'sonner';
 import {
   MessageCircle,
   Users,
@@ -37,7 +39,7 @@ const navItems: { tab: TabType; icon: React.ReactNode }[] = [
 ];
 
 export default function IMLayout() {
-  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile } = useIMStore();
+  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, setSelectedConversationId, setShowChatDetail } = useIMStore();
   const chatConversations = useChatStore(s => s.conversations);
 
   // Resolve selected contact for detail panel from store friends, falling back
@@ -121,6 +123,31 @@ export default function IMLayout() {
       )}
     </div>
   );
+
+  /* ── Floating user profile card (opened from moments; overlays everything,
+        closing returns to the exact trend underneath) ── */
+  const floatingCard = floatingProfile ? (
+    <FloatingProfileCard
+      contact={floatingProfile}
+      isStranger={floatingProfileIsStranger}
+      zIndex={10020}
+      onClose={closeUserCard}
+      onSendMessage={async () => {
+        if (!currentUser?.token || !currentUser?.id) return;
+        try {
+          const conv = await useChatStore.getState().getOrCreateConversation(currentUser.token, currentUser.id, floatingProfile.id);
+          closeUserCard();
+          setActiveTab('chats');
+          setSelectedConversationId(conv.id);
+          setShowChatDetail(true);
+        } catch {
+          toast.error('打开会话失败');
+        }
+      }}
+      onAddFriend={floatingProfileIsStranger ? () => { toast('请在通讯录中搜索添加好友'); closeUserCard(); } : undefined}
+      onViewProfile={() => { const id = floatingProfile.id; closeUserCard(); openUserProfile(id); }}
+    />
+  ) : null;
 
   /* ═══════════════════════════════════════
      MOBILE LAYOUT
@@ -210,6 +237,7 @@ export default function IMLayout() {
             );
           })}
         </nav>
+        {floatingCard}
       </div>
     );
   }
@@ -410,6 +438,7 @@ export default function IMLayout() {
           <SettingsPage onBack={() => setMeSubPage(null)} />
         </div>
       )}
+      {floatingCard}
     </div>
   );
 }

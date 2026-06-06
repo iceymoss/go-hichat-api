@@ -22,6 +22,8 @@ type (
 	CreateTrendResponse           = trend.CreateTrendResponse
 	DeleteDiscussReq              = trend.DeleteDiscussReq
 	DeleteDiscussResp             = trend.DeleteDiscussResp
+	DeleteTrendDraftRequest       = trend.DeleteTrendDraftRequest
+	DeleteTrendDraftResponse      = trend.DeleteTrendDraftResponse
 	DeleteTrendRequest            = trend.DeleteTrendRequest
 	DeleteTrendResponse           = trend.DeleteTrendResponse
 	Discuss                       = trend.Discuss
@@ -38,6 +40,8 @@ type (
 	GetLikedUsersResponse         = trend.GetLikedUsersResponse
 	GetTrendDetailRequest         = trend.GetTrendDetailRequest
 	GetTrendDetailResponse        = trend.GetTrendDetailResponse
+	GetTrendDraftRequest          = trend.GetTrendDraftRequest
+	GetTrendDraftResponse         = trend.GetTrendDraftResponse
 	GetTrendLikeSummaryRequest    = trend.GetTrendLikeSummaryRequest
 	GetTrendLikeSummaryResponse   = trend.GetTrendLikeSummaryResponse
 	GetUnreadLikesRequest         = trend.GetUnreadLikesRequest
@@ -60,8 +64,11 @@ type (
 	Point                         = trend.Point
 	RepliesListResp               = trend.RepliesListResp
 	Resource                      = trend.Resource
+	SaveTrendDraftRequest         = trend.SaveTrendDraftRequest
+	SaveTrendDraftResponse        = trend.SaveTrendDraftResponse
 	Trend                         = trend.Trend
 	TrendDiscusses                = trend.TrendDiscusses
+	TrendDraft                    = trend.TrendDraft
 	TrendLikeSummary              = trend.TrendLikeSummary
 	UpdateTrendRequest            = trend.UpdateTrendRequest
 	UpdateTrendResponse           = trend.UpdateTrendResponse
@@ -111,6 +118,12 @@ type (
 		GetUnreadLikes(ctx context.Context, in *GetUnreadLikesRequest, opts ...grpc.CallOption) (*GetUnreadLikesResponse, error)
 		// 标记点赞为已读
 		MarkLikesRead(ctx context.Context, in *MarkLikesReadRequest, opts ...grpc.CallOption) (*MarkLikesReadResponse, error)
+		// 保存动态草稿
+		SaveTrendDraft(ctx context.Context, in *SaveTrendDraftRequest, opts ...grpc.CallOption) (*SaveTrendDraftResponse, error)
+		// 获取动态草稿
+		GetTrendDraft(ctx context.Context, in *GetTrendDraftRequest, opts ...grpc.CallOption) (*GetTrendDraftResponse, error)
+		// 删除动态草稿
+		DeleteTrendDraft(ctx context.Context, in *DeleteTrendDraftRequest, opts ...grpc.CallOption) (*DeleteTrendDraftResponse, error)
 	}
 
 	defaultTrendService struct {
@@ -254,4 +267,22 @@ func (m *defaultTrendService) GetUnreadLikes(ctx context.Context, in *GetUnreadL
 func (m *defaultTrendService) MarkLikesRead(ctx context.Context, in *MarkLikesReadRequest, opts ...grpc.CallOption) (*MarkLikesReadResponse, error) {
 	client := trend.NewTrendServiceClient(m.cli.Conn())
 	return client.MarkLikesRead(ctx, in, opts...)
+}
+
+// 保存动态草稿
+func (m *defaultTrendService) SaveTrendDraft(ctx context.Context, in *SaveTrendDraftRequest, opts ...grpc.CallOption) (*SaveTrendDraftResponse, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.SaveTrendDraft(ctx, in, opts...)
+}
+
+// 获取动态草稿
+func (m *defaultTrendService) GetTrendDraft(ctx context.Context, in *GetTrendDraftRequest, opts ...grpc.CallOption) (*GetTrendDraftResponse, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.GetTrendDraft(ctx, in, opts...)
+}
+
+// 删除动态草稿
+func (m *defaultTrendService) DeleteTrendDraft(ctx context.Context, in *DeleteTrendDraftRequest, opts ...grpc.CallOption) (*DeleteTrendDraftResponse, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.DeleteTrendDraft(ctx, in, opts...)
 }

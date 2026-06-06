@@ -4,13 +4,16 @@ import React, { useEffect, useCallback } from 'react';
 import { type Contact } from '@/lib/mock-data';
 import { toast } from 'sonner';
 import UserProfileCard from './UserProfileCard';
-import { X } from 'lucide-react';
+import { X, User } from 'lucide-react';
 
 interface FloatingProfileCardProps {
   contact: Contact;
   isStranger?: boolean;
   isBlocked?: boolean;
+  zIndex?: number;
   onClose: () => void;
+  /** Optional: jump to the full contact detail page (contacts tab). Renders a footer entry. */
+  onViewProfile?: () => void;
   onSendMessage?: () => void;
   onVoiceCall?: () => void;
   onVideoCall?: () => void;
@@ -26,7 +29,9 @@ export default function FloatingProfileCard({
   contact,
   isStranger = false,
   isBlocked = false,
+  zIndex = 9998,
   onClose,
+  onViewProfile,
   onSendMessage,
   onVoiceCall,
   onVideoCall,
@@ -88,7 +93,7 @@ export default function FloatingProfileCard({
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 9998,
+        zIndex: zIndex,
         background: 'rgba(0,0,0,0.4)',
         display: 'flex',
         alignItems: 'center',
@@ -156,6 +161,34 @@ export default function FloatingProfileCard({
           onReport={onReport || handleReport}
           onDeleteFriend={onDeleteFriend || handleDeleteFriend}
         />
+
+        {onViewProfile && (
+          <button
+            onClick={onViewProfile}
+            style={{
+              marginTop: 16,
+              width: '100%',
+              height: 40,
+              borderRadius: 8,
+              background: 'transparent',
+              color: '#3390EC',
+              fontSize: 13,
+              fontWeight: 600,
+              border: '1px solid rgba(51,144,236,0.4)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              transition: 'background 0.2s',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,144,236,0.06)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+          >
+            <User size={14} />
+            查看完整资料
+          </button>
+        )}
       </div>
     </div>
   );

@@ -233,7 +233,7 @@ func (m *defaultTrendAgreeModel) Delete(ctx context.Context, id uint64) error {
 	}
 
 	if res.RowsAffected == 0 {
-		return fmt.Errorf("delete agree failed id: %s", id)
+		return fmt.Errorf("delete agree failed id: %d", id)
 	}
 
 	return err
@@ -331,7 +331,7 @@ func (m *defaultTrendAgreeModel) Update(ctx context.Context, newData *TrendAgree
 	}
 
 	if res.RowsAffected == 0 {
-		return fmt.Errorf("update agree failed id: %s", data.Id)
+		return fmt.Errorf("update agree failed id: %d", data.Id)
 	}
 
 	return err
