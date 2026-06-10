@@ -365,7 +365,7 @@ export default function TrendDetailPanel() {
   };
 
   if (!trend) return null;
-  const userName = trend.userName || getUserName(trend.userId);
+  const userName = getUserName(trend.userId, trend.userName);
   const userAvatar = trend.userAvatar || '';
 
   return (

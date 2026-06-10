@@ -90,13 +90,14 @@ function fmtTime(date: Date): string {
 
 function getUserName(userId: string, fallback?: string): string {
   if (userId === 'me') return fallback || useIMStore.getState().currentUser?.name || '我';
-  if (fallback) return fallback;
+  // 好友备注优先，其次后端昵称兜底
   const c = useIMStore.getState().friends.find(ct => ct.id === userId);
-  return c ? (c.remark || c.name) : userId;
+  if (c?.remark) return c.remark;
+  return fallback || c?.name || userId;
 }
 
 function trendDisplayName(trend: Trend): string {
-  return trend.userName || getUserName(trend.userId);
+  return getUserName(trend.userId, trend.userName);
 }
 
 function avatarCircle(name: string, size: number, extra?: React.ReactNode, avatar?: string) {
