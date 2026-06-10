@@ -54,9 +54,9 @@ import {
   getCommentTree,
   createComment,
   deleteComment as apiDeleteComment,
-  getUnread,
-  markCommentsRead,
-  markLikesRead,
+  getTrendMessages,
+  markTrendMessagesRead,
+  trendMessagesToNotifications,
   toggleLike as apiToggleLike,
   getBatchLikeSummary,
   getTrendPublishConfig,
@@ -68,7 +68,6 @@ import {
   mapBackendTrend,
   commentTreeToMap,
   batchSummaryToLikeUsersMap,
-  unreadToNotifications,
 } from '@/lib/trend-api';
 
 /* ═══════════════════════════════════════
@@ -1240,9 +1239,21 @@ function TrendDetailModal({
 type View = 'feed' | 'notifications' | 'userTrends';
 type NotifTab = 'all' | 'reply' | 'like';
 
+// 动态消息通知的动作文案
+function notifActionText(type: MomentsNotification['type']): string {
+  switch (type) {
+    case 'like': return '赞了你的动态';
+    case 'comment': return '评论了你的动态';
+    case 'reply': return '回复了你的评论';
+    case 'at_trend': return '在动态中提到了你';
+    case 'at_comment': return '在评论中提到了你';
+    default: return '';
+  }
+}
+
 export default function MomentsFeed() {
   const isMobile = useIsMobile();
-  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion, showUserCard, updateCurrentUser } = useIMStore();
+  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion, showUserCard, updateCurrentUser, setMomentsUnreadCount, trendNotifyVersion } = useIMStore();
   const meName = meAuth?.name || '';
   const meAvatar = meAuth?.avatar || '';
   const meSignature = meAuth?.introduction || '';
@@ -1341,13 +1352,13 @@ export default function MomentsFeed() {
     }
   }, [token, meUserId]);
 
-  // ── Notifications loader ──
+  // ── Notifications loader（统一消息中心：赞/评论/回复/@） ──
   const loadNotifications = useCallback(async () => {
     if (!token) return;
     try {
-      const resp = await getUnread(token);
+      const resp = await getTrendMessages(token, 0, 30);
       if (resp.success && resp.data) {
-        setNotifications(unreadToNotifications(resp.data, meUserId));
+        setNotifications(trendMessagesToNotifications(resp.data.list || [], meUserId));
       }
     } catch (err) {
       console.error('loadNotifications error', err);
@@ -1362,6 +1373,20 @@ export default function MomentsFeed() {
     loadFeed();
     loadNotifications();
   }, [token, loadFeed, loadNotifications]);
+
+  // ws 实时通知到达（trendNotifyVersion 变化）：刷新消息列表
+  useEffect(() => {
+    if (!token || trendNotifyVersion === 0) return;
+    loadNotifications();
+  }, [trendNotifyVersion, token, loadNotifications]);
+
+  // 进入消息中心：全部标记已读并清零全局红点
+  useEffect(() => {
+    if (view !== 'notifications' || !token) return;
+    markTrendMessagesRead(token).catch(() => { /* silent */ });
+    setMomentsUnreadCount(0);
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  }, [view, token, setMomentsUnreadCount]);
 
   // Re-sync a single trend (meta + comments + like users) into local state.
   // Called when an external panel (e.g. TrendDetailPanel) bumps the trend version.
@@ -1436,7 +1461,8 @@ export default function MomentsFeed() {
 
   const filteredNotifications = useMemo(() => {
     let list = [...notifications].sort((a, b) => b.createTime.getTime() - a.createTime.getTime());
-    if (notifTab === 'reply') list = list.filter(n => n.type === 'reply');
+    // 「评论」tab 聚合所有非点赞类型（评论/回复/@）
+    if (notifTab === 'reply') list = list.filter(n => n.type !== 'like');
     if (notifTab === 'like') list = list.filter(n => n.type === 'like');
     return list;
   }, [notifications, notifTab]);
@@ -1626,22 +1652,14 @@ export default function MomentsFeed() {
   // ── Notification handlers ──
   const handleMarkAllRead = useCallback(() => {
     if (!token) return;
-    const unreadReplies = notifications.filter(n => !n.read && n.type === 'reply').map(n => n.id);
-    const unreadLikes = notifications.filter(n => !n.read && n.type === 'like').map(n => n.id);
-    const ops: Promise<unknown>[] = [];
-    if (unreadReplies.length) ops.push(markCommentsRead(token, unreadReplies));
-    if (unreadLikes.length) ops.push(markLikesRead(token, unreadLikes));
-    Promise.all(ops).then(() => {
+    markTrendMessagesRead(token).then(() => {
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setMomentsUnreadCount(0);
       toast.success('已全部标记为已读');
     }).catch(() => toast.error('标记失败'));
-  }, [token, notifications]);
+  }, [token, setMomentsUnreadCount]);
 
   const handleNotifClick = useCallback((notif: MomentsNotification) => {
-    if (!notif.read && token) {
-      if (notif.type === 'reply') markCommentsRead(token, [notif.id]).catch(() => {});
-      else markLikesRead(token, [notif.id]).catch(() => {});
-    }
     setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
     if (isMobile) {
       setDetailTrendId(notif.trendId);
@@ -1650,7 +1668,7 @@ export default function MomentsFeed() {
       setSelectedTrendId(notif.trendId);
       setView('feed');
     }
-  }, [isMobile, setSelectedTrendId, token]);
+  }, [isMobile, setSelectedTrendId]);
 
   // ── Trend management ──
   // The ActionMenu items are constructed inline in the render; this handler just opens the menu.
@@ -2016,7 +2034,7 @@ export default function MomentsFeed() {
   // VIEW: Notifications
   // ═══════════════════════════════════════
   if (view === 'notifications') {
-    const unreadReplyCount = notifications.filter(n => !n.read && n.type === 'reply').length;
+    const unreadReplyCount = notifications.filter(n => !n.read && n.type !== 'like').length;
     const unreadLikeCount = notifications.filter(n => !n.read && n.type === 'like').length;
 
     return (
@@ -2064,22 +2082,16 @@ export default function MomentsFeed() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2" style={{ marginBottom: 3 }}>
                         <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>{notif.actor.name}</span>
-                        {notif.type === 'reply' ? (
-                          <span style={{ fontSize: '12px', color: '#708499' }}>评论了你的动态</span>
-                        ) : (
-                          <span style={{ fontSize: '12px', color: '#708499' }}>赞了你的动态</span>
-                        )}
+                        <span style={{ fontSize: '12px', color: '#708499' }}>{notifActionText(notif.type)}</span>
                         {!notif.read && (
                           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E53935', flexShrink: 0, marginLeft: 'auto' }} />
                         )}
                       </div>
-                      <div style={{ fontSize: '13px', color: '#646A73', lineHeight: '1.5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {notif.type === 'reply' && notif.content ? (
+                      {notif.content ? (
+                        <div style={{ fontSize: '13px', color: '#646A73', lineHeight: '1.5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           <span>{notif.content}</span>
-                        ) : (
-                          <span>「{notif.trendContent}」</span>
-                        )}
-                      </div>
+                        </div>
+                      ) : null}
                       <div style={{ fontSize: '11px', color: '#A2ACB5', marginTop: 4 }}>{fmtTime(notif.createTime)}</div>
                     </div>
                   </div>

@@ -188,6 +188,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
     ws.on('chat.ping', () => { /* pong */ });
 
+    // 动态消息通知（赞/评论/回复/@）：实时 +1 未读并 bump 版本，供 MomentsFeed 刷新列表
+    ws.on('trend.notify', () => {
+      const imStore = useIMStore.getState();
+      imStore.setMomentsUnreadCount(imStore.momentsUnreadCount + 1);
+      imStore.bumpTrendNotifyVersion();
+    });
+
     ws.connect();
 
     // 定时刷新好友在线状态（每 30 秒）

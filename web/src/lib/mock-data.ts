@@ -1106,8 +1106,9 @@ export interface TrendComment {
 
 export interface MomentsNotification {
   id: number;
-  type: 'reply' | 'like';
+  type: 'reply' | 'like' | 'comment' | 'at_trend' | 'at_comment';
   trendId: number;
+  commentId?: number;         // 关联评论ID（评论/回复/@评论）
   trendContent: string;       // preview text
   actor: { id: string; name: string; avatar: string };
   content?: string;           // comment text (for reply type)

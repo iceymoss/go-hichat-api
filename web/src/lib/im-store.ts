@@ -62,6 +62,12 @@ interface IMState {
   friendRequestUnreadCount: number;
   setFriendRequestUnreadCount: (count: number) => void;
 
+  // Moments (动态) message-center unread + realtime notify version
+  momentsUnreadCount: number;
+  setMomentsUnreadCount: (count: number) => void;
+  trendNotifyVersion: number;
+  bumpTrendNotifyVersion: () => void;
+
   // Group panel
   showGroupPanel: boolean;
   setShowGroupPanel: (show: boolean) => void;
@@ -204,6 +210,11 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   setShowFriendRequests: (show) => set({ showFriendRequests: show, selectedContactId: null, showGroupPanel: false }),
   friendRequestUnreadCount: 0,
   setFriendRequestUnreadCount: (count) => set({ friendRequestUnreadCount: count }),
+
+  momentsUnreadCount: 0,
+  setMomentsUnreadCount: (count) => set({ momentsUnreadCount: count }),
+  trendNotifyVersion: 0,
+  bumpTrendNotifyVersion: () => set((s) => ({ trendNotifyVersion: s.trendNotifyVersion + 1 })),
 
   // Group panel
   showGroupPanel: false,
