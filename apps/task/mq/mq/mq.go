@@ -79,3 +79,26 @@ type MsgMarkRead struct {
 
 	ReadRecords map[string]string `mapstructure:"readRecords"`
 }
+
+// TrendNotifyTransfer 动态消息通知事件（trend-api 生产 -> task/mq 消费 -> ws 推送）。
+// 与聊天/撤回链路解耦，走独立 topic（trendNotifyTransfer）。
+type TrendNotifyTransfer struct {
+	// 接收者(被通知人)uid
+	ReceiverId string `json:"receiverId"`
+	// 触发者uid
+	ActorId string `json:"actorId"`
+	// 1赞 2评论 3回复 4发动态@ 5评论@
+	MsgType int `json:"msgType"`
+	// 动态ID
+	TrendId uint64 `json:"trendId"`
+	// 评论ID
+	CommentId uint64 `json:"commentId,omitempty"`
+	// 父评论ID
+	ParentCommentId uint64 `json:"parentCommentId,omitempty"`
+	// trend_message.id
+	MessageId uint64 `json:"messageId"`
+	// 内容快照
+	Content string `json:"content,omitempty"`
+	// 创建时间(时间戳)
+	CreateTime int64 `json:"createTime"`
+}

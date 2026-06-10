@@ -3,6 +3,7 @@ package comment
 import (
 	"context"
 
+	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/logic/notifypush"
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
@@ -35,8 +36,9 @@ func (l *CreateDiscussLogic) CreateDiscuss(req *types.CreateDiscussReq) (resp *t
 		return nil, errors.New("请输入评论内容")
 	}
 
+	var rpcResp *trend.CreateDiscussResp
 	if req.Father == 0 { // 发表一级评论
-		_, err = l.svcCtx.Trend.CreateRootDiscuss(l.ctx, &trend.CreateDiscussReq{
+		rpcResp, err = l.svcCtx.Trend.CreateRootDiscuss(l.ctx, &trend.CreateDiscussReq{
 			TrendId:   req.TrendID,
 			Father:    0,
 			UserId:    req.UserID,
@@ -45,7 +47,7 @@ func (l *CreateDiscussLogic) CreateDiscuss(req *types.CreateDiscussReq) (resp *t
 			Replyer:   uint64(uid),
 		})
 	} else { // 发表二级评论
-		_, err = l.svcCtx.Trend.CreateChildDiscuss(l.ctx, &trend.CreateDiscussReq{
+		rpcResp, err = l.svcCtx.Trend.CreateChildDiscuss(l.ctx, &trend.CreateDiscussReq{
 			TrendId:   req.TrendID,
 			Father:    req.Father,
 			UserId:    req.UserID,
@@ -58,6 +60,9 @@ func (l *CreateDiscussLogic) CreateDiscuss(req *types.CreateDiscussReq) (resp *t
 		zLog.Error("发表动态失败", zap.Any("req", req), zap.Any("uid", uid), zap.Error(err))
 		return nil, err
 	}
+
+	// 评论/回复/@ 产生的消息：投 Kafka 实时推送（失败不影响评论结果）
+	notifypush.Publish(l.svcCtx.TrendNotifyTransferClient, rpcResp.CreatedMessages)
 
 	resp = &types.CreateDiscussResp{}
 
