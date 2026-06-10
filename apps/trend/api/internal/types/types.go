@@ -102,15 +102,15 @@ type DiscussesTreeResp struct {
 }
 
 type GetChildDiscussesReq struct {
-	Father   uint64 `json:"father"`
-	LastID   int    `json:"last_id,optional"`
-	LastTime uint64 `json:"last_time,optional"`
+	Father   uint64 `form:"father"`
+	LastID   int    `form:"last_id,optional"`
+	LastTime uint64 `form:"last_time,optional"`
 }
 
 type GetDiscussesListReq struct {
-	TrendID  []uint64 `json:"trend_id"`
-	LastID   int      `json:"last_id,optional"`
-	LastTime int      `json:"last_time,optional"`
+	TrendID  []uint64 `form:"trend_id"`
+	LastID   int      `form:"last_id,optional"`
+	LastTime int      `form:"last_time,optional"`
 }
 
 type GetDiscussesListResp struct {
@@ -118,14 +118,14 @@ type GetDiscussesListResp struct {
 }
 
 type GetDiscussesReq struct {
-	TrendID  uint64 `json:"trend_id"`
-	LastID   int    `json:"last_id,optional"`
-	LastTime int    `json:"last_time,optional"`
+	TrendID  uint64 `form:"trend_id"`
+	LastID   int    `form:"last_id,optional"`
+	LastTime int    `form:"last_time,optional"`
 }
 
 type GetLatestTrendsRequest struct {
-	LastTrendID int `json:"last_trend_id,optional"`
-	Count       int `json:"count,optional"`
+	LastTrendID int `form:"last_trend_id,optional"`
+	Count       int `form:"count,optional"`
 }
 
 type GetLatestTrendsResponse struct {
@@ -135,9 +135,9 @@ type GetLatestTrendsResponse struct {
 }
 
 type GetLikeListReq struct {
-	TrendID  []uint64 `json:"trend_id"`
-	LastID   int      `json:"last_id,optional"`
-	LastTime int      `json:"last_time,optional"`
+	TrendID  []uint64 `form:"trend_id"`
+	LastID   int      `form:"last_id,optional"`
+	LastTime int      `form:"last_time,optional"`
 }
 
 type GetLikeListResp struct {
@@ -145,9 +145,9 @@ type GetLikeListResp struct {
 }
 
 type GetLikedUsersRequest struct {
-	TrendID uint32 `json:"trend_id"`
-	Cursor  uint32 `json:"cursor,optional"`
-	Limit   uint32 `json:"limit,optional"`
+	TrendID uint32 `form:"trend_id"`
+	Cursor  uint32 `form:"cursor,optional"`
+	Limit   uint32 `form:"limit,optional"`
 }
 
 type GetLikedUsersResponse struct {
@@ -158,7 +158,7 @@ type GetLikedUsersResponse struct {
 }
 
 type GetTrendDetailRequest struct {
-	TrendID int `json:"trend_id"`
+	TrendID int `form:"trend_id"`
 }
 
 type GetTrendDetailResponse struct {
@@ -166,7 +166,7 @@ type GetTrendDetailResponse struct {
 }
 
 type GetTrendDraftRequest struct {
-	DraftId uint64 `json:"draft_id,optional"`
+	DraftId uint64 `form:"draft_id,optional"`
 }
 
 type GetTrendDraftResponse struct {
@@ -174,26 +174,17 @@ type GetTrendDraftResponse struct {
 }
 
 type GetTrendLikeSummaryRequest struct {
-	UserID  string `json:"user_id"`
-	TrendID string `json:"trend_id"`
+	UserID  string `form:"user_id"`
+	TrendID string `form:"trend_id"`
 }
 
 type GetTrendLikeSummaryResponse struct {
 	SummaryJSON string `json:"summary_json"`
 }
 
-type GetTrendMessageUnreadResp struct {
-	Total     int64 `json:"total"`
-	Like      int64 `json:"like"`
-	Comment   int64 `json:"comment"`
-	Reply     int64 `json:"reply"`
-	AtTrend   int64 `json:"at_trend"`
-	AtComment int64 `json:"at_comment"`
-}
-
 type GetUnreadLikesRequest struct {
-	UserID string `json:"user_id"`
-	LastID int    `json:"last_id"`
+	UserID string `form:"user_id"`
+	LastID int    `form:"last_id"`
 }
 
 type GetUnreadLikesResponse struct {
@@ -203,14 +194,14 @@ type GetUnreadLikesResponse struct {
 }
 
 type GetUnreadRepliesReq struct {
-	LikeLastID   int `json:"like_last_id,optional"`
-	DiscussLasID int `json:"discuss_last_id,optional"`
-	LastTime     int `json:"last_time,optional"`
+	LikeLastID   int `form:"like_last_id,optional"`
+	DiscussLasID int `form:"discuss_last_id,optional"`
+	LastTime     int `form:"last_time,optional"`
 }
 
 type GetUserTrendsRequest struct {
-	TargetUserID int `json:"target_user_id"`
-	LastID       int `json:"last_id,optional"`
+	TargetUserID int `form:"target_user_id"`
+	LastID       int `form:"last_id,optional"`
 }
 
 type GetUserTrendsResponse struct {
@@ -236,23 +227,13 @@ type LikeToggleRequest struct {
 type LikeToggleResponse struct {
 }
 
-type ListTrendMessagesReq struct {
-	LastId int `form:"last_id,optional"`
-	Limit  int `form:"limit,optional"`
-}
-
-type ListTrendMessagesResp struct {
-	List   []*TrendMessageItem `json:"list"`
-	LastId int                 `json:"last_id"` // 本页最后一条id，供下次分页
-}
-
 type ListTrendsRequest struct {
-	LastID     int      `json:"last_id"`
-	LastTime   int      `json:"last_time"`
-	Types      []string `json:"types"`
-	SortColumn string   `json:"sort_column"`
-	SortType   int      `json:"sort_type"`
-	UserIDs    []string `json:"user_ids"`
+	LastID     int      `form:"last_id"`
+	LastTime   int      `form:"last_time"`
+	Types      []string `form:"types"`
+	SortColumn string   `form:"sort_column"`
+	SortType   int      `form:"sort_type"`
+	UserIDs    []string `form:"user_ids"`
 }
 
 type ListTrendsResponse struct {
@@ -273,9 +254,6 @@ type MarkLikesReadRequest struct {
 }
 
 type MarkLikesReadResponse struct {
-}
-
-type MarkTrendMessagesReadResp struct {
 }
 
 type RepliesListResp struct {
@@ -338,18 +316,6 @@ type TrendDraft struct {
 	UpdateTime   int64    `json:"update_time,optional"`
 }
 
-type TrendMessageItem struct {
-	Id              uint64 `json:"id"`
-	Type            int    `json:"type"` // 1赞 2评论 3回复 4发动态@ 5评论@
-	TrendId         uint64 `json:"trend_id"`
-	CommentId       uint64 `json:"comment_id,omitempty"`
-	ParentCommentId uint64 `json:"parent_comment_id,omitempty"`
-	Content         string `json:"content,omitempty"`
-	IsRead          bool   `json:"is_read"`
-	CreateTime      int64  `json:"create_time"`
-	Actor           *User  `json:"actor"` // 触发者用户信息
-}
-
 type TrendPublishConfigResponse struct {
 	MaxImageCount          int      `json:"max_image_count"`
 	MaxImageSizeMB         int      `json:"max_image_size_mb"`
@@ -390,4 +356,38 @@ type User struct {
 	Nickname string `json:"nickname"`
 	Sex      int    `json:"sex"`
 	Avatar   string `json:"avatar"`
+}
+
+type ListTrendMessagesReq struct {
+	LastId int `form:"last_id,optional"`
+	Limit  int `form:"limit,optional"`
+}
+
+type TrendMessageItem struct {
+	Id              uint64 `json:"id"`
+	Type            int    `json:"type"` // 1赞 2评论 3回复 4发动态@ 5评论@
+	TrendId         uint64 `json:"trend_id"`
+	CommentId       uint64 `json:"comment_id,omitempty"`
+	ParentCommentId uint64 `json:"parent_comment_id,omitempty"`
+	Content         string `json:"content,omitempty"`
+	IsRead          bool   `json:"is_read"`
+	CreateTime      int64  `json:"create_time"`
+	Actor           *User  `json:"actor"` // 触发者用户信息
+}
+
+type ListTrendMessagesResp struct {
+	List   []*TrendMessageItem `json:"list"`
+	LastId int                 `json:"last_id"` // 本页最后一条id，供下次分页
+}
+
+type GetTrendMessageUnreadResp struct {
+	Total     int64 `json:"total"`
+	Like      int64 `json:"like"`
+	Comment   int64 `json:"comment"`
+	Reply     int64 `json:"reply"`
+	AtTrend   int64 `json:"at_trend"`
+	AtComment int64 `json:"at_comment"`
+}
+
+type MarkTrendMessagesReadResp struct {
 }
