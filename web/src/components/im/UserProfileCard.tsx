@@ -751,11 +751,13 @@ export default function UserProfileCard({
                   key={idx}
                   src={img}
                   alt=""
+                  onClick={() => openUserTrends(contact.id, displayName)}
                   style={{
                     width: '100%',
                     aspectRatio: '1',
                     borderRadius: 8,
                     objectFit: 'cover',
+                    cursor: 'pointer',
                   }}
                 />
               ))}

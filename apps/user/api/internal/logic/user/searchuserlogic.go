@@ -70,6 +70,7 @@ func (l *SearchUserLogic) SearchUser(req *types.SearchUserReq) (resp *types.Sear
 					Region:       u.Region,
 					Occupation:   u.Occupation,
 					Tags:         u.Tags,
+					MomentsCover: u.MomentsCover,
 				})
 			}
 		}

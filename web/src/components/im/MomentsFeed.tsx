@@ -1289,6 +1289,8 @@ export default function MomentsFeed() {
 
   // ── View state ──
   const [view, setView] = useState<View>('feed');
+  // Where the notifications view returns to (feed vs. my own userTrends).
+  const [notifBackView, setNotifBackView] = useState<View>('feed');
   const [userTrendsUserId, setUserTrendsUserId] = useState<string>('');
   const [notifTab, setNotifTab] = useState<NotifTab>('all');
   const [loading, setLoading] = useState(true);
@@ -1813,9 +1815,9 @@ export default function MomentsFeed() {
   }, []);
 
   const handleBackFromNotifications = useCallback(() => {
-    setView('feed');
+    setView(notifBackView);
     setNotifTab('all');
-  }, []);
+  }, [notifBackView]);
 
   // ── Detail navigation helpers ──
   const handleOpenDetail = useCallback((trendId: number) => {
@@ -1846,7 +1848,7 @@ export default function MomentsFeed() {
         {/* Notification bell */}
         <div className="relative">
           <button
-            onClick={() => { setView('notifications'); setNotifTab('all'); }}
+            onClick={() => { setNotifBackView('feed'); setView('notifications'); setNotifTab('all'); }}
             style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <Bell className="w-5 h-5" />
@@ -2204,14 +2206,29 @@ export default function MomentsFeed() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{isSelfTrends ? t('moments.mine') : `${headerName}的动态`}</span>
-          {/* Publish button only on my own 朋友圈 — never publish into a friend's circle */}
+          {/* Message queue (互动消息) + publish — only on my own 朋友圈 */}
           {isSelfTrends ? (
-            <button
-              onClick={() => setShowPublish(true)}
-              style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#3390EC', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Plus className="w-5 h-5" style={{ color: '#FFF' }} />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <div className="relative">
+                <button
+                  onClick={() => { setNotifBackView('userTrends'); setView('notifications'); setNotifTab('all'); }}
+                  style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Bell className="w-5 h-5" />
+                </button>
+                {unreadNotifCount > 0 && (
+                  <span className="absolute flex items-center justify-center" style={{ top: 4, right: 2, minWidth: 16, height: 16, borderRadius: 8, background: '#E53935', color: '#FFF', fontSize: '10px', fontWeight: 700, padding: '0 4px' }}>
+                    {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setShowPublish(true)}
+                style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#3390EC', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Plus className="w-5 h-5" style={{ color: '#FFF' }} />
+              </button>
+            </div>
           ) : (
             <div style={{ width: 40 }} />
           )}
