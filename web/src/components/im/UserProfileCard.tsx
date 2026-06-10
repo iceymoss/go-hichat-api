@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { type Contact, userMomentsImages } from '@/lib/mock-data';
+import React, { useState, useEffect } from 'react';
+import { type Contact } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
+import { getUserTrends } from '@/lib/trend-api';
 import { useT } from '@/hooks/use-i18n';
 import { getAvatarColor } from '@/lib/utils';
 import { Phone, Video, Send, UserPlus, Copy, MapPin, Briefcase } from 'lucide-react';
@@ -87,9 +88,35 @@ export default function UserProfileCard({
 }: UserProfileCardProps) {
   const avatarColor = getAvatarColor(contact.name);
   const displayName = contact.remark || contact.name;
-  const moments = userMomentsImages[contact.id] || [];
   const t = useT();
   const openUserTrends = useIMStore((s) => s.openUserTrends);
+  const token = useIMStore((s) => s.currentUser?.token || '');
+
+  // Latest moments thumbnails (WeChat-style): show up to 3 real images from this user's trends.
+  const [moments, setMoments] = useState<string[]>([]);
+  useEffect(() => {
+    if (isStranger || !contact.id || !token) { setMoments([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await getUserTrends(token, contact.id);
+        if (cancelled || !r.success || !r.data) return;
+        const ordered = [...(r.data.top_list || []), ...(r.data.list || [])];
+        const imgs: string[] = [];
+        for (const tr of ordered) {
+          for (const url of tr.resources || []) {
+            if (url && !imgs.includes(url)) imgs.push(url);
+            if (imgs.length >= 3) break;
+          }
+          if (imgs.length >= 3) break;
+        }
+        setMoments(imgs);
+      } catch {
+        if (!cancelled) setMoments([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [contact.id, token, isStranger]);
 
   // 解析标签（JSON 数组字符串或逗号分隔）
   const parsedTags: string[] = (() => {
