@@ -29,6 +29,13 @@ type Config struct {
 	// RelationChangeTransfer 关系变更事件 topic（维护关系缓存 + 推送会话失效）
 	RelationChangeTransfer kq.KqConf
 
+	// AuthzGate 发送鉴权灰度开关（默认全 false = 现状行为，fail-open）
+	AuthzGate struct {
+		Enabled    bool
+		GroupChat  bool
+		SingleChat bool
+	}
+
 	Ws struct {
 		Host string
 	}
