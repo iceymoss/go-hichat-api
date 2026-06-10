@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/models"
+	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/notify"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 
@@ -106,16 +108,23 @@ func (l *CreateRootDiscussLogic) CreateRootDiscuss(in *trend.CreateDiscussReq) (
 		return nil, err
 	}
 
-	// 不是评论自己，需要通知状态作者，被评论者
-	if trendDetail.Userid != in.Replyer {
-		go pushMessageWs(l.ctx, discuss)
-	}
-
-	return &trend.CreateDiscussResp{
+	// 生成评论通知：评论作者(主) + 评论里 @的人；自我评论 / @自己由 builder 过滤
+	resp := &trend.CreateDiscussResp{
 		Discuss: &trend.Discuss{
 			Id: id,
 		},
-	}, nil
+	}
+	resp.CreatedMessages = persistTrendMessages(l.ctx, l.svcCtx, notify.TrendNotifyEvent{
+		Type:      constants.TrendMsgComment,
+		ActorId:   in.Replyer,
+		TrendId:   in.TrendId,
+		AuthorId:  trendDetail.Userid,
+		CommentId: id,
+		AtUsers:   in.AtUserIds,
+		Content:   in.Content,
+	})
+
+	return resp, nil
 }
 
 // serializeAtUserIds 序列化 @用户列表

@@ -5,8 +5,10 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.uber.org/zap"
 )
 
 type MarkTrendMessagesReadLogic struct {
@@ -23,9 +25,11 @@ func NewMarkTrendMessagesReadLogic(ctx context.Context, svcCtx *svc.ServiceConte
 	}
 }
 
-// 全部标记为已读
+// MarkTrendMessagesRead 全部标记为已读
 func (l *MarkTrendMessagesReadLogic) MarkTrendMessagesRead(in *trend.MarkTrendMessagesReadReq) (*trend.MarkTrendMessagesReadResp, error) {
-	// todo: add your logic here and delete this line
-
+	if err := l.svcCtx.TrendMessage.MarkAllRead(l.ctx, in.UserId); err != nil {
+		zLog.Error("MarkTrendMessagesRead: mark all read failed", zap.Uint64("userId", in.UserId), zap.Error(err))
+		return nil, err
+	}
 	return &trend.MarkTrendMessagesReadResp{}, nil
 }
