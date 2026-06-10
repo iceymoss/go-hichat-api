@@ -90,16 +90,16 @@ export default function UserProfileCard({
   const displayName = contact.remark || contact.name;
   const t = useT();
   const openUserTrends = useIMStore((s) => s.openUserTrends);
-  const token = useIMStore((s) => s.currentUser?.token || '');
+  const authToken = useIMStore((s) => s.currentUser?.token || '');
 
   // Latest moments thumbnails (WeChat-style): show up to 3 real images from this user's trends.
   const [moments, setMoments] = useState<string[]>([]);
   useEffect(() => {
-    if (isStranger || !contact.id || !token) { setMoments([]); return; }
+    if (isStranger || !contact.id || !authToken) { setMoments([]); return; }
     let cancelled = false;
     (async () => {
       try {
-        const r = await getUserTrends(token, contact.id);
+        const r = await getUserTrends(authToken, contact.id);
         if (cancelled || !r.success || !r.data) return;
         const ordered = [...(r.data.top_list || []), ...(r.data.list || [])];
         const imgs: string[] = [];
@@ -116,7 +116,7 @@ export default function UserProfileCard({
       }
     })();
     return () => { cancelled = true; };
-  }, [contact.id, token, isStranger]);
+  }, [contact.id, authToken, isStranger]);
 
   // 解析标签（JSON 数组字符串或逗号分隔）
   const parsedTags: string[] = (() => {
