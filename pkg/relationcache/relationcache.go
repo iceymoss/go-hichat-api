@@ -25,9 +25,12 @@ const loadedSentinel = "__loaded__"
 const cacheTTL = time.Hour
 
 const groupMemberKeyPrefix = "grp:mem:"
+const friendKeyPrefix = "frd:"
 
 func groupMemberKey(gid string) string { return groupMemberKeyPrefix + gid }
 func groupVerKey(gid string) string    { return groupMemberKeyPrefix + gid + ":ver" }
+func friendSetKey(uid string) string   { return friendKeyPrefix + uid }
+func friendVerKey(uid string) string   { return friendKeyPrefix + uid + ":ver" }
 
 // ApplyResult 是版本门维护操作（事件驱动 SADD/SREM）的结果。
 type ApplyResult int
@@ -68,21 +71,13 @@ func New(rdb *redis.Client) *Cache {
 }
 
 // LoadGroupMembers 用权威来源（RPC GroupUsers 回源结果）重建群成员集，并落版本号。
-// 始终写入 loadedSentinel，使空群也有非空 key，可与"未加载"区分。
 func (c *Cache) LoadGroupMembers(ctx context.Context, gid string, members []string, version int64) error {
-	key := groupMemberKey(gid)
-	pipe := c.rdb.TxPipeline()
-	pipe.Del(ctx, key)
-	args := make([]any, 0, len(members)+1)
-	args = append(args, loadedSentinel)
-	for _, m := range members {
-		args = append(args, m)
-	}
-	pipe.SAdd(ctx, key, args...)
-	pipe.Set(ctx, groupVerKey(gid), version, cacheTTL)
-	pipe.Expire(ctx, key, cacheTTL)
-	_, err := pipe.Exec(ctx)
-	return err
+	return c.loadSet(ctx, groupMemberKey(gid), groupVerKey(gid), members, version)
+}
+
+// IsGroupMember 三态判定 uid 是否为 gid 成员。
+func (c *Cache) IsGroupMember(ctx context.Context, gid, uid string) Verdict {
+	return c.verdict(ctx, groupMemberKey(gid), uid)
 }
 
 // AddGroupMember 版本门下把 uid 加入群成员集（加群/邀请事件）。
@@ -93,6 +88,65 @@ func (c *Cache) AddGroupMember(ctx context.Context, gid, uid string, version int
 // RemoveGroupMember 版本门下把 uid 移出群成员集（踢人/退群事件）。
 func (c *Cache) RemoveGroupMember(ctx context.Context, gid, uid string, version int64) (ApplyResult, error) {
 	return c.applyMember(ctx, "rem", groupMemberKey(gid), groupVerKey(gid), uid, version)
+}
+
+// LoadFriends 用权威来源（RPC FriendList 回源结果）重建 uid 的好友集，并落版本号。
+func (c *Cache) LoadFriends(ctx context.Context, uid string, friends []string, version int64) error {
+	return c.loadSet(ctx, friendSetKey(uid), friendVerKey(uid), friends, version)
+}
+
+// IsFriend 三态判定 friendUid 是否在 uid 的好友集内。
+func (c *Cache) IsFriend(ctx context.Context, uid, friendUid string) Verdict {
+	return c.verdict(ctx, friendSetKey(uid), friendUid)
+}
+
+// AddFriend 版本门下把 friendUid 加入 uid 的好友集（加好友事件，双向各调一次）。
+func (c *Cache) AddFriend(ctx context.Context, uid, friendUid string, version int64) (ApplyResult, error) {
+	return c.applyMember(ctx, "add", friendSetKey(uid), friendVerKey(uid), friendUid, version)
+}
+
+// RemoveFriend 版本门下把 friendUid 移出 uid 的好友集（删好友事件，双向各调一次）。
+func (c *Cache) RemoveFriend(ctx context.Context, uid, friendUid string, version int64) (ApplyResult, error) {
+	return c.applyMember(ctx, "rem", friendSetKey(uid), friendVerKey(uid), friendUid, version)
+}
+
+// loadSet 用权威快照重建一个成员集合（始终含 loadedSentinel），并落版本号。
+func (c *Cache) loadSet(ctx context.Context, setKey, verKey string, members []string, version int64) error {
+	pipe := c.rdb.TxPipeline()
+	pipe.Del(ctx, setKey)
+	args := make([]any, 0, len(members)+1)
+	args = append(args, loadedSentinel)
+	for _, m := range members {
+		args = append(args, m)
+	}
+	pipe.SAdd(ctx, setKey, args...)
+	pipe.Set(ctx, verKey, version, cacheTTL)
+	pipe.Expire(ctx, setKey, cacheTTL)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
+// verdict 三态判定 member 是否在 setKey 集合内。
+// 未加载 / Redis 错误 -> Unknown（调用方 fail-open）；哨兵不计为业务成员。
+func (c *Cache) verdict(ctx context.Context, setKey, member string) Verdict {
+	if member == loadedSentinel {
+		return VerdictDenied
+	}
+	exists, err := c.rdb.Exists(ctx, setKey).Result()
+	if err != nil {
+		return VerdictUnknown
+	}
+	if exists == 0 {
+		return VerdictUnknown
+	}
+	isMember, err := c.rdb.SIsMember(ctx, setKey, member).Result()
+	if err != nil {
+		return VerdictUnknown
+	}
+	if isMember {
+		return VerdictAllowed
+	}
+	return VerdictDenied
 }
 
 func (c *Cache) applyMember(ctx context.Context, op, setKey, verKey, uid string, version int64) (ApplyResult, error) {
@@ -109,28 +163,4 @@ func (c *Cache) applyMember(ctx context.Context, op, setKey, verKey, uid string,
 	default: // -1
 		return SkippedNotLoaded, nil
 	}
-}
-
-// IsGroupMember 三态判定 uid 是否为 gid 成员。
-// 未加载 / Redis 错误 -> Unknown（调用方 fail-open）；哨兵不计为业务成员。
-func (c *Cache) IsGroupMember(ctx context.Context, gid, uid string) Verdict {
-	if uid == loadedSentinel {
-		return VerdictDenied
-	}
-	key := groupMemberKey(gid)
-	exists, err := c.rdb.Exists(ctx, key).Result()
-	if err != nil {
-		return VerdictUnknown
-	}
-	if exists == 0 {
-		return VerdictUnknown
-	}
-	isMember, err := c.rdb.SIsMember(ctx, key, uid).Result()
-	if err != nil {
-		return VerdictUnknown
-	}
-	if isMember {
-		return VerdictAllowed
-	}
-	return VerdictDenied
 }

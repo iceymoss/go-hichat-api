@@ -111,3 +111,47 @@ func Test_GroupMember_VersionGate(t *testing.T) {
 		t.Errorf("unloaded group after skipped event, IsGroupMember=%v, want Unknown", v)
 	}
 }
+
+func Test_Friend_VerdictAndVersionGate(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// uid=a 的好友集 {b, c}
+	if err := c.LoadFriends(ctx, "a", []string{"b", "c"}, 3); err != nil {
+		t.Fatalf("load friends a: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		uid    string
+		friend string
+		want   Verdict
+	}{
+		{"friend -> allowed", "a", "b", VerdictAllowed},
+		{"non-friend, loaded -> denied", "a", "z", VerdictDenied},
+		{"not loaded -> unknown (fail-open)", "x", "y", VerdictUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := c.IsFriend(ctx, tt.uid, tt.friend); got != tt.want {
+				t.Errorf("IsFriend(%s,%s) = %v, want %v", tt.uid, tt.friend, got, tt.want)
+			}
+		})
+	}
+
+	// 删好友：新版本生效
+	if got, _ := c.RemoveFriend(ctx, "a", "b", 4); got != Applied {
+		t.Errorf("remove friend b@4 = %v, want Applied", got)
+	}
+	if v := c.IsFriend(ctx, "a", "b"); v != VerdictDenied {
+		t.Errorf("after remove friend b, IsFriend=%v, want Denied", v)
+	}
+	// 旧版本不能复活已删好友
+	if got, _ := c.AddFriend(ctx, "a", "b", 3); got != SkippedStale {
+		t.Errorf("stale add friend b@3 = %v, want SkippedStale", got)
+	}
+	if v := c.IsFriend(ctx, "a", "b"); v != VerdictDenied {
+		t.Errorf("after stale re-add friend, IsFriend=%v, want Denied", v)
+	}
+}
