@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { type Contact, userMomentsImages } from '@/lib/mock-data';
+import React, { useState, useEffect } from 'react';
+import { type Contact } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
+import { getUserTrends } from '@/lib/trend-api';
+import { useT } from '@/hooks/use-i18n';
 import { getAvatarColor } from '@/lib/utils';
 import { Phone, Video, Send, UserPlus, Copy, MapPin, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
@@ -86,7 +88,35 @@ export default function UserProfileCard({
 }: UserProfileCardProps) {
   const avatarColor = getAvatarColor(contact.name);
   const displayName = contact.remark || contact.name;
-  const moments = userMomentsImages[contact.id] || [];
+  const t = useT();
+  const openUserTrends = useIMStore((s) => s.openUserTrends);
+  const authToken = useIMStore((s) => s.currentUser?.token || '');
+
+  // Latest moments thumbnails (WeChat-style): show up to 3 real images from this user's trends.
+  const [moments, setMoments] = useState<string[]>([]);
+  useEffect(() => {
+    if (isStranger || !contact.id || !authToken) { setMoments([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await getUserTrends(authToken, contact.id);
+        if (cancelled || !r.success || !r.data) return;
+        const ordered = [...(r.data.top_list || []), ...(r.data.list || [])];
+        const imgs: string[] = [];
+        for (const tr of ordered) {
+          for (const url of tr.resources || []) {
+            if (url && !imgs.includes(url)) imgs.push(url);
+            if (imgs.length >= 3) break;
+          }
+          if (imgs.length >= 3) break;
+        }
+        setMoments(imgs);
+      } catch {
+        if (!cancelled) setMoments([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [contact.id, authToken, isStranger]);
 
   // 解析标签（JSON 数组字符串或逗号分隔）
   const parsedTags: string[] = (() => {
@@ -686,61 +716,51 @@ export default function UserProfileCard({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginBottom: 10,
+              marginBottom: moments.length > 0 ? 10 : 0,
             }}
           >
             <span style={{ fontSize: 16, fontWeight: 600, color: '#1F2329' }}>朋友圈</span>
-            {moments.length > 0 && (
-              <button
-                style={{
-                  fontSize: 13,
-                  color: '#3390EC',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                  transition: 'opacity 0.15s',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.opacity = '0.7';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.opacity = '1';
-                }}
-              >
-                查看更多
-                <span style={{ fontSize: 14 }}>›</span>
-              </button>
-            )}
+            <button
+              onClick={() => openUserTrends(contact.id, displayName)}
+              style={{
+                fontSize: 13,
+                color: '#3390EC',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                transition: 'opacity 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.opacity = '0.7';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+              }}
+            >
+              {t('moments.view')}
+              <span style={{ fontSize: 14 }}>›</span>
+            </button>
           </div>
-          {moments.length > 0 ? (
+          {moments.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
               {moments.slice(0, 3).map((img, idx) => (
                 <img
                   key={idx}
                   src={img}
                   alt=""
+                  onClick={() => openUserTrends(contact.id, displayName)}
                   style={{
                     width: '100%',
                     aspectRatio: '1',
                     borderRadius: 8,
                     objectFit: 'cover',
+                    cursor: 'pointer',
                   }}
                 />
               ))}
-            </div>
-          ) : (
-            <div
-              style={{
-                padding: '16px 0',
-                textAlign: 'center',
-                fontSize: 13,
-                color: '#A2ACB5',
-              }}
-            >
-              暂无动态
             </div>
           )}
         </div>

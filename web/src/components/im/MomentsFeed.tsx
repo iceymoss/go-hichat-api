@@ -1267,6 +1267,8 @@ export default function MomentsFeed() {
   const meCover = meAuth?.momentsCover || '';
   const meUserId = meAuth?.id || '';
   const token = meAuth?.token || '';
+  const userTrendsTarget = useIMStore(s => s.userTrendsTarget);
+  const clearUserTrendsTarget = useIMStore(s => s.clearUserTrendsTarget);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   const handleCoverUpload = useCallback(async (file: File) => {
@@ -1287,6 +1289,8 @@ export default function MomentsFeed() {
 
   // ── View state ──
   const [view, setView] = useState<View>('feed');
+  // Where the notifications view returns to (feed vs. my own userTrends).
+  const [notifBackView, setNotifBackView] = useState<View>('feed');
   const [userTrendsUserId, setUserTrendsUserId] = useState<string>('');
   const [notifTab, setNotifTab] = useState<NotifTab>('all');
   const [loading, setLoading] = useState(true);
@@ -1313,6 +1317,8 @@ export default function MomentsFeed() {
 
   // Name lookup for user trends header (filled when user clicks an avatar).
   const [userTrendsUserName, setUserTrendsUserName] = useState<string>('');
+  // Viewed user's profile for the userTrends cover/header (parity with the public feed).
+  const [userTrendsProfile, setUserTrendsProfile] = useState<{ avatar: string; name: string; signature: string; cover: string }>({ avatar: '', name: '', signature: '', cover: '' });
 
   // ── Feed loader: pulls latest trends + comments + like users ──
   const loadFeed = useCallback(async () => {
@@ -1457,14 +1463,17 @@ export default function MomentsFeed() {
       return b.createTime.getTime() - a.createTime.getTime();
     });
     if (view === 'userTrends') {
-      list = list.filter(t => t.userId === userTrendsUserId);
+      // Own trends carry the 'me' sentinel as userId; normalize before matching so
+      // "我的朋友圈" (userTrendsUserId = my real id) still includes them.
+      const norm = (uid: string) => (uid === 'me' ? meUserId : uid);
+      list = list.filter(t => norm(t.userId) === norm(userTrendsUserId));
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(t => t.content.toLowerCase().includes(q) || trendDisplayName(t).toLowerCase().includes(q));
     }
     return list;
-  }, [trends, view, userTrendsUserId, searchQuery]);
+  }, [trends, view, userTrendsUserId, searchQuery, meUserId]);
 
   const filteredNotifications = useMemo(() => {
     let list = [...notifications].sort((a, b) => b.createTime.getTime() - a.createTime.getTime());
@@ -1735,6 +1744,44 @@ export default function MomentsFeed() {
     showUserCard(userId);
   }, [showUserCard]);
 
+  // Consume a cross-component request to open a user's 朋友圈 (from profile cards / 我的-朋友圈).
+  useEffect(() => {
+    if (!userTrendsTarget) return;
+    setView('userTrends');
+    setUserTrendsUserId(userTrendsTarget.id);
+    setUserTrendsUserName(userTrendsTarget.name || '');
+    setSearchQuery('');
+    clearUserTrendsTarget();
+  }, [userTrendsTarget, clearUserTrendsTarget]);
+
+  // Load the viewed user's profile (cover/avatar/name/signature) for the userTrends header.
+  useEffect(() => {
+    if (view !== 'userTrends' || !userTrendsUserId || !token) return;
+    const isSelf = !!meUserId && userTrendsUserId === meUserId;
+    if (isSelf) {
+      setUserTrendsProfile({ avatar: meAvatar, name: meName, signature: meSignature, cover: meCover });
+      return;
+    }
+    setUserTrendsProfile({ avatar: '', name: userTrendsUserName, signature: '', cover: '' });
+    (async () => {
+      try {
+        const r = await fetch(`/api/user/search?ids=${encodeURIComponent(userTrendsUserId)}`, { headers: { Authorization: `Bearer ${token}` } });
+        const j = await r.json();
+        const u = (j?.data?.users || [])[0];
+        if (u) {
+          setUserTrendsProfile({
+            avatar: u.avatar || '',
+            name: friendDisplayName(userTrendsUserId, u.nickname || userTrendsUserName),
+            signature: u.introduction || '',
+            cover: u.moments_cover || '',
+          });
+        }
+      } catch (err) {
+        console.error('load userTrends profile error', err);
+      }
+    })();
+  }, [view, userTrendsUserId, token, meUserId, meAvatar, meName, meSignature, meCover, userTrendsUserName]);
+
   // Load user-trends when entering that view.
   useEffect(() => {
     if (view !== 'userTrends' || !userTrendsUserId || !token) return;
@@ -1768,9 +1815,9 @@ export default function MomentsFeed() {
   }, []);
 
   const handleBackFromNotifications = useCallback(() => {
-    setView('feed');
+    setView(notifBackView);
     setNotifTab('all');
-  }, []);
+  }, [notifBackView]);
 
   // ── Detail navigation helpers ──
   const handleOpenDetail = useCallback((trendId: number) => {
@@ -1801,7 +1848,7 @@ export default function MomentsFeed() {
         {/* Notification bell */}
         <div className="relative">
           <button
-            onClick={() => { setView('notifications'); setNotifTab('all'); }}
+            onClick={() => { setNotifBackView('feed'); setView('notifications'); setNotifTab('all'); }}
             style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <Bell className="w-5 h-5" />
@@ -1823,15 +1870,15 @@ export default function MomentsFeed() {
     </div>
   );
 
-  const renderCoverSection = () => (
+  const renderCoverSection = (opts: { cover: string; avatar: string; name: string; uid: string; editable: boolean }) => (
     <div className="relative">
       <div
         className="relative overflow-hidden"
         style={{ height: 176 }}
       >
-        {meCover ? (
+        {opts.cover ? (
           <img
-            src={meCover}
+            src={opts.cover}
             alt="cover"
             className="w-full h-full object-cover"
           />
@@ -1851,19 +1898,23 @@ export default function MomentsFeed() {
             />
           </>
         )}
-        <input
-          ref={coverInputRef}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f); e.target.value = ''; }}
-        />
-        <button
-          onClick={() => coverInputRef.current?.click()}
-          style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, border: 'none', borderRadius: 14, padding: '4px 10px', background: 'rgba(0,0,0,0.35)', color: '#FFF', fontSize: 12, cursor: 'pointer' }}
-        >
-          更换封面
-        </button>
+        {opts.editable && (
+          <>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f); e.target.value = ''; }}
+            />
+            <button
+              onClick={() => coverInputRef.current?.click()}
+              style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, border: 'none', borderRadius: 14, padding: '4px 10px', background: 'rgba(0,0,0,0.35)', color: '#FFF', fontSize: 12, cursor: 'pointer' }}
+            >
+              更换封面
+            </button>
+          </>
+        )}
         <div
           className="absolute inset-0"
           style={{
@@ -1871,28 +1922,28 @@ export default function MomentsFeed() {
           }}
         />
       </div>
-      <div className="absolute" style={{ bottom: -16, left: 12, cursor: 'pointer' }} onClick={() => meUserId && showUserCard(meUserId)}>
-        {meAvatar ? (
+      <div className="absolute" style={{ bottom: -16, left: 12, cursor: 'pointer' }} onClick={() => opts.uid && showUserCard(opts.uid)}>
+        {opts.avatar ? (
           <img
-            src={meAvatar}
-            alt={meName}
+            src={opts.avatar}
+            alt={opts.name}
             style={{ width: 68, height: 68, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
           />
         ) : (
           <div
-            style={{ width: 68, height: 68, borderRadius: '50%', backgroundColor: getAvatarColor(meName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 600, color: '#FFF', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
+            style={{ width: 68, height: 68, borderRadius: '50%', backgroundColor: getAvatarColor(opts.name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 600, color: '#FFF', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
           >
-            {meName ? meName[0] : '?'}
+            {opts.name ? opts.name[0] : '?'}
           </div>
         )}
       </div>
     </div>
   );
 
-  const renderUserInfo = () => (
+  const renderUserInfo = (opts: { name: string; signature: string; uid: string }) => (
     <div style={{ padding: '20px 12px 10px' }}>
-      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', cursor: 'pointer', display: 'inline-block' }} onClick={() => meUserId && showUserCard(meUserId)}>{meName}</h3>
-      <p style={{ fontSize: '12px', color: '#708499', marginTop: 2 }}>{meSignature}</p>
+      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', cursor: 'pointer', display: 'inline-block' }} onClick={() => opts.uid && showUserCard(opts.uid)}>{opts.name}</h3>
+      <p style={{ fontSize: '12px', color: '#708499', marginTop: 2 }}>{opts.signature}</p>
     </div>
   );
 
@@ -1914,8 +1965,8 @@ export default function MomentsFeed() {
         {renderFeedHeader()}
 
         <div className="flex-1 overflow-y-auto im-scroll">
-          {renderCoverSection()}
-          {renderUserInfo()}
+          {renderCoverSection({ cover: meCover, avatar: meAvatar, name: meName, uid: meUserId, editable: true })}
+          {renderUserInfo({ name: meName, signature: meSignature, uid: meUserId })}
           <div style={{ height: 1, background: 'rgba(0,0,0,0.06)' }} />
 
           {/* Trend cards */}
@@ -2145,36 +2196,57 @@ export default function MomentsFeed() {
   // VIEW: User Trends
   // ═══════════════════════════════════════
   if (view === 'userTrends') {
+    const isSelfTrends = !!meUserId && userTrendsUserId === meUserId;
+    const headerName = userTrendsProfile.name || userTrendsUserName;
     return (
-      <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
-        {/* Header */}
+      <div className="h-full flex flex-col relative" style={{ background: '#F5F7FA' }}>
+        {/* Slim top bar: back + title (+ publish on my own circle) */}
         <div className="flex items-center justify-between shrink-0" style={{ height: 56, background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.08)', paddingLeft: 4, paddingRight: 16 }}>
           <button onClick={handleBackFromUserTrends} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#3390EC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{userTrendsUserName}的动态</span>
-          <div style={{ width: 40 }} />
-        </div>
-
-        {/* User info bar */}
-        <div className="shrink-0" style={{ background: '#FFF', padding: '12px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-          <div className="flex items-center gap-3">
-            {avatarCircle(userTrendsUserName, 44)}
-            <div>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: '#1C2733' }}>{userTrendsUserName}</div>
-              <div style={{ fontSize: '12px', color: '#A2ACB5', marginTop: 1 }}>{filteredTrends.length} 条动态</div>
+          <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{isSelfTrends ? t('moments.mine') : `${headerName}的动态`}</span>
+          {/* Message queue (互动消息) + publish — only on my own 朋友圈 */}
+          {isSelfTrends ? (
+            <div className="flex items-center gap-1 shrink-0">
+              <div className="relative">
+                <button
+                  onClick={() => { setNotifBackView('userTrends'); setView('notifications'); setNotifTab('all'); }}
+                  style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Bell className="w-5 h-5" />
+                </button>
+                {unreadNotifCount > 0 && (
+                  <span className="absolute flex items-center justify-center" style={{ top: 4, right: 2, minWidth: 16, height: 16, borderRadius: 8, background: '#E53935', color: '#FFF', fontSize: '10px', fontWeight: 700, padding: '0 4px' }}>
+                    {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setShowPublish(true)}
+                style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#3390EC', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Plus className="w-5 h-5" style={{ color: '#FFF' }} />
+              </button>
             </div>
-          </div>
+          ) : (
+            <div style={{ width: 40 }} />
+          )}
         </div>
 
-        {/* Trend list */}
+        {/* Same layout as the public feed: cover + user info + trend cards */}
         <div className="flex-1 overflow-y-auto im-scroll">
-          {filteredTrends.length > 0 ? (
-            <div style={{ background: '#FFF', borderRadius: '12px', margin: '8px', overflow: 'hidden' }}>
-              {filteredTrends.map(trend => (
+          {renderCoverSection({ cover: userTrendsProfile.cover, avatar: userTrendsProfile.avatar, name: headerName, uid: userTrendsUserId, editable: isSelfTrends })}
+          {renderUserInfo({ name: headerName, signature: userTrendsProfile.signature, uid: userTrendsUserId })}
+          <div style={{ height: 1, background: 'rgba(0,0,0,0.06)' }} />
+
+          <div style={{ background: '#FFF', borderRadius: '12px 12px 0 0', margin: '0 0 0' }}>
+            {filteredTrends.length > 0 ? (
+              filteredTrends.map(trend => (
                 <TrendCard
                   key={trend.id}
                   trend={trend}
+                  showTopBadge={false}
                   liked={likedTrends.has(trend.id)}
                   likeCount={trend.agreeCount}
                   likeUsers={likeUsersMap[trend.id] || []}
@@ -2194,15 +2266,19 @@ export default function MomentsFeed() {
                   onAvatarClick={() => handleAvatarClick(trend.userId, trendDisplayName(trend))}
                   onManage={(x, y) => handleManageTrend(trend.id, x, y)}
                 />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
-              <Inbox className="w-16 h-16" style={{ color: '#D1D5DB', marginBottom: 16 }} />
-              <div style={{ fontSize: '15px', fontWeight: 500, color: '#646A73', marginBottom: 8 }}>暂无动态</div>
-              <div style={{ fontSize: '13px', color: '#A2ACB5' }}>该用户还没有发布动态</div>
-            </div>
-          )}
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
+                <Inbox className="w-16 h-16" style={{ color: '#D1D5DB', marginBottom: 16 }} />
+                <div style={{ fontSize: '15px', fontWeight: 500, color: '#646A73', marginBottom: 8 }}>暂无动态</div>
+                <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{isSelfTrends ? '点击右上角 + 发布第一条动态' : '该用户还没有发布动态'}</div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ padding: '20px 0 12px', textAlign: 'center', fontSize: '12px', color: '#A2ACB5' }}>
+            — 已经到底了 —
+          </div>
         </div>
 
         {/* Modals */}
