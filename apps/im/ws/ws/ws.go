@@ -101,3 +101,17 @@ type MarkRead struct {
 	MsgIds      []string          `json:"msgIds" mapstructure:"msgIds"`
 	ReadRecords map[string]string `json:"readRecords" mapstructure:"readRecords"`
 }
+
+// TrendNotify 动态消息通知推送帧（与聊天会话解耦，走 push.trend 路由单推给 ReceiverId）。
+// mq 消费者构造此结构投给 ws，ws 用 push.trend handler 解码后下发，前端用 method=trend.notify 接收。
+type TrendNotify struct {
+	ReceiverId      string `json:"receiverId" mapstructure:"receiverId"`                     // 接收者(被通知人)uid
+	ActorId         string `json:"actorId" mapstructure:"actorId"`                           // 触发者uid
+	MsgType         int    `json:"msgType" mapstructure:"msgType"`                           // 1赞 2评论 3回复 4发动态@ 5评论@
+	TrendId         uint64 `json:"trendId" mapstructure:"trendId"`                           // 动态ID
+	CommentId       uint64 `json:"commentId,omitempty" mapstructure:"commentId"`             // 评论ID
+	ParentCommentId uint64 `json:"parentCommentId,omitempty" mapstructure:"parentCommentId"` // 父评论ID
+	MessageId       uint64 `json:"messageId" mapstructure:"messageId"`                       // trend_message.id
+	Content         string `json:"content,omitempty" mapstructure:"content"`                 // 内容快照
+	CreateTime      int64  `json:"createTime" mapstructure:"createTime"`                     // 创建时间(时间戳)
+}

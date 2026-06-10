@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/notify"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 
@@ -29,10 +31,13 @@ func NewToggleLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Toggle
 
 // ToggleLike 点赞/取消点赞
 func (l *ToggleLikeLogic) ToggleLike(in *trend.LikeToggleRequest) (*trend.LikeToggleResponse, error) {
+	// delta: 1=本次新增点赞, -1=本次取消, 0=无变化（幂等）
+	var delta int
 	// 实例化事务管理器
 	tx := transaction.NewManager()
 	txErr := tx.Execute(l.ctx, nil, func(ctx context.Context) error {
-		delta, err := l.svcCtx.TrendAgree.AgreeInc(l.ctx, uint64(in.UserId), uint64(in.AuthorId), uint64(in.TrendId), int(in.LikeType))
+		var err error
+		delta, err = l.svcCtx.TrendAgree.AgreeInc(l.ctx, uint64(in.UserId), uint64(in.AuthorId), uint64(in.TrendId), int(in.LikeType))
 		if err != nil {
 			return fmt.Errorf("用户: %d 点赞动态: %d 失败: %s", in.UserId, in.TrendId, err)
 		}
@@ -52,7 +57,20 @@ func (l *ToggleLikeLogic) ToggleLike(in *trend.LikeToggleRequest) (*trend.LikeTo
 		return nil, txErr
 	}
 
-	return &trend.LikeToggleResponse{
-		Success: true,
-	}, nil
+	resp := &trend.LikeToggleResponse{Success: true}
+	switch delta {
+	case 1: // 新增点赞：生成点赞消息（自我点赞由 builder 过滤）
+		resp.CreatedMessages = persistTrendMessages(l.ctx, l.svcCtx, notify.TrendNotifyEvent{
+			Type:     constants.TrendMsgLike,
+			ActorId:  uint64(in.UserId),
+			TrendId:  uint64(in.TrendId),
+			AuthorId: uint64(in.AuthorId),
+		})
+	case -1: // 取消点赞：级联软删对应点赞消息
+		if err := l.svcCtx.TrendMessage.SoftDeleteLike(l.ctx, uint64(in.TrendId), uint64(in.UserId)); err != nil {
+			zLog.Error("ToggleLike: 级联软删点赞消息失败", zap.Any("trendId", in.TrendId), zap.Any("uid", in.UserId), zap.Error(err))
+		}
+	}
+
+	return resp, nil
 }

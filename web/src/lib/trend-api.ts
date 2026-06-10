@@ -432,7 +432,83 @@ export function markLikesRead(token: string, likeIds: number[]) {
 }
 
 /* ──────────────────────────────────────────────────────────────
+   3.4 动态消息中心（统一消息表：赞/评论/回复/@，实时推送）
+   ────────────────────────────────────────────────────────────── */
+
+export interface BackendTrendMessage {
+  id: number;
+  type: number; // 1赞 2评论 3回复 4发动态@ 5评论@
+  trend_id: number;
+  comment_id?: number;
+  parent_comment_id?: number;
+  content?: string;
+  is_read: boolean;
+  create_time: number;
+  actor?: BackendTrendUser;
+}
+
+export interface TrendMessageListResp {
+  list: BackendTrendMessage[];
+  last_id: number;
+}
+
+export interface TrendMessageUnreadResp {
+  total: number;
+  like: number;
+  comment: number;
+  reply: number;
+  at_trend: number;
+  at_comment: number;
+}
+
+/** 消息列表（接收者从 JWT 取，id 倒序分页） */
+export function getTrendMessages(token: string, lastId = 0, limit = 20) {
+  return send<TrendMessageListResp>(
+    'GET',
+    `trend/message/list${buildQuery({ last_id: lastId, limit })}`,
+    token,
+  );
+}
+
+/** 未读数（总数 + 按类型明细） */
+export function getTrendMessageUnread(token: string) {
+  return send<TrendMessageUnreadResp>('GET', 'trend/message/unread', token);
+}
+
+/** 全部标记为已读 */
+export function markTrendMessagesRead(token: string) {
+  return send<Record<string, unknown>>('PUT', 'trend/message/mark-read', token);
+}
+
+const TREND_MSG_TYPE: Record<number, MomentsNotification['type']> = {
+  1: 'like',
+  2: 'comment',
+  3: 'reply',
+  4: 'at_trend',
+  5: 'at_comment',
+};
+
+/** 后端统一消息 -> 前端通知模型 */
+export function trendMessagesToNotifications(
+  list: BackendTrendMessage[],
+  currentUserId: string,
+): MomentsNotification[] {
+  return (list || []).map(m => ({
+    id: m.id,
+    type: TREND_MSG_TYPE[m.type] || 'comment',
+    trendId: m.trend_id,
+    commentId: m.comment_id || 0,
+    trendContent: '',
+    actor: mapBackendUserLite(m.actor, currentUserId),
+    content: m.content,
+    read: !!m.is_read,
+    createTime: new Date((m.create_time || 0) * 1000),
+  }));
+}
+
+/* ──────────────────────────────────────────────────────────────
    Notification helpers (compose unread replies + likes)
+   @deprecated 旧轮询式未读，已被统一消息中心（getTrendMessages）取代
    ────────────────────────────────────────────────────────────── */
 
 export function unreadToNotifications(data: UnreadResp, currentUserId: string): MomentsNotification[] {

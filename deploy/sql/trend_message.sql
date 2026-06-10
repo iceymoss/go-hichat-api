@@ -1,0 +1,20 @@
+CREATE TABLE `trend_message` (
+    `id`                BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `receiver_id`       INT UNSIGNED     NOT NULL COMMENT '接收者(被通知人)uid',
+    `actor_id`          INT UNSIGNED     NOT NULL COMMENT '触发者(操作人)uid',
+    `type`              TINYINT UNSIGNED NOT NULL COMMENT '类型 1点赞 2评论 3回复评论 4发动态@ 5评论@',
+    `trend_id`          INT UNSIGNED     NOT NULL DEFAULT 0 COMMENT '关联动态ID',
+    `comment_id`        BIGINT UNSIGNED  NOT NULL DEFAULT 0 COMMENT '关联评论ID(评论/回复/评论@时有值)',
+    `parent_comment_id` BIGINT UNSIGNED  NOT NULL DEFAULT 0 COMMENT '被回复的评论ID(回复评论时)',
+    `content`           VARCHAR(500)     NOT NULL DEFAULT '' COMMENT '内容快照(评论/回复正文摘要)',
+    `is_read`           TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '已读状态 0未读 1已读',
+    `state`             TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '状态 0已删除(级联软删) 1正常',
+    `create_time`       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time`       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_receiver_state_read` (`receiver_id`, `state`, `is_read`),
+    KEY `idx_receiver_id` (`receiver_id`, `id`),
+    KEY `idx_cascade_trend` (`trend_id`, `state`),
+    KEY `idx_cascade_comment` (`comment_id`, `state`),
+    KEY `idx_cancel_like` (`type`, `trend_id`, `actor_id`, `state`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='动态消息通知表';

@@ -172,3 +172,21 @@ func (s *TrendServiceServer) DeleteTrendDraft(ctx context.Context, in *trend.Del
 	l := logic.NewDeleteTrendDraftLogic(ctx, s.svcCtx)
 	return l.DeleteTrendDraft(in)
 }
+
+// ===== 动态消息通知 =====
+func (s *TrendServiceServer) ListTrendMessages(ctx context.Context, in *trend.ListTrendMessagesReq) (*trend.ListTrendMessagesResp, error) {
+	l := logic.NewListTrendMessagesLogic(ctx, s.svcCtx)
+	return l.ListTrendMessages(in)
+}
+
+// 获取动态消息未读数（总数 + 按类型明细）
+func (s *TrendServiceServer) GetTrendMessageUnread(ctx context.Context, in *trend.GetTrendMessageUnreadReq) (*trend.GetTrendMessageUnreadResp, error) {
+	l := logic.NewGetTrendMessageUnreadLogic(ctx, s.svcCtx)
+	return l.GetTrendMessageUnread(in)
+}
+
+// 全部标记为已读
+func (s *TrendServiceServer) MarkTrendMessagesRead(ctx context.Context, in *trend.MarkTrendMessagesReadReq) (*trend.MarkTrendMessagesReadResp, error) {
+	l := logic.NewMarkTrendMessagesReadLogic(ctx, s.svcCtx)
+	return l.MarkTrendMessagesRead(in)
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/logic/notifypush"
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
@@ -92,6 +93,9 @@ func (l *CreateTrendLogic) CreateTrend(req *types.CreateTrendRequest) (resp *typ
 		TrendID: int(res.TrendId),
 		Code:    int(res.Code),
 	}
+
+	// 发动态 @ 产生的消息：投 Kafka 实时推送（失败不影响发布结果）
+	notifypush.Publish(l.svcCtx.TrendNotifyTransferClient, res.CreatedMessages)
 
 	return
 }

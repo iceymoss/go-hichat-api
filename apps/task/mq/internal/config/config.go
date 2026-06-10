@@ -24,6 +24,8 @@ type Config struct {
 
 	MsgRecallTransfer kq.KqConf
 
+	TrendNotifyTransfer kq.KqConf
+
 	Ws struct {
 		Host string
 	}

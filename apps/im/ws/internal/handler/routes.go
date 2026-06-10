@@ -31,6 +31,11 @@ func RegisterHandlers(srv *websocket.Server, svc *svc.ServiceContext) {
 			Handler: push.Push(svc),
 		},
 		{
+			// 动态消息通知: mq->ws->客户端（与聊天 push 解耦）
+			Method:  "push.trend",
+			Handler: push.TrendNotify(svc),
+		},
+		{
 			// 消息阅读处理: 客户端->ws->mq
 			Method:  "chat.markChat",
 			Handler: conversation.MarkRead(svc),

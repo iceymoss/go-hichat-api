@@ -35,6 +35,15 @@ MsgRecallTransfer:
   Offset: first
   Consumers: 1
 
+TrendNotifyTransfer:
+  Name: trendNotifyTrans
+  Brokers:
+    - 127.0.0.1:9092
+  Group: kafka
+  Topic: trendNotifyTransfer
+  Offset: first
+  Consumers: 1
+
 Ws:
   Host: 127.0.0.1:10090
 

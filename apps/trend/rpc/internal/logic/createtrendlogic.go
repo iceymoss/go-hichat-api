@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/models"
+	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/notify"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/sensitive"
@@ -178,7 +180,24 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 
 	rdb.HSet(l.ctx, key, in.UserId, time.Now().Unix())
 
-	return &trend.CreateTrendResponse{TrendId: int64(id), Code: 1000}, nil
+	resp := &trend.CreateTrendResponse{TrendId: int64(id), Code: 1000}
+
+	// 发动态 @用户：为被 @的人生成 at_trend 消息（@自己由 builder 过滤）
+	if len(in.AtUserIds) > 0 {
+		atUsers := make([]uint64, 0, len(in.AtUserIds))
+		for _, uid := range in.AtUserIds {
+			atUsers = append(atUsers, uint64(uid))
+		}
+		resp.CreatedMessages = persistTrendMessages(l.ctx, l.svcCtx, notify.TrendNotifyEvent{
+			Type:    constants.TrendMsgAtTrend,
+			ActorId: uint64(in.UserId),
+			TrendId: id,
+			AtUsers: atUsers,
+			Content: in.Content,
+		})
+	}
+
+	return resp, nil
 }
 
 func checkTrendContent(content string) (bool, string, error) {

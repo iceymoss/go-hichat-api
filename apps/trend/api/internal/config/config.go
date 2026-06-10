@@ -16,6 +16,12 @@ type Config struct {
 
 	ImRpc zrpc.RpcClientConf
 
+	// TrendNotifyTransfer 动态消息通知专用 Kafka topic（生产端）
+	TrendNotifyTransfer struct {
+		Addrs []string
+		Topic string
+	}
+
 	JwtAuth struct {
 		AccessSecret string
 		AccessExpire int64

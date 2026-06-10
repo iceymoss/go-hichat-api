@@ -45,9 +45,10 @@ function fmtTime(date: Date): string {
 
 function getUserName(userId: string, fallback?: string): string {
   if (userId === 'me') return fallback || useIMStore.getState().currentUser?.name || '我';
-  if (fallback) return fallback;
+  // 好友备注优先，其次后端昵称兜底
   const c = useIMStore.getState().friends.find(ct => ct.id === userId);
-  return c ? (c.remark || c.name) : userId;
+  if (c?.remark) return c.remark;
+  return fallback || c?.name || userId;
 }
 
 const scopeLabels: Record<number, { label: string; icon: React.ReactNode }> = {
@@ -70,9 +71,9 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
   const [showActions, setShowActions] = useState(false);
   const showUserCard = useIMStore(s => s.showUserCard);
   const isOwn = comment.replyer.id === 'me';
-  const userName = comment.replyer.name;
+  const userName = getUserName(comment.replyer.id, comment.replyer.name);
   const userAvatar = comment.replyer.avatar;
-  const replyToName = comment.user?.name;
+  const replyToName = comment.user ? getUserName(comment.user.id, comment.user.name) : undefined;
 
   return (
     <div
@@ -149,7 +150,7 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
 const LIKE_COLLAPSE_LIMIT = 70;
 
 function LikeAvatarItem({ user }: { user: { id: string; name: string; avatar: string } }) {
-  const name = user.name;
+  const name = getUserName(user.id, user.name);
   const [showTip, setShowTip] = useState(false);
   const showUserCard = useIMStore(s => s.showUserCard);
   const displayName = user.id === 'me' ? '我' : (name || user.id);
@@ -364,7 +365,7 @@ export default function TrendDetailPanel() {
   };
 
   if (!trend) return null;
-  const userName = trend.userName || getUserName(trend.userId);
+  const userName = getUserName(trend.userId, trend.userName);
   const userAvatar = trend.userAvatar || '';
 
   return (
@@ -654,7 +655,7 @@ export default function TrendDetailPanel() {
           {replyTarget && (
             <div className="flex items-center gap-1 shrink-0" style={{ fontSize: '11px', color: '#708499', maxWidth: 120, overflow: 'hidden', whiteSpace: 'nowrap' }}>
               <span>回复</span>
-              <span style={{ color: '#3390EC', fontWeight: 500 }}>{replyTarget.replyer.name}</span>
+              <span style={{ color: '#3390EC', fontWeight: 500 }}>{getUserName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
               <button
                 onClick={() => setReplyTarget(null)}
                 style={{ marginLeft: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 0, display: 'flex' }}
@@ -667,7 +668,7 @@ export default function TrendDetailPanel() {
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && commentText.trim()) handleSubmitComment(); }}
-            placeholder={replyTarget ? `回复 ${replyTarget.replyer.name}...` : '写评论...'}
+            placeholder={replyTarget ? `回复 ${getUserName(replyTarget.replyer.id, replyTarget.replyer.name)}...` : '写评论...'}
             style={{
               flex: 1, borderRadius: '20px',
               border: '1px solid rgba(0,0,0,0.1)',

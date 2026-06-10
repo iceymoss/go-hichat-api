@@ -62,6 +62,12 @@ interface IMState {
   friendRequestUnreadCount: number;
   setFriendRequestUnreadCount: (count: number) => void;
 
+  // Moments (动态) message-center unread + realtime notify version
+  momentsUnreadCount: number;
+  setMomentsUnreadCount: (count: number) => void;
+  trendNotifyVersion: number;
+  bumpTrendNotifyVersion: () => void;
+
   // Group panel
   showGroupPanel: boolean;
   setShowGroupPanel: (show: boolean) => void;
@@ -205,6 +211,11 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   friendRequestUnreadCount: 0,
   setFriendRequestUnreadCount: (count) => set({ friendRequestUnreadCount: count }),
 
+  momentsUnreadCount: 0,
+  setMomentsUnreadCount: (count) => set({ momentsUnreadCount: count }),
+  trendNotifyVersion: 0,
+  bumpTrendNotifyVersion: () => set((s) => ({ trendNotifyVersion: s.trendNotifyVersion + 1 })),
+
   // Group panel
   showGroupPanel: false,
   setShowGroupPanel: (show) => set({ showGroupPanel: show, selectedContactId: null, showFriendRequests: false }),
@@ -235,3 +246,13 @@ export const useIMStore = create<IMState>()(persist((set) => ({
     currentUser: state.currentUser,
   }),
 }));
+
+/**
+ * 按 userId 解析展示名：好友备注优先，其次用传入的后端昵称兜底。
+ * 用于动态评论 / 点赞 / 消息中心等显示他人名字的地方，统一"备注优先"。
+ */
+export function friendDisplayName(userId: string, fallback: string): string {
+  if (!userId) return fallback;
+  const f = useIMStore.getState().friends.find(c => c.id === userId);
+  return f?.remark || fallback;
+}

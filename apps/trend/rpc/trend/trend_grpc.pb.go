@@ -44,6 +44,9 @@ const (
 	TrendService_SaveTrendDraft_FullMethodName           = "/trend.TrendService/SaveTrendDraft"
 	TrendService_GetTrendDraft_FullMethodName            = "/trend.TrendService/GetTrendDraft"
 	TrendService_DeleteTrendDraft_FullMethodName         = "/trend.TrendService/DeleteTrendDraft"
+	TrendService_ListTrendMessages_FullMethodName        = "/trend.TrendService/ListTrendMessages"
+	TrendService_GetTrendMessageUnread_FullMethodName    = "/trend.TrendService/GetTrendMessageUnread"
+	TrendService_MarkTrendMessagesRead_FullMethodName    = "/trend.TrendService/MarkTrendMessagesRead"
 )
 
 // TrendServiceClient is the client API for TrendService service.
@@ -104,6 +107,13 @@ type TrendServiceClient interface {
 	GetTrendDraft(ctx context.Context, in *GetTrendDraftRequest, opts ...grpc.CallOption) (*GetTrendDraftResponse, error)
 	// 删除动态草稿
 	DeleteTrendDraft(ctx context.Context, in *DeleteTrendDraftRequest, opts ...grpc.CallOption) (*DeleteTrendDraftResponse, error)
+	// ===== 动态消息通知 =====
+	// 获取动态消息列表
+	ListTrendMessages(ctx context.Context, in *ListTrendMessagesReq, opts ...grpc.CallOption) (*ListTrendMessagesResp, error)
+	// 获取动态消息未读数（总数 + 按类型明细）
+	GetTrendMessageUnread(ctx context.Context, in *GetTrendMessageUnreadReq, opts ...grpc.CallOption) (*GetTrendMessageUnreadResp, error)
+	// 全部标记为已读
+	MarkTrendMessagesRead(ctx context.Context, in *MarkTrendMessagesReadReq, opts ...grpc.CallOption) (*MarkTrendMessagesReadResp, error)
 }
 
 type trendServiceClient struct {
@@ -364,6 +374,36 @@ func (c *trendServiceClient) DeleteTrendDraft(ctx context.Context, in *DeleteTre
 	return out, nil
 }
 
+func (c *trendServiceClient) ListTrendMessages(ctx context.Context, in *ListTrendMessagesReq, opts ...grpc.CallOption) (*ListTrendMessagesResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTrendMessagesResp)
+	err := c.cc.Invoke(ctx, TrendService_ListTrendMessages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *trendServiceClient) GetTrendMessageUnread(ctx context.Context, in *GetTrendMessageUnreadReq, opts ...grpc.CallOption) (*GetTrendMessageUnreadResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTrendMessageUnreadResp)
+	err := c.cc.Invoke(ctx, TrendService_GetTrendMessageUnread_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *trendServiceClient) MarkTrendMessagesRead(ctx context.Context, in *MarkTrendMessagesReadReq, opts ...grpc.CallOption) (*MarkTrendMessagesReadResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MarkTrendMessagesReadResp)
+	err := c.cc.Invoke(ctx, TrendService_MarkTrendMessagesRead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TrendServiceServer is the server API for TrendService service.
 // All implementations must embed UnimplementedTrendServiceServer
 // for forward compatibility.
@@ -422,6 +462,13 @@ type TrendServiceServer interface {
 	GetTrendDraft(context.Context, *GetTrendDraftRequest) (*GetTrendDraftResponse, error)
 	// 删除动态草稿
 	DeleteTrendDraft(context.Context, *DeleteTrendDraftRequest) (*DeleteTrendDraftResponse, error)
+	// ===== 动态消息通知 =====
+	// 获取动态消息列表
+	ListTrendMessages(context.Context, *ListTrendMessagesReq) (*ListTrendMessagesResp, error)
+	// 获取动态消息未读数（总数 + 按类型明细）
+	GetTrendMessageUnread(context.Context, *GetTrendMessageUnreadReq) (*GetTrendMessageUnreadResp, error)
+	// 全部标记为已读
+	MarkTrendMessagesRead(context.Context, *MarkTrendMessagesReadReq) (*MarkTrendMessagesReadResp, error)
 	mustEmbedUnimplementedTrendServiceServer()
 }
 
@@ -506,6 +553,15 @@ func (UnimplementedTrendServiceServer) GetTrendDraft(context.Context, *GetTrendD
 }
 func (UnimplementedTrendServiceServer) DeleteTrendDraft(context.Context, *DeleteTrendDraftRequest) (*DeleteTrendDraftResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTrendDraft not implemented")
+}
+func (UnimplementedTrendServiceServer) ListTrendMessages(context.Context, *ListTrendMessagesReq) (*ListTrendMessagesResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListTrendMessages not implemented")
+}
+func (UnimplementedTrendServiceServer) GetTrendMessageUnread(context.Context, *GetTrendMessageUnreadReq) (*GetTrendMessageUnreadResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTrendMessageUnread not implemented")
+}
+func (UnimplementedTrendServiceServer) MarkTrendMessagesRead(context.Context, *MarkTrendMessagesReadReq) (*MarkTrendMessagesReadResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MarkTrendMessagesRead not implemented")
 }
 func (UnimplementedTrendServiceServer) mustEmbedUnimplementedTrendServiceServer() {}
 func (UnimplementedTrendServiceServer) testEmbeddedByValue()                      {}
@@ -978,6 +1034,60 @@ func _TrendService_DeleteTrendDraft_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TrendService_ListTrendMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTrendMessagesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TrendServiceServer).ListTrendMessages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TrendService_ListTrendMessages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TrendServiceServer).ListTrendMessages(ctx, req.(*ListTrendMessagesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TrendService_GetTrendMessageUnread_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTrendMessageUnreadReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TrendServiceServer).GetTrendMessageUnread(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TrendService_GetTrendMessageUnread_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TrendServiceServer).GetTrendMessageUnread(ctx, req.(*GetTrendMessageUnreadReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TrendService_MarkTrendMessagesRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MarkTrendMessagesReadReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TrendServiceServer).MarkTrendMessagesRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TrendService_MarkTrendMessagesRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TrendServiceServer).MarkTrendMessagesRead(ctx, req.(*MarkTrendMessagesReadReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TrendService_ServiceDesc is the grpc.ServiceDesc for TrendService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1084,6 +1194,18 @@ var TrendService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteTrendDraft",
 			Handler:    _TrendService_DeleteTrendDraft_Handler,
+		},
+		{
+			MethodName: "ListTrendMessages",
+			Handler:    _TrendService_ListTrendMessages_Handler,
+		},
+		{
+			MethodName: "GetTrendMessageUnread",
+			Handler:    _TrendService_GetTrendMessageUnread_Handler,
+		},
+		{
+			MethodName: "MarkTrendMessagesRead",
+			Handler:    _TrendService_MarkTrendMessagesRead_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
