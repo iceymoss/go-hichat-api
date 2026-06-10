@@ -36,7 +36,7 @@ import {
 import { toast } from 'sonner';
 import ImageViewer from './ImageViewer';
 import { getAvatarColor } from '@/lib/utils';
-import { useIMStore } from '@/lib/im-store';
+import { useIMStore, friendDisplayName } from '@/lib/im-store';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useT } from '@/hooks/use-i18n';
 import {
@@ -236,9 +236,9 @@ function CommentItem({ comment, onReply, onDelete, depth = 0 }: CommentItemProps
     <div>
       <div className="flex items-start gap-2" style={{ padding: '4px 0' }}>
         <div style={{ fontSize: '12px', lineHeight: '1.6', flex: 1 }}>
-          <span style={{ color: '#3390EC', fontWeight: 600, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{comment.replyer.name}</span>
+          <span style={{ color: '#3390EC', fontWeight: 600, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{friendDisplayName(comment.replyer.id, comment.replyer.name)}</span>
           {comment.father !== 0 && comment.user && comment.user.id !== comment.replyer.id && (
-            <span> 回复 <span style={{ color: '#3390EC', fontWeight: 500, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.user.id); }}>{comment.user.name}</span></span>
+            <span> 回复 <span style={{ color: '#3390EC', fontWeight: 500, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.user.id); }}>{friendDisplayName(comment.user.id, comment.user.name)}</span></span>
           )}
           <span style={{ color: '#1C2733' }}>：{comment.content}</span>
         </div>
@@ -523,7 +523,7 @@ function TrendCard({
                 <Heart className="w-3 h-3 shrink-0 mt-0.5" style={{ color: '#3390EC', fill: '#3390EC' }} />
                 <span style={{ color: '#708499' }}>
                   {(likeNamesExpanded ? likeUsers : likeUsers.slice(0, FEED_LIKE_COLLAPSE_LIMIT)).map((u, i) => {
-                    const displayName = u.id === 'me' ? '我' : (useIMStore.getState().friends.find(ct => ct.id === u.id)?.remark || u.name);
+                    const displayName = u.id === 'me' ? '我' : friendDisplayName(u.id, u.name);
                     return (
                       <span key={u.id || `like-${i}`}>
                         {i > 0 && <span style={{ margin: '0 2px' }}>、</span>}
@@ -580,7 +580,7 @@ function TrendCard({
               {replyTarget && (
                 <div className="flex items-center gap-1 text-xs w-full" style={{ color: '#708499', marginBottom: 4, padding: '0 4px' }}>
                   <span>回复</span>
-                  <span style={{ color: '#3390EC', fontWeight: 500 }}>{replyTarget.replyer.name}</span>
+                  <span style={{ color: '#3390EC', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
                   <button onClick={() => onSetReplyTarget(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 0 }}>
                     <X className="w-3 h-3" />
                   </button>
@@ -591,7 +591,7 @@ function TrendCard({
                   value={commentText}
                   onChange={(e) => onCommentTextChange(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && commentText.trim()) onSubmitComment(); }}
-                  placeholder={replyTarget ? `回复 ${replyTarget.replyer.name}...` : '写评论...'}
+                  placeholder={replyTarget ? `回复 ${friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}...` : '写评论...'}
                   style={{ ...inputStyle, flex: 1, padding: '7px 12px', fontSize: '13px', borderRadius: '18px' }}
                   onFocus={focusInput}
                   onBlur={blurInput}
@@ -1211,14 +1211,14 @@ function TrendDetailModal({
             {replyTarget && (
               <div className="flex items-center gap-1 shrink-0" style={{ fontSize: '11px', color: '#708499', maxWidth: 100, overflow: 'hidden' }}>
                 <span>回复</span>
-                <span style={{ color: '#3390EC', fontWeight: 500 }}>{replyTarget.replyer.name}</span>
+                <span style={{ color: '#3390EC', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
               </div>
             )}
             <input
               value={commentText}
               onChange={(e) => onCommentTextChange(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && commentText.trim()) onSubmitComment(); }}
-              placeholder={replyTarget ? `回复 ${replyTarget.replyer.name}...` : '写评论...'}
+              placeholder={replyTarget ? `回复 ${friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}...` : '写评论...'}
               style={{ ...inputStyle, flex: 1, padding: '8px 14px', fontSize: '13px', borderRadius: '20px' }}
               onFocus={focusInput}
               onBlur={blurInput}
@@ -2084,10 +2084,10 @@ export default function MomentsFeed() {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = notif.read ? '#FFF' : 'rgba(245,166,35,0.03)'; }}
                 >
                   <div className="flex gap-3">
-                    {avatarCircle(notif.actor.name, 40, undefined, notif.actor.avatar)}
+                    {avatarCircle(friendDisplayName(notif.actor.id, notif.actor.name), 40, undefined, notif.actor.avatar)}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2" style={{ marginBottom: 3 }}>
-                        <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>{notif.actor.name}</span>
+                        <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>{friendDisplayName(notif.actor.id, notif.actor.name)}</span>
                         <span style={{ fontSize: '12px', color: '#708499' }}>{notifActionText(notif.type, t)}</span>
                         {!notif.read && (
                           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E53935', flexShrink: 0, marginLeft: 'auto' }} />

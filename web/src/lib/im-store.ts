@@ -246,3 +246,13 @@ export const useIMStore = create<IMState>()(persist((set) => ({
     currentUser: state.currentUser,
   }),
 }));
+
+/**
+ * 按 userId 解析展示名：好友备注优先，其次用传入的后端昵称兜底。
+ * 用于动态评论 / 点赞 / 消息中心等显示他人名字的地方，统一"备注优先"。
+ */
+export function friendDisplayName(userId: string, fallback: string): string {
+  if (!userId) return fallback;
+  const f = useIMStore.getState().friends.find(c => c.id === userId);
+  return f?.remark || fallback;
+}
