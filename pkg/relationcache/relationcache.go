@@ -80,6 +80,31 @@ func (c *Cache) IsGroupMember(ctx context.Context, gid, uid string) Verdict {
 	return c.verdict(ctx, groupMemberKey(gid), uid)
 }
 
+// GroupMembers 返回群成员列表（剔除哨兵）供扇出使用。
+// loaded=false 表示集合未加载，调用方应回源 RPC 后 LoadGroupMembers，再用本次 RPC 结果扇出。
+func (c *Cache) GroupMembers(ctx context.Context, gid string) (members []string, loaded bool, err error) {
+	key := groupMemberKey(gid)
+	exists, err := c.rdb.Exists(ctx, key).Result()
+	if err != nil {
+		return nil, false, err
+	}
+	if exists == 0 {
+		return nil, false, nil
+	}
+	raw, err := c.rdb.SMembers(ctx, key).Result()
+	if err != nil {
+		return nil, false, err
+	}
+	members = make([]string, 0, len(raw))
+	for _, m := range raw {
+		if m == loadedSentinel {
+			continue
+		}
+		members = append(members, m)
+	}
+	return members, true, nil
+}
+
 // AddGroupMember 版本门下把 uid 加入群成员集（加群/邀请事件）。
 func (c *Cache) AddGroupMember(ctx context.Context, gid, uid string, version int64) (ApplyResult, error) {
 	return c.applyMember(ctx, "add", groupMemberKey(gid), groupVerKey(gid), uid, version)

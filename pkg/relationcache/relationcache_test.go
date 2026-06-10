@@ -155,3 +155,39 @@ func Test_Friend_VerdictAndVersionGate(t *testing.T) {
 		t.Errorf("after stale re-add friend, IsFriend=%v, want Denied", v)
 	}
 }
+
+func Test_GroupMembers_FanoutRead(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2"}, 1); err != nil {
+		t.Fatalf("load g1: %v", err)
+	}
+	if err := c.LoadGroupMembers(ctx, "g2", []string{}, 1); err != nil {
+		t.Fatalf("load g2: %v", err)
+	}
+
+	// 未加载：loaded=false，调用方据此回源 RPC
+	if members, loaded, err := c.GroupMembers(ctx, "gX"); err != nil || loaded || len(members) != 0 {
+		t.Errorf("GroupMembers(unloaded) = (%v,%v,%v), want ([],false,nil)", members, loaded, err)
+	}
+
+	// 已加载非空：返回真实成员，剔除哨兵
+	members, loaded, err := c.GroupMembers(ctx, "g1")
+	if err != nil || !loaded {
+		t.Fatalf("GroupMembers(g1) = (_,%v,%v), want loaded,nil", loaded, err)
+	}
+	got := map[string]bool{}
+	for _, m := range members {
+		got[m] = true
+	}
+	if len(members) != 2 || !got["u1"] || !got["u2"] || got[loadedSentinel] {
+		t.Errorf("GroupMembers(g1) = %v, want exactly {u1,u2} without sentinel", members)
+	}
+
+	// 已加载空群：loaded=true，成员为空（哨兵剔除）
+	if members, loaded, err := c.GroupMembers(ctx, "g2"); err != nil || !loaded || len(members) != 0 {
+		t.Errorf("GroupMembers(empty g2) = (%v,%v,%v), want ([],true,nil)", members, loaded, err)
+	}
+}
