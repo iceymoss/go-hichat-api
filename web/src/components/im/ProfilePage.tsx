@@ -20,6 +20,7 @@ import {
   FileText,
   LogOut,
   Repeat2,
+  Aperture,
 } from 'lucide-react';
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -31,7 +32,7 @@ const iconMap: Record<string, React.ReactNode> = {
 };
 
 export default function ProfilePage() {
-  const { currentUser: authUser, logout, setMeSubPage, meSubPage } = useIMStore();
+  const { currentUser: authUser, logout, setMeSubPage, meSubPage, openUserTrends } = useIMStore();
   const t = useT();
 
   const displayName = authUser?.name || currentUser.name;
@@ -107,6 +108,29 @@ export default function ProfilePage() {
                 <Wallet className="w-4 h-4" style={{ color: '#3390EC' }} />
               </div>
               <span className="text-sm" style={{ color: '#1C2733' }}>{t('profile.service')}</span>
+            </div>
+            <ChevronRight className="w-4 h-4" style={{ color: '#A2ACB5' }} />
+          </div>
+        </div>
+
+        {/* Spacer */}
+        <div className="h-3" />
+
+        {/* My Moments (我的朋友圈) */}
+        <div
+          className="mx-4 rounded-xl overflow-hidden"
+          style={{ background: '#FFFFFF', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+        >
+          <div
+            className="im-profile-menu-item"
+            onClick={() => { if (authUser?.id) openUserTrends(authUser.id, displayName); }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ background: 'rgba(51,144,236,0.1)', color: '#3390EC' }}>
+                <Aperture className="w-5 h-5" />
+              </div>
+              <span className="text-sm" style={{ color: '#1C2733' }}>{t('profile.moments')}</span>
             </div>
             <ChevronRight className="w-4 h-4" style={{ color: '#A2ACB5' }} />
           </div>

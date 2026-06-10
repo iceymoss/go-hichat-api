@@ -1267,6 +1267,8 @@ export default function MomentsFeed() {
   const meCover = meAuth?.momentsCover || '';
   const meUserId = meAuth?.id || '';
   const token = meAuth?.token || '';
+  const userTrendsTarget = useIMStore(s => s.userTrendsTarget);
+  const clearUserTrendsTarget = useIMStore(s => s.clearUserTrendsTarget);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   const handleCoverUpload = useCallback(async (file: File) => {
@@ -1457,14 +1459,17 @@ export default function MomentsFeed() {
       return b.createTime.getTime() - a.createTime.getTime();
     });
     if (view === 'userTrends') {
-      list = list.filter(t => t.userId === userTrendsUserId);
+      // Own trends carry the 'me' sentinel as userId; normalize before matching so
+      // "我的朋友圈" (userTrendsUserId = my real id) still includes them.
+      const norm = (uid: string) => (uid === 'me' ? meUserId : uid);
+      list = list.filter(t => norm(t.userId) === norm(userTrendsUserId));
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(t => t.content.toLowerCase().includes(q) || trendDisplayName(t).toLowerCase().includes(q));
     }
     return list;
-  }, [trends, view, userTrendsUserId, searchQuery]);
+  }, [trends, view, userTrendsUserId, searchQuery, meUserId]);
 
   const filteredNotifications = useMemo(() => {
     let list = [...notifications].sort((a, b) => b.createTime.getTime() - a.createTime.getTime());
@@ -1734,6 +1739,16 @@ export default function MomentsFeed() {
     if (!userId) return;
     showUserCard(userId);
   }, [showUserCard]);
+
+  // Consume a cross-component request to open a user's 朋友圈 (from profile cards / 我的-朋友圈).
+  useEffect(() => {
+    if (!userTrendsTarget) return;
+    setView('userTrends');
+    setUserTrendsUserId(userTrendsTarget.id);
+    setUserTrendsUserName(userTrendsTarget.name || '');
+    setSearchQuery('');
+    clearUserTrendsTarget();
+  }, [userTrendsTarget, clearUserTrendsTarget]);
 
   // Load user-trends when entering that view.
   useEffect(() => {
@@ -2145,6 +2160,7 @@ export default function MomentsFeed() {
   // VIEW: User Trends
   // ═══════════════════════════════════════
   if (view === 'userTrends') {
+    const isSelfTrends = !!meUserId && userTrendsUserId === meUserId;
     return (
       <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
         {/* Header */}
@@ -2152,8 +2168,18 @@ export default function MomentsFeed() {
           <button onClick={handleBackFromUserTrends} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#3390EC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{userTrendsUserName}的动态</span>
-          <div style={{ width: 40 }} />
+          <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{isSelfTrends ? t('moments.mine') : `${userTrendsUserName}的动态`}</span>
+          {/* Publish button only on my own 朋友圈 — never publish into a friend's circle */}
+          {isSelfTrends ? (
+            <button
+              onClick={() => setShowPublish(true)}
+              style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#3390EC', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Plus className="w-5 h-5" style={{ color: '#FFF' }} />
+            </button>
+          ) : (
+            <div style={{ width: 40 }} />
+          )}
         </div>
 
         {/* User info bar */}

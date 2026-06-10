@@ -8,6 +8,7 @@ const dict: Record<string, Record<string, string>> = {
 
     // Profile page
     'profile.service': '服务',
+    'profile.moments': '我的朋友圈',
     'profile.favorites': '收藏',
     'profile.album': '相册',
     'profile.cards': '卡包',
@@ -87,6 +88,10 @@ const dict: Record<string, Record<string, string>> = {
     'album.empty': '暂无照片和视频',
     'album.emptyHint': '发布动态时添加的图片和视频会出现在这里',
 
+    // Moments (朋友圈)
+    'moments.view': '查看朋友圈',
+    'moments.mine': '我的动态',
+
     // Emojis
     'emoji.title': '我的表情',
     'emoji.empty': '暂无自定义表情',
@@ -121,6 +126,7 @@ const dict: Record<string, Record<string, string>> = {
     'tab.me': 'Me',
 
     'profile.service': 'Services',
+    'profile.moments': 'My Moments',
     'profile.favorites': 'Favorites',
     'profile.album': 'Album',
     'profile.cards': 'Cards',
@@ -191,6 +197,9 @@ const dict: Record<string, Record<string, string>> = {
     'album.title': 'Album',
     'album.empty': 'No photos or videos',
     'album.emptyHint': 'Photos and videos from your moments will appear here',
+
+    'moments.view': 'View Moments',
+    'moments.mine': 'My Moments',
 
     'emoji.title': 'Stickers',
     'emoji.empty': 'No custom stickers',

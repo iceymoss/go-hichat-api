@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { type Contact, userMomentsImages } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
+import { useT } from '@/hooks/use-i18n';
 import { getAvatarColor } from '@/lib/utils';
 import { Phone, Video, Send, UserPlus, Copy, MapPin, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
@@ -87,6 +88,8 @@ export default function UserProfileCard({
   const avatarColor = getAvatarColor(contact.name);
   const displayName = contact.remark || contact.name;
   const moments = userMomentsImages[contact.id] || [];
+  const t = useT();
+  const openUserTrends = useIMStore((s) => s.openUserTrends);
 
   // 解析标签（JSON 数组字符串或逗号分隔）
   const parsedTags: string[] = (() => {
@@ -690,30 +693,29 @@ export default function UserProfileCard({
             }}
           >
             <span style={{ fontSize: 16, fontWeight: 600, color: '#1F2329' }}>朋友圈</span>
-            {moments.length > 0 && (
-              <button
-                style={{
-                  fontSize: 13,
-                  color: '#3390EC',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                  transition: 'opacity 0.15s',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.opacity = '0.7';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.opacity = '1';
-                }}
-              >
-                查看更多
-                <span style={{ fontSize: 14 }}>›</span>
-              </button>
-            )}
+            <button
+              onClick={() => openUserTrends(contact.id, displayName)}
+              style={{
+                fontSize: 13,
+                color: '#3390EC',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                transition: 'opacity 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.opacity = '0.7';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+              }}
+            >
+              {t('moments.view')}
+              <span style={{ fontSize: 14 }}>›</span>
+            </button>
           </div>
           {moments.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>

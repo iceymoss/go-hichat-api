@@ -51,6 +51,11 @@ interface IMState {
   floatingProfileIsStranger: boolean;
   showUserCard: (uid: string) => void;
   closeUserCard: () => void;
+  // One-shot request to open a specific user's trends (朋友圈) in the moments tab.
+  // MomentsFeed consumes it to switch into the userTrends view, then clears it.
+  userTrendsTarget: { id: string; name: string } | null;
+  openUserTrends: (uid: string, name?: string) => void;
+  clearUserTrendsTarget: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   showChatDetail: boolean;
@@ -200,6 +205,26 @@ export const useIMStore = create<IMState>()(persist((set) => ({
     }
   },
   closeUserCard: () => set({ floatingProfile: null }),
+  userTrendsTarget: null,
+  openUserTrends: (uidRaw, name = '') => {
+    if (!uidRaw) return;
+    const me = useIMStore.getState().currentUser;
+    // Comment/like ids may be the literal 'me' — normalize to the real id.
+    const uid = (uidRaw === 'me' && me) ? me.id : uidRaw;
+    set({
+      activeTab: 'moments',
+      userTrendsTarget: { id: uid, name },
+      floatingProfile: null,
+      selectedConversationId: null,
+      selectedContactId: null,
+      showChatDetail: false,
+      showFriendRequests: false,
+      showGroupPanel: false,
+      selectedTrendId: null,
+      meSubPage: null,
+    });
+  },
+  clearUserTrendsTarget: () => set({ userTrendsTarget: null }),
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
   showChatDetail: false,
