@@ -233,3 +233,14 @@ func randToken() (string, error) {
 	}
 	return hex.EncodeToString(b), nil
 }
+
+// InvalidateGroup 删除整群缓存（群解散事件）。删除后判定退化为 Unknown（fail-open），
+// 下次读穿透回源；解散群本身已无会话，无需重建。best-effort 忽略错误。
+func (c *Cache) InvalidateGroup(ctx context.Context, gid string) error {
+	return c.rdb.Del(ctx, groupMemberKey(gid), groupVerKey(gid)).Err()
+}
+
+// InvalidateFriend 删除某用户的好友集缓存。
+func (c *Cache) InvalidateFriend(ctx context.Context, uid string) error {
+	return c.rdb.Del(ctx, friendSetKey(uid), friendVerKey(uid)).Err()
+}

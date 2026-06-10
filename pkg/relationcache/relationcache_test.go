@@ -222,3 +222,23 @@ func Test_SingleFlightLock(t *testing.T) {
 	}
 	c.UnlockGroupRebuild(ctx, "g2", other)
 }
+
+func Test_InvalidateGroup(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1"}, 1); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictAllowed {
+		t.Fatalf("precondition IsGroupMember=%v, want Allowed", v)
+	}
+	if err := c.InvalidateGroup(ctx, "g1"); err != nil {
+		t.Fatalf("invalidate: %v", err)
+	}
+	// 失效后退化为 Unknown（未加载），调用方 fail-open
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictUnknown {
+		t.Errorf("after invalidate, IsGroupMember=%v, want Unknown", v)
+	}
+}
