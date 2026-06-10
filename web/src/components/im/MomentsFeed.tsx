@@ -38,6 +38,7 @@ import ImageViewer from './ImageViewer';
 import { getAvatarColor } from '@/lib/utils';
 import { useIMStore } from '@/lib/im-store';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useT } from '@/hooks/use-i18n';
 import {
   type Trend,
   type TrendComment,
@@ -1240,19 +1241,20 @@ type View = 'feed' | 'notifications' | 'userTrends';
 type NotifTab = 'all' | 'reply' | 'like';
 
 // 动态消息通知的动作文案
-function notifActionText(type: MomentsNotification['type']): string {
+function notifActionText(type: MomentsNotification['type'], t: (k: string) => string): string {
   switch (type) {
-    case 'like': return '赞了你的动态';
-    case 'comment': return '评论了你的动态';
-    case 'reply': return '回复了你的评论';
-    case 'at_trend': return '在动态中提到了你';
-    case 'at_comment': return '在评论中提到了你';
+    case 'like': return t('trend.notify.act.like');
+    case 'comment': return t('trend.notify.act.comment');
+    case 'reply': return t('trend.notify.act.reply');
+    case 'at_trend': return t('trend.notify.act.atTrend');
+    case 'at_comment': return t('trend.notify.act.atComment');
     default: return '';
   }
 }
 
 export default function MomentsFeed() {
   const isMobile = useIsMobile();
+  const t = useT();
   const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion, showUserCard, updateCurrentUser, setMomentsUnreadCount, trendNotifyVersion } = useIMStore();
   const meName = meAuth?.name || '';
   const meAvatar = meAuth?.avatar || '';
@@ -1655,9 +1657,9 @@ export default function MomentsFeed() {
     markTrendMessagesRead(token).then(() => {
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setMomentsUnreadCount(0);
-      toast.success('已全部标记为已读');
-    }).catch(() => toast.error('标记失败'));
-  }, [token, setMomentsUnreadCount]);
+      toast.success(t('trend.notify.allReadDone'));
+    }).catch(() => toast.error(t('trend.notify.markFailed')));
+  }, [token, setMomentsUnreadCount, t]);
 
   const handleNotifClick = useCallback((notif: MomentsNotification) => {
     setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
@@ -2044,16 +2046,16 @@ export default function MomentsFeed() {
           <button onClick={handleBackFromNotifications} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#3390EC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>通知</span>
-          <button onClick={handleMarkAllRead} style={{ fontSize: '13px', color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>全部已读</button>
+          <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{t('trend.notify.title')}</span>
+          <button onClick={handleMarkAllRead} style={{ fontSize: '13px', color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>{t('trend.notify.markAllRead')}</button>
         </div>
 
         {/* Tabs */}
         <div className="flex items-center shrink-0" style={{ padding: '12px 16px 8px', background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
           <div className="flex items-center" style={{ borderRadius: '20px', background: 'rgba(0,0,0,0.04)', padding: '3px' }}>
-            {pillTab(notifTab === 'all', () => setNotifTab('all'), '全部', unreadNotifCount)}
-            {pillTab(notifTab === 'reply', () => setNotifTab('reply'), '评论', unreadReplyCount)}
-            {pillTab(notifTab === 'like', () => setNotifTab('like'), '点赞', unreadLikeCount)}
+            {pillTab(notifTab === 'all', () => setNotifTab('all'), t('trend.notify.tab.all'), unreadNotifCount)}
+            {pillTab(notifTab === 'reply', () => setNotifTab('reply'), t('trend.notify.tab.comment'), unreadReplyCount)}
+            {pillTab(notifTab === 'like', () => setNotifTab('like'), t('trend.notify.tab.like'), unreadLikeCount)}
           </div>
         </div>
 
@@ -2082,7 +2084,7 @@ export default function MomentsFeed() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2" style={{ marginBottom: 3 }}>
                         <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>{notif.actor.name}</span>
-                        <span style={{ fontSize: '12px', color: '#708499' }}>{notifActionText(notif.type)}</span>
+                        <span style={{ fontSize: '12px', color: '#708499' }}>{notifActionText(notif.type, t)}</span>
                         {!notif.read && (
                           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E53935', flexShrink: 0, marginLeft: 'auto' }} />
                         )}
@@ -2102,9 +2104,9 @@ export default function MomentsFeed() {
             <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
               <Bell className="w-16 h-16" style={{ color: '#D1D5DB', marginBottom: 16 }} />
               <div style={{ fontSize: '15px', fontWeight: 500, color: '#646A73', marginBottom: 8 }}>
-                {notifTab === 'all' ? '暂无通知' : notifTab === 'reply' ? '暂无评论通知' : '暂无点赞通知'}
+                {notifTab === 'all' ? t('trend.notify.empty.all') : notifTab === 'reply' ? t('trend.notify.empty.comment') : t('trend.notify.empty.like')}
               </div>
-              <div style={{ fontSize: '13px', color: '#A2ACB5' }}>这里空空如也</div>
+              <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{t('trend.notify.emptyHint')}</div>
             </div>
           )}
         </div>

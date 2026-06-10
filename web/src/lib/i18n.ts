@@ -94,6 +94,24 @@ const dict: Record<string, Record<string, string>> = {
     'emoji.upload': '上传表情',
     'emoji.manage': '管理',
     'emoji.done': '完成',
+
+    // Trend / Moments message center
+    'trend.notify.title': '通知',
+    'trend.notify.markAllRead': '全部已读',
+    'trend.notify.tab.all': '全部',
+    'trend.notify.tab.comment': '评论',
+    'trend.notify.tab.like': '点赞',
+    'trend.notify.empty.all': '暂无通知',
+    'trend.notify.empty.comment': '暂无评论通知',
+    'trend.notify.empty.like': '暂无点赞通知',
+    'trend.notify.emptyHint': '这里空空如也',
+    'trend.notify.allReadDone': '已全部标记为已读',
+    'trend.notify.markFailed': '标记失败',
+    'trend.notify.act.like': '赞了你的动态',
+    'trend.notify.act.comment': '评论了你的动态',
+    'trend.notify.act.reply': '回复了你的评论',
+    'trend.notify.act.atTrend': '在动态中提到了你',
+    'trend.notify.act.atComment': '在评论中提到了你',
   },
 
   en: {
@@ -180,6 +198,24 @@ const dict: Record<string, Record<string, string>> = {
     'emoji.upload': 'Upload',
     'emoji.manage': 'Manage',
     'emoji.done': 'Done',
+
+    // Trend / Moments message center
+    'trend.notify.title': 'Notifications',
+    'trend.notify.markAllRead': 'Mark all read',
+    'trend.notify.tab.all': 'All',
+    'trend.notify.tab.comment': 'Comments',
+    'trend.notify.tab.like': 'Likes',
+    'trend.notify.empty.all': 'No notifications',
+    'trend.notify.empty.comment': 'No comment notifications',
+    'trend.notify.empty.like': 'No like notifications',
+    'trend.notify.emptyHint': 'Nothing here yet',
+    'trend.notify.allReadDone': 'All marked as read',
+    'trend.notify.markFailed': 'Failed to mark as read',
+    'trend.notify.act.like': 'liked your moment',
+    'trend.notify.act.comment': 'commented on your moment',
+    'trend.notify.act.reply': 'replied to your comment',
+    'trend.notify.act.atTrend': 'mentioned you in a moment',
+    'trend.notify.act.atComment': 'mentioned you in a comment',
   },
 };
 
