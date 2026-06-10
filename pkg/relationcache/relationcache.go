@@ -244,3 +244,25 @@ func (c *Cache) InvalidateGroup(ctx context.Context, gid string) error {
 func (c *Cache) InvalidateFriend(ctx context.Context, uid string) error {
 	return c.rdb.Del(ctx, friendSetKey(uid), friendVerKey(uid)).Err()
 }
+
+// sremIfLoadedScript 集合已加载则无条件 SREM 并续期；未加载返回 -1（跳过）。
+var sremIfLoadedScript = redis.NewScript(`
+if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
+redis.call('SREM', KEYS[1], ARGV[1])
+redis.call('PEXPIRE', KEYS[1], ARGV[2])
+return 1
+`)
+
+// RemoveFriendIfLoaded 无版本门移除好友。
+// 好友事件只有"删除"（无新增事件）、天然幂等且按好友对分区——同一用户的不同好友删除事件跨分区到达，
+// 不能套用单一 per-user 版本门（否则会误拒较小版本号的删除，导致漏删残留）。删除可交换、重放安全，故无条件 SREM。
+func (c *Cache) RemoveFriendIfLoaded(ctx context.Context, uid, friendUid string) (ApplyResult, error) {
+	res, err := sremIfLoadedScript.Run(ctx, c.rdb, []string{friendSetKey(uid)}, friendUid, cacheTTL.Milliseconds()).Int64()
+	if err != nil {
+		return SkippedNotLoaded, err
+	}
+	if res == 1 {
+		return Applied, nil
+	}
+	return SkippedNotLoaded, nil
+}

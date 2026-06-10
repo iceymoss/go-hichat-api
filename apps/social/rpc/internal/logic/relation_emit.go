@@ -65,7 +65,7 @@ func bestEffortApplyCache(ctx context.Context, rc *relationcache.Cache, ev *mq.R
 	case constants.RelationEventGroupDisbanded:
 		_ = rc.InvalidateGroup(ctx, ev.GroupId)
 	case constants.RelationEventFriendDeleted:
-		_, _ = rc.RemoveFriend(ctx, ev.FriendA, ev.FriendB, version)
-		_, _ = rc.RemoveFriend(ctx, ev.FriendB, ev.FriendA, version)
+		_, _ = rc.RemoveFriendIfLoaded(ctx, ev.FriendA, ev.FriendB)
+		_, _ = rc.RemoveFriendIfLoaded(ctx, ev.FriendB, ev.FriendA)
 	}
 }

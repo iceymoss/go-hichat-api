@@ -242,3 +242,32 @@ func Test_InvalidateGroup(t *testing.T) {
 		t.Errorf("after invalidate, IsGroupMember=%v, want Unknown", v)
 	}
 }
+
+func Test_RemoveFriendIfLoaded_NoVersionGate(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	if err := c.LoadFriends(ctx, "a", []string{"b", "c"}, 5); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	// 无版本门：跨分区乱序的两次删除（模拟先到的高"版本"、后到的低"版本"）都必须生效
+	if got, _ := c.RemoveFriendIfLoaded(ctx, "a", "c"); got != Applied {
+		t.Errorf("remove c = %v, want Applied", got)
+	}
+	if got, _ := c.RemoveFriendIfLoaded(ctx, "a", "b"); got != Applied {
+		t.Errorf("remove b (would be rejected by a per-user version gate) = %v, want Applied", got)
+	}
+	if v := c.IsFriend(ctx, "a", "b"); v != VerdictDenied {
+		t.Errorf("after remove b, IsFriend=%v, want Denied", v)
+	}
+	if v := c.IsFriend(ctx, "a", "c"); v != VerdictDenied {
+		t.Errorf("after remove c, IsFriend=%v, want Denied", v)
+	}
+
+	// 未加载集合：跳过（不半 populate）
+	if got, _ := c.RemoveFriendIfLoaded(ctx, "zzz", "x"); got != SkippedNotLoaded {
+		t.Errorf("remove on unloaded = %v, want SkippedNotLoaded", got)
+	}
+}

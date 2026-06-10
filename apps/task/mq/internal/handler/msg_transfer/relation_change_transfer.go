@@ -55,11 +55,11 @@ func (m *RelationChangeTransfer) applyCache(ctx context.Context, in *mq.Relation
 			zLog.Error("RelationChange.InvalidateGroup", zap.Any("event", in), zap.Error(err))
 		}
 	case constants.RelationEventFriendDeleted:
-		// 双向移除：A 的好友集去掉 B，B 的好友集去掉 A
-		if _, err := rc.RemoveFriend(ctx, in.FriendA, in.FriendB, in.Version); err != nil {
+		// 双向移除：A 的好友集去掉 B，B 的好友集去掉 A。无版本门（删除幂等可交换，跨分区不能用单版本门）
+		if _, err := rc.RemoveFriendIfLoaded(ctx, in.FriendA, in.FriendB); err != nil {
 			zLog.Error("RelationChange.RemoveFriend A", zap.Any("event", in), zap.Error(err))
 		}
-		if _, err := rc.RemoveFriend(ctx, in.FriendB, in.FriendA, in.Version); err != nil {
+		if _, err := rc.RemoveFriendIfLoaded(ctx, in.FriendB, in.FriendA); err != nil {
 			zLog.Error("RelationChange.RemoveFriend B", zap.Any("event", in), zap.Error(err))
 		}
 	default:
