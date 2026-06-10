@@ -2,6 +2,8 @@ package relationcache
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -24,13 +26,25 @@ const loadedSentinel = "__loaded__"
 // cacheTTL 缓存 key 的存活时间，作为事件漏更时的最终自愈上界（spec L4）。
 const cacheTTL = time.Hour
 
+// rebuildLockTTL 冷启动单飞锁的存活时间，回源 RPC 应在此之内完成；过期自动释放防死锁。
+const rebuildLockTTL = 5 * time.Second
+
 const groupMemberKeyPrefix = "grp:mem:"
 const friendKeyPrefix = "frd:"
 
 func groupMemberKey(gid string) string { return groupMemberKeyPrefix + gid }
 func groupVerKey(gid string) string    { return groupMemberKeyPrefix + gid + ":ver" }
+func groupLockKey(gid string) string   { return groupMemberKeyPrefix + gid + ":lock" }
 func friendSetKey(uid string) string   { return friendKeyPrefix + uid }
 func friendVerKey(uid string) string   { return friendKeyPrefix + uid + ":ver" }
+
+// unlockScript 仅当锁值等于自己持有的 token 时才删除，避免误删他人（或锁过期后被他人重抢）的锁。
+var unlockScript = redis.NewScript(`
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+`)
 
 // ApplyResult 是版本门维护操作（事件驱动 SADD/SREM）的结果。
 type ApplyResult int
@@ -188,4 +202,34 @@ func (c *Cache) applyMember(ctx context.Context, op, setKey, verKey, uid string,
 	default: // -1
 		return SkippedNotLoaded, nil
 	}
+}
+
+// TryLockGroupRebuild 抢占某群的冷启动重建锁，防缓存击穿（同一群同一时刻只放一个回源 RPC）。
+// 返回的 token 用于安全释放；ok=false 表示已有别人在重建，调用方应短暂等待或本条降级直连 RPC。
+func (c *Cache) TryLockGroupRebuild(ctx context.Context, gid string) (token string, ok bool, err error) {
+	token, err = randToken()
+	if err != nil {
+		return "", false, err
+	}
+	ok, err = c.rdb.SetNX(ctx, groupLockKey(gid), token, rebuildLockTTL).Result()
+	if err != nil || !ok {
+		return "", false, err
+	}
+	return token, true, nil
+}
+
+// UnlockGroupRebuild 释放重建锁；仅当持有 token 匹配时才删除，best-effort 忽略错误。
+func (c *Cache) UnlockGroupRebuild(ctx context.Context, gid, token string) {
+	if token == "" {
+		return
+	}
+	_ = unlockScript.Run(ctx, c.rdb, []string{groupLockKey(gid)}, token).Err()
+}
+
+func randToken() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }

@@ -191,3 +191,34 @@ func Test_GroupMembers_FanoutRead(t *testing.T) {
 		t.Errorf("GroupMembers(empty g2) = (%v,%v,%v), want ([],true,nil)", members, loaded, err)
 	}
 }
+
+func Test_SingleFlightLock(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 第一个抢锁成功
+	token, ok, err := c.TryLockGroupRebuild(ctx, "g1")
+	if err != nil || !ok || token == "" {
+		t.Fatalf("first lock = (%q,%v,%v), want acquired", token, ok, err)
+	}
+
+	// 持锁期间第二个抢锁失败（防击穿：只放一个回源）
+	if _, ok2, _ := c.TryLockGroupRebuild(ctx, "g1"); ok2 {
+		t.Errorf("second lock acquired while held, want blocked")
+	}
+
+	// 释放后可再次抢到
+	c.UnlockGroupRebuild(ctx, "g1", token)
+	if _, ok3, _ := c.TryLockGroupRebuild(ctx, "g1"); !ok3 {
+		t.Errorf("lock after unlock not acquired, want acquired")
+	}
+
+	// 用错 token 不能误删他人锁
+	other, _, _ := c.TryLockGroupRebuild(ctx, "g2")
+	c.UnlockGroupRebuild(ctx, "g2", "wrong-token")
+	if _, ok4, _ := c.TryLockGroupRebuild(ctx, "g2"); ok4 {
+		t.Errorf("lock released by wrong token, want still held")
+	}
+	c.UnlockGroupRebuild(ctx, "g2", other)
+}
