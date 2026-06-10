@@ -10,6 +10,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"github.com/iceymoss/go-hichat-api/pkg/wuid"
 
 	"github.com/zeromicro/go-queue/kq"
 	"go.uber.org/zap"
@@ -72,19 +73,21 @@ func (m *RelationChangeTransfer) pushRelationChanged(in *mq.RelationChangeTransf
 	switch in.EventType {
 	case constants.RelationEventGroupMemberRemoved:
 		m.sendRelationFrame(&ws.RelationChanged{
-			ReceiverId: in.UserId,
-			EventType:  in.EventType,
-			GroupId:    in.GroupId,
-			OperatorId: in.OperatorId,
-			Timestamp:  in.Timestamp,
+			ReceiverId:     in.UserId,
+			EventType:      in.EventType,
+			ConversationId: in.GroupId, // 群会话 id 即 groupId
+			GroupId:        in.GroupId,
+			OperatorId:     in.OperatorId,
+			Timestamp:      in.Timestamp,
 		})
 	case constants.RelationEventFriendDeleted:
-		// 双向通知：各自把对端会话置为失效
+		// 双向通知：各自把对端会话置为失效。单聊会话 id = CombineId(双方)，对称。
+		convId := wuid.CombineId(in.FriendA, in.FriendB)
 		m.sendRelationFrame(&ws.RelationChanged{
-			ReceiverId: in.FriendA, EventType: in.EventType, PeerId: in.FriendB, OperatorId: in.OperatorId, Timestamp: in.Timestamp,
+			ReceiverId: in.FriendA, EventType: in.EventType, ConversationId: convId, PeerId: in.FriendB, OperatorId: in.OperatorId, Timestamp: in.Timestamp,
 		})
 		m.sendRelationFrame(&ws.RelationChanged{
-			ReceiverId: in.FriendB, EventType: in.EventType, PeerId: in.FriendA, OperatorId: in.OperatorId, Timestamp: in.Timestamp,
+			ReceiverId: in.FriendB, EventType: in.EventType, ConversationId: convId, PeerId: in.FriendA, OperatorId: in.OperatorId, Timestamp: in.Timestamp,
 		})
 	case constants.RelationEventGroupDisbanded:
 		// 解散群无成员名单随事件下发：仅失效缓存，客户端经群列表刷新感知；不在此单推。

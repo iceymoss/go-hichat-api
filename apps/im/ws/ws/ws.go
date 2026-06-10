@@ -119,10 +119,11 @@ type TrendNotify struct {
 // RelationChanged 关系变更通知帧（被踢/退群/解散/删好友后，实时通知受影响用户禁用会话输入）。
 // mq 消费者构造此结构投给 ws，ws 用 push.relation handler 下发，前端用 method=relation.changed 接收。
 type RelationChanged struct {
-	ReceiverId string `json:"receiverId" mapstructure:"receiverId"` // 接收者(被影响人)uid
-	EventType  string `json:"eventType" mapstructure:"eventType"`   // constants.RelationEvent*
-	GroupId    string `json:"groupId,omitempty" mapstructure:"groupId"`     // 群类事件的群ID
-	PeerId     string `json:"peerId,omitempty" mapstructure:"peerId"`       // 好友类事件的对端 uid
-	OperatorId string `json:"operatorId,omitempty" mapstructure:"operatorId"` // 操作者 uid
-	Timestamp  int64  `json:"timestamp" mapstructure:"timestamp"`
+	ReceiverId     string `json:"receiverId" mapstructure:"receiverId"`         // 接收者(被影响人)uid
+	EventType      string `json:"eventType" mapstructure:"eventType"`           // constants.RelationEvent*
+	ConversationId string `json:"conversationId" mapstructure:"conversationId"` // 受影响会话id（前端据此禁用输入）
+	GroupId        string `json:"groupId,omitempty" mapstructure:"groupId"`     // 群类事件的群ID
+	PeerId         string `json:"peerId,omitempty" mapstructure:"peerId"`       // 好友类事件的对端 uid
+	OperatorId     string `json:"operatorId,omitempty" mapstructure:"operatorId"` // 操作者 uid
+	Timestamp      int64  `json:"timestamp" mapstructure:"timestamp"`
 }

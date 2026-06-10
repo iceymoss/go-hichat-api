@@ -135,6 +135,8 @@ interface ChatState {
   /** 已播放语音消息 id 集合（控制未读红点），本地持久化 */
   playedVoices: Record<string, true>;
   markVoicePlayed: (msgId: string) => void;
+  /** 已失效的会话（被踢/退群/解散/删好友），值含事件类型，前端据此禁用输入 */
+  disabledConversations: Record<string, { eventType: string; operatorId?: string }>;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -145,6 +147,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   userProfiles: {},
   loadingConversations: false,
   loadingMessages: {},
+  disabledConversations: {},
   playedVoices: (() => {
     if (typeof window === 'undefined') return {};
     try { return JSON.parse(localStorage.getItem('hichat_played_voices') || '{}'); }
@@ -193,6 +196,18 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const imStore = useIMStore.getState();
       imStore.setMomentsUnreadCount(imStore.momentsUnreadCount + 1);
       imStore.bumpTrendNotifyVersion();
+    });
+
+    // 关系变更（被踢/退群/解散/删好友）：把对应会话标记为失效，前端禁用输入框
+    ws.on('relation.changed', (data) => {
+      const evt = data as { conversationId?: string; eventType?: string; operatorId?: string } | null;
+      if (!evt?.conversationId) return;
+      set(s => ({
+        disabledConversations: {
+          ...s.disabledConversations,
+          [evt.conversationId as string]: { eventType: evt.eventType || '', operatorId: evt.operatorId },
+        },
+      }));
     });
 
     ws.connect();
