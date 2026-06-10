@@ -27,6 +27,35 @@ const cacheTTL = time.Hour
 const groupMemberKeyPrefix = "grp:mem:"
 
 func groupMemberKey(gid string) string { return groupMemberKeyPrefix + gid }
+func groupVerKey(gid string) string    { return groupMemberKeyPrefix + gid + ":ver" }
+
+// ApplyResult 是版本门维护操作（事件驱动 SADD/SREM）的结果。
+type ApplyResult int
+
+const (
+	Applied          ApplyResult = iota // 已应用
+	SkippedStale                        // version <= 当前版本，按乱序/重放丢弃（含防"复活"）
+	SkippedNotLoaded                    // 集合未加载：跳过，绝不半 populate（留给读穿透重建）
+)
+
+// applyMemberScript 原子地按版本门维护集合成员：
+//   未加载(set 不存在) -> 返回 -1；version<=当前 -> 返回 2；否则 SADD/SREM + 更新版本 + 续期 -> 返回 1。
+// 用 Lua 保证"比较版本 + 改集合 + 写版本"三步原子，杜绝并发下的乱序与读穿透复活竞态。
+var applyMemberScript = redis.NewScript(`
+if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
+local cur = tonumber(redis.call('GET', KEYS[2]) or '-1')
+local v = tonumber(ARGV[3])
+if v <= cur then return 2 end
+if ARGV[1] == 'add' then
+  redis.call('SADD', KEYS[1], ARGV[2])
+else
+  redis.call('SREM', KEYS[1], ARGV[2])
+end
+redis.call('SET', KEYS[2], v)
+redis.call('PEXPIRE', KEYS[1], ARGV[4])
+redis.call('PEXPIRE', KEYS[2], ARGV[4])
+return 1
+`)
 
 // Cache 关系缓存：群成员集 grp:mem:{gid}、好友集 frd:{uid}。
 // 接受注入的 *redis.Client，便于测试与在各服务 svc 中复用 db.GetRedisConn()。
@@ -38,7 +67,7 @@ func New(rdb *redis.Client) *Cache {
 	return &Cache{rdb: rdb}
 }
 
-// LoadGroupMembers 用权威来源（RPC GroupUsers 回源结果）重建群成员集。
+// LoadGroupMembers 用权威来源（RPC GroupUsers 回源结果）重建群成员集，并落版本号。
 // 始终写入 loadedSentinel，使空群也有非空 key，可与"未加载"区分。
 func (c *Cache) LoadGroupMembers(ctx context.Context, gid string, members []string, version int64) error {
 	key := groupMemberKey(gid)
@@ -50,9 +79,36 @@ func (c *Cache) LoadGroupMembers(ctx context.Context, gid string, members []stri
 		args = append(args, m)
 	}
 	pipe.SAdd(ctx, key, args...)
+	pipe.Set(ctx, groupVerKey(gid), version, cacheTTL)
 	pipe.Expire(ctx, key, cacheTTL)
 	_, err := pipe.Exec(ctx)
 	return err
+}
+
+// AddGroupMember 版本门下把 uid 加入群成员集（加群/邀请事件）。
+func (c *Cache) AddGroupMember(ctx context.Context, gid, uid string, version int64) (ApplyResult, error) {
+	return c.applyMember(ctx, "add", groupMemberKey(gid), groupVerKey(gid), uid, version)
+}
+
+// RemoveGroupMember 版本门下把 uid 移出群成员集（踢人/退群事件）。
+func (c *Cache) RemoveGroupMember(ctx context.Context, gid, uid string, version int64) (ApplyResult, error) {
+	return c.applyMember(ctx, "rem", groupMemberKey(gid), groupVerKey(gid), uid, version)
+}
+
+func (c *Cache) applyMember(ctx context.Context, op, setKey, verKey, uid string, version int64) (ApplyResult, error) {
+	ttlMs := cacheTTL.Milliseconds()
+	res, err := applyMemberScript.Run(ctx, c.rdb, []string{setKey, verKey}, op, uid, version, ttlMs).Int64()
+	if err != nil {
+		return SkippedNotLoaded, err
+	}
+	switch res {
+	case 1:
+		return Applied, nil
+	case 2:
+		return SkippedStale, nil
+	default: // -1
+		return SkippedNotLoaded, nil
+	}
 }
 
 // IsGroupMember 三态判定 uid 是否为 gid 成员。
