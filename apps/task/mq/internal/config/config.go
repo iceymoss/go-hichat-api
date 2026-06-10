@@ -26,6 +26,9 @@ type Config struct {
 
 	TrendNotifyTransfer kq.KqConf
 
+	// RelationChangeTransfer 关系变更事件 topic（维护关系缓存 + 推送会话失效）
+	RelationChangeTransfer kq.KqConf
+
 	Ws struct {
 		Host string
 	}

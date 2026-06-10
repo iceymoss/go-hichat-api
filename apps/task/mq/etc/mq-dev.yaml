@@ -64,3 +64,11 @@ ImRpc:
 
 Log:
   Level: error
+
+RelationChangeTransfer:
+  Name: relationChangeTrans
+  Brokers:
+    - 127.0.0.1:9092
+  Group: kafka
+  Topic: relationChangeTransfer
+  Offset: first

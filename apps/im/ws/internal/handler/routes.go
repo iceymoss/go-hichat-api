@@ -36,6 +36,11 @@ func RegisterHandlers(srv *websocket.Server, svc *svc.ServiceContext) {
 			Handler: push.TrendNotify(svc),
 		},
 		{
+			// 关系变更通知: mq->ws->客户端（被踢/退群/解散/删好友，前端禁用会话输入）
+			Method:  "push.relation",
+			Handler: push.RelationNotify(svc),
+		},
+		{
 			// 消息阅读处理: 客户端->ws->mq
 			Method:  "chat.markChat",
 			Handler: conversation.MarkRead(svc),
