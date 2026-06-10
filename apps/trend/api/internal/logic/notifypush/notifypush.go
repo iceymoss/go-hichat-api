@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
-	mq_client "github.com/iceymoss/go-hichat-api/apps/task/mq/mq_client"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq_client"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
