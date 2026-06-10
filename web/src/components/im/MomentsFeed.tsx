@@ -99,10 +99,14 @@ function trendDisplayName(trend: Trend): string {
   return trend.userName || getUserName(trend.userId);
 }
 
-function avatarCircle(name: string, size: number, extra?: React.ReactNode) {
+function avatarCircle(name: string, size: number, extra?: React.ReactNode, avatar?: string) {
   return (
     <div className="relative shrink-0" style={{ width: size, height: size, borderRadius: '50%', backgroundColor: getAvatarColor(name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: 600, color: '#FFF', overflow: 'hidden' }}>
-      {name[0]}
+      {avatar ? (
+        <img src={avatar} alt="" className="w-full h-full object-cover" />
+      ) : (
+        name[0]
+      )}
       {extra}
     </div>
   );
@@ -2080,7 +2084,7 @@ export default function MomentsFeed() {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = notif.read ? '#FFF' : 'rgba(245,166,35,0.03)'; }}
                 >
                   <div className="flex gap-3">
-                    {avatarCircle(notif.actor.name, 40)}
+                    {avatarCircle(notif.actor.name, 40, undefined, notif.actor.avatar)}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2" style={{ marginBottom: 3 }}>
                         <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>{notif.actor.name}</span>
