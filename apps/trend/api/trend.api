@@ -131,6 +131,26 @@ service trend {
 	put /like/mark-read (MarkLikesReadRequest) returns (MarkLikesReadResponse)
 }
 
+// ===== 动态消息通知服务 =====
+@server (
+	prefix: /v1/trend
+	group:  message
+	jwt:    JwtAuth
+)
+service trend {
+	@doc "获取动态消息列表"
+	@handler listTrendMessages
+	get /message/list (ListTrendMessagesReq) returns (ListTrendMessagesResp)
+
+	@doc "获取动态消息未读数（总数+按类型明细）"
+	@handler getTrendMessageUnread
+	get /message/unread returns (GetTrendMessageUnreadResp)
+
+	@doc "动态消息全部标记为已读"
+	@handler markTrendMessagesRead
+	put /message/mark-read returns (MarkTrendMessagesReadResp)
+}
+
 // ===== 数据结构定义 =====
 // 创建动态请求
 type CreateTrendRequest {
@@ -531,3 +551,43 @@ type MarkLikesReadRequest {
 
 // 标记点赞已读响应
 type MarkLikesReadResponse {}
+
+// ===== 动态消息通知 =====
+// 消息列表请求（接收者从 JWT 取，分页用 last_id）
+type ListTrendMessagesReq {
+	LastId int `form:"last_id,optional"`
+	Limit  int `form:"limit,optional"`
+}
+
+// 单条动态消息
+type TrendMessageItem {
+	Id              uint64 `json:"id"`
+	Type            int    `json:"type"` // 1赞 2评论 3回复 4发动态@ 5评论@
+	TrendId         uint64 `json:"trend_id"`
+	CommentId       uint64 `json:"comment_id,omitempty"`
+	ParentCommentId uint64 `json:"parent_comment_id,omitempty"`
+	Content         string `json:"content,omitempty"`
+	IsRead          bool   `json:"is_read"`
+	CreateTime      int64  `json:"create_time"`
+	Actor           *User  `json:"actor"` // 触发者用户信息
+}
+
+// 消息列表响应
+type ListTrendMessagesResp {
+	List   []*TrendMessageItem `json:"list"`
+	LastId int                 `json:"last_id"` // 本页最后一条id，供下次分页
+}
+
+// 未读数响应（总数 + 按类型明细）
+type GetTrendMessageUnreadResp {
+	Total     int64 `json:"total"`
+	Like      int64 `json:"like"`
+	Comment   int64 `json:"comment"`
+	Reply     int64 `json:"reply"`
+	AtTrend   int64 `json:"at_trend"`
+	AtComment int64 `json:"at_comment"`
+}
+
+// 全部标记已读响应
+type MarkTrendMessagesReadResp {}
+

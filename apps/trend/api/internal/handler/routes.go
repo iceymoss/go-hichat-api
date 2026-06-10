@@ -8,6 +8,7 @@ import (
 
 	comment "github.com/iceymoss/go-hichat-api/apps/trend/api/internal/handler/comment"
 	like "github.com/iceymoss/go-hichat-api/apps/trend/api/internal/handler/like"
+	message "github.com/iceymoss/go-hichat-api/apps/trend/api/internal/handler/message"
 	trend "github.com/iceymoss/go-hichat-api/apps/trend/api/internal/handler/trend"
 	"github.com/iceymoss/go-hichat-api/apps/trend/api/internal/svc"
 
@@ -101,6 +102,31 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodGet,
 				Path:    "/like/users",
 				Handler: like.GetLikedUsersHandler(serverCtx),
+			},
+		},
+		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),
+		rest.WithPrefix("/v1/trend"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取动态消息列表
+				Method:  http.MethodGet,
+				Path:    "/message/list",
+				Handler: message.ListTrendMessagesHandler(serverCtx),
+			},
+			{
+				// 动态消息全部标记为已读
+				Method:  http.MethodPut,
+				Path:    "/message/mark-read",
+				Handler: message.MarkTrendMessagesReadHandler(serverCtx),
+			},
+			{
+				// 获取动态消息未读数（总数+按类型明细）
+				Method:  http.MethodGet,
+				Path:    "/message/unread",
+				Handler: message.GetTrendMessageUnreadHandler(serverCtx),
 			},
 		},
 		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),
