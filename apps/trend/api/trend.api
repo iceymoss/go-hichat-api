@@ -199,12 +199,12 @@ type UpdateTrendResponse {}
 
 // 动态列表请求
 type ListTrendsRequest {
-	LastID     int      `json:"last_id"`
-	LastTime   int      `json:"last_time"`
-	Types      []string `json:"types"`
-	SortColumn string   `json:"sort_column"`
-	SortType   int      `json:"sort_type"`
-	UserIDs    []string `json:"user_ids"`
+	LastID     int      `form:"last_id"`
+	LastTime   int      `form:"last_time"`
+	Types      []string `form:"types"`
+	SortColumn string   `form:"sort_column"`
+	SortType   int      `form:"sort_type"`
+	UserIDs    []string `form:"user_ids"`
 }
 
 // 动态列表响应
@@ -216,7 +216,7 @@ type ListTrendsResponse {
 
 // 动态详情请求
 type GetTrendDetailRequest {
-	TrendID int `json:"trend_id"`
+	TrendID int `form:"trend_id"`
 }
 
 // 动态详情响应
@@ -226,8 +226,8 @@ type GetTrendDetailResponse {
 
 // 最新动态请求
 type GetLatestTrendsRequest {
-	LastTrendID int `json:"last_trend_id,optional"`
-	Count       int `json:"count,optional"`
+	LastTrendID int `form:"last_trend_id,optional"`
+	Count       int `form:"count,optional"`
 }
 
 // ===== 动态核心数据结构 =====
@@ -269,8 +269,8 @@ type GetLatestTrendsResponse {
 
 // 用户动态请求
 type GetUserTrendsRequest {
-	TargetUserID int `json:"target_user_id"`
-	LastID       int `json:"last_id,optional"`
+	TargetUserID int `form:"target_user_id"`
+	LastID       int `form:"last_id,optional"`
 }
 
 // 用户动态响应
@@ -333,7 +333,7 @@ type SaveTrendDraftResponse {
 }
 
 type GetTrendDraftRequest {
-	DraftId uint64 `json:"draft_id,optional"`
+	DraftId uint64 `form:"draft_id,optional"`
 }
 
 type GetTrendDraftResponse {
@@ -386,9 +386,9 @@ type CreateDiscussResp {}
 
 // 获取评论请求
 type GetDiscussesReq {
-	TrendID  uint64 `json:"trend_id"`
-	LastID   int    `json:"last_id,optional"`
-	LastTime int    `json:"last_time,optional"`
+	TrendID  uint64 `form:"trend_id"`
+	LastID   int    `form:"last_id,optional"`
+	LastTime int    `form:"last_time,optional"`
 }
 
 // 评论树响应
@@ -405,9 +405,9 @@ type TrendDiscusses {
 
 // 获取评论请求
 type GetDiscussesListReq {
-	TrendID  []uint64 `json:"trend_id"`
-	LastID   int      `json:"last_id,optional"`
-	LastTime int      `json:"last_time,optional"`
+	TrendID  []uint64 `form:"trend_id"`
+	LastID   int      `form:"last_id,optional"`
+	LastTime int      `form:"last_time,optional"`
 }
 
 // 最终响应结构 (趋势ID => 评论集合)
@@ -425,9 +425,9 @@ type DiscussesListResp {
 
 // 子评论请求
 type GetChildDiscussesReq {
-	Father   uint64 `json:"father"`
-	LastID   int    `json:"last_id,optional"`
-	LastTime uint64 `json:"last_time,optional"`
+	Father   uint64 `form:"father"`
+	LastID   int    `form:"last_id,optional"`
+	LastTime uint64 `form:"last_time,optional"`
 }
 
 // 删除评论请求
@@ -442,9 +442,9 @@ type DeleteDiscussResp {
 
 // 未读回复请求
 type GetUnreadRepliesReq {
-	LikeLastID   int `json:"like_last_id,optional"`
-	DiscussLasID int `json:"discuss_last_id,optional"`
-	LastTime     int `json:"last_time,optional"`
+	LikeLastID   int `form:"like_last_id,optional"`
+	DiscussLasID int `form:"discuss_last_id,optional"`
+	LastTime     int `form:"last_time,optional"`
 }
 
 // 未读回复响应
@@ -466,9 +466,9 @@ type MarkDiscussResponse {}
 
 // 获取评论请求
 type GetLikeListReq {
-	TrendID  []uint64 `json:"trend_id"`
-	LastID   int      `json:"last_id,optional"`
-	LastTime int      `json:"last_time,optional"`
+	TrendID  []uint64 `form:"trend_id"`
+	LastID   int      `form:"last_id,optional"`
+	LastTime int      `form:"last_time,optional"`
 }
 
 // 最终响应结构 (趋势ID => 评论集合)
@@ -496,8 +496,8 @@ type LikeToggleResponse {}
 
 // 点赞摘要请求
 type GetTrendLikeSummaryRequest {
-	UserID  string `json:"user_id"`
-	TrendID string `json:"trend_id"`
+	UserID  string `form:"user_id"`
+	TrendID string `form:"trend_id"`
 }
 
 // 点赞摘要响应
@@ -518,9 +518,9 @@ type BatchTrendLikeSummaryResponse {
 
 // 点赞用户列表请求
 type GetLikedUsersRequest {
-	TrendID uint32 `json:"trend_id"`
-	Cursor  uint32 `json:"cursor,optional"`
-	Limit   uint32 `json:"limit,optional"`
+	TrendID uint32 `form:"trend_id"`
+	Cursor  uint32 `form:"cursor,optional"`
+	Limit   uint32 `form:"limit,optional"`
 }
 
 // 点赞用户列表响应
@@ -533,8 +533,8 @@ type GetLikedUsersResponse {
 
 // 未读点赞请求
 type GetUnreadLikesRequest {
-	UserID string `json:"user_id"`
-	LastID int    `json:"last_id"`
+	UserID string `form:"user_id"`
+	LastID int    `form:"last_id"`
 }
 
 // 未读点赞响应

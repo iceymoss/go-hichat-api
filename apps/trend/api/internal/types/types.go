@@ -182,6 +182,15 @@ type GetTrendLikeSummaryResponse struct {
 	SummaryJSON string `json:"summary_json"`
 }
 
+type GetTrendMessageUnreadResp struct {
+	Total     int64 `json:"total"`
+	Like      int64 `json:"like"`
+	Comment   int64 `json:"comment"`
+	Reply     int64 `json:"reply"`
+	AtTrend   int64 `json:"at_trend"`
+	AtComment int64 `json:"at_comment"`
+}
+
 type GetUnreadLikesRequest struct {
 	UserID string `form:"user_id"`
 	LastID int    `form:"last_id"`
@@ -227,6 +236,16 @@ type LikeToggleRequest struct {
 type LikeToggleResponse struct {
 }
 
+type ListTrendMessagesReq struct {
+	LastId int `form:"last_id,optional"`
+	Limit  int `form:"limit,optional"`
+}
+
+type ListTrendMessagesResp struct {
+	List   []*TrendMessageItem `json:"list"`
+	LastId int                 `json:"last_id"` // 本页最后一条id，供下次分页
+}
+
 type ListTrendsRequest struct {
 	LastID     int      `form:"last_id"`
 	LastTime   int      `form:"last_time"`
@@ -254,6 +273,9 @@ type MarkLikesReadRequest struct {
 }
 
 type MarkLikesReadResponse struct {
+}
+
+type MarkTrendMessagesReadResp struct {
 }
 
 type RepliesListResp struct {
@@ -316,6 +338,18 @@ type TrendDraft struct {
 	UpdateTime   int64    `json:"update_time,optional"`
 }
 
+type TrendMessageItem struct {
+	Id              uint64 `json:"id"`
+	Type            int    `json:"type"` // 1赞 2评论 3回复 4发动态@ 5评论@
+	TrendId         uint64 `json:"trend_id"`
+	CommentId       uint64 `json:"comment_id,omitempty"`
+	ParentCommentId uint64 `json:"parent_comment_id,omitempty"`
+	Content         string `json:"content,omitempty"`
+	IsRead          bool   `json:"is_read"`
+	CreateTime      int64  `json:"create_time"`
+	Actor           *User  `json:"actor"` // 触发者用户信息
+}
+
 type TrendPublishConfigResponse struct {
 	MaxImageCount          int      `json:"max_image_count"`
 	MaxImageSizeMB         int      `json:"max_image_size_mb"`
@@ -356,38 +390,4 @@ type User struct {
 	Nickname string `json:"nickname"`
 	Sex      int    `json:"sex"`
 	Avatar   string `json:"avatar"`
-}
-
-type ListTrendMessagesReq struct {
-	LastId int `form:"last_id,optional"`
-	Limit  int `form:"limit,optional"`
-}
-
-type TrendMessageItem struct {
-	Id              uint64 `json:"id"`
-	Type            int    `json:"type"` // 1赞 2评论 3回复 4发动态@ 5评论@
-	TrendId         uint64 `json:"trend_id"`
-	CommentId       uint64 `json:"comment_id,omitempty"`
-	ParentCommentId uint64 `json:"parent_comment_id,omitempty"`
-	Content         string `json:"content,omitempty"`
-	IsRead          bool   `json:"is_read"`
-	CreateTime      int64  `json:"create_time"`
-	Actor           *User  `json:"actor"` // 触发者用户信息
-}
-
-type ListTrendMessagesResp struct {
-	List   []*TrendMessageItem `json:"list"`
-	LastId int                 `json:"last_id"` // 本页最后一条id，供下次分页
-}
-
-type GetTrendMessageUnreadResp struct {
-	Total     int64 `json:"total"`
-	Like      int64 `json:"like"`
-	Comment   int64 `json:"comment"`
-	Reply     int64 `json:"reply"`
-	AtTrend   int64 `json:"at_trend"`
-	AtComment int64 `json:"at_comment"`
-}
-
-type MarkTrendMessagesReadResp struct {
 }
