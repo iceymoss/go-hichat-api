@@ -5,6 +5,8 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq_client"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 
 	"github.com/zeromicro/go-zero/zrpc"
 )
@@ -27,6 +29,9 @@ type ServiceContext struct {
 
 	// social：仅用于 @所有人 的生产端角色校验（点查 GetMemberRole）
 	Social socialclient.Social
+
+	// 关系缓存：单聊发送闸门读好友集
+	RelationCache *relationcache.Cache
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -37,5 +42,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		MsgChatTransferClient:     mq_client.NewMsgChatTransferClient(c.MsgChatTransfer.Addrs, c.MsgChatTransfer.Topic),
 		MsgMarkReadTransferClient: mq_client.NewMsgReadTransferClient(c.MsgMarkRead.Addrs, c.MsgMarkRead.Topic),
 		Social:                    socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
+		RelationCache:             relationcache.New(db.GetRedisConn()),
 	}
 }

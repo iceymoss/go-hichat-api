@@ -12,6 +12,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 	"github.com/iceymoss/go-hichat-api/pkg/wuid"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -47,6 +48,13 @@ func Chat(srvCtx *svc.ServiceContext) websocket.HandlerFunc {
 
 		// @ 仅在群聊生效；@所有人在生产端做角色校验，非管理员降级（fail-closed，不阻断消息本体）
 		atUsers, atAll := resolveMentions(srvCtx, conn.Uid, &data)
+
+		// 单聊发送鉴权闸门（灰度开关 + fail-open）：删好友后不得再发消息。命中拦截则不投递。
+		if data.ChatType == constants.SingleChatType && !singleSendAllowed(srvCtx, conn.Uid, data.RecvId) {
+			zLog.Error("single send blocked: not friend")
+			srv.Send(websocket.NewErrMessage(errors.New("对方不是你的好友，无法发送消息")), conn)
+			return
+		}
 
 		fmt.Printf("数据推送给mq: %+v\n", data)
 
@@ -97,6 +105,44 @@ func resolveMentions(srvCtx *svc.ServiceContext, senderUid string, data *ws.Chat
 		return atUsers, true
 	}
 	return atUsers, false
+}
+
+// singleSendAllowed 单聊发送鉴权：仅当确定"非好友"时拒绝；灰度关闭 / 缓存未知 / 回源失败一律放行（fail-open）。
+func singleSendAllowed(srvCtx *svc.ServiceContext, senderUid, recvUid string) bool {
+	if !srvCtx.Config.AuthzGate.Enabled || !srvCtx.Config.AuthzGate.SingleChat {
+		return true // 灰度关闭 = 现状行为，不校验
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if srvCtx.RelationCache != nil {
+		switch srvCtx.RelationCache.IsFriend(ctx, senderUid, recvUid) {
+		case relationcache.VerdictAllowed:
+			return true
+		case relationcache.VerdictDenied:
+			return false
+		}
+	}
+
+	// Unknown：回源 FriendList 确认（顺带暖缓存）；回源失败 fail-open
+	resp, err := srvCtx.Social.FriendList(ctx, &socialclient.FriendListReq{UserId: senderUid})
+	if err != nil || resp == nil {
+		return true
+	}
+	friendUids := make([]string, 0, len(resp.List))
+	isFriend := false
+	for _, f := range resp.List {
+		friendUids = append(friendUids, f.FriendUid)
+		if f.FriendUid == recvUid {
+			isFriend = true
+		}
+	}
+	if srvCtx.RelationCache != nil {
+		// 回源版本用 0：好友删除走无条件 SREM-if-loaded，不依赖版本门
+		_ = srvCtx.RelationCache.LoadFriends(ctx, senderUid, friendUids, 0)
+	}
+	return isFriend
 }
 
 // MarkRead 向mq推送已读未读消息的
