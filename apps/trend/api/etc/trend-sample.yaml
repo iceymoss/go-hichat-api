@@ -20,6 +20,11 @@ UserRpc:
       - 127.0.0.1:2379
     Key: user.rpc
 
+TrendNotifyTransfer:
+  Topic: trendNotifyTransfer
+  Addrs:
+    - 127.0.0.1:9092
+
 JwtAuth:
   AccessSecret: iceymoss.hichat.hichat2.com
   AccessExpire: 8640000
