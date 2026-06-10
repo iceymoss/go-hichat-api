@@ -716,7 +716,7 @@ export default function UserProfileCard({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginBottom: 10,
+              marginBottom: moments.length > 0 ? 10 : 0,
             }}
           >
             <span style={{ fontSize: 16, fontWeight: 600, color: '#1F2329' }}>朋友圈</span>
@@ -744,7 +744,7 @@ export default function UserProfileCard({
               <span style={{ fontSize: 14 }}>›</span>
             </button>
           </div>
-          {moments.length > 0 ? (
+          {moments.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
               {moments.slice(0, 3).map((img, idx) => (
                 <img
@@ -759,17 +759,6 @@ export default function UserProfileCard({
                   }}
                 />
               ))}
-            </div>
-          ) : (
-            <div
-              style={{
-                padding: '16px 0',
-                textAlign: 'center',
-                fontSize: 13,
-                color: '#A2ACB5',
-              }}
-            >
-              暂无动态
             </div>
           )}
         </div>
