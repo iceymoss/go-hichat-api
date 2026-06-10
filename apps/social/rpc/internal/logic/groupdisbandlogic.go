@@ -2,11 +2,15 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/pkg/errors"
@@ -66,7 +70,30 @@ func (l *GroupDisbandLogic) GroupDisband(in *social.GroupDisbandReq) (*social.Gr
 	// 4) 清理申请（可选，不影响幂等）
 	_ = tx.Table("group_requests").Where("group_id = ?", in.GroupId).Delete(nil).Error
 
-	tx.Commit()
+	// 5) 同事务写 outbox（群解散事件），与上述变更原子提交
+	ev := &mq.RelationChangeTransfer{
+		EventType:  constants.RelationEventGroupDisbanded,
+		GroupId:    in.GroupId,
+		OperatorId: in.UserId,
+		Timestamp:  now.UnixMilli(),
+	}
+	body, mErr := json.Marshal(ev)
+	if mErr != nil {
+		tx.Rollback()
+		return nil, errors.Wrapf(xerr.NewDBErr(), "marshal disband outbox err")
+	}
+	outboxRow := &objects.RelationOutbox{EventType: ev.EventType, GroupID: in.GroupId, Payload: string(body), Status: 0}
+	if err := l.svcCtx.RelationOutboxModel.InsertTx(tx, outboxRow); err != nil {
+		tx.Rollback()
+		return nil, errors.Wrapf(xerr.NewDBErr(), "insert disband outbox err")
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, errors.Wrapf(xerr.NewDBErr(), "commit disband err")
+	}
+
+	// 提交后 best-effort 失效整群缓存（失败由 relay + TTL 自愈）
+	bestEffortApplyCache(l.ctx, l.svcCtx.RelationCache, ev, int64(outboxRow.ID))
 
 	return &social.GroupDisbandResp{}, nil
 }

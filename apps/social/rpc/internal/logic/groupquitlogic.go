@@ -5,11 +5,13 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
 )
 
 type GroupQuitLogic struct {
@@ -44,8 +46,12 @@ func (l *GroupQuitLogic) GroupQuit(in *social.GroupQuitReq) (*social.GroupQuitRe
 		return nil, errors.Wrapf(xerr.NewMsg("群主不能直接退群，请先转让群主或解散群"), "owner cannot quit")
 	}
 
-	// 3. Delete member
-	err = l.svcCtx.GroupMembersModel.Delete(l.ctx, member.Id)
+	// 3. Delete member + 同事务写 outbox（退群事件），提交后 best-effort 同步关系缓存
+	err = emitRelationChange(l.ctx, l.svcCtx, constants.RelationEventGroupMemberRemoved, in.GroupId,
+		&mq.RelationChangeTransfer{GroupId: in.GroupId, UserId: in.UserId, OperatorId: in.UserId},
+		func(tx *gorm.DB) error {
+			return tx.Table("group_members").Where("id = ?", member.Id).Delete(nil).Error
+		})
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "delete member err %v", err)
 	}
