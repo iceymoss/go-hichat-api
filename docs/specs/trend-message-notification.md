@@ -2,7 +2,7 @@
 
 ## 状态
 - 创建日期: 2026-06-10
-- 状态: 草稿
+- 状态: 已实现（待 DB 迁移 + 端到端验证）
 - 关联模块: `apps/trend`（api + rpc + models）、`apps/task/mq`、`apps/im/ws`、`web/`
 
 ## 目标
