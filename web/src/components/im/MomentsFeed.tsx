@@ -34,6 +34,7 @@ import {
   ImagePlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import ImageViewer from './ImageViewer';
 import { getAvatarColor } from '@/lib/utils';
 import { useIMStore } from '@/lib/im-store';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -297,6 +298,7 @@ function TrendCard({
 }: TrendCardProps) {
   const [likeAnim, setLikeAnim] = useState(false);
   const [likeNamesExpanded, setLikeNamesExpanded] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(-1);
   const showUserCard = useIMStore(s => s.showUserCard);
   const userName = trendDisplayName(trend);
   const userAvatar = trend.userAvatar || '';
@@ -400,6 +402,7 @@ function TrendCard({
                   key={idx}
                   className="overflow-hidden cursor-pointer"
                   style={{ borderRadius: 6, background: '#E8EDEF', aspectSquare: trend.resources.length > 1 ? 'auto' : undefined, maxHeight: trend.resources.length === 1 ? 200 : undefined }}
+                  onClick={(e) => { e.stopPropagation(); setViewerIndex(idx); }}
                 >
                   <img src={img} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" style={{ display: 'block', ...(trend.resources.length === 1 ? { height: 200 } : { aspectRatio: '1' }) }} />
                 </div>
@@ -602,6 +605,8 @@ function TrendCard({
           )}
         </div>
       </div>
+
+      <ImageViewer images={trend.resources} index={viewerIndex} onClose={() => setViewerIndex(-1)} onIndexChange={setViewerIndex} />
     </div>
   );
 }
@@ -1031,6 +1036,7 @@ function TrendDetailModal({
   onToggleLike, onLikeCountClick, onSubmitComment, onCommentTextChange,
   onSetReplyTarget, onDeleteComment, onAvatarClick, onClose,
 }: TrendDetailModalProps) {
+  const [viewerIndex, setViewerIndex] = useState(-1);
   if (!open || !trend) return null;
   const userName = trendDisplayName(trend);
   const userAvatar = trend.userAvatar || '';
@@ -1122,8 +1128,13 @@ function TrendDetailModal({
           {trend.type === 2 && trend.resources.length > 0 && (
             <div className={`grid ${imageGridClass(trend.resources.length)} gap-2 mb-4`} style={{ maxWidth: '100%' }}>
               {trend.resources.map((img, idx) => (
-                <div key={idx} className="overflow-hidden" style={{ borderRadius: 8, background: '#E8EDEF' }}>
-                  <img src={img} alt="" className="w-full object-cover" style={{ display: 'block', aspectRatio: trend.resources.length === 1 ? '16/9' : '1' }} />
+                <div
+                  key={idx}
+                  className="overflow-hidden cursor-pointer"
+                  style={{ borderRadius: 8, background: '#E8EDEF' }}
+                  onClick={() => setViewerIndex(idx)}
+                >
+                  <img src={img} alt="" className="w-full object-cover hover:scale-105 transition-transform duration-200" style={{ display: 'block', aspectRatio: trend.resources.length === 1 ? '16/9' : '1' }} />
                 </div>
               ))}
             </div>
@@ -1216,6 +1227,8 @@ function TrendDetailModal({
           </div>
         )}
       </div>
+
+      <ImageViewer images={trend.resources} index={viewerIndex} onClose={() => setViewerIndex(-1)} onIndexChange={setViewerIndex} />
     </div>
   );
 }

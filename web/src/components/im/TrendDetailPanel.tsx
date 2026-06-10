@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner';
 import { getAvatarColor } from '@/lib/utils';
 import { useIMStore } from '@/lib/im-store';
+import ImageViewer from './ImageViewer';
 import {
   type Trend,
   type TrendComment,
@@ -209,6 +210,7 @@ export default function TrendDetailPanel() {
   const [replyTarget, setReplyTarget] = useState<TrendComment | null>(null);
   const [likeAnim, setLikeAnim] = useState(false);
   const [likeExpanded, setLikeExpanded] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(-1);
 
   const likeCount = trend?.agreeCount || 0;
 
@@ -463,7 +465,12 @@ export default function TrendDetailPanel() {
             {trend.type === 2 && trend.resources.length > 0 && (
               <div className={`grid ${imageGridClass(trend.resources.length)} gap-2`} style={{ marginBottom: 12 }}>
                 {trend.resources.map((img, idx) => (
-                  <div key={idx} className="overflow-hidden" style={{ borderRadius: 8, background: '#E8EDEF' }}>
+                  <div
+                    key={idx}
+                    className="overflow-hidden cursor-pointer"
+                    style={{ borderRadius: 8, background: '#E8EDEF' }}
+                    onClick={() => setViewerIndex(idx)}
+                  >
                     <img
                       src={img}
                       alt=""
@@ -686,6 +693,8 @@ export default function TrendDetailPanel() {
           )}
         </div>
       )}
+
+      <ImageViewer images={trend.resources} index={viewerIndex} onClose={() => setViewerIndex(-1)} onIndexChange={setViewerIndex} />
     </div>
   );
 }
