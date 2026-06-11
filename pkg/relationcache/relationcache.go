@@ -254,10 +254,33 @@ return 1
 `)
 
 // RemoveFriendIfLoaded 无版本门移除好友。
-// 好友事件只有"删除"（无新增事件）、天然幂等且按好友对分区——同一用户的不同好友删除事件跨分区到达，
+// 好友事件按好友对分区——同一用户的不同好友变更事件跨分区到达，
 // 不能套用单一 per-user 版本门（否则会误拒较小版本号的删除，导致漏删残留）。删除可交换、重放安全，故无条件 SREM。
 func (c *Cache) RemoveFriendIfLoaded(ctx context.Context, uid, friendUid string) (ApplyResult, error) {
 	res, err := sremIfLoadedScript.Run(ctx, c.rdb, []string{friendSetKey(uid)}, friendUid, cacheTTL.Milliseconds()).Int64()
+	if err != nil {
+		return SkippedNotLoaded, err
+	}
+	if res == 1 {
+		return Applied, nil
+	}
+	return SkippedNotLoaded, nil
+}
+
+// saddIfLoadedScript 集合已加载则无条件 SADD 并续期；未加载返回 -1（跳过，留给读穿透重建）。
+var saddIfLoadedScript = redis.NewScript(`
+if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
+redis.call('SADD', KEYS[1], ARGV[1])
+redis.call('PEXPIRE', KEYS[1], ARGV[2])
+return 1
+`)
+
+// AddFriendIfLoaded 无版本门加好友（与 RemoveFriendIfLoaded 对称）。
+// 好友新增事件按好友对分区：与同一好友对的删除事件落同分区、天然有序（不会复活已删关系）；
+// 而同一用户的不同好友对事件跨分区，无法套用单一 per-user 版本门。SADD 幂等可交换、重放安全，故无条件 SADD。
+// 未加载则跳过：绝不半 populate，留给读穿透从权威 FriendList 重建。
+func (c *Cache) AddFriendIfLoaded(ctx context.Context, uid, friendUid string) (ApplyResult, error) {
+	res, err := saddIfLoadedScript.Run(ctx, c.rdb, []string{friendSetKey(uid)}, friendUid, cacheTTL.Milliseconds()).Int64()
 	if err != nil {
 		return SkippedNotLoaded, err
 	}

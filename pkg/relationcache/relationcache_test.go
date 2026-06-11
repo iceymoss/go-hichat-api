@@ -271,3 +271,43 @@ func Test_RemoveFriendIfLoaded_NoVersionGate(t *testing.T) {
 		t.Errorf("remove on unloaded = %v, want SkippedNotLoaded", got)
 	}
 }
+
+func Test_AddFriendIfLoaded_NoVersionGate(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// a 的好友集已加载（仅 b）
+	if err := c.LoadFriends(ctx, "a", []string{"b"}, 1); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	// 无版本门：新加好友直接生效，不依赖版本号
+	if got, _ := c.AddFriendIfLoaded(ctx, "a", "c"); got != Applied {
+		t.Errorf("add c = %v, want Applied", got)
+	}
+	if v := c.IsFriend(ctx, "a", "c"); v != VerdictAllowed {
+		t.Errorf("after add c, IsFriend=%v, want Allowed", v)
+	}
+
+	// 跨分区乱序的多次新增（同一用户的不同好友对）都必须生效——这正是版本门会误拒的场景
+	if got, _ := c.AddFriendIfLoaded(ctx, "a", "d"); got != Applied {
+		t.Errorf("add d = %v, want Applied", got)
+	}
+	if v := c.IsFriend(ctx, "a", "d"); v != VerdictAllowed {
+		t.Errorf("after add d, IsFriend=%v, want Allowed", v)
+	}
+
+	// 幂等：重复新增同一好友不报错、不产生副作用
+	if got, _ := c.AddFriendIfLoaded(ctx, "a", "c"); got != Applied {
+		t.Errorf("re-add c (idempotent) = %v, want Applied", got)
+	}
+
+	// 未加载集合：跳过，绝不半 populate（否则会被误判为已加载）
+	if got, _ := c.AddFriendIfLoaded(ctx, "zzz", "x"); got != SkippedNotLoaded {
+		t.Errorf("add on unloaded = %v, want SkippedNotLoaded", got)
+	}
+	if v := c.IsFriend(ctx, "zzz", "x"); v != VerdictUnknown {
+		t.Errorf("unloaded set after skipped add, IsFriend=%v, want Unknown", v)
+	}
+}
