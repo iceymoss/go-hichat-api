@@ -31,6 +31,28 @@ import { playMessageSound, vibrate } from './notification';
 import { useSettingsStore } from './settings-store';
 import { mediaPreview } from './media-message';
 import type { Message, Conversation } from './mock-data';
+import { toast } from 'sonner';
+import { sendFriendRequest } from './friend-group-api';
+
+// 私聊被后端鉴权拦截（对方已删好友）时，顶部弹"重新添加好友"通知。
+// 与红感叹号（消息标 failed）并行：感叹号是消息级反馈，这条是关系级引导。
+// 文案硬编码中文，与本模块其余 toast（AddFriendPanel/GroupList 等）保持一致。
+function notifyFriendBlocked(peerId: string) {
+  toast('你们已不是好友，是否重新添加好友', {
+    id: `friend-block-${peerId}`, // 稳定 id：连发多条只弹一个，不堆叠
+    duration: 6000,
+    action: {
+      label: '重新添加',
+      onClick: async () => {
+        const token = useIMStore.getState().currentUser?.token;
+        if (!token) return;
+        const ok = await sendFriendRequest(token, peerId);
+        if (ok) toast.success('好友请求已发送');
+        else toast.error('发送失败，请重试');
+      },
+    },
+  });
+}
 
 // ========== 消息类型映射 ==========
 
@@ -184,18 +206,29 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       onError: (err, msgId) => {
         // 业务错误帧（发送被鉴权拦截）：ACK 已先 resolve 了 send promise，故在此按消息 id 把对应消息标记失败（红感叹号）。
         if (msgId) {
+          // 先定位消息所在会话（只读），再标失败 + 私聊场景弹"重新添加好友"
+          const state = get();
+          let foundCid: string | undefined;
+          for (const cid of Object.keys(state.messagesMap)) {
+            if (state.messagesMap[cid].some(m => m.id === msgId)) { foundCid = cid; break; }
+          }
+          if (!foundCid) return;
+
           set(s => {
-            for (const cid of Object.keys(s.messagesMap)) {
-              const arr = s.messagesMap[cid];
-              const idx = arr.findIndex(m => m.id === msgId);
-              if (idx >= 0) {
-                const copy = arr.slice();
-                copy[idx] = { ...copy[idx], status: 'failed' };
-                return { messagesMap: { ...s.messagesMap, [cid]: copy } };
-              }
-            }
-            return {};
+            const arr = s.messagesMap[foundCid!];
+            const idx = arr.findIndex(m => m.id === msgId);
+            if (idx < 0) return {};
+            const copy = arr.slice();
+            copy[idx] = { ...copy[idx], status: 'failed' };
+            return { messagesMap: { ...s.messagesMap, [foundCid!]: copy } };
           });
+
+          // 仅私聊被拦才引导重加好友；群被移出已有横幅 + 系统消息闭环，跳过。
+          const conv = state.conversations.find(c => c.id === foundCid);
+          if (conv?.type === 'private') {
+            const peerId = foundCid.split('_').find(p => p !== userId);
+            if (peerId) notifyFriendBlocked(peerId);
+          }
           return;
         }
         console.warn('[ChatStore] ws error:', err);
