@@ -295,10 +295,19 @@ export class IMWebSocket {
       case FrameType.Ack:
         this.handleAck(msg);
         break;
-      case FrameType.Err:
-        console.error('[WS] server error:', msg.data);
-        this.onError?.(msg.data);
+      case FrameType.Err: {
+        // 错误帧带原始消息 id 时，关联到对应的待确认消息并立即 reject（触发上层标记失败/红感叹号），不再干等 ACK 超时。
+        const pending = msg.id ? this.pendingAck.get(msg.id) : undefined;
+        if (pending) {
+          clearTimeout(pending.timer);
+          this.pendingAck.delete(msg.id);
+          pending.reject(new Error(typeof msg.data === 'string' ? msg.data : '发送失败'));
+        } else {
+          // 未能关联到具体消息的错误：交给上层非致命处理（不 console.error，避免开发模式错误浮层）
+          this.onError?.(msg.data);
+        }
         break;
+      }
       case FrameType.Data:
       case FrameType.NoAck:
         this.routeMessage(msg);
