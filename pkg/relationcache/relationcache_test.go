@@ -311,3 +311,115 @@ func Test_AddFriendIfLoaded_NoVersionGate(t *testing.T) {
 		t.Errorf("unloaded set after skipped add, IsFriend=%v, want Unknown", v)
 	}
 }
+
+// Test_LoadIfCold_NoClobber 复现并守护缺陷 1：热缓存的读穿透回填必须是 no-op，
+// 不得用 version=0 的旧快照把已被事件正确移除的成员重建回来、把 ver 回退。
+func Test_LoadIfCold_NoClobber(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 冷加载 g1 {u1,u2}@5，事件正确踢掉 u1（ver=6）
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2"}, 5); err != nil {
+		t.Fatalf("cold load: %v", err)
+	}
+	if got, _ := c.RemoveGroupMember(ctx, "g1", "u1", 6); got != Applied {
+		t.Fatalf("remove u1@6 = %v, want Applied", got)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictDenied {
+		t.Fatalf("precondition: u1 should be Denied after remove, got %v", v)
+	}
+
+	// 滞后读穿透：用含 u1 的旧快照 + version=0 回填——必须被 load-if-cold 拒绝（热缓存不覆盖）
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2"}, 0); err != nil {
+		t.Fatalf("stale read-through load: %v", err)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictDenied {
+		t.Errorf("after stale read-through, u1=%v, want Denied (no clobber/resurrection)", v)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u2"); v != VerdictAllowed {
+		t.Errorf("u2 should remain Allowed, got %v", v)
+	}
+}
+
+// Test_Tombstone_PreventResurrection 复现并守护缺陷 2（冷缓存 TOCTOU）：
+// 移除事件在缓存冷时到达（写墓碑），随后读穿透的旧快照仍含被移除者——墓碑必须把他剔除。
+func Test_Tombstone_PreventResurrection(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 冷缓存下踢人：集合不存在 -> SkippedNotLoaded，但墓碑被写下
+	if got, _ := c.RemoveGroupMember(ctx, "g1", "u1", 10); got != SkippedNotLoaded {
+		t.Fatalf("remove on cold = %v, want SkippedNotLoaded", got)
+	}
+
+	// 读穿透 RPC 取到的是踢人提交前的旧快照（仍含 u1），version=0 回填
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2", "u3"}, 0); err != nil {
+		t.Fatalf("read-through load with stale snapshot: %v", err)
+	}
+
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictDenied {
+		t.Errorf("tombstoned u1 resurrected by read-through, IsGroupMember=%v, want Denied", v)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u2"); v != VerdictAllowed {
+		t.Errorf("u2 wrongly excluded, IsGroupMember=%v, want Allowed", v)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u3"); v != VerdictAllowed {
+		t.Errorf("u3 wrongly excluded, IsGroupMember=%v, want Allowed", v)
+	}
+}
+
+// Test_Tombstone_ClearedOnReAdd 守护 re-add：墓碑期内重新加入应清掉墓碑，
+// 后续读穿透不再剔除该成员（否则被踢又拉回的人会持续收不到消息）。
+func Test_Tombstone_ClearedOnReAdd(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 冷缓存踢人写墓碑
+	if _, err := c.RemoveGroupMember(ctx, "g1", "u1", 10); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	// 冷缓存下 re-add：集合未加载 -> SkippedNotLoaded，但墓碑被清
+	if got, _ := c.AddGroupMember(ctx, "g1", "u1", 11); got != SkippedNotLoaded {
+		t.Fatalf("re-add on cold = %v, want SkippedNotLoaded", got)
+	}
+	// 读穿透回填含 u1 的快照：墓碑已清，u1 应被纳入
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2"}, 0); err != nil {
+		t.Fatalf("read-through load: %v", err)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictAllowed {
+		t.Errorf("re-added u1 should be Allowed after tombstone cleared, got %v", v)
+	}
+}
+
+// Test_Friend_Tombstone_PreventResurrection 好友侧对称守护（单聊闸门走同一 loadSet）。
+func Test_Friend_Tombstone_PreventResurrection(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 冷缓存删好友：写墓碑
+	if got, _ := c.RemoveFriendIfLoaded(ctx, "a", "b"); got != SkippedNotLoaded {
+		t.Fatalf("remove friend on cold = %v, want SkippedNotLoaded", got)
+	}
+	// 读穿透旧快照仍含 b
+	if err := c.LoadFriends(ctx, "a", []string{"b", "c"}, 0); err != nil {
+		t.Fatalf("read-through load friends: %v", err)
+	}
+	if v := c.IsFriend(ctx, "a", "b"); v != VerdictDenied {
+		t.Errorf("tombstoned friend b resurrected, IsFriend=%v, want Denied", v)
+	}
+	if v := c.IsFriend(ctx, "a", "c"); v != VerdictAllowed {
+		t.Errorf("friend c wrongly excluded, IsFriend=%v, want Allowed", v)
+	}
+
+	// re-add 清墓碑后可恢复
+	if _, err := c.AddFriendIfLoaded(ctx, "a", "b"); err != nil {
+		t.Fatalf("re-add friend: %v", err)
+	}
+	if v := c.IsFriend(ctx, "a", "b"); v != VerdictAllowed {
+		t.Errorf("re-added friend b should be Allowed, got %v", v)
+	}
+}

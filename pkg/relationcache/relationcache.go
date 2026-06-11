@@ -29,14 +29,21 @@ const cacheTTL = time.Hour
 // rebuildLockTTL 冷启动单飞锁的存活时间，回源 RPC 应在此之内完成；过期自动释放防死锁。
 const rebuildLockTTL = 5 * time.Second
 
+// tombstoneTTL 墓碑存活时间：标记"刚被移除"的成员，让冷缓存读穿透回填时剔除之，
+// 杜绝"读穿透 RPC 在移除提交前取到旧快照、提交后才回填"的 TOCTOU 复活。
+// 取值需覆盖读穿透 RPC（≤2s）+ relay/消费滞后；同群/同好友对事件有序，re-add 会主动清墓碑，TTL 仅作安全上界。
+const tombstoneTTL = 60 * time.Second
+
 const groupMemberKeyPrefix = "grp:mem:"
 const friendKeyPrefix = "frd:"
 
 func groupMemberKey(gid string) string { return groupMemberKeyPrefix + gid }
 func groupVerKey(gid string) string    { return groupMemberKeyPrefix + gid + ":ver" }
 func groupLockKey(gid string) string   { return groupMemberKeyPrefix + gid + ":lock" }
+func groupTombKey(gid string) string   { return groupMemberKeyPrefix + gid + ":tomb" }
 func friendSetKey(uid string) string   { return friendKeyPrefix + uid }
 func friendVerKey(uid string) string   { return friendKeyPrefix + uid + ":ver" }
+func friendTombKey(uid string) string  { return friendKeyPrefix + uid + ":tomb" }
 
 // unlockScript 仅当锁值等于自己持有的 token 时才删除，避免误删他人（或锁过期后被他人重抢）的锁。
 var unlockScript = redis.NewScript(`
@@ -55,10 +62,18 @@ const (
 	SkippedNotLoaded                    // 集合未加载：跳过，绝不半 populate（留给读穿透重建）
 )
 
-// applyMemberScript 原子地按版本门维护集合成员：
-//   未加载(set 不存在) -> 返回 -1；version<=当前 -> 返回 2；否则 SADD/SREM + 更新版本 + 续期 -> 返回 1。
-// 用 Lua 保证"比较版本 + 改集合 + 写版本"三步原子，杜绝并发下的乱序与读穿透复活竞态。
+// applyMemberScript 原子地按版本门维护集合成员 + 无条件维护墓碑：
+//   墓碑维护始终执行（rem→SADD 墓碑+续期；add→SREM 墓碑），不受集合是否加载/版本门影响，
+//   保证冷缓存下的移除也能被随后的读穿透剔除、re-add 能清掉墓碑让成员被重新纳入。
+//   集合改动仍走版本门：未加载(set 不存在) -> 返回 -1；version<=当前 -> 返回 2；否则 SADD/SREM + 更新版本 + 续期 -> 返回 1。
+// 用 Lua 保证"墓碑 + 比较版本 + 改集合 + 写版本"原子，杜绝并发下的乱序与读穿透复活竞态。
 var applyMemberScript = redis.NewScript(`
+if ARGV[1] == 'add' then
+  redis.call('SREM', KEYS[3], ARGV[2])
+else
+  redis.call('SADD', KEYS[3], ARGV[2])
+  redis.call('PEXPIRE', KEYS[3], ARGV[5])
+end
 if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
 local cur = tonumber(redis.call('GET', KEYS[2]) or '-1')
 local v = tonumber(ARGV[3])
@@ -84,9 +99,9 @@ func New(rdb *redis.Client) *Cache {
 	return &Cache{rdb: rdb}
 }
 
-// LoadGroupMembers 用权威来源（RPC GroupUsers 回源结果）重建群成员集，并落版本号。
+// LoadGroupMembers 用权威来源（RPC GroupUsers 回源结果）重建群成员集，并落版本号。仅冷缓存时生效。
 func (c *Cache) LoadGroupMembers(ctx context.Context, gid string, members []string, version int64) error {
-	return c.loadSet(ctx, groupMemberKey(gid), groupVerKey(gid), members, version)
+	return c.loadSet(ctx, groupMemberKey(gid), groupVerKey(gid), groupTombKey(gid), members, version)
 }
 
 // IsGroupMember 三态判定 uid 是否为 gid 成员。
@@ -119,19 +134,19 @@ func (c *Cache) GroupMembers(ctx context.Context, gid string) (members []string,
 	return members, true, nil
 }
 
-// AddGroupMember 版本门下把 uid 加入群成员集（加群/邀请事件）。
+// AddGroupMember 版本门下把 uid 加入群成员集（加群/邀请事件），并清掉其墓碑（允许 re-add）。
 func (c *Cache) AddGroupMember(ctx context.Context, gid, uid string, version int64) (ApplyResult, error) {
-	return c.applyMember(ctx, "add", groupMemberKey(gid), groupVerKey(gid), uid, version)
+	return c.applyMember(ctx, "add", groupMemberKey(gid), groupVerKey(gid), groupTombKey(gid), uid, version)
 }
 
-// RemoveGroupMember 版本门下把 uid 移出群成员集（踢人/退群事件）。
+// RemoveGroupMember 版本门下把 uid 移出群成员集（踢人/退群事件），并无条件写墓碑（防读穿透复活）。
 func (c *Cache) RemoveGroupMember(ctx context.Context, gid, uid string, version int64) (ApplyResult, error) {
-	return c.applyMember(ctx, "rem", groupMemberKey(gid), groupVerKey(gid), uid, version)
+	return c.applyMember(ctx, "rem", groupMemberKey(gid), groupVerKey(gid), groupTombKey(gid), uid, version)
 }
 
-// LoadFriends 用权威来源（RPC FriendList 回源结果）重建 uid 的好友集，并落版本号。
+// LoadFriends 用权威来源（RPC FriendList 回源结果）重建 uid 的好友集，并落版本号。仅冷缓存时生效。
 func (c *Cache) LoadFriends(ctx context.Context, uid string, friends []string, version int64) error {
-	return c.loadSet(ctx, friendSetKey(uid), friendVerKey(uid), friends, version)
+	return c.loadSet(ctx, friendSetKey(uid), friendVerKey(uid), friendTombKey(uid), friends, version)
 }
 
 // IsFriend 三态判定 friendUid 是否在 uid 的好友集内。
@@ -141,28 +156,44 @@ func (c *Cache) IsFriend(ctx context.Context, uid, friendUid string) Verdict {
 
 // AddFriend 版本门下把 friendUid 加入 uid 的好友集（加好友事件，双向各调一次）。
 func (c *Cache) AddFriend(ctx context.Context, uid, friendUid string, version int64) (ApplyResult, error) {
-	return c.applyMember(ctx, "add", friendSetKey(uid), friendVerKey(uid), friendUid, version)
+	return c.applyMember(ctx, "add", friendSetKey(uid), friendVerKey(uid), friendTombKey(uid), friendUid, version)
 }
 
 // RemoveFriend 版本门下把 friendUid 移出 uid 的好友集（删好友事件，双向各调一次）。
 func (c *Cache) RemoveFriend(ctx context.Context, uid, friendUid string, version int64) (ApplyResult, error) {
-	return c.applyMember(ctx, "rem", friendSetKey(uid), friendVerKey(uid), friendUid, version)
+	return c.applyMember(ctx, "rem", friendSetKey(uid), friendVerKey(uid), friendTombKey(uid), friendUid, version)
 }
 
-// loadSet 用权威快照重建一个成员集合（始终含 loadedSentinel），并落版本号。
-func (c *Cache) loadSet(ctx context.Context, setKey, verKey string, members []string, version int64) error {
-	pipe := c.rdb.TxPipeline()
-	pipe.Del(ctx, setKey)
-	args := make([]any, 0, len(members)+1)
-	args = append(args, loadedSentinel)
+// loadIfColdScript 仅在集合"冷"（不存在）时用权威快照重建，热缓存直接返回 0 不覆盖——
+// 保证缓存一旦由读穿透/事件加载，后续就只由版本门事件维护，杜绝滞后读穿透把 ver 回退、复活已移除成员。
+// 重建时逐个剔除墓碑命中的成员：覆盖"读穿透 RPC 在移除提交前取到旧快照、提交后才回填"的 TOCTOU。
+//   KEYS[1]=set KEYS[2]=ver KEYS[3]=tomb；ARGV[1]=version ARGV[2]=ttlMs ARGV[3]=sentinel ARGV[4..]=members。
+//   热 -> 0；冷重建 -> 1。
+var loadIfColdScript = redis.NewScript(`
+if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
+redis.call('DEL', KEYS[1])
+redis.call('SADD', KEYS[1], ARGV[3])
+for i=4,#ARGV do
+  if redis.call('SISMEMBER', KEYS[3], ARGV[i]) == 0 then
+    redis.call('SADD', KEYS[1], ARGV[i])
+  end
+end
+redis.call('SET', KEYS[2], ARGV[1])
+redis.call('PEXPIRE', KEYS[1], ARGV[2])
+redis.call('PEXPIRE', KEYS[2], ARGV[2])
+return 1
+`)
+
+// loadSet 仅在冷缓存时用权威快照重建一个成员集合（始终含 loadedSentinel、剔除墓碑成员），并落版本号。
+// 热缓存为 no-op：read-through 只负责暖冷缓存，绝不覆盖已被事件维护的热缓存。
+func (c *Cache) loadSet(ctx context.Context, setKey, verKey, tombKey string, members []string, version int64) error {
+	ttlMs := cacheTTL.Milliseconds()
+	args := make([]any, 0, len(members)+3)
+	args = append(args, version, ttlMs, loadedSentinel)
 	for _, m := range members {
 		args = append(args, m)
 	}
-	pipe.SAdd(ctx, setKey, args...)
-	pipe.Set(ctx, verKey, version, cacheTTL)
-	pipe.Expire(ctx, setKey, cacheTTL)
-	_, err := pipe.Exec(ctx)
-	return err
+	return loadIfColdScript.Run(ctx, c.rdb, []string{setKey, verKey, tombKey}, args...).Err()
 }
 
 // verdict 三态判定 member 是否在 setKey 集合内。
@@ -188,9 +219,10 @@ func (c *Cache) verdict(ctx context.Context, setKey, member string) Verdict {
 	return VerdictDenied
 }
 
-func (c *Cache) applyMember(ctx context.Context, op, setKey, verKey, uid string, version int64) (ApplyResult, error) {
+func (c *Cache) applyMember(ctx context.Context, op, setKey, verKey, tombKey, uid string, version int64) (ApplyResult, error) {
 	ttlMs := cacheTTL.Milliseconds()
-	res, err := applyMemberScript.Run(ctx, c.rdb, []string{setKey, verKey}, op, uid, version, ttlMs).Int64()
+	tombTtlMs := tombstoneTTL.Milliseconds()
+	res, err := applyMemberScript.Run(ctx, c.rdb, []string{setKey, verKey, tombKey}, op, uid, version, ttlMs, tombTtlMs).Int64()
 	if err != nil {
 		return SkippedNotLoaded, err
 	}
@@ -237,27 +269,31 @@ func randToken() (string, error) {
 // InvalidateGroup 删除整群缓存（群解散事件）。删除后判定退化为 Unknown（fail-open），
 // 下次读穿透回源；解散群本身已无会话，无需重建。best-effort 忽略错误。
 func (c *Cache) InvalidateGroup(ctx context.Context, gid string) error {
-	return c.rdb.Del(ctx, groupMemberKey(gid), groupVerKey(gid)).Err()
+	return c.rdb.Del(ctx, groupMemberKey(gid), groupVerKey(gid), groupTombKey(gid)).Err()
 }
 
 // InvalidateFriend 删除某用户的好友集缓存。
 func (c *Cache) InvalidateFriend(ctx context.Context, uid string) error {
-	return c.rdb.Del(ctx, friendSetKey(uid), friendVerKey(uid)).Err()
+	return c.rdb.Del(ctx, friendSetKey(uid), friendVerKey(uid), friendTombKey(uid)).Err()
 }
 
-// sremIfLoadedScript 集合已加载则无条件 SREM 并续期；未加载返回 -1（跳过）。
+// sremIfLoadedScript 无条件写墓碑（防读穿透复活）；集合已加载则 SREM 并续期；未加载返回 -1（跳过）。
+//   KEYS[1]=set KEYS[2]=tomb；ARGV[1]=member ARGV[2]=ttlMs ARGV[3]=tombTtlMs。
 var sremIfLoadedScript = redis.NewScript(`
+redis.call('SADD', KEYS[2], ARGV[1])
+redis.call('PEXPIRE', KEYS[2], ARGV[3])
 if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
 redis.call('SREM', KEYS[1], ARGV[1])
 redis.call('PEXPIRE', KEYS[1], ARGV[2])
 return 1
 `)
 
-// RemoveFriendIfLoaded 无版本门移除好友。
+// RemoveFriendIfLoaded 无版本门移除好友（无条件写墓碑）。
 // 好友事件按好友对分区——同一用户的不同好友变更事件跨分区到达，
 // 不能套用单一 per-user 版本门（否则会误拒较小版本号的删除，导致漏删残留）。删除可交换、重放安全，故无条件 SREM。
 func (c *Cache) RemoveFriendIfLoaded(ctx context.Context, uid, friendUid string) (ApplyResult, error) {
-	res, err := sremIfLoadedScript.Run(ctx, c.rdb, []string{friendSetKey(uid)}, friendUid, cacheTTL.Milliseconds()).Int64()
+	res, err := sremIfLoadedScript.Run(ctx, c.rdb, []string{friendSetKey(uid), friendTombKey(uid)},
+		friendUid, cacheTTL.Milliseconds(), tombstoneTTL.Milliseconds()).Int64()
 	if err != nil {
 		return SkippedNotLoaded, err
 	}
@@ -267,20 +303,23 @@ func (c *Cache) RemoveFriendIfLoaded(ctx context.Context, uid, friendUid string)
 	return SkippedNotLoaded, nil
 }
 
-// saddIfLoadedScript 集合已加载则无条件 SADD 并续期；未加载返回 -1（跳过，留给读穿透重建）。
+// saddIfLoadedScript 无条件清墓碑（允许 re-add）；集合已加载则 SADD 并续期；未加载返回 -1（跳过，留给读穿透重建）。
+//   KEYS[1]=set KEYS[2]=tomb；ARGV[1]=member ARGV[2]=ttlMs。
 var saddIfLoadedScript = redis.NewScript(`
+redis.call('SREM', KEYS[2], ARGV[1])
 if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
 redis.call('SADD', KEYS[1], ARGV[1])
 redis.call('PEXPIRE', KEYS[1], ARGV[2])
 return 1
 `)
 
-// AddFriendIfLoaded 无版本门加好友（与 RemoveFriendIfLoaded 对称）。
+// AddFriendIfLoaded 无版本门加好友（无条件清墓碑，与 RemoveFriendIfLoaded 对称）。
 // 好友新增事件按好友对分区：与同一好友对的删除事件落同分区、天然有序（不会复活已删关系）；
 // 而同一用户的不同好友对事件跨分区，无法套用单一 per-user 版本门。SADD 幂等可交换、重放安全，故无条件 SADD。
-// 未加载则跳过：绝不半 populate，留给读穿透从权威 FriendList 重建。
+// 未加载则跳过：绝不半 populate，留给读穿透从权威 FriendList 重建（墓碑已清，重建会纳入该好友）。
 func (c *Cache) AddFriendIfLoaded(ctx context.Context, uid, friendUid string) (ApplyResult, error) {
-	res, err := saddIfLoadedScript.Run(ctx, c.rdb, []string{friendSetKey(uid)}, friendUid, cacheTTL.Milliseconds()).Int64()
+	res, err := saddIfLoadedScript.Run(ctx, c.rdb, []string{friendSetKey(uid), friendTombKey(uid)},
+		friendUid, cacheTTL.Milliseconds()).Int64()
 	if err != nil {
 		return SkippedNotLoaded, err
 	}
