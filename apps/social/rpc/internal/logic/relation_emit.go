@@ -54,6 +54,22 @@ func emitRelationChange(ctx context.Context, svcCtx *svc.ServiceContext, eventTy
 	return nil
 }
 
+// emitRelationChangeInTx 在调用方已开启的事务 tx 内写入一条 outbox 事件（与关系变更原子提交）。
+// 适用于成员新增等已自带 GORM 事务、不便交由 emitRelationChange 接管整段事务的入口。
+// 不做提交后即时缓存同步：群扇出对亚秒级新鲜度不敏感，靠 relay 投递 + 消费端版本门 + TTL 最终一致即可。
+func emitRelationChangeInTx(tx *gorm.DB, svcCtx *svc.ServiceContext, eventType, groupId string, ev *mq.RelationChangeTransfer) error {
+	ev.EventType = eventType
+	if ev.Timestamp == 0 {
+		ev.Timestamp = time.Now().UnixMilli()
+	}
+	body, err := json.Marshal(ev)
+	if err != nil {
+		return err
+	}
+	row := &objects.RelationOutbox{EventType: eventType, GroupID: groupId, Payload: string(body), Status: 0}
+	return svcCtx.RelationOutboxModel.InsertTx(tx, row)
+}
+
 // bestEffortApplyCache 提交后把变更同步进关系缓存。与消费端 applyCache 同构，失败忽略。
 func bestEffortApplyCache(ctx context.Context, rc *relationcache.Cache, ev *mq.RelationChangeTransfer, version int64) {
 	if rc == nil {
