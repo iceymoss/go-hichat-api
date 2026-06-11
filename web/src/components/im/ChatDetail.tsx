@@ -264,6 +264,7 @@ export default function ChatDetail() {
   const storeMarkRead = useChatStore(s => s.markRead);
   const storeGroupMembers = useChatStore(s => s.groupMembers);
   const fetchGroupMembers = useChatStore(s => s.fetchGroupMembers);
+  const markGroupRemoved = useChatStore(s => s.markGroupRemoved);
   const ensureUserProfiles = useChatStore(s => s.ensureUserProfiles);
   const readReceiptEnabled = useSettingsStore(s => s.readReceiptEnabled);
   const { currentUser } = useIMStore();
@@ -301,6 +302,16 @@ export default function ChatDetail() {
     const me = (storeGroupMembers[selectedConversationId] || []).find(m => m.user_id === currentUser.id);
     return (me?.role_level ?? 0) >= 1;
   }, [selectedConversationId, conversation?.type, storeGroupMembers, currentUser?.id]);
+
+  // 刷新后从服务端成员名单重新推导"被移出群"：成员已加载且自己不在其中 → 持久化禁用 + 系统消息
+  useEffect(() => {
+    if (!selectedConversationId || conversation?.type !== 'group' || !currentUser?.id) return;
+    const members = storeGroupMembers[selectedConversationId] || [];
+    if (members.length === 0) return; // 尚未拉取，避免误判
+    if (!members.some(m => m.user_id === currentUser.id)) {
+      markGroupRemoved(selectedConversationId, 'group.member.removed');
+    }
+  }, [selectedConversationId, conversation?.type, storeGroupMembers, currentUser?.id, markGroupRemoved]);
 
   // @ 候选成员（排除自己，按 atQuery 过滤）
   const atCandidates = useMemo(() => {
