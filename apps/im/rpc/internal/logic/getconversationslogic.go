@@ -89,6 +89,12 @@ func (l *GetConversationsLogic) GetConversations(in *im.GetConversationsReq) (*i
 			continue
 		}
 
+		// 被移出群成员：冻结该群的预览与未读——不应用被移出后产生的群最新消息/未读增量，
+		// 与 GetChatLog 的历史截断一致（用户仍看得到会话条目+横幅，但看不到被移出后的内容）。
+		if mEntry, ok := data.ConversationList[conversation.ConversationId]; ok && mEntry != nil && mEntry.RemovedAt > 0 {
+			continue
+		}
+
 		// 用户读取的消息量
 		total := res.ConversationList[conversation.ConversationId].Total
 		if total < int32(conversation.Total) { // 如果读取的消息量 < 会话实际的消息量 => 存在未读消息

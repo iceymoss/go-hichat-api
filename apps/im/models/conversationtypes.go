@@ -40,6 +40,10 @@ type Conversation struct {
 	// 当前会话的最晚的一条聊天记录，用于在会用会话聊天，展示给用户看最新的未读消息内容
 	Msg *ChatLog `bson:"msg,omitempty"`
 
+	// 被移出群的时刻（UnixMilli）：>0 表示该用户已被移出此群会话，
+	// 拉取群历史时只返回 sendTime <= RemovedAt 的消息（冻结历史）；重新入群时清零。
+	RemovedAt int64 `bson:"removedAt,omitempty"`
+
 	UpdateAt time.Time `bson:"updateAt,omitempty" json:"updateAt,omitempty"`
 	CreateAt time.Time `bson:"createAt,omitempty" json:"createAt,omitempty"`
 }

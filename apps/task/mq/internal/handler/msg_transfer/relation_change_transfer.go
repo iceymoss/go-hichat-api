@@ -39,9 +39,39 @@ func (m *RelationChangeTransfer) Consume(ctx context.Context, key, value string)
 	// 1) 维护关系缓存（best-effort，版本门保证幂等/防乱序；失败不阻断推送）
 	m.applyCache(ctx, &in)
 
-	// 2) 推送会话失效帧给受影响用户（客户端禁用输入闭环）
+	// 2) 冻结/解冻被移出成员的群历史（被踢只能看被踢前的消息；重新入群解冻）
+	m.freezeRemovedConversation(ctx, &in)
+
+	// 3) 推送会话失效帧给受影响用户（客户端禁用输入闭环）
 	m.pushRelationChanged(&in)
 	return nil
+}
+
+// freezeRemovedConversation 在被移出群成员的会话条目上打/清 RemovedAt 时间戳。
+// 被踢(group.member.removed)→写入事件时间戳，im 拉历史时只返回 sendTime<=RemovedAt 的消息；
+// 重新入群(group.member.added)→清零解冻。幂等：值无变化不写库。会话不存在则跳过。
+func (m *RelationChangeTransfer) freezeRemovedConversation(ctx context.Context, in *mq.RelationChangeTransfer) {
+	var removedAt int64
+	switch in.EventType {
+	case constants.RelationEventGroupMemberRemoved:
+		removedAt = in.Timestamp
+	case constants.RelationEventGroupMemberAdded:
+		removedAt = 0
+	default:
+		return
+	}
+	doc, err := m.svcCtx.ConversationsModel.FindByUserId(ctx, in.UserId)
+	if err != nil || doc == nil || doc.ConversationList == nil {
+		return
+	}
+	conv, ok := doc.ConversationList[in.GroupId] // 群会话 id 即 groupId
+	if !ok || conv == nil || conv.RemovedAt == removedAt {
+		return
+	}
+	conv.RemovedAt = removedAt
+	if _, err := m.svcCtx.ConversationsModel.Update(ctx, doc); err != nil {
+		zLog.Error("freezeRemovedConversation.update", zap.Any("event", in), zap.Error(err))
+	}
 }
 
 // applyCache 按事件类型维护关系缓存。维护失败仅记日志：缓存最终靠 TTL + 读穿透自愈。
