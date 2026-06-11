@@ -35,8 +35,10 @@ func (c *relationChangeTransferClient) Push(msg *mq.RelationChangeTransfer) erro
 }
 
 // partitionKey 同群事件用 groupId，好友事件用有序好友对，确保同实体落同分区、按序消费。
+// 好友的新增与删除事件落同一好友对分区 -> 天然有序，避免"删除后又被旧新增复活"。
 func partitionKey(msg *mq.RelationChangeTransfer) string {
-	if msg.EventType == constants.RelationEventFriendDeleted {
+	switch msg.EventType {
+	case constants.RelationEventFriendDeleted, constants.RelationEventFriendAdded:
 		a, b := msg.FriendA, msg.FriendB
 		if a > b {
 			a, b = b, a
