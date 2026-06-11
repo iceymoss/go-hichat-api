@@ -72,6 +72,20 @@ func ApplyRelationEvent(ctx context.Context, rc *relationcache.Cache, in *mq.Rel
 		if _, err := rc.RemoveFriendIfLoaded(ctx, in.FriendB, in.FriendA); err != nil {
 			zLog.Error("RelationChange.RemoveFriend B", zap.Any("event", in), zap.Error(err))
 		}
+	case constants.RelationEventFriendAdded:
+		// 双向加入：A 的好友集加 B，B 的好友集加 A。无版本门（与删除对称，跨分区不能用单版本门）。
+		// 未加载则跳过，留给读穿透从权威 FriendList 重建。
+		if _, err := rc.AddFriendIfLoaded(ctx, in.FriendA, in.FriendB); err != nil {
+			zLog.Error("RelationChange.AddFriend A", zap.Any("event", in), zap.Error(err))
+		}
+		if _, err := rc.AddFriendIfLoaded(ctx, in.FriendB, in.FriendA); err != nil {
+			zLog.Error("RelationChange.AddFriend B", zap.Any("event", in), zap.Error(err))
+		}
+	case constants.RelationEventGroupMemberAdded:
+		// 群成员新增：同群事件单分区有序 + outbox.id 单调，版本门正确且自带防复活（被踢后旧新增不复活）。
+		if _, err := rc.AddGroupMember(ctx, in.GroupId, in.UserId, in.Version); err != nil {
+			zLog.Error("RelationChange.AddGroupMember", zap.Any("event", in), zap.Error(err))
+		}
 	default:
 		zLog.Error("RelationChange.unknownType", zap.String("type", in.EventType))
 	}
