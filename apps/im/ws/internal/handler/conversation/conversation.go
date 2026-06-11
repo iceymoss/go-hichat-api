@@ -52,7 +52,14 @@ func Chat(srvCtx *svc.ServiceContext) websocket.HandlerFunc {
 		// 单聊发送鉴权闸门（灰度开关 + fail-open）：删好友后不得再发消息。命中拦截则不投递。
 		if data.ChatType == constants.SingleChatType && !singleSendAllowed(srvCtx, conn.Uid, data.RecvId) {
 			zLog.Error("single send blocked: not friend")
-			srv.Send(websocket.NewErrMessage(errors.New("对方不是你的好友，无法发送消息")), conn)
+			srv.Send(websocket.NewErrMessageWithId(msg.Id, errors.New("对方不是你的好友，无法发送消息")), conn)
+			return
+		}
+
+		// 群发送鉴权闸门（灰度开关 + fail-open）：被移出群后不得再发消息。命中拦截则不投递。
+		if data.ChatType == constants.GroupChatType && !groupSendAllowed(srvCtx, conn.Uid, data.RecvId) {
+			zLog.Error("group send blocked: not member")
+			srv.Send(websocket.NewErrMessageWithId(msg.Id, errors.New("你已被移出群聊，无法发送消息")), conn)
 			return
 		}
 
@@ -143,6 +150,44 @@ func singleSendAllowed(srvCtx *svc.ServiceContext, senderUid, recvUid string) bo
 		_ = srvCtx.RelationCache.LoadFriends(ctx, senderUid, friendUids, 0)
 	}
 	return isFriend
+}
+
+// groupSendAllowed 群发送鉴权：仅当确定"非群成员"时拒绝；灰度关闭 / 缓存未知 / 回源失败一律放行（fail-open）。
+func groupSendAllowed(srvCtx *svc.ServiceContext, senderUid, groupId string) bool {
+	if !srvCtx.Config.AuthzGate.Enabled || !srvCtx.Config.AuthzGate.GroupChat {
+		return true // 灰度关闭 = 现状行为，不校验
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if srvCtx.RelationCache != nil {
+		switch srvCtx.RelationCache.IsGroupMember(ctx, groupId, senderUid) {
+		case relationcache.VerdictAllowed:
+			return true
+		case relationcache.VerdictDenied:
+			return false
+		}
+	}
+
+	// Unknown：回源 GroupUsers 确认（顺带暖缓存）；回源失败 fail-open
+	resp, err := srvCtx.Social.GroupUsers(ctx, &socialclient.GroupUsersReq{GroupId: groupId})
+	if err != nil || resp == nil {
+		return true
+	}
+	memberUids := make([]string, 0, len(resp.List))
+	isMember := false
+	for _, m := range resp.List {
+		memberUids = append(memberUids, m.UserId)
+		if m.UserId == senderUid {
+			isMember = true
+		}
+	}
+	if srvCtx.RelationCache != nil {
+		// 回源版本用 0：与单聊一致，依赖 Kafka 按 gid 分区有序兜底
+		_ = srvCtx.RelationCache.LoadGroupMembers(ctx, groupId, memberUids, 0)
+	}
+	return isMember
 }
 
 // MarkRead 向mq推送已读未读消息的
