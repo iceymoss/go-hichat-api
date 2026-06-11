@@ -106,7 +106,7 @@ export interface IMWebSocketOptions {
   reconnectInterval?: number;
   reconnectMaxRetries?: number;
   onStateChange?: (state: ConnState, prev: ConnState) => void;
-  onError?: (err: unknown) => void;
+  onError?: (err: unknown, msgId?: string) => void;
 }
 
 // ========== 唯一 ID 生成 ==========
@@ -220,12 +220,13 @@ export class IMWebSocket {
     });
   }
 
-  /** 发送业务消息 (RigorAck 三次通信)，Promise 在 ACK 完成后 resolve */
-  async send(method: string, data: unknown): Promise<void> {
+  /** 发送业务消息 (RigorAck 三次通信)，Promise 在 ACK 完成后 resolve。
+   *  可传 msgId 让帧 id = 调用方的本地消息 id，便于业务错误帧按消息 id 关联（红感叹号）。 */
+  async send(method: string, data: unknown, msgId?: string): Promise<void> {
     // 等待连接就绪
     await this.waitForOpen();
 
-    const id = genMsgId();
+    const id = msgId || genMsgId();
     const msg: WsMessage = {
       id,
       ackSeq: 0,
@@ -296,16 +297,17 @@ export class IMWebSocket {
         this.handleAck(msg);
         break;
       case FrameType.Err: {
-        // 错误帧带原始消息 id 时，关联到对应的待确认消息并立即 reject（触发上层标记失败/红感叹号），不再干等 ACK 超时。
-        const pending = msg.id ? this.pendingAck.get(msg.id) : undefined;
-        if (pending) {
-          clearTimeout(pending.timer);
-          this.pendingAck.delete(msg.id);
-          pending.reject(new Error(typeof msg.data === 'string' ? msg.data : '发送失败'));
-        } else {
-          // 未能关联到具体消息的错误：交给上层非致命处理（不 console.error，避免开发模式错误浮层）
-          this.onError?.(msg.data);
+        // 业务错误帧（如发送鉴权拦截）带原始消息 id。注意：传输层 ACK 已先于业务校验完成并 resolve 了
+        // send promise（pendingAck 已删除），故不走 pendingAck，而是把 id 上交，由上层按消息 id 标记失败（红感叹号）。
+        if (msg.id) {
+          const pending = this.pendingAck.get(msg.id);
+          if (pending) {
+            clearTimeout(pending.timer);
+            this.pendingAck.delete(msg.id);
+            pending.reject(new Error(typeof msg.data === 'string' ? msg.data : '发送失败'));
+          }
         }
+        this.onError?.(msg.data, msg.id);
         break;
       }
       case FrameType.Data:

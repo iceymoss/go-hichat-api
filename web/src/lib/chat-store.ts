@@ -181,7 +181,25 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       url: wsUrl || defaultWsUrl,
       token,
       onStateChange: (state) => set({ wsState: state }),
-      onError: (err) => console.warn('[ChatStore] ws error:', err),
+      onError: (err, msgId) => {
+        // 业务错误帧（发送被鉴权拦截）：ACK 已先 resolve 了 send promise，故在此按消息 id 把对应消息标记失败（红感叹号）。
+        if (msgId) {
+          set(s => {
+            for (const cid of Object.keys(s.messagesMap)) {
+              const arr = s.messagesMap[cid];
+              const idx = arr.findIndex(m => m.id === msgId);
+              if (idx >= 0) {
+                const copy = arr.slice();
+                copy[idx] = { ...copy[idx], status: 'failed' };
+                return { messagesMap: { ...s.messagesMap, [cid]: copy } };
+              }
+            }
+            return {};
+          });
+          return;
+        }
+        console.warn('[ChatStore] ws error:', err);
+      },
     });
 
     // 服务端推送消息 — push.go NewMessage 不设 method，所以 method 为 ""
@@ -472,7 +490,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       });
     };
 
-    ws.send('chat.user', wsData)
+    ws.send('chat.user', wsData, localMsgId)
       .then(() => updateMsgStatus('sent'))
       .catch(err => {
         // 被鉴权闸门拦截 / 超时等：标记失败（红感叹号）即可，不 console.error 以免开发模式错误浮层
