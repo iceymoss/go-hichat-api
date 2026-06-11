@@ -1095,7 +1095,7 @@ interface ErrorMessage {
 
 - [一对一通话流程](./streaming-one-to-one-call-flow.md) - 完整流程说明
 - [WebRTC API 使用](./webrtc-api-guide.md) - WebRTC 前端实现
-- [服务端实现](../apps/streaming/internal/handler/signaling.go) - 源码
+- [服务端实现](../../apps/streaming/internal/handler/signaling.go) - 源码
 
 ---
 

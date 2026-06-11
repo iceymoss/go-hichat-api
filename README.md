@@ -1,268 +1,402 @@
 # go-hichat-api
-go-hichat-api是HiChat的2.0版本，其模块拆分，使用微服务架构，功能点：优化社交模块、记录重构聊天存储项目、添加用户在线/离线，消息已读/未读状态、添加动态空间模块。
-### 调整点
-* 调整为微服务架构
-* 项目前后端分离
 
-### 优化点
-* 优化社交模块，添加或者好友申请，管理员，以及相应消息实时通知
-* 优化文件消息存储方式
-* 重构聊天模块，修复内存泄漏问题，优化消息流，解耦和异步话聊天模块
-* 优化心跳检查，添加消息可靠性ack确认机制
-* 完善聊天记录持久化
+[English](README.md) | [简体中文](docs/README.zh-CN.md)
 
-### 新增功能点
-* 添加消息已读/未读功能
-* 添加好友在线状态
-* 添加动态空间模块，点赞，评论，屏蔽动态等
+go-hichat-api is the backend and web client repository for HiChat 2.0, a microservice-based instant messaging and social platform built with Go, go-zero, WebSocket, Kafka, and WebRTC.
 
+The project splits user identity, social relationships, conversations, message delivery, activity feeds, async tasks, and real-time audio/video into independent services. It is intended as a practical reference for building a modern IM system with HTTP APIs, gRPC service boundaries, persistent chat history, online presence, read receipts, message acknowledgements, activity notifications, and a Next.js web client.
 
-## GO-ZERO框架配置搭建
-```sql
-# 安装 Go-Zero 核心工具
-go install github.com/zeromicro/go-zero/tools/goctl@latest
+## Highlights
 
-# 安装 protoc 编译器 (macOS)
-brew install protobuf
+- Microservice architecture based on go-zero REST and zRPC.
+- API-first contracts through `.api` and `.proto` files.
+- WebSocket gateway for long-lived IM connections, heartbeat, online state, message ACK, read receipts, and real-time push.
+- Kafka-based async message pipeline for chat delivery, read events, message recall, and activity notifications.
+- MongoDB-backed chat history and MySQL-backed business data.
+- Redis-backed sessions, online presence, cache, and runtime state.
+- Independent WebRTC streaming service for calls, rooms, meetings, screen sharing, and live streaming.
+- Full web client under `web/` using Next.js 16, React 19, Bun, TypeScript, Tailwind CSS, and Semi UI.
 
-# 安装 protoc 编译器 (Ubuntu)
-sudo apt install -y protobuf-compiler
+## Features
 
-# 安装 Go 插件
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+### User And Account
 
-# 验证安装
-goctl -v
-protoc --version
+- Register and log in with phone number and password.
+- Issue JWT tokens with expiration metadata.
+- Send and verify phone verification codes.
+- Send and verify email verification codes.
+- Reset passwords by phone or email verification code.
+- Query current user profile.
+- Update nickname, phone, avatar, gender, introduction, region, occupation, personal tags, password, and moments cover.
+- Upload user avatars.
+- Bind or update email addresses.
+- Search users by fuzzy nickname or exact phone, email, and user ID list.
+- Delete or deactivate the current account through logout/delete flow.
+- Internal RPC lookup by user ID, phone, and email for cross-service enrichment.
+
+### Social Graph
+
+- Send friend requests with request messages and preset remarks.
+- Accept, reject, ignore, mark read, list, and delete friend requests.
+- Count unread friend request messages.
+- List friends with enriched profile data.
+- Update friend remarks.
+- Delete friendships bidirectionally.
+- Block or unblock friends.
+- Configure friend moments permissions: allow, chat-only, or block moments.
+- Toggle friend message notifications, pinning, and mute state.
+- Manage friend tags.
+- Report friends and reserve friend sharing workflows.
+- Query friends' online status.
+
+### Groups
+
+- Create groups with name and icon.
+- Search groups by exact group ID or fuzzy group name with pagination.
+- Apply to join groups, invite members, and join by invite token.
+- Process group join requests and list requests from group or user perspectives.
+- List joined groups and group members.
+- Query group details with group metadata and members.
+- Query group members' online state.
+- Quit groups, kick members, and invite friends into groups.
+- Update group name, icon, announcement text, verification mode, and description.
+- Disband groups, transfer ownership, and set or cancel administrators.
+- Create, list, revoke, and consume invite links or QR-code tokens with optional expiration and max-use limits.
+- Manage per-member group nickname and group remark.
+- Provide group mention lists for `@member` selection.
+- Publish group announcements, list announcement history, and pin or unpin announcements.
+- Query member role for permission checks.
+
+### Instant Messaging
+
+- Create single-chat and group-chat conversations.
+- List and update conversations per user.
+- Pin or mute conversations.
+- Store chat logs in MongoDB.
+- Query chat history by conversation, message ID, time range, count, and direction: older, newer, or around.
+- Support text, file, voice, image, and video message types.
+- Support quoted/replied messages.
+- Support group mentions and `@all` metadata.
+- Track unread state and per-message read records.
+- Query read and unread users for a message.
+- Mark messages as read and push read receipts through the async pipeline.
+- Fetch unread `@me` messages for quick jumping in group chats.
+- Recall messages through a control frame, with operator metadata for sender/admin recall scenarios.
+- Upload rich media files for images, videos, voice messages, and generic files.
+
+### WebSocket Gateway
+
+- Authenticate WebSocket clients.
+- Maintain online state in Redis with TTL refresh.
+- Register routes for `user.online`, `chat.ping`, `chat.user`, `chat.markChat`, `push`, and `push.trend`.
+- Deliver client chat messages from WebSocket to Kafka.
+- Push Kafka-consumed chat messages from server to connected clients.
+- Push activity notifications independently from chat conversations.
+- Support configurable ACK levels, ACK sequence tracking, retries, timeout handling, and duplicate filtering.
+- Handle read-message events and dispatch them to MQ.
+- Push trend notifications for likes, comments, replies, trend mentions, and comment mentions.
+
+### Activity Feed
+
+- Create text, mixed-media, article, share, video, and ad-style trends.
+- Configure visibility scopes: private, friends-only, or public.
+- Attach image/video resources, cover URLs, share URLs, location, coordinates, device, IP, title, and mentioned users.
+- Delete and update trends.
+- Pin trends, change visibility, and toggle comments.
+- List trends with cursor-style pagination, type filters, sorting, and user filters.
+- Fetch latest feed pages and user profile trends.
+- Fetch trend details.
+- Retrieve publish configuration such as media limits, allowed types, compression flags, and review flags.
+- Upload trend media with metadata such as content type, size, dimensions, duration, and cover URL.
+- Save, fetch, and delete trend drafts.
+
+### Comments, Likes, And Activity Notifications
+
+- Create root comments and child comments.
+- Fetch full comment trees, root comments, and child comment lists.
+- Delete comments.
+- Mark comment notifications as read.
+- Toggle likes and unlikes.
+- Fetch like summaries for one trend or a batch of trends.
+- List users who liked a trend.
+- Fetch unread reply and like notifications.
+- Mark likes as read.
+- Store and list trend message notifications.
+- Fetch trend-message unread counts with per-type breakdowns.
+- Mark all trend messages as read.
+- Emit activity notification events to Kafka and push them to online users through WebSocket.
+
+### Async Tasks
+
+- Consume chat-transfer messages from Kafka.
+- Persist chat messages and forward them to WebSocket clients.
+- Consume read-transfer messages, update read-record bitmaps, and send read receipts.
+- Consume recall-transfer messages and push recall control frames.
+- Consume trend-notification messages and push activity notifications.
+- Run cron task manager with registered example, stats, and data-cleanup tasks.
+- Provide extension points for additional scheduled jobs.
+
+### Streaming
+
+- Provide a standalone WebRTC streaming service.
+- Support one-to-one calls, group calls, meetings, screen sharing, and live streaming workflows.
+- Use WebSocket signaling for call negotiation and WebRTC for media transport.
+- Manage rooms, users, calls, meetings, screen sharing, and live streams.
+- Include SFU-related components for room-level media forwarding.
+- Provide quick and comprehensive browser test pages.
+
+### Web Client
+
+- Next.js 16 application under `web/`.
+- React 19 and TypeScript frontend stack.
+- Bun-based install, development, build, and production start scripts.
+- Tailwind CSS and Semi UI based interface.
+- Frontend development server runs on port `3001` by default.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Client["Web / Mobile Client"]
+  Web["web/\nNext.js 16 + React 19"]
+
+  subgraph ApiLayer["HTTP API Layer"]
+    UserAPI["user/api\nAuth and profile"]
+    SocialAPI["social/api\nFriends and groups"]
+    ImAPI["im/api\nConversations and history"]
+    TrendAPI["trend/api\nFeed, comments, likes"]
+  end
+
+  subgraph RpcLayer["gRPC / zRPC Layer"]
+    UserRPC["user/rpc"]
+    SocialRPC["social/rpc"]
+    ImRPC["im/rpc"]
+    TrendRPC["trend/rpc"]
+  end
+
+  subgraph RealtimeLayer["Realtime And Async Layer"]
+    ImWS["apps/im/ws\nWebSocket gateway"]
+    Kafka["Kafka topics\nchat, read, recall, trend notify"]
+    TaskMQ["apps/task/mq\nKafka consumers"]
+    TaskCron["apps/task/cron\nScheduled jobs"]
+    Streaming["apps/streaming\nWebRTC rooms, SFU, calls"]
+  end
+
+  subgraph DataLayer["Data And Runtime Infrastructure"]
+    MySQL[("MySQL\nBusiness data")]
+    Mongo[("MongoDB\nChat logs")]
+    Redis[("Redis\nSession, online, cache")]
+    Etcd[("Etcd\nService discovery")]
+  end
+
+  Client --> Web
+  Web -->|REST| UserAPI
+  Web -->|REST| SocialAPI
+  Web -->|REST| ImAPI
+  Web -->|REST| TrendAPI
+  Client <-->|WebSocket| ImWS
+  Client <-->|WebRTC signaling / media| Streaming
+
+  UserAPI -->|zRPC| UserRPC
+  SocialAPI -->|zRPC| SocialRPC
+  ImAPI -->|zRPC| ImRPC
+  TrendAPI -->|zRPC| TrendRPC
+
+  UserRPC --> MySQL
+  SocialRPC --> MySQL
+  TrendRPC --> MySQL
+  ImRPC --> Mongo
+
+  UserRPC -. register/discover .-> Etcd
+  SocialRPC -. register/discover .-> Etcd
+  ImRPC -. register/discover .-> Etcd
+  TrendRPC -. register/discover .-> Etcd
+
+  ImWS <--> Redis
+  ImWS -->|chat and read events| Kafka
+  TrendRPC -->|activity events| Kafka
+  Kafka --> TaskMQ
+  TaskMQ -->|persist chat| Mongo
+  TaskMQ -->|push chat/read/recall/trend| ImWS
+  TaskCron --> MySQL
+  TaskCron --> Mongo
+  Streaming <--> Redis
 ```
 
-## 如何快速进行模块开发
-生成代码模块rpc/api/model(user为例)
+Core infrastructure:
 
-1. 创建proto
-2. 生成代码
-> goctl rpc protoc ./user.proto --go_out=. --go-grpc_out=. --zrpc_out=.
-> 
-3. 生成数据库crud(mysql)
-> goctl model mysql ddl -src="./deploy/sql/user.sql" -dir="./apps/user/models/" -c
+- MySQL stores business data such as users, friends, groups, and trends.
+- MongoDB stores chat records.
+- Redis stores sessions, online state, cache data, and runtime state.
+- Etcd provides go-zero service registration and discovery.
+- Kafka decouples chat delivery, read events, recall events, and activity notification processing.
 
-4. 生成数据库模型(mongo)
-> goctl model mongo --type chatLog --dir ./apps/im/models/
+## Message Flows
 
-5. 生成api
-> goctl api go -api apps/user/api/user.api -dir apps/user/api -style gozero
-6. token验证方式
-> 通过http header传递
-> 例如：
-> GET /v1/user/detail HTTP/1.1
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+### Chat Message Delivery
 
-## 需要的配置
-#### mysql
-```
-# 创建一个持久化目录
-mkdir -p /docker/mysql/data
-
-# 写入配置
-mkdir -p /docker/mysql/conf
-cat > /docker/mysql/conf/my.cnf <<EOF
-[mysqld]
-character-set-server=utf8mb4
-collation-server=utf8mb4_unicode_ci
-default_authentication_plugin=mysql_native_password
-max_connections=200
-innodb_buffer_pool_size=512M
-EOF
-
-
-# 启动服务
-docker run -d \
-  --name mysql-hichat2 \
-  -p 3306:3306 \
-  -e MYSQL_ROOT_PASSWORD=123456789 \
-  -e MYSQL_DATABASE=hichat2 \
-  -v /docker/mysql/data:/var/lib/mysql \
-  -v /docker/mysql/conf:/etc/mysql/conf.d \
-  --restart=always \
-  mysql:8.0
+```mermaid
+sequenceDiagram
+  SenderClient->>IMWS: WebSocket chat.user
+  IMWS->>KafkaMsgChatTransfer: Publish chat message
+  KafkaMsgChatTransfer->>TaskMQ: Consume MsgChatTransfer
+  TaskMQ->>MongoDBChatLog: Persist chat log
+  TaskMQ->>IMWS: Push via route push
+  IMWS->>ReceiverClient: WebSocket message frame
+  ReceiverClient-->>IMWS: ACK frame
+  IMWS-->>SenderClient: Optional sender echo with server msgId
 ```
 
-#### redis
-```
-# 创建持久化目录
-mkdir -p /docker/redis/data
+### Read Receipt Path
 
-# 添加配置
-mkdir -p /docker/redis/conf
-cat > /docker/redis/conf/redis.conf <<EOF
-# 基本配置
-bind 0.0.0.0
-port 6379
-timeout 0
-tcp-keepalive 300
-
-# 持久化配置
-save 60 1000
-appendonly yes
-appendfilename "appendonly.aof"
-appendfsync everysec
-dir /data
-
-# 内存管理
-maxmemory 1gb
-maxmemory-policy allkeys-lru
-
-# 安全设置
-# requirepass yourpassword  # 取消注释设置密码
-EOF
-
-# 启动服务
-docker run -d \
-  --name redis-hichat \
-  -p 6379:6379 \
-  -v /docker/redis/data:/data \
-  -v /docker/redis/conf:/usr/local/etc/redis \
-  --restart=always \
-  redis:7.0 redis-server /usr/local/etc/redis/redis.conf
+```mermaid
+sequenceDiagram
+  ReaderClient->>IMWS: WebSocket chat.markChat
+  IMWS->>KafkaMsgReadTransfer: Publish read event
+  KafkaMsgReadTransfer->>TaskMQ: Consume MsgReadTransfer
+  TaskMQ->>MongoDBChatLog: Update read bitmap and read time
+  TaskMQ->>TaskMQ: Clear unread mention state when needed
+  TaskMQ->>IMWS: Push read receipt control message
+  IMWS->>SenderClient: WebSocket readRecords update
+  SenderClient->>IMAPI: GET /v1/im/chatlog/readRecords
+  IMAPI->>MongoDBChatLog: Query detailed read and unread users
 ```
 
-#### etcd
-```
-# 持久化目录
-mkdir -p /docker/etcd/data
+### Message Recall Path
 
-# 启动服务
-docker run -d \
-  --name etcd-hichat \
-  -p 2379:2379 \
-  -p 2380:2380 \
-  -v /docker/etcd/data:/etcd-data \
-  --restart=always \
-  quay.io/coreos/etcd:v3.5.0 \
-  /usr/local/bin/etcd \
-  --data-dir=/etcd-data \
-  --name=etcd-single \
-  --initial-advertise-peer-urls=http://127.0.0.1:2380 \
-  --listen-peer-urls=http://0.0.0.0:2380 \
-  --listen-client-urls=http://0.0.0.0:2379 \
-  --advertise-client-urls=http://127.0.0.1:2379 \
-  --initial-cluster=etcd-single=http://127.0.0.1:2380
-
-```
-#### kafka
-```
-# 创建目录
-mkdir -p /docker/kafka
-
-# 创建 docker-compose.yml
-cat > /docker/kafka/docker-compose.yml <<EOF
-version: '3.8'
-
-services:
-  zookeeper:
-    image: bitnami/zookeeper:3.8
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    environment:
-      - ALLOW_ANONYMOUS_LOGIN=yes
-    volumes:
-      - zookeeper_data:/bitnami/zookeeper
-
-  kafka:
-    image: bitnami/kafka:3.7
-    container_name: kafka
-    ports:
-      - "9092:9092"
-    environment:
-      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
-      - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092
-    volumes:
-      - kafka_data:/bitnami/kafka
-    depends_on:
-      - zookeeper
-
-volumes:
-  zookeeper_data:
-  kafka_data:
-EOF
-
-# 启动服务
-cd /docker/kafka
-docker compose up -d
+```mermaid
+sequenceDiagram
+  OperatorClient->>IMAPI: POST /v1/im/chatlog/recall
+  IMAPI->>IMRPC: RecallMsg
+  IMRPC->>IMRPC: Validate sender or admin recall rules
+  IMRPC->>MongoDBChatLog: Mark message as recalled
+  IMRPC-->>IMAPI: Return sender, receiver, recalledBy
+  IMAPI->>KafkaMsgRecallTransfer: Publish recall event
+  KafkaMsgRecallTransfer->>TaskMQ: Consume MsgRecallTransfer
+  TaskMQ->>IMWS: Push ContentRecall via route push
+  IMWS->>OnlineClients: WebSocket recall frame
+  OnlineClients->>OnlineClients: Update local conversation state
 ```
 
-#### mongo
-使用以下命令：
-```
-# 创建持久化
-sudo mkdir -p /docker/mongodb/data
-sudo chmod 777 /docker/mongodb/data  # 简化权限
+### Activity Notification Path
 
-# 写配置
-sudo mkdir -p /docker/mongodb/conf
-sudo tee /docker/mongodb/conf/mongod.conf <<EOF
-storage:
-  dbPath: /data/db
-  journal:
-    enabled: true
-
-systemLog:
-  destination: file
-  logAppend: true
-  path: /var/log/mongodb/mongod.log
-
-net:
-  port: 27017
-  bindIp: 0.0.0.0
-
-security:
-  authorization: enabled
-EOF
-
-# 启动服务
-docker run -d \
-  --name mongodb-hichat \
-  -p 27017:27017 \
-  -v /docker/mongodb/data:/data/db \
-  -v /docker/mongodb/conf:/etc/mongodb \
-  -e MONGO_INITDB_ROOT_USERNAME=root \
-  -e MONGO_INITDB_ROOT_PASSWORD=hichat2 \
-  --restart=always \
-  mongo:6.0 \
-  --config /etc/mongodb/mongod.conf
+```mermaid
+sequenceDiagram
+  ActorClient->>TrendAPI: Create trend mention, comment, reply, or like
+  TrendAPI->>TrendRPC: Call trend business logic
+  TrendRPC->>MySQLTrendData: Write trend, comment, like, notification records
+  TrendRPC->>KafkaTrendNotifyTransfer: Publish TrendNotifyTransfer
+  KafkaTrendNotifyTransfer->>TaskMQ: Consume trend notification event
+  TaskMQ->>IMWS: push.trend with TrendNotify payload
+  IMWS->>ReceiverClient: WebSocket trend.notify if online
+  ReceiverClient->>TrendAPI: Query notification list or unread count if needed
 ```
 
-仅做参考：
-MongoDB：
-```shell
-docker run -d \
-  --name mongo \
-  -p 27017:27017 \
-  -e MONGO_INITDB_ROOT_USERNAME=root \
-  -e MONGO_INITDB_ROOT_PASSWORD=hichat2 \
-  -v "/Users/iceymoss/docker-volume/mongo-data:/data/db" \
-  --restart always \
-  mongo:4.0
+## Services
+
+| Service | Layers | Responsibility |
+| --- | --- | --- |
+| `user` | `api`, `rpc`, `models` | Account, authentication, profile, verification codes, user lookup |
+| `social` | `api`, `rpc`, `socialmodels` | Friends, friend requests, groups, group members, invite links, announcements |
+| `im` | `api`, `rpc`, `ws`, `models`, `immodels` | Conversations, chat logs, read receipts, message recall, WebSocket gateway |
+| `trend` | `api`, `rpc`, `models` | Activity feed, comments, likes, drafts, media, activity notifications |
+| `task` | `mq`, `cron` | Kafka consumers and scheduled jobs |
+| `streaming` | `internal`, `room`, `sfu`, `webrtc` | WebRTC calls, rooms, meetings, screen sharing, live streaming |
+| `demo` | standalone demo | Internal demo service, not part of the main startup script |
+
+## Tech Stack
+
+- Backend: Go 1.23, toolchain Go 1.24.2, go-zero, zRPC, gRPC, goctl.
+- Realtime: WebSocket, Kafka, WebRTC, Pion.
+- Storage: MySQL, MongoDB, Redis.
+- Service discovery: Etcd.
+- Frontend: Next.js 16, React 19, Bun, TypeScript, Tailwind CSS, Semi UI.
+
+## Repository Layout
+
+```text
+apps/                  Backend services
+  user/                User API, RPC, and models
+  social/              Social relationship API, RPC, and models
+  im/                  IM API, RPC, models, and WebSocket gateway
+  trend/               Activity feed API, RPC, and models
+  task/                MQ consumers and cron jobs
+  streaming/           WebRTC streaming service
+  demo/                Internal demo service
+deploy/                SQL files, Dockerfiles, and deployment assets
+docs/                  Project documentation
+web/                   Next.js web client
+hichat2.sh             Local multi-service startup script
 ```
 
-## 如何启动
-直接运行hichat2.sh启动
-```shell
+## Getting Started
+
+### Prerequisites
+
+- Go 1.23 or newer, using toolchain Go 1.24.2.
+- Bun for the web client.
+- MySQL, Redis, Etcd, MongoDB, and Kafka.
+- go-zero tooling: `goctl`, `protoc`, `protoc-gen-go`, and `protoc-gen-go-grpc`.
+
+See `docs/development-guide.md` for detailed local dependency setup commands.
+
+### Start Backend Services
+
+Start the main backend services after the required infrastructure is running:
+
+```bash
 ./hichat2.sh
 ```
 
-## docker镜像部署
-这里以user-rpc服务为例
+The script starts the user, social, IM, task, and trend services, and writes logs under `logs/`.
 
-构建镜像
-```
-docker build -t hichat2/user-rpc:v1.0 -f deploy/dockerfile/user-rpc.Dockerfile .
+Start a single service manually when needed:
+
+```bash
+go run apps/<service>/<layer>/<service>.go -f apps/<service>/<layer>/etc/<service>-sample.yaml
 ```
 
-启动镜像
+Start the streaming service separately:
+
+```bash
+apps/streaming/start.sh
 ```
-docker run -d   --name user-rpc   --network host   -e ENV_MODE=production   hichat2/user-rpc:v1.0
+
+### Start Web Client
+
+```bash
+cd web
+bun install
+bun dev
 ```
+
+The web development server runs on port `3001` by default.
+
+## Development
+
+For code generation, database model generation, Docker examples, and local middleware setup, see:
+
+- [Developer Guide](docs/development-guide.md): local middleware setup, go-zero tooling, code generation, startup notes, and Docker examples.
+- [API Reference](docs/api.md): generated REST and gRPC contract summary.
+
+## Testing
+
+Run backend tests from the repository root:
+
+```bash
+go test ./... -count=1
+```
+
+Run frontend linting from `web/`:
+
+```bash
+bun lint
+```
+
+## License
+
+This project is licensed under the [Apache License 2.0](LICENSE).
+
+## Contributing
+
+Please see [Contribution Guide](https://github.com/iceymoss/go-hichat-api/issues/207) for contribution guidelines.
