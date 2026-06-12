@@ -107,6 +107,39 @@ type (
 	}
 )
 
+// -------------- 公共通知 --------------
+type (
+	NotificationItem {
+		Id         uint64 `json:"id"`
+		NotifyType string `json:"notifyType"` // friend.apply / group.accept ...
+		BizId      string `json:"bizId,omitempty"`
+		ActorId    string `json:"actorId,omitempty"`
+		GroupId    string `json:"groupId,omitempty"`
+		Title      string `json:"title,omitempty"`
+		Content    string `json:"content,omitempty"`
+		Payload    string `json:"payload,omitempty"`
+		IsRead     int32  `json:"isRead"`
+		CreateTime int64  `json:"createTime"`
+	}
+	ListNotificationsReq {
+		UnreadOnly bool  `form:"unreadOnly,optional"`
+		Offset     int32 `form:"offset,optional"`
+		Limit      int32 `form:"limit,optional"`
+	}
+	ListNotificationsResp {
+		List []NotificationItem `json:"list"`
+	}
+	NotificationUnreadCountResp {
+		Count int64 `json:"count"`
+	}
+	MarkNotificationsReadReq {
+		Ids []uint64 `json:"ids,optional"` // 为空表示全部已读
+	}
+	MarkNotificationsReadResp {
+		Affected int64 `json:"affected"`
+	}
+)
+
 @server (
 	prefix: v1/im
 	jwt:    JwtAuth
@@ -147,5 +180,17 @@ service im {
 	@doc "上传富媒体文件(图片/视频/文件/语音)"
 	@handler upload
 	post /upload returns (UploadResp)
+
+	@doc "拉取当前用户的通知列表(公共通知通道)"
+	@handler listNotifications
+	get /notifications (ListNotificationsReq) returns (ListNotificationsResp)
+
+	@doc "当前用户未读通知数"
+	@handler getNotificationUnreadCount
+	get /notifications/unreadCount returns (NotificationUnreadCountResp)
+
+	@doc "标记通知已读(单条/批量/全部)"
+	@handler markNotificationsRead
+	post /notifications/read (MarkNotificationsReadReq) returns (MarkNotificationsReadResp)
 }
 
