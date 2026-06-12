@@ -138,23 +138,32 @@ func (l *GetConversationsLogic) GetConversations(req *types.GetConversationsReq)
 
 	// 3. 批量查询群信息
 	if len(groupIds) > 0 {
-		groupResp, err := l.svcCtx.Social.GroupList(l.ctx, &socialPb.GroupListReq{
+		groupMap := make(map[string]*socialPb.Groups)
+		if groupResp, err := l.svcCtx.Social.GroupList(l.ctx, &socialPb.GroupListReq{
 			UserId: uid,
-		})
-		if err == nil && groupResp != nil {
-			groupMap := make(map[string]*socialPb.Groups)
+		}); err == nil && groupResp != nil {
 			for _, g := range groupResp.List {
 				groupMap[g.Id] = g
 			}
-			for k, conv := range conversations {
-				if conv.ChatType != 2 {
-					continue
-				}
-				if g, ok := groupMap[conv.ConversationId]; ok {
-					conv.TargetName = g.Name
-					conv.TargetAvatar = g.Icon
-					conversations[k] = conv
-				}
+		}
+		for k, conv := range conversations {
+			if conv.ChatType != 2 {
+				continue
+			}
+			if g, ok := groupMap[conv.ConversationId]; ok {
+				conv.TargetName = g.Name
+				conv.TargetAvatar = g.Icon
+				conversations[k] = conv
+				continue
+			}
+			// 已退群/被移出的群不在 GroupList 里：按 groupId 直查群信息补名字/头像，
+			// 否则前端会话只能显示群号（如 "15"）。GroupDetail 按 id 查、不校验成员身份。
+			if detail, derr := l.svcCtx.Social.GroupDetail(l.ctx, &socialPb.GroupDetailReq{
+				GroupId: conv.ConversationId,
+			}); derr == nil && detail != nil && detail.Group != nil {
+				conv.TargetName = detail.Group.Name
+				conv.TargetAvatar = detail.Group.Icon
+				conversations[k] = conv
 			}
 		}
 	}
