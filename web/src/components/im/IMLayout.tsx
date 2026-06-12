@@ -41,7 +41,7 @@ const navItems: { tab: TabType; icon: React.ReactNode }[] = [
 ];
 
 export default function IMLayout() {
-  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, setNotificationUnreadCount } = useIMStore();
+  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, setNotificationUnreadCount, setGroupAppUnreadCount } = useIMStore();
   const chatConversations = useChatStore(s => s.conversations);
 
   // 登录后拉取动态消息未读数，驱动「朋友圈」tab 红点
@@ -61,6 +61,22 @@ export default function IMLayout() {
       .then(r => setNotificationUnreadCount(r.count ?? 0))
       .catch(() => { /* silent */ });
   }, [currentUser?.token, setNotificationUnreadCount]);
+
+  // 登录后拉取入群申请未读数（持久化），驱动「我的群组」气泡——否则刷新后需进群申请视图才计算出来。
+  // 口径与 GroupList 一致：我收到的(申请人≠我) 且 未处理(handle_result=0)。
+  React.useEffect(() => {
+    const token = currentUser?.token;
+    const myId = currentUser?.id;
+    if (!token || !myId) return;
+    fetch('/api/social/group/putInsByUid?class=2', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => {
+        const list: Array<{ user_id?: string; handle_result?: number }> = d?.data?.list || [];
+        const cnt = list.filter(x => String(x.user_id) !== String(myId) && (x.handle_result ?? 0) === 0).length;
+        setGroupAppUnreadCount(cnt);
+      })
+      .catch(() => { /* silent */ });
+  }, [currentUser?.token, currentUser?.id, setGroupAppUnreadCount]);
 
   // Resolve selected contact for detail panel from store friends, falling back
   // to viewedProfile (set when opening self / a non-friend from moments).
