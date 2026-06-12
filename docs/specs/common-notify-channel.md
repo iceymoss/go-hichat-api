@@ -2,7 +2,7 @@
 
 ## 状态
 - 创建日期: 2026-06-12
-- 状态: 实现中（后端全链路 + 前端实时分发已完成；通知中心历史面板 UI 待补）
+- 状态: 已完成（后端全链路 + 前端实时分发 + 通知中心面板 + 模型测试）
 - 作者: iceymoss
 
 ## 实现进度（分支 feat-im-common-notify-channel）
@@ -13,9 +13,9 @@
 - [x] social 6 类触点投递（friend/group apply/accept/reject，group.apply 扇出群主+管理员）
 - [x] im API：v1/im/notifications 列表/未读数/标读
 - [x] 前端：ws.on('notify') 实时红点 + Toast 气泡 + REST 客户端 + i18n + notificationVersion
-- [ ] 前端通知中心历史面板组件（读 REST + 标读 + 挂载入口）— 待补
-- [ ] 去掉好友申请 10s 轮询延迟（已有实时红点，可后续切换）
-- [ ] 测试：消费者幂等 / 多接收者 / 三库
+- [x] 前端通知中心历史面板组件（铃铛+角标，挂在 chats 工具栏，读 REST + 标读 + 订阅 notificationVersion）
+- [x] 去掉好友申请 10s 轮询（改挂载时拉一次 + 实时红点）
+- [x] 测试：通知 model 幂等 / 多接收者 / 标读（真实 DB，AutoMigrate 校验三库 schema）
 
 ## 目标
 
