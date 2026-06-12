@@ -1158,8 +1158,8 @@ export default function GroupList() {
     </button>
   );
 
-  const filterPill = (active: boolean, onClick: () => void, label: string) => (
-    <button onClick={onClick} style={{ padding: '4px 14px', borderRadius: '14px', border: 'none', background: active ? 'rgba(51,144,236,0.1)' : 'rgba(0,0,0,0.04)', color: active ? '#3390EC' : '#646A73', fontSize: '12px', fontWeight: active ? 500 : 400, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>{label}</button>
+  const filterPill = (active: boolean, onClick: () => void, label: string, key?: string) => (
+    <button key={key} onClick={onClick} style={{ padding: '4px 14px', borderRadius: '14px', border: 'none', background: active ? 'rgba(51,144,236,0.1)' : 'rgba(0,0,0,0.04)', color: active ? '#3390EC' : '#646A73', fontSize: '12px', fontWeight: active ? 500 : 400, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>{label}</button>
   );
 
   const avatarCircle = (name: string, size: number, extra?: React.ReactNode) => (
@@ -1332,7 +1332,7 @@ export default function GroupList() {
 
         {/* Status filter */}
         <div className="flex items-center gap-2 shrink-0 overflow-x-auto" style={{ padding: '8px 16px 10px', background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-          {statusFilters.map(f => filterPill(appStatusFilter === f.key, () => setAppStatusFilter(f.key), f.label))}
+          {statusFilters.map(f => filterPill(appStatusFilter === f.key, () => setAppStatusFilter(f.key), f.label, f.key))}
         </div>
 
         {/* App list */}
