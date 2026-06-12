@@ -311,7 +311,7 @@ type DetailTab = 'members' | 'links' | 'announcements';
 type AppStatusFilter = 'all' | GroupAppResult;
 
 export default function GroupList() {
-  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail } = useIMStore();
+  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupAppNavTab, clearGroupAppNavTab } = useIMStore();
   const token = currentUser?.token || '';
   const myUserId = currentUser?.id || '';
 
@@ -324,6 +324,15 @@ export default function GroupList() {
   // App view
   const [appClass, setAppClass] = useState<GroupAppClass>('received');
   const [appStatusFilter, setAppStatusFilter] = useState<AppStatusFilter>('all');
+
+  // 通知点击带来的跳转意图：进入「群申请」视图并定位子 tab（received=我收到 / sent=我发起）
+  useEffect(() => {
+    if (!groupAppNavTab) return;
+    setView('app');
+    setAppClass(groupAppNavTab);
+    setAppStatusFilter('all');
+    clearGroupAppNavTab();
+  }, [groupAppNavTab, clearGroupAppNavTab]);
 
   // List search
   const [listSearch, setListSearch] = useState('');

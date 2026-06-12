@@ -81,6 +81,14 @@ interface IMState {
   notificationUnreadCount: number;
   setNotificationUnreadCount: (count: number) => void;
 
+  // 通知点击/气泡跳转意图：把用户带到对应入口的具体子 tab（received=我收到 / sent=我发起）
+  friendReqNavTab: 'received' | 'sent' | null;
+  groupAppNavTab: 'received' | 'sent' | null;
+  clearFriendReqNavTab: () => void;
+  clearGroupAppNavTab: () => void;
+  // 按 notifyType 跳到来源（好友→新的朋友；群→群申请），并定位子 tab。通知中心点击 + toast 共用。
+  navigateToNotificationSource: (notifyType: string) => void;
+
   // Group panel
   showGroupPanel: boolean;
   setShowGroupPanel: (show: boolean) => void;
@@ -254,6 +262,24 @@ export const useIMStore = create<IMState>()(persist((set) => ({
 
   notificationUnreadCount: 0,
   setNotificationUnreadCount: (count) => set({ notificationUnreadCount: Math.max(0, count) }),
+
+  friendReqNavTab: null,
+  groupAppNavTab: null,
+  clearFriendReqNavTab: () => set({ friendReqNavTab: null }),
+  clearGroupAppNavTab: () => set({ groupAppNavTab: null }),
+  navigateToNotificationSource: (notifyType) => {
+    // 公共导航字段，避免被 setActiveTab/setShowXxx 互相重置：一次 set 落定目标视图 + 子 tab 意图
+    const base = { selectedContactId: null, showChatDetail: false, selectedTrendId: null, meSubPage: null };
+    if (notifyType.startsWith('friend.')) {
+      // friend.apply=被申请人(我收到)；friend.accept/reject=申请人看结果(我发起)
+      const tab = notifyType === 'friend.apply' ? 'received' : 'sent';
+      set({ ...base, activeTab: 'contacts', showGroupPanel: false, showFriendRequests: true, friendReqNavTab: tab });
+    } else if (notifyType.startsWith('group.')) {
+      // group.apply=群主/管理员(我收到)；group.accept/reject=申请人看结果(我发起)
+      const tab = notifyType === 'group.apply' ? 'received' : 'sent';
+      set({ ...base, activeTab: 'contacts', showFriendRequests: false, showGroupPanel: true, groupAppNavTab: tab });
+    }
+  },
 
   // Group panel
   showGroupPanel: false,

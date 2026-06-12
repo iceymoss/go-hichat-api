@@ -929,12 +929,21 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
    ═══════════════════════════════════════ */
 
 export default function FriendRequestList() {
-  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, invalidateFriends } = useIMStore();
+  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, invalidateFriends, friendReqNavTab, clearFriendReqNavTab } = useIMStore();
   const token = currentUser?.token || '';
 
   // Local state
   const [activeTab, setActiveTab] = useState<FriendRequestClass>('received');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  // 通知点击带来的子 tab 跳转意图（received=我收到 / sent=我发起），消费后清除
+  useEffect(() => {
+    if (!friendReqNavTab) return;
+    setActiveTab(friendReqNavTab);
+    setStatusFilter('all');
+    clearFriendReqNavTab();
+  }, [friendReqNavTab, clearFriendReqNavTab]);
+
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [detailRequest, setDetailRequest] = useState<FriendRequest | null>(null);
   const [loading, setLoading] = useState(true);

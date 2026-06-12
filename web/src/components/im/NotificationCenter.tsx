@@ -22,6 +22,7 @@ export default function NotificationCenter() {
   const notificationVersion = useIMStore(s => s.notificationVersion);
   const unread = useIMStore(s => s.notificationUnreadCount);
   const setUnread = useIMStore(s => s.setNotificationUnreadCount);
+  const navigateToNotificationSource = useIMStore(s => s.navigateToNotificationSource);
 
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -81,6 +82,9 @@ export default function NotificationCenter() {
   };
 
   const handleItemClick = (n: NotificationItem) => {
+    // 跳到对应来源 + 子 tab（好友→新的朋友/我收到·我发起；群→群申请/我收到·我发起）
+    navigateToNotificationSource(n.notifyType);
+    setOpen(false);
     if (!token || n.isRead) return;
     markNotificationsRead(token, [n.id])
       .then(() => {
