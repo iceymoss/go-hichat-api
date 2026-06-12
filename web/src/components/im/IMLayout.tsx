@@ -64,7 +64,7 @@ export default function IMLayout() {
 
   // 登录后拉取入群申请未读数，驱动「我的群组」气泡。放 IMLayout（始终挂载）：activeTab 不持久化，
   // 刷新后默认回到「会话」tab，ContactList 此时未挂载，必须在此全局拉取气泡才不会丢。
-  // 口径与 GroupList 一致：我收到的(申请人≠我) 且 未处理(handle_result=0)。
+  // 已读模型：未读 = 我收到的(申请人≠我) 且 receiver_read=0；进群申请列表会标已读清零。
   React.useEffect(() => {
     const token = currentUser?.token;
     const myId = currentUser?.id;
@@ -72,8 +72,8 @@ export default function IMLayout() {
     fetch('/api/social/group/putInsByUid?class=2', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
-        const list: Array<{ user_id?: string; handle_result?: number }> = d?.data?.list || [];
-        const cnt = list.filter(x => String(x.user_id) !== String(myId) && (x.handle_result ?? 0) === 0).length;
+        const list: Array<{ user_id?: string; receiver_read?: number }> = d?.data?.list || [];
+        const cnt = list.filter(x => String(x.user_id) !== String(myId) && (x.receiver_read ?? 0) === 0).length;
         setGroupAppUnreadCount(cnt);
       })
       .catch(() => { /* silent */ });

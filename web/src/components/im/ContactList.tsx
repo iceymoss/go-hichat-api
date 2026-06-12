@@ -48,7 +48,7 @@ export default function ContactList() {
   }, [currentUser?.token, setFriendRequestUnreadCount]);
 
   // 入群申请未读数：挂载时拉一次（持久化「我的群组」气泡），否则刷新后需进群申请视图才算出来。
-  // 口径与 GroupList 一致：我收到的(申请人≠我) 且 未处理(handle_result=0)。
+  // 已读模型：未读 = 我收到的(申请人≠我) 且 receiver_read=0。
   useEffect(() => {
     const myId = currentUser?.id;
     if (!currentUser?.token || !myId) return;
@@ -57,8 +57,8 @@ export default function ContactList() {
     })
       .then(r => r.json())
       .then(d => {
-        const list: Array<{ user_id?: string; handle_result?: number }> = d?.data?.list || [];
-        const cnt = list.filter(x => String(x.user_id) !== String(myId) && (x.handle_result ?? 0) === 0).length;
+        const list: Array<{ user_id?: string; receiver_read?: number }> = d?.data?.list || [];
+        const cnt = list.filter(x => String(x.user_id) !== String(myId) && (x.receiver_read ?? 0) === 0).length;
         setGroupAppUnreadCount(cnt);
       })
       .catch(() => {});
