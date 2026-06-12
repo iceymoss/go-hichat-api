@@ -41,6 +41,11 @@ func RegisterHandlers(srv *websocket.Server, svc *svc.ServiceContext) {
 			Handler: push.RelationNotify(svc),
 		},
 		{
+			// 公共通知: mq->ws->客户端（好友/群申请等，前端 method=notify 按类型分发）
+			Method:  "push.notify",
+			Handler: push.Notify(svc),
+		},
+		{
 			// 消息阅读处理: 客户端->ws->mq
 			Method:  "chat.markChat",
 			Handler: conversation.MarkRead(svc),
