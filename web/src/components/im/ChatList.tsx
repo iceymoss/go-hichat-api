@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { getAvatarColor } from '@/lib/utils';
 import AddFriendPanel from './AddFriendPanel';
+import NotificationCenter from './NotificationCenter';
 import { toast } from 'sonner';
 
 /* ═══════════════════════════════════════
@@ -906,18 +907,21 @@ export function ChatListToolbar() {
 
       {/* Right: Plus icon (hidden in batch mode) */}
       {!editMode && (
-        <button
-          style={buttonStyle}
-          onClick={() => setShowAddFriend(true)}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'transparent';
-          }}
-        >
-          <UserPlus size={20} />
-        </button>
+        <>
+          <NotificationCenter />
+          <button
+            style={buttonStyle}
+            onClick={() => setShowAddFriend(true)}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = 'transparent';
+            }}
+          >
+            <UserPlus size={20} />
+          </button>
+        </>
       )}
 
       <AddFriendPanel open={showAddFriend} onClose={() => setShowAddFriend(false)} />

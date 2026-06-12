@@ -34,22 +34,17 @@ export default function ContactList() {
   const { setSelectedContactId, selectedContactId, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, setShowGroupPanel, groupAppUnreadCount, currentUser, friends, setFriends, friendsVersion } = useIMStore();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Poll friend request unread count every 10s
+  // 好友申请未读数：挂载时拉一次（拿离线累计），之后由 ws.on('notify') 实时 +1，无需轮询
   useEffect(() => {
     if (!currentUser?.token) return;
-    const fetchCount = () => {
-      fetch('/api/social/friend/putIn/messageCount', {
-        headers: { Authorization: `Bearer ${currentUser.token}` },
+    fetch('/api/social/friend/putIn/messageCount', {
+      headers: { Authorization: `Bearer ${currentUser.token}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) setFriendRequestUnreadCount(d.data?.count ?? 0);
       })
-        .then(r => r.json())
-        .then(d => {
-          if (d.success) setFriendRequestUnreadCount(d.data?.count ?? 0);
-        })
-        .catch(() => {});
-    };
-    fetchCount(); // 立即拉一次
-    const timer = setInterval(fetchCount, 10000); // 每 10 秒轮询
-    return () => clearInterval(timer);
+      .catch(() => {});
   }, [currentUser?.token, setFriendRequestUnreadCount]);
 
   // Fetch friends list from API
