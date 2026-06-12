@@ -5,10 +5,11 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
 
-	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
-	"gorm.io/gorm"
 )
 
 type GetGroupPutListByUidLogic struct {
@@ -25,19 +26,40 @@ func NewGetGroupPutListByUidLogic(ctx context.Context, svcCtx *svc.ServiceContex
 	}
 }
 
+// GetGroupPutListByUid 用户角度的群申请列表。
+// 前端只调一次（class=2）后在本地按"申请人是否=我"拆分「我发起的/我收到的」，因此这里需返回两类的并集：
+//   - 我发起的：req_id 属于 in.Ids（我提交的申请）
+//   - 我收到的：group_id 属于「我作为群主/管理员管理的群」（别人申请进我管理的群）
+// 仅保留 join_source ∈ (1主动申请, 3链接) 的真实申请，排除 2邀请 自动入群的噪声。
 func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(in *social.GetGroupPutListByUidReq) (*social.GroupPutinListResp, error) {
-	// 获取用户申请列表
-	groupReqList, err := l.svcCtx.GroupRequestsModel.GetGroupReqListByUid(l.ctx, in.Ids, in.Class, in.Type)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return &social.GroupPutinListResp{
-				List: nil,
-			}, nil
-		}
+	// 1. 汇总 in.Ids 作为群主/管理员管理的群（直接查 group_members 带 role_level，
+	//    不用 GroupMembersModel.ListByUserId：它的列清单不含 role_level，拿不到角色）。
+	var managed []string
+	conn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	if err := conn.WithContext(l.ctx).Table("group_members").
+		Where("user_id in ? AND role_level >= ?", in.Ids, int(constants.ManagerGroupRoleLevel)).
+		Pluck("group_id", &managed).Error; err != nil {
+		l.Errorf("GetGroupPutListByUid list managed groups failed: ids=%v err=%v", in.Ids, err)
 	}
 
-	var respList []*social.GroupRequests
-	for _, req := range groupReqList {
+	// 2. 查询：req_id 属于我 OR group_id 属于我管理的群
+	var rows []*socialmodels.GroupRequests
+	query := conn.WithContext(l.ctx).Table("group_requests").Where("join_source in ?", []int{1, 3})
+	if len(managed) > 0 {
+		query = query.Where("req_id in ? OR group_id in ?", in.Ids, managed)
+	} else {
+		query = query.Where("req_id in ?", in.Ids)
+	}
+	if in.Type != "" && in.Type != "all" {
+		query = query.Where("handle_result = ?", in.Type)
+	}
+	if err := query.Order("id desc").Find(&rows).Error; err != nil {
+		l.Errorf("GetGroupPutListByUid query failed: ids=%v err=%v", in.Ids, err)
+		return &social.GroupPutinListResp{List: nil}, nil
+	}
+
+	respList := make([]*social.GroupRequests, 0, len(rows))
+	for _, req := range rows {
 		respList = append(respList, &social.GroupRequests{
 			Id:               int32(req.Id),
 			GroupId:          req.GroupId,
