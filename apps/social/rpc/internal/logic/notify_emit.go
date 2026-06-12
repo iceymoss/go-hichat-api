@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
+	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 
@@ -61,4 +62,17 @@ func notifyGroupAdmins(ctx context.Context, svcCtx *svc.ServiceContext, groupId,
 			Content:    content,
 		})
 	}
+}
+
+// groupMemberOmitEmptyUid 返回 INSERT group_members 时需跳过的 INT 外键列。
+// inviter_uid/operator_uid 是可空 INT 列，空字符串不能写入（Error 1366），空则跳过以落 NULL。
+func groupMemberOmitEmptyUid(gm *socialmodels.GroupMembers) []string {
+	omit := make([]string, 0, 2)
+	if gm.InviterUid == "" {
+		omit = append(omit, "inviter_uid")
+	}
+	if gm.OperatorUid == "" {
+		omit = append(omit, "operator_uid")
+	}
+	return omit
 }

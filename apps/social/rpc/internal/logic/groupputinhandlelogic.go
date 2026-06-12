@@ -112,7 +112,8 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		JoinSource:  int(groupReq.JoinSource.Int64),
 	}
 
-	res = tx.Create(&groupMember)
+	// inviter_uid/operator_uid 是 INT 列：主动申请无邀请人时为空串，须跳过以写 NULL（否则 Error 1366）
+	res = tx.Omit(groupMemberOmitEmptyUid(groupMember)...).Create(&groupMember)
 	if res.Error != nil {
 		tx.Rollback()
 		return nil, res.Error

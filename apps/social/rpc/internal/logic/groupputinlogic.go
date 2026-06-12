@@ -210,7 +210,7 @@ func (l *GroupPutinLogic) createGroupMember(in *social.GroupPutinReq, tx *gorm.D
 		JoinSource:  int(in.JoinSource),
 		InviterUid:  in.InviterUid,
 	}
-	res := tx.Table(Group_Members).Create(&groupMember)
+	res := tx.Table(Group_Members).Omit(groupMemberOmitEmptyUid(groupMember)...).Create(&groupMember)
 	if res.Error != nil || res.RowsAffected == 0 {
 		tx.Rollback()
 		return libErr.Wrapf(xerr.NewDBErr(), "insert friend err %v req %v", res.Error, groupMember)
