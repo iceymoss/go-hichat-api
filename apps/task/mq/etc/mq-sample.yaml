@@ -72,6 +72,15 @@ RelationChangeTransfer:
   Topic: relationChangeTransfer
   Offset: first
 
+CommonNotifyTransfer:
+  Name: commonNotifyTrans
+  Brokers:
+    - 127.0.0.1:9092
+  Group: kafka
+  Topic: commonNotifyTransfer
+  Offset: first
+  Consumers: 1
+
 # 发送鉴权灰度开关：默认 false=现状行为（不校验，fail-open）；验证缓存/事件链路无误后分粒度打开
 AuthzGate:
   Enabled: true

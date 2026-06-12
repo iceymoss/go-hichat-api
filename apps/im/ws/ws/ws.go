@@ -127,3 +127,17 @@ type RelationChanged struct {
 	OperatorId     string `json:"operatorId,omitempty" mapstructure:"operatorId"` // 操作者 uid
 	Timestamp      int64  `json:"timestamp" mapstructure:"timestamp"`
 }
+
+// Notify 公共通知推送帧（公共通知通道：业务方投递 -> task/mq 消费落库 -> 走 push.notify 路由单推给 ReceiverId）。
+// 前端用 method=notify 接收，按 notifyType 分发（红点/toast/通知中心/会话内系统消息）。
+type Notify struct {
+	NotifyType string `json:"notifyType" mapstructure:"notifyType"` // friend.apply / group.accept ...
+	ReceiverId string `json:"receiverId" mapstructure:"receiverId"` // 接收者 uid
+	ActorId    string `json:"actorId,omitempty" mapstructure:"actorId"`
+	BizId      string `json:"bizId,omitempty" mapstructure:"bizId"`     // 业务关联ID(跳转)
+	GroupId    string `json:"groupId,omitempty" mapstructure:"groupId"` // 群相关通知的群 id
+	Title      string `json:"title,omitempty" mapstructure:"title"`
+	Content    string `json:"content,omitempty" mapstructure:"content"`
+	Payload    string `json:"payload,omitempty" mapstructure:"payload"` // 扩展字段 JSON
+	CreateTime int64  `json:"createTime" mapstructure:"createTime"`
+}

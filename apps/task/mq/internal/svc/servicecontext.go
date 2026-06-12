@@ -33,6 +33,9 @@ type ServiceContext struct {
 	// 用户会话相关
 	ConversationsModel model.ConversationsModel
 
+	// 公共通知（落库；与 ChatLogModel 一致直接用 im model）
+	NotificationModel model.NotificationModel
+
 	// 导入social微服务模块
 	Social socialclient.Social
 
@@ -52,6 +55,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		ConversationModel:  model.NewConversationModel(),
 		ChatLogModel:       model.NewChatLogModel(),
 		ConversationsModel: model.NewConversationsModel(),
+		NotificationModel:  model.NewNotificationModel(),
 		Social:             socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
 		RelationCache:      relationcache.New(db.GetRedisConn()),
 		UserSettingsModel:  userModels.NewUserSettingsModel(),
