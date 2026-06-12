@@ -2,12 +2,14 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/utils"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
@@ -81,6 +83,14 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 		}
 		// 失效接收方的气泡缓存
 		l.svcCtx.FriendRequestsModel.InvalidateCountCache(l.ctx, in.ReqUid)
+		// 公共通知：被申请人收到好友申请（实时红点 + 气泡）
+		emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
+			NotifyType: NotifyFriendApply,
+			ReceiverId: in.ReqUid,
+			ActorId:    in.UserId,
+			BizId:      fmt.Sprintf("friend.apply:%s:%s:%d", in.UserId, in.ReqUid, in.ReqTime),
+			Content:    in.ReqMsg,
+		})
 		return &social.FriendPutInResp{}, nil
 	}
 
@@ -104,6 +114,15 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 
 	// 失效接收方的气泡缓存
 	l.svcCtx.FriendRequestsModel.InvalidateCountCache(l.ctx, in.ReqUid)
+
+	// 公共通知：被申请人收到好友申请（实时红点 + 气泡）
+	emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
+		NotifyType: NotifyFriendApply,
+		ReceiverId: in.ReqUid,
+		ActorId:    in.UserId,
+		BizId:      fmt.Sprintf("friend.apply:%s:%s:%d", in.UserId, in.ReqUid, in.ReqTime),
+		Content:    in.ReqMsg,
+	})
 
 	return &social.FriendPutInResp{}, nil
 }

@@ -10,3 +10,9 @@ RelationChangeTransfer:
   Addrs:
     - 127.0.0.1:9092
   Topic: relationChangeTransfer
+
+# 公共通知事件 Kafka 生产端（好友/群申请等实时通知，直接 Push 到 task/mq 消费）
+CommonNotifyTransfer:
+  Addrs:
+    - 127.0.0.1:9092
+  Topic: commonNotifyTransfer

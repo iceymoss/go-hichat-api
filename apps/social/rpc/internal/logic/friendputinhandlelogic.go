@@ -180,5 +180,25 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 	l.svcCtx.FriendRequestsModel.InvalidateCountCache(l.ctx,
 		fmt.Sprint(firendReq.UserId), fmt.Sprint(firendReq.ReqUid))
 
+	// 公共通知：申请人收到处理结果（通过/拒绝；忽略不通知）。仅业务成功时发。
+	if err == nil {
+		var notifyType string
+		switch constants.HandlerResult(in.HandleResult) {
+		case constants.PassHandlerResult:
+			notifyType = NotifyFriendAccept
+		case constants.RefuseHandlerResult:
+			notifyType = NotifyFriendReject
+		}
+		if notifyType != "" {
+			emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
+				NotifyType: notifyType,
+				ReceiverId: fmt.Sprint(firendReq.UserId),
+				ActorId:    in.UserId,
+				BizId:      fmt.Sprintf("friend.handle:%d:%d", firendReq.Id, in.HandleResult),
+				Content:    in.HandleMsg,
+			})
+		}
+	}
+
 	return &social.FriendPutInHandleResp{}, err
 }

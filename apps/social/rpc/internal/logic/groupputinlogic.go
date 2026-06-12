@@ -189,6 +189,10 @@ func (l *GroupPutinLogic) createGroupReq(groupReq *socialmodels.GroupRequests, i
 	}
 
 	id, _ := strconv.Atoi(groupReq.GroupId)
+	// 公共通知：入群申请待审核 -> 扇出通知群主 + 管理员
+	notifyGroupAdmins(l.ctx, l.svcCtx, groupReq.GroupId, groupReq.ReqId,
+		fmt.Sprintf("group.apply:%s:%s:%d", groupReq.GroupId, groupReq.ReqId, groupReq.ReqTime.Time.Unix()),
+		groupReq.ReqMsg.String)
 	return &social.GroupPutinResp{
 		GroupId: int32(id),
 	}, nil
