@@ -324,6 +324,8 @@ export default function GroupList() {
   // App view
   const [appClass, setAppClass] = useState<GroupAppClass>('received');
   const [appStatusFilter, setAppStatusFilter] = useState<AppStatusFilter>('all');
+  // 申请是否已真正拉取过——拉取前不要用空 apps 把全局 groupAppUnreadCount 清零（否则进列表视图气泡会闪没）
+  const [appsLoaded, setAppsLoaded] = useState(false);
 
   // 通知点击带来的跳转意图：进入「群申请」视图并定位子 tab（received=我收到 / sent=我发起）
   useEffect(() => {
@@ -467,6 +469,7 @@ export default function GroupList() {
       } else {
         setApps([]);
       }
+      setAppsLoaded(true);
     } catch {
       setApps([]);
     }
@@ -532,6 +535,11 @@ export default function GroupList() {
     fetchGroups();
   }, [fetchGroups]);
 
+  // ── 挂载即拉取申请：让「我的群组」列表视图的铃铛徽标也准确，而不只在进入群申请视图后才有 ──
+  useEffect(() => {
+    if (token) fetchApplications();
+  }, [token, fetchApplications]);
+
   // ── When entering app view: fetch applications ──
   useEffect(() => {
     if (view === 'app') {
@@ -557,7 +565,8 @@ export default function GroupList() {
 
   // ── Computed ──
   const unreadCount = useMemo(() => apps.filter(a => a.userId !== myUserId && a.handleResult === 0 && !a.readState).length, [apps, myUserId]);
-  useEffect(() => { setGroupAppUnreadCount(unreadCount); }, [unreadCount, setGroupAppUnreadCount]);
+  // 仅在已真正拉取过申请后才同步全局计数，避免挂载瞬间用空 apps 清零（气泡闪没）
+  useEffect(() => { if (appsLoaded) setGroupAppUnreadCount(unreadCount); }, [unreadCount, appsLoaded, setGroupAppUnreadCount]);
 
   const filteredGroups = useMemo(() => {
     if (!listSearch.trim()) return groups;
@@ -1158,7 +1167,7 @@ export default function GroupList() {
     </button>
   );
 
-  const filterPill = (active: boolean, onClick: () => void, label: string, key?: string) => (
+  const filterPill = (active: boolean, onClick: () => void, label: string, key?: string | number) => (
     <button key={key} onClick={onClick} style={{ padding: '4px 14px', borderRadius: '14px', border: 'none', background: active ? 'rgba(51,144,236,0.1)' : 'rgba(0,0,0,0.04)', color: active ? '#3390EC' : '#646A73', fontSize: '12px', fontWeight: active ? 500 : 400, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>{label}</button>
   );
 
