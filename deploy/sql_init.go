@@ -82,6 +82,9 @@ func RunAutoMigrate(dbName string) error {
 		&objects.GroupAnnouncement{},
 		&objects.RelationOutbox{},
 
+		// IM 模块
+		&objects.Notification{},
+
 		// 系统级配置
 		&objects.SystemSetting{},
 
@@ -208,6 +211,9 @@ func RunAutoMigrateInTx(tx *gorm.DB) error {
 		&objects.GroupMemberSetting{},
 		&objects.GroupAnnouncement{},
 		&objects.RelationOutbox{},
+
+		// IM 模块
+		&objects.Notification{},
 
 		// 系统级配置
 		&objects.SystemSetting{},
