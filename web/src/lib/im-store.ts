@@ -77,6 +77,10 @@ interface IMState {
   notificationVersion: number;
   bumpNotificationVersion: () => void;
 
+  // 公共通知未读总数：登录拉一次(持久化) + ws 实时 +1，驱动「联系人」tab 气泡 + 铃铛角标（同一真相）
+  notificationUnreadCount: number;
+  setNotificationUnreadCount: (count: number) => void;
+
   // Group panel
   showGroupPanel: boolean;
   setShowGroupPanel: (show: boolean) => void;
@@ -247,6 +251,9 @@ export const useIMStore = create<IMState>()(persist((set) => ({
 
   notificationVersion: 0,
   bumpNotificationVersion: () => set((s) => ({ notificationVersion: s.notificationVersion + 1 })),
+
+  notificationUnreadCount: 0,
+  setNotificationUnreadCount: (count) => set({ notificationUnreadCount: Math.max(0, count) }),
 
   // Group panel
   showGroupPanel: false,

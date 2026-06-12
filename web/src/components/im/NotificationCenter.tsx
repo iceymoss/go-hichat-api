@@ -20,9 +20,10 @@ export default function NotificationCenter() {
   const currentUser = useIMStore(s => s.currentUser);
   const friends = useIMStore(s => s.friends);
   const notificationVersion = useIMStore(s => s.notificationVersion);
+  const unread = useIMStore(s => s.notificationUnreadCount);
+  const setUnread = useIMStore(s => s.setNotificationUnreadCount);
 
   const [open, setOpen] = useState(false);
-  const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -34,7 +35,7 @@ export default function NotificationCenter() {
     getNotificationUnreadCount(token)
       .then(r => setUnread(r.count ?? 0))
       .catch(() => {});
-  }, [token]);
+  }, [token, setUnread]);
 
   const fetchList = useCallback(() => {
     if (!token) return;
@@ -84,7 +85,7 @@ export default function NotificationCenter() {
     markNotificationsRead(token, [n.id])
       .then(() => {
         setItems(prev => prev.map(x => (x.id === n.id ? { ...x, isRead: 1 } : x)));
-        setUnread(c => Math.max(0, c - 1));
+        setUnread(Math.max(0, unread - 1));
       })
       .catch(() => {});
   };

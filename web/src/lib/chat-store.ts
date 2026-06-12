@@ -287,6 +287,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
           toast('你的入群申请被拒绝');
           break;
       }
+      // 通知未读总数 +1（驱动「联系人」tab 气泡 + 铃铛角标）并 bump 版本刷新通知中心
+      imStore.setNotificationUnreadCount(imStore.notificationUnreadCount + 1);
       imStore.bumpNotificationVersion();
     });
 

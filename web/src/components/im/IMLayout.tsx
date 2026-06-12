@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 import { getTrendMessageUnread } from '@/lib/trend-api';
+import { getNotificationUnreadCount } from '@/lib/api-client';
 
 const navItems: { tab: TabType; icon: React.ReactNode }[] = [
   { tab: 'chats', icon: <MessageCircle className="w-5 h-5" /> },
@@ -40,7 +41,7 @@ const navItems: { tab: TabType; icon: React.ReactNode }[] = [
 ];
 
 export default function IMLayout() {
-  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount } = useIMStore();
+  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, setNotificationUnreadCount } = useIMStore();
   const chatConversations = useChatStore(s => s.conversations);
 
   // 登录后拉取动态消息未读数，驱动「朋友圈」tab 红点
@@ -51,6 +52,15 @@ export default function IMLayout() {
       .then(r => { if (r.success && r.data) setMomentsUnreadCount(r.data.total); })
       .catch(() => { /* silent */ });
   }, [currentUser?.token, setMomentsUnreadCount]);
+
+  // 登录后拉取公共通知未读数（持久化），驱动「联系人」tab 气泡；之后由 ws.on('notify') 实时 +1
+  React.useEffect(() => {
+    const token = currentUser?.token;
+    if (!token) return;
+    getNotificationUnreadCount(token)
+      .then(r => setNotificationUnreadCount(r.count ?? 0))
+      .catch(() => { /* silent */ });
+  }, [currentUser?.token, setNotificationUnreadCount]);
 
   // Resolve selected contact for detail panel from store friends, falling back
   // to viewedProfile (set when opening self / a non-friend from moments).
@@ -228,7 +238,7 @@ export default function IMLayout() {
           }}
         >
           {navItems.map(({ tab, icon }) => {
-            const unread = tab === 'chats' ? totalUnread : tab === 'moments' ? momentsUnreadCount : 0;
+            const unread = tab === 'chats' ? totalUnread : tab === 'moments' ? momentsUnreadCount : tab === 'contacts' ? notificationUnreadCount : 0;
             return (
               <button
                 key={tab}
@@ -272,7 +282,7 @@ export default function IMLayout() {
         {/* Navigation Icons */}
         <div className="flex flex-col gap-1 flex-1">
           {navItems.map(({ tab, icon }) => {
-            const unread = tab === 'chats' ? totalUnread : tab === 'moments' ? momentsUnreadCount : 0;
+            const unread = tab === 'chats' ? totalUnread : tab === 'moments' ? momentsUnreadCount : tab === 'contacts' ? notificationUnreadCount : 0;
             return (
               <button
                 key={tab}
