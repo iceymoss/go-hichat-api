@@ -65,13 +65,19 @@ func NewGetChatLogLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetCha
 // 依据传递的数据时间点获取
 func (l *GetChatLogLogic) GetChatLog(in *im.GetChatLogReq) (*im.GetChatLogResp, error) {
 	// 被移出群成员的历史截断：仅返回被移出前（sendTime<=RemovedAt）的消息（0=不截断）。
-	removedAt := l.conversationRemovedAt(in.UserId, in.ConversationId)
+	removedAt := conversationRemovedAt(l.ctx, l.svcCtx, in.UserId, in.ConversationId)
 
 	// msgId 作为游标
 	if in.MsgId != "" {
 		target, err := l.svcCtx.ChatLogModel.FindOne(l.ctx, in.MsgId)
 		if err != nil {
 			return nil, errors.Wrapf(xerr.NewDBErr(), "find chatLog by msgId err %v, req %v", err, in.MsgId)
+		}
+
+		// 已读详情等按 msgId 点查不带 conversationId：用消息自身会话 id 兜底算冻结点，
+		// 防被移出群成员绕过 GetConversations/GetChatLog 的截断、按 msgId 直接拿到被移出后的单条消息。
+		if removedAt == 0 && in.ConversationId == "" && in.UserId != "" {
+			removedAt = conversationRemovedAt(l.ctx, l.svcCtx, in.UserId, target.ConversationId)
 		}
 
 		switch in.Direction {
@@ -113,12 +119,12 @@ func (l *GetChatLogLogic) GetChatLog(in *im.GetChatLogReq) (*im.GetChatLogResp, 
 }
 
 // conversationRemovedAt 取请求者在该会话上的「被移出时刻」（群被踢冻结历史用）；
-// 非群成员/未被踢/查不到一律返回 0（不截断）。
-func (l *GetChatLogLogic) conversationRemovedAt(uid, convId string) int64 {
+// 非群成员/未被踢/查不到一律返回 0（不截断）。被 GetChatLog 与 GetAtMeMessages 共用。
+func conversationRemovedAt(ctx context.Context, svcCtx *svc.ServiceContext, uid, convId string) int64 {
 	if uid == "" {
 		return 0
 	}
-	doc, err := l.svcCtx.ConversationsModel.FindByUserId(l.ctx, uid)
+	doc, err := svcCtx.ConversationsModel.FindByUserId(ctx, uid)
 	if err != nil || doc == nil || doc.ConversationList == nil {
 		return 0
 	}

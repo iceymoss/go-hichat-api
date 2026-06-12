@@ -39,10 +39,16 @@ func (l *GetAtMeMessagesLogic) GetAtMeMessages(in *im.GetAtMeMessagesReq) (*im.G
 		return nil, errors.Wrapf(xerr.NewDBErr(), "list at-me messages err %v, req %v", err, in)
 	}
 
+	// 被移出群成员的历史截断：被移出后的 @我 消息不返回（与 GetChatLog 一致）。
+	removedAt := conversationRemovedAt(l.ctx, l.svcCtx, in.UserId, in.ConversationId)
+
 	// 降序结果里过滤出"我未读"的；倒序遍历同时完成升序输出。
 	res := make([]*im.ChatLog, 0, len(list))
 	for i := len(list) - 1; i >= 0; i-- {
 		c := list[i]
+		if removedAt > 0 && c.SendTime > removedAt {
+			continue // 被移出群后：不返回被移出后的 @我
+		}
 		if bitmap.Load(c.ReadRecords).IsSet(in.UserId) {
 			continue
 		}
