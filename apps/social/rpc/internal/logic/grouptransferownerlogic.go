@@ -2,10 +2,12 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
@@ -82,6 +84,15 @@ func (l *GroupTransferOwnerLogic) GroupTransferOwner(in *social.GroupTransferOwn
 	}
 
 	tx.Commit()
+
+	// 公共通知：新群主收到"已成为群主"通知
+	emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
+		NotifyType: NotifyGroupOwnerTransferred,
+		ReceiverId: in.NewOwnerId,
+		ActorId:    in.UserId,
+		BizId:      fmt.Sprintf("group.owner:%s:%s:%d", in.GroupId, in.NewOwnerId, now.Unix()),
+		GroupId:    in.GroupId,
+	})
 
 	return &social.GroupTransferOwnerResp{}, nil
 }

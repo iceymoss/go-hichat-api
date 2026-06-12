@@ -2,9 +2,12 @@ package logic
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
@@ -77,6 +80,21 @@ func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social
 	}
 
 	tx.Commit()
+
+	// 公共通知：被设为/取消管理员的成员收到通知
+	notifyType := NotifyGroupAdminSet
+	if !in.IsAdmin {
+		notifyType = NotifyGroupAdminUnset
+	}
+	for _, id := range filtered {
+		emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
+			NotifyType: notifyType,
+			ReceiverId: id,
+			ActorId:    in.UserId,
+			BizId:      fmt.Sprintf("%s:%s:%s:%d", notifyType, in.GroupId, id, time.Now().Unix()),
+			GroupId:    in.GroupId,
+		})
+	}
 
 	return &social.GroupSetAdminResp{}, nil
 }

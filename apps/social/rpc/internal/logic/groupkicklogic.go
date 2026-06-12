@@ -2,6 +2,9 @@ package logic
 
 import (
 	"context"
+	"fmt"
+	"time"
+
 	"gorm.io/gorm"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
@@ -59,6 +62,14 @@ func (l *GroupKickLogic) GroupKick(in *social.GroupKickReq) (*social.GroupKickRe
 				}); emitErr != nil {
 				return nil, errors.Wrapf(xerr.NewDBErr(), "kick member err %v", emitErr)
 			}
+			// 公共通知：被移出群者收到通知
+			emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
+				NotifyType: NotifyGroupRemoved,
+				ReceiverId: memberId,
+				ActorId:    in.UserId,
+				BizId:      fmt.Sprintf("group.removed:%s:%s:%d", in.GroupId, memberId, time.Now().Unix()),
+				GroupId:    in.GroupId,
+			})
 		}
 	}
 

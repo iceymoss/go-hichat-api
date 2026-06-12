@@ -41,7 +41,9 @@ const navItems: { tab: TabType; icon: React.ReactNode }[] = [
 ];
 
 export default function IMLayout() {
-  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, setNotificationUnreadCount, setGroupAppUnreadCount } = useIMStore();
+  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, setNotificationUnreadCount, setGroupAppUnreadCount, friendRequestUnreadCount, groupAppUnreadCount } = useIMStore();
+  // 「联系人」tab 角标 = 好友申请未读 + 群申请未读：看了对应申请列表即各自清零（与铃铛/通知中心解耦）
+  const contactsUnread = friendRequestUnreadCount + groupAppUnreadCount;
   const chatConversations = useChatStore(s => s.conversations);
 
   // 登录后拉取动态消息未读数，驱动「朋友圈」tab 红点
@@ -255,7 +257,7 @@ export default function IMLayout() {
           }}
         >
           {navItems.map(({ tab, icon }) => {
-            const unread = tab === 'chats' ? totalUnread : tab === 'moments' ? momentsUnreadCount : tab === 'contacts' ? notificationUnreadCount : 0;
+            const unread = tab === 'chats' ? totalUnread : tab === 'moments' ? momentsUnreadCount : tab === 'contacts' ? contactsUnread : 0;
             return (
               <button
                 key={tab}
@@ -299,7 +301,7 @@ export default function IMLayout() {
         {/* Navigation Icons */}
         <div className="flex flex-col gap-1 flex-1">
           {navItems.map(({ tab, icon }) => {
-            const unread = tab === 'chats' ? totalUnread : tab === 'moments' ? momentsUnreadCount : tab === 'contacts' ? notificationUnreadCount : 0;
+            const unread = tab === 'chats' ? totalUnread : tab === 'moments' ? momentsUnreadCount : tab === 'contacts' ? contactsUnread : 0;
             return (
               <button
                 key={tab}

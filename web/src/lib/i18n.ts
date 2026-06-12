@@ -129,6 +129,10 @@ const dict: Record<string, Record<string, string>> = {
     'notify.type.group.apply': '申请加入群聊',
     'notify.type.group.accept': '通过了你的入群申请',
     'notify.type.group.reject': '拒绝了你的入群申请',
+    'notify.type.group.removed': '把你移出了群聊',
+    'notify.type.group.admin.set': '把你设为了群管理员',
+    'notify.type.group.admin.unset': '取消了你的群管理员',
+    'notify.type.group.owner.transferred': '把群主转让给了你',
   },
 
   en: {
@@ -249,6 +253,10 @@ const dict: Record<string, Record<string, string>> = {
     'notify.type.group.apply': 'requested to join the group',
     'notify.type.group.accept': 'approved your join request',
     'notify.type.group.reject': 'declined your join request',
+    'notify.type.group.removed': 'removed you from the group',
+    'notify.type.group.admin.set': 'made you a group admin',
+    'notify.type.group.admin.unset': 'removed you as a group admin',
+    'notify.type.group.owner.transferred': 'transferred group ownership to you',
   },
 };
 
