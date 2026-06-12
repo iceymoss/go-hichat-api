@@ -8,6 +8,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
@@ -111,6 +112,13 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 	if res.RowsAffected == 0 {
 		tx.Rollback()
 		return nil, errors.New("join  group err:" + groupReq.ReqId + " groupId" + groupReq.GroupId)
+	}
+
+	// 同事务写 outbox（群成员新增事件），relay 投递后消费端版本门把新成员加入群成员集
+	if err := emitRelationChangeInTx(tx, l.svcCtx, constants.RelationEventGroupMemberAdded, groupReq.GroupId,
+		&mq.RelationChangeTransfer{GroupId: groupReq.GroupId, UserId: groupReq.ReqId, OperatorId: in.HandleUid}); err != nil {
+		tx.Rollback()
+		return nil, err
 	}
 
 	//为新成员添加会话

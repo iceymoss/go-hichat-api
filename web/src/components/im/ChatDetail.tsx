@@ -253,6 +253,7 @@ export default function ChatDetail() {
   const anchored = useChatStore(s => !!s.anchoredConvs[selectedConversationId || '']);
   const jumpToContext = useChatStore(s => s.jumpToContext);
   const atMeIds = useChatStore(s => s.atMeMap[selectedConversationId || ''] || EMPTY_STR_ARR);
+  const disabledInfo = useChatStore(s => s.disabledConversations[selectedConversationId || '']);
   const fetchAtMe = useChatStore(s => s.fetchAtMe);
   const consumeAtMe = useChatStore(s => s.consumeAtMe);
   const clearAtMe = useChatStore(s => s.clearAtMe);
@@ -263,6 +264,7 @@ export default function ChatDetail() {
   const storeMarkRead = useChatStore(s => s.markRead);
   const storeGroupMembers = useChatStore(s => s.groupMembers);
   const fetchGroupMembers = useChatStore(s => s.fetchGroupMembers);
+  const markGroupRemoved = useChatStore(s => s.markGroupRemoved);
   const ensureUserProfiles = useChatStore(s => s.ensureUserProfiles);
   const readReceiptEnabled = useSettingsStore(s => s.readReceiptEnabled);
   const { currentUser } = useIMStore();
@@ -300,6 +302,16 @@ export default function ChatDetail() {
     const me = (storeGroupMembers[selectedConversationId] || []).find(m => m.user_id === currentUser.id);
     return (me?.role_level ?? 0) >= 1;
   }, [selectedConversationId, conversation?.type, storeGroupMembers, currentUser?.id]);
+
+  // 刷新后从服务端成员名单重新推导"被移出群"：成员已加载且自己不在其中 → 持久化禁用 + 系统消息
+  useEffect(() => {
+    if (!selectedConversationId || conversation?.type !== 'group' || !currentUser?.id) return;
+    const members = storeGroupMembers[selectedConversationId] || [];
+    if (members.length === 0) return; // 尚未拉取，避免误判
+    if (!members.some(m => m.user_id === currentUser.id)) {
+      markGroupRemoved(selectedConversationId, 'group.member.removed');
+    }
+  }, [selectedConversationId, conversation?.type, storeGroupMembers, currentUser?.id, markGroupRemoved]);
 
   // @ 候选成员（排除自己，按 atQuery 过滤）
   const atCandidates = useMemo(() => {
@@ -510,6 +522,8 @@ export default function ChatDetail() {
 
   const handleSend = () => {
     if (!input.trim() || !selectedConversationId) return;
+    // 会话已失效（被踢/退群/删好友）：拦截发送，服务端也会兜底拒绝
+    if (disabledInfo) return;
 
     // 引用消息：把被引用消息打包成 quote JSON（含类型与缩略图）随消息发送
     let quote: string | undefined;
@@ -1155,6 +1169,17 @@ export default function ChatDetail() {
           borderTop: '1px solid rgba(0,0,0,0.06)',
         }}
       >
+        {/* 会话失效横幅：被踢/退群/解散/删好友后禁用输入 */}
+        {disabledInfo && (
+          <div style={{
+            padding: '10px 5%', textAlign: 'center', fontSize: 13, color: '#A0291F',
+            background: '#FDECEA', borderTop: '1px solid rgba(0,0,0,0.06)',
+          }}>
+            {disabledInfo.eventType === 'friend.deleted'
+              ? '你们已不是好友关系，无法发送消息'
+              : '你已不在该群聊中，无法发送消息'}
+          </div>
+        )}
         {/* Reply indicator */}
         {replyTo && (
           <div style={{
@@ -1256,9 +1281,12 @@ export default function ChatDetail() {
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={replyTo
-              ? `回复 ${conversation?.type === 'private' ? (peerName || replyTo.senderName) : replyTo.senderName}...`
-              : '输入消息...'}
+            disabled={!!disabledInfo}
+            placeholder={disabledInfo
+              ? (disabledInfo.eventType === 'friend.deleted' ? '你们已不是好友关系' : '你已不在该群聊中')
+              : (replyTo
+                ? `回复 ${conversation?.type === 'private' ? (peerName || replyTo.senderName) : replyTo.senderName}...`
+                : '输入消息...')}
             type="text"
             className="flex-1 outline-none"
             style={{
@@ -1266,9 +1294,10 @@ export default function ChatDetail() {
               padding: '0 16px',
               borderRadius: 20,
               border: '1px solid rgba(0,0,0,0.08)',
-              background: '#F0F2F5',
+              background: disabledInfo ? '#E8EBED' : '#F0F2F5',
               fontSize: 14,
               color: '#1C2733',
+              cursor: disabledInfo ? 'not-allowed' : 'text',
             }}
           />
 

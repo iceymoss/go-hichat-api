@@ -155,3 +155,20 @@ type FriendReport struct {
 func (FriendReport) TableName() string {
 	return "friend_reports"
 }
+
+// RelationOutbox 关系变更事务性发件箱。
+// 关系变更（踢人/退群/解散/删好友）与本表插入在同一事务提交，relay 再异步投递到 Kafka，
+// 保证"DB 变更 ⇔ 事件不丢"。自增 id 兼作单调版本号（消费端版本门用）。
+type RelationOutbox struct {
+	ID        uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键，兼作单调版本号"`
+	EventType string     `gorm:"column:event_type;type:VARCHAR(64);not null;comment:事件类型 group.member.removed/group.disbanded/friend.deleted"`
+	GroupID   string     `gorm:"column:group_id;type:VARCHAR(64);not null;default:'';index:idx_group;comment:群ID（好友事件留空，作分区/索引）"`
+	Payload   string     `gorm:"column:payload;type:TEXT;not null;comment:事件JSON载荷"`
+	Status    int        `gorm:"column:status;type:TINYINT;not null;default:0;index:idx_status;comment:0待投递 1已投递"`
+	CreatedAt *time.Time `gorm:"column:created_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP;comment:创建时间"`
+	SentAt    *time.Time `gorm:"column:sent_at;type:TIMESTAMP;comment:投递完成时间"`
+}
+
+func (RelationOutbox) TableName() string {
+	return "relation_outbox"
+}

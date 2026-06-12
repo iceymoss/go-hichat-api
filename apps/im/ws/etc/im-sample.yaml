@@ -24,3 +24,9 @@ SocialRpc:
     Key: social.rpc
     Timeout: 2000     # 热路径，2s 超时即放行降级
     NonBlock: true
+
+# 发送鉴权灰度开关：默认 false=现状行为（不校验，fail-open）
+AuthzGate:
+  Enabled: false
+  GroupChat: false
+  SingleChat: false

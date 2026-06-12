@@ -1,0 +1,425 @@
+package relationcache
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/go-redis/redis/v8"
+)
+
+// newTestCache 连接本地真实 Redis 的 DB 15（测试专用库），连不上则 skip。
+// 不 mock：遵守 test-files.md「不要 mock 数据库」。每个用例自带唯一 id，测试后 FlushDB 清理。
+func newTestCache(t *testing.T) (*Cache, func()) {
+	t.Helper()
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "127.0.0.1:6379",
+		DB:   15,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		t.Skipf("local redis unavailable, skip: %v", err)
+	}
+	if err := rdb.FlushDB(context.Background()).Err(); err != nil {
+		t.Fatalf("flush test db: %v", err)
+	}
+	cleanup := func() {
+		rdb.FlushDB(context.Background())
+		rdb.Close()
+	}
+	return New(rdb), cleanup
+}
+
+func Test_IsGroupMember_Verdict(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 已加载：g1 成员 {u1, u2}；g2 已加载但为空群（仅哨兵）
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2"}, 1); err != nil {
+		t.Fatalf("load g1: %v", err)
+	}
+	if err := c.LoadGroupMembers(ctx, "g2", []string{}, 1); err != nil {
+		t.Fatalf("load g2: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		gid  string
+		uid  string
+		want Verdict
+	}{
+		{"loaded member -> allowed", "g1", "u1", VerdictAllowed},
+		{"loaded non-member -> denied", "g1", "u9", VerdictDenied},
+		{"loaded empty group, sentinel not leaked -> denied", "g2", "u1", VerdictDenied},
+		{"loaded empty group, sentinel itself not a member", "g2", loadedSentinel, VerdictDenied},
+		{"not loaded group -> unknown (caller fail-open)", "gX", "u1", VerdictUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := c.IsGroupMember(ctx, tt.gid, tt.uid); got != tt.want {
+				t.Errorf("IsGroupMember(%s,%s) = %v, want %v", tt.gid, tt.uid, got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_GroupMember_VersionGate(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2"}, 5); err != nil {
+		t.Fatalf("load g1: %v", err)
+	}
+
+	// 新版本踢人生效
+	if got, err := c.RemoveGroupMember(ctx, "g1", "u1", 6); err != nil || got != Applied {
+		t.Fatalf("remove u1@6 = (%v,%v), want Applied", got, err)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictDenied {
+		t.Errorf("after remove u1@6, IsGroupMember=%v, want Denied", v)
+	}
+
+	// 防复活：旧版本重新加回被拒，u1 维持移除
+	if got, err := c.AddGroupMember(ctx, "g1", "u1", 5); err != nil || got != SkippedStale {
+		t.Fatalf("add u1@5 (stale) = (%v,%v), want SkippedStale", got, err)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictDenied {
+		t.Errorf("after stale re-add, IsGroupMember(u1)=%v, want Denied (no resurrection)", v)
+	}
+
+	// 防乱序：等版本号也算陈旧
+	if got, _ := c.AddGroupMember(ctx, "g1", "u9", 6); got != SkippedStale {
+		t.Errorf("add u9@6 (== current) = %v, want SkippedStale", got)
+	}
+
+	// 新版本加人生效
+	if got, _ := c.AddGroupMember(ctx, "g1", "u3", 7); got != Applied {
+		t.Errorf("add u3@7 = %v, want Applied", got)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u3"); v != VerdictAllowed {
+		t.Errorf("after add u3@7, IsGroupMember=%v, want Allowed", v)
+	}
+
+	// 未加载的群：事件跳过维护，绝不半 populate（否则会被误判为已加载）
+	if got, _ := c.RemoveGroupMember(ctx, "gX", "u1", 1); got != SkippedNotLoaded {
+		t.Errorf("remove on unloaded group = %v, want SkippedNotLoaded", got)
+	}
+	if v := c.IsGroupMember(ctx, "gX", "u1"); v != VerdictUnknown {
+		t.Errorf("unloaded group after skipped event, IsGroupMember=%v, want Unknown", v)
+	}
+}
+
+func Test_Friend_VerdictAndVersionGate(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// uid=a 的好友集 {b, c}
+	if err := c.LoadFriends(ctx, "a", []string{"b", "c"}, 3); err != nil {
+		t.Fatalf("load friends a: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		uid    string
+		friend string
+		want   Verdict
+	}{
+		{"friend -> allowed", "a", "b", VerdictAllowed},
+		{"non-friend, loaded -> denied", "a", "z", VerdictDenied},
+		{"not loaded -> unknown (fail-open)", "x", "y", VerdictUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := c.IsFriend(ctx, tt.uid, tt.friend); got != tt.want {
+				t.Errorf("IsFriend(%s,%s) = %v, want %v", tt.uid, tt.friend, got, tt.want)
+			}
+		})
+	}
+
+	// 删好友：新版本生效
+	if got, _ := c.RemoveFriend(ctx, "a", "b", 4); got != Applied {
+		t.Errorf("remove friend b@4 = %v, want Applied", got)
+	}
+	if v := c.IsFriend(ctx, "a", "b"); v != VerdictDenied {
+		t.Errorf("after remove friend b, IsFriend=%v, want Denied", v)
+	}
+	// 旧版本不能复活已删好友
+	if got, _ := c.AddFriend(ctx, "a", "b", 3); got != SkippedStale {
+		t.Errorf("stale add friend b@3 = %v, want SkippedStale", got)
+	}
+	if v := c.IsFriend(ctx, "a", "b"); v != VerdictDenied {
+		t.Errorf("after stale re-add friend, IsFriend=%v, want Denied", v)
+	}
+}
+
+func Test_GroupMembers_FanoutRead(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2"}, 1); err != nil {
+		t.Fatalf("load g1: %v", err)
+	}
+	if err := c.LoadGroupMembers(ctx, "g2", []string{}, 1); err != nil {
+		t.Fatalf("load g2: %v", err)
+	}
+
+	// 未加载：loaded=false，调用方据此回源 RPC
+	if members, loaded, err := c.GroupMembers(ctx, "gX"); err != nil || loaded || len(members) != 0 {
+		t.Errorf("GroupMembers(unloaded) = (%v,%v,%v), want ([],false,nil)", members, loaded, err)
+	}
+
+	// 已加载非空：返回真实成员，剔除哨兵
+	members, loaded, err := c.GroupMembers(ctx, "g1")
+	if err != nil || !loaded {
+		t.Fatalf("GroupMembers(g1) = (_,%v,%v), want loaded,nil", loaded, err)
+	}
+	got := map[string]bool{}
+	for _, m := range members {
+		got[m] = true
+	}
+	if len(members) != 2 || !got["u1"] || !got["u2"] || got[loadedSentinel] {
+		t.Errorf("GroupMembers(g1) = %v, want exactly {u1,u2} without sentinel", members)
+	}
+
+	// 已加载空群：loaded=true，成员为空（哨兵剔除）
+	if members, loaded, err := c.GroupMembers(ctx, "g2"); err != nil || !loaded || len(members) != 0 {
+		t.Errorf("GroupMembers(empty g2) = (%v,%v,%v), want ([],true,nil)", members, loaded, err)
+	}
+}
+
+func Test_SingleFlightLock(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 第一个抢锁成功
+	token, ok, err := c.TryLockGroupRebuild(ctx, "g1")
+	if err != nil || !ok || token == "" {
+		t.Fatalf("first lock = (%q,%v,%v), want acquired", token, ok, err)
+	}
+
+	// 持锁期间第二个抢锁失败（防击穿：只放一个回源）
+	if _, ok2, _ := c.TryLockGroupRebuild(ctx, "g1"); ok2 {
+		t.Errorf("second lock acquired while held, want blocked")
+	}
+
+	// 释放后可再次抢到
+	c.UnlockGroupRebuild(ctx, "g1", token)
+	if _, ok3, _ := c.TryLockGroupRebuild(ctx, "g1"); !ok3 {
+		t.Errorf("lock after unlock not acquired, want acquired")
+	}
+
+	// 用错 token 不能误删他人锁
+	other, _, _ := c.TryLockGroupRebuild(ctx, "g2")
+	c.UnlockGroupRebuild(ctx, "g2", "wrong-token")
+	if _, ok4, _ := c.TryLockGroupRebuild(ctx, "g2"); ok4 {
+		t.Errorf("lock released by wrong token, want still held")
+	}
+	c.UnlockGroupRebuild(ctx, "g2", other)
+}
+
+func Test_InvalidateGroup(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1"}, 1); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictAllowed {
+		t.Fatalf("precondition IsGroupMember=%v, want Allowed", v)
+	}
+	if err := c.InvalidateGroup(ctx, "g1"); err != nil {
+		t.Fatalf("invalidate: %v", err)
+	}
+	// 失效后退化为 Unknown（未加载），调用方 fail-open
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictUnknown {
+		t.Errorf("after invalidate, IsGroupMember=%v, want Unknown", v)
+	}
+}
+
+func Test_RemoveFriendIfLoaded_NoVersionGate(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	if err := c.LoadFriends(ctx, "a", []string{"b", "c"}, 5); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	// 无版本门：跨分区乱序的两次删除（模拟先到的高"版本"、后到的低"版本"）都必须生效
+	if got, _ := c.RemoveFriendIfLoaded(ctx, "a", "c"); got != Applied {
+		t.Errorf("remove c = %v, want Applied", got)
+	}
+	if got, _ := c.RemoveFriendIfLoaded(ctx, "a", "b"); got != Applied {
+		t.Errorf("remove b (would be rejected by a per-user version gate) = %v, want Applied", got)
+	}
+	if v := c.IsFriend(ctx, "a", "b"); v != VerdictDenied {
+		t.Errorf("after remove b, IsFriend=%v, want Denied", v)
+	}
+	if v := c.IsFriend(ctx, "a", "c"); v != VerdictDenied {
+		t.Errorf("after remove c, IsFriend=%v, want Denied", v)
+	}
+
+	// 未加载集合：跳过（不半 populate）
+	if got, _ := c.RemoveFriendIfLoaded(ctx, "zzz", "x"); got != SkippedNotLoaded {
+		t.Errorf("remove on unloaded = %v, want SkippedNotLoaded", got)
+	}
+}
+
+func Test_AddFriendIfLoaded_NoVersionGate(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// a 的好友集已加载（仅 b）
+	if err := c.LoadFriends(ctx, "a", []string{"b"}, 1); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	// 无版本门：新加好友直接生效，不依赖版本号
+	if got, _ := c.AddFriendIfLoaded(ctx, "a", "c"); got != Applied {
+		t.Errorf("add c = %v, want Applied", got)
+	}
+	if v := c.IsFriend(ctx, "a", "c"); v != VerdictAllowed {
+		t.Errorf("after add c, IsFriend=%v, want Allowed", v)
+	}
+
+	// 跨分区乱序的多次新增（同一用户的不同好友对）都必须生效——这正是版本门会误拒的场景
+	if got, _ := c.AddFriendIfLoaded(ctx, "a", "d"); got != Applied {
+		t.Errorf("add d = %v, want Applied", got)
+	}
+	if v := c.IsFriend(ctx, "a", "d"); v != VerdictAllowed {
+		t.Errorf("after add d, IsFriend=%v, want Allowed", v)
+	}
+
+	// 幂等：重复新增同一好友不报错、不产生副作用
+	if got, _ := c.AddFriendIfLoaded(ctx, "a", "c"); got != Applied {
+		t.Errorf("re-add c (idempotent) = %v, want Applied", got)
+	}
+
+	// 未加载集合：跳过，绝不半 populate（否则会被误判为已加载）
+	if got, _ := c.AddFriendIfLoaded(ctx, "zzz", "x"); got != SkippedNotLoaded {
+		t.Errorf("add on unloaded = %v, want SkippedNotLoaded", got)
+	}
+	if v := c.IsFriend(ctx, "zzz", "x"); v != VerdictUnknown {
+		t.Errorf("unloaded set after skipped add, IsFriend=%v, want Unknown", v)
+	}
+}
+
+// Test_LoadIfCold_NoClobber 复现并守护缺陷 1：热缓存的读穿透回填必须是 no-op，
+// 不得用 version=0 的旧快照把已被事件正确移除的成员重建回来、把 ver 回退。
+func Test_LoadIfCold_NoClobber(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 冷加载 g1 {u1,u2}@5，事件正确踢掉 u1（ver=6）
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2"}, 5); err != nil {
+		t.Fatalf("cold load: %v", err)
+	}
+	if got, _ := c.RemoveGroupMember(ctx, "g1", "u1", 6); got != Applied {
+		t.Fatalf("remove u1@6 = %v, want Applied", got)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictDenied {
+		t.Fatalf("precondition: u1 should be Denied after remove, got %v", v)
+	}
+
+	// 滞后读穿透：用含 u1 的旧快照 + version=0 回填——必须被 load-if-cold 拒绝（热缓存不覆盖）
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2"}, 0); err != nil {
+		t.Fatalf("stale read-through load: %v", err)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictDenied {
+		t.Errorf("after stale read-through, u1=%v, want Denied (no clobber/resurrection)", v)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u2"); v != VerdictAllowed {
+		t.Errorf("u2 should remain Allowed, got %v", v)
+	}
+}
+
+// Test_Tombstone_PreventResurrection 复现并守护缺陷 2（冷缓存 TOCTOU）：
+// 移除事件在缓存冷时到达（写墓碑），随后读穿透的旧快照仍含被移除者——墓碑必须把他剔除。
+func Test_Tombstone_PreventResurrection(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 冷缓存下踢人：集合不存在 -> SkippedNotLoaded，但墓碑被写下
+	if got, _ := c.RemoveGroupMember(ctx, "g1", "u1", 10); got != SkippedNotLoaded {
+		t.Fatalf("remove on cold = %v, want SkippedNotLoaded", got)
+	}
+
+	// 读穿透 RPC 取到的是踢人提交前的旧快照（仍含 u1），version=0 回填
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2", "u3"}, 0); err != nil {
+		t.Fatalf("read-through load with stale snapshot: %v", err)
+	}
+
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictDenied {
+		t.Errorf("tombstoned u1 resurrected by read-through, IsGroupMember=%v, want Denied", v)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u2"); v != VerdictAllowed {
+		t.Errorf("u2 wrongly excluded, IsGroupMember=%v, want Allowed", v)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u3"); v != VerdictAllowed {
+		t.Errorf("u3 wrongly excluded, IsGroupMember=%v, want Allowed", v)
+	}
+}
+
+// Test_Tombstone_ClearedOnReAdd 守护 re-add：墓碑期内重新加入应清掉墓碑，
+// 后续读穿透不再剔除该成员（否则被踢又拉回的人会持续收不到消息）。
+func Test_Tombstone_ClearedOnReAdd(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 冷缓存踢人写墓碑
+	if _, err := c.RemoveGroupMember(ctx, "g1", "u1", 10); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	// 冷缓存下 re-add：集合未加载 -> SkippedNotLoaded，但墓碑被清
+	if got, _ := c.AddGroupMember(ctx, "g1", "u1", 11); got != SkippedNotLoaded {
+		t.Fatalf("re-add on cold = %v, want SkippedNotLoaded", got)
+	}
+	// 读穿透回填含 u1 的快照：墓碑已清，u1 应被纳入
+	if err := c.LoadGroupMembers(ctx, "g1", []string{"u1", "u2"}, 0); err != nil {
+		t.Fatalf("read-through load: %v", err)
+	}
+	if v := c.IsGroupMember(ctx, "g1", "u1"); v != VerdictAllowed {
+		t.Errorf("re-added u1 should be Allowed after tombstone cleared, got %v", v)
+	}
+}
+
+// Test_Friend_Tombstone_PreventResurrection 好友侧对称守护（单聊闸门走同一 loadSet）。
+func Test_Friend_Tombstone_PreventResurrection(t *testing.T) {
+	c, cleanup := newTestCache(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 冷缓存删好友：写墓碑
+	if got, _ := c.RemoveFriendIfLoaded(ctx, "a", "b"); got != SkippedNotLoaded {
+		t.Fatalf("remove friend on cold = %v, want SkippedNotLoaded", got)
+	}
+	// 读穿透旧快照仍含 b
+	if err := c.LoadFriends(ctx, "a", []string{"b", "c"}, 0); err != nil {
+		t.Fatalf("read-through load friends: %v", err)
+	}
+	if v := c.IsFriend(ctx, "a", "b"); v != VerdictDenied {
+		t.Errorf("tombstoned friend b resurrected, IsFriend=%v, want Denied", v)
+	}
+	if v := c.IsFriend(ctx, "a", "c"); v != VerdictAllowed {
+		t.Errorf("friend c wrongly excluded, IsFriend=%v, want Allowed", v)
+	}
+
+	// re-add 清墓碑后可恢复
+	if _, err := c.AddFriendIfLoaded(ctx, "a", "b"); err != nil {
+		t.Fatalf("re-add friend: %v", err)
+	}
+	if v := c.IsFriend(ctx, "a", "b"); v != VerdictAllowed {
+		t.Errorf("re-added friend b should be Allowed, got %v", v)
+	}
+}

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/config"
+	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/relay"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/server"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -30,6 +32,11 @@ func main() {
 	ctx := svc.NewServiceContext(c)
 
 	fmt.Println("config:", pkcCfg.ServiceConf)
+
+	// 启动关系变更发件箱投递器（后台 goroutine，进程退出时随 ctx 取消优雅停止）
+	relayCtx, cancelRelay := context.WithCancel(context.Background())
+	defer cancelRelay()
+	go relay.New(ctx).Start(relayCtx)
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
 		social.RegisterSocialServer(grpcServer, server.NewSocialServer(ctx))

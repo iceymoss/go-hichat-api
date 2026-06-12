@@ -80,6 +80,7 @@ func RunAutoMigrate(dbName string) error {
 		&objects.GroupInviteLink{},
 		&objects.GroupMemberSetting{},
 		&objects.GroupAnnouncement{},
+		&objects.RelationOutbox{},
 
 		// 系统级配置
 		&objects.SystemSetting{},
@@ -206,6 +207,7 @@ func RunAutoMigrateInTx(tx *gorm.DB) error {
 		&objects.GroupInviteLink{},
 		&objects.GroupMemberSetting{},
 		&objects.GroupAnnouncement{},
+		&objects.RelationOutbox{},
 
 		// 系统级配置
 		&objects.SystemSetting{},

@@ -15,6 +15,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/bitmap"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 
 	"github.com/zeromicro/go-queue/kq"
 )
@@ -43,6 +44,14 @@ func (m *MsgChatTransfer) Consume(ctx context.Context, key, value string) error 
 	}
 
 	fmt.Printf("已经收到消息了: %+v\n", data)
+
+	// 群聊发送鉴权闸门（灰度开关 + fail-open）：被踢/退群者不得发群消息。
+	// 命中拦截则不持久化、不扇出（客户端已由 relation.changed 事件禁用输入）。
+	if data.ChatType == constants.GroupChatType && !m.groupSendAllowed(ctx, &data) {
+		zLog.Error("group send blocked: sender not a member",
+			zap.String("groupId", data.RecvId), zap.String("sendId", data.SendId))
+		return nil
+	}
 
 	// 写入数据库（如 MongoDB 聊天记录）；同时把真实 MsgId 回填到 data，供下游推送
 	if err = m.addChatLog(ctx, &data); err != nil {
@@ -120,7 +129,32 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransf
 	return nil
 }
 
-// markAtMe 为被 @的群成员置会话级 HasAtMe（进会话 / markRead 时清除）。
+// groupSendAllowed 群聊发送鉴权：仅当确定"非群成员"时拒绝；灰度关闭 / 缓存未知 / 回源失败一律放行（fail-open）。
+func (m *MsgChatTransfer) groupSendAllowed(ctx context.Context, data *mq.MsgChatTransfer) bool {
+	if !m.svcCtx.Config.AuthzGate.Enabled || !m.svcCtx.Config.AuthzGate.GroupChat {
+		return true // 灰度关闭 = 现状行为，不校验
+	}
+	gid := data.RecvId
+	if m.svcCtx.RelationCache != nil {
+		switch m.svcCtx.RelationCache.IsGroupMember(ctx, gid, data.SendId) {
+		case relationcache.VerdictAllowed:
+			return true
+		case relationcache.VerdictDenied:
+			return false
+		}
+	}
+	// Unknown：回源确认（顺带暖缓存）；回源失败 fail-open
+	members, err := m.resolveGroupMembers(ctx, gid)
+	if err != nil {
+		return true
+	}
+	for _, uid := range members {
+		if uid == data.SendId {
+			return true
+		}
+	}
+	return false
+}
 // @所有人时拉群成员（排除发送者）；@具体成员时用 atUsers。非群成员没有该会话条目，天然被跳过。
 func (m *MsgChatTransfer) markAtMe(ctx context.Context, data *mq.MsgChatTransfer) {
 	if data.ChatType != constants.GroupChatType || (!data.AtAll && len(data.AtUsers) == 0) {

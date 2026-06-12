@@ -11,6 +11,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
@@ -208,6 +209,13 @@ func (l *GroupPutinLogic) createGroupMember(in *social.GroupPutinReq, tx *gorm.D
 	if res.Error != nil || res.RowsAffected == 0 {
 		tx.Rollback()
 		return libErr.Wrapf(xerr.NewDBErr(), "insert friend err %v req %v", res.Error, groupMember)
+	}
+
+	// 同事务写 outbox（群成员新增事件），覆盖直接入群/邀请/邀请链接三条路（均汇流于此）
+	if err := emitRelationChangeInTx(tx, l.svcCtx, constants.RelationEventGroupMemberAdded, in.GroupId,
+		&mq.RelationChangeTransfer{GroupId: in.GroupId, UserId: in.ReqId, OperatorId: in.InviterUid}); err != nil {
+		tx.Rollback()
+		return libErr.Wrapf(xerr.NewDBErr(), "emit group member added err %v req %v", err, groupMember)
 	}
 
 	//为新成员添加会话

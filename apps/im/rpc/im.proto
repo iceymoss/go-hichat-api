@@ -75,6 +75,8 @@ message GetChatLogReq {
   string msgId = 5;
   // 分页方向：""/older=查更早（默认）, newer=查更新, around=目标消息及其前若干条（含目标）
   string direction = 6;
+  // 请求者 uid：用于「被移出群成员只能看被移出前的消息」的历史截断（0/空=不截断）
+  string userId = 7;
 }
 message GetChatLogResp {
   repeated ChatLog List = 1;

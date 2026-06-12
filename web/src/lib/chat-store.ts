@@ -31,6 +31,28 @@ import { playMessageSound, vibrate } from './notification';
 import { useSettingsStore } from './settings-store';
 import { mediaPreview } from './media-message';
 import type { Message, Conversation } from './mock-data';
+import { toast } from 'sonner';
+import { sendFriendRequest } from './friend-group-api';
+
+// 私聊被后端鉴权拦截（对方已删好友）时，顶部弹"重新添加好友"通知。
+// 与红感叹号（消息标 failed）并行：感叹号是消息级反馈，这条是关系级引导。
+// 文案硬编码中文，与本模块其余 toast（AddFriendPanel/GroupList 等）保持一致。
+function notifyFriendBlocked(peerId: string) {
+  toast('你们已不是好友，是否重新添加好友', {
+    id: `friend-block-${peerId}`, // 稳定 id：连发多条只弹一个，不堆叠
+    duration: 6000,
+    action: {
+      label: '重新添加',
+      onClick: async () => {
+        const token = useIMStore.getState().currentUser?.token;
+        if (!token) return;
+        const ok = await sendFriendRequest(token, peerId);
+        if (ok) toast.success('好友请求已发送');
+        else toast.error('发送失败，请重试');
+      },
+    },
+  });
+}
 
 // ========== 消息类型映射 ==========
 
@@ -135,6 +157,10 @@ interface ChatState {
   /** 已播放语音消息 id 集合（控制未读红点），本地持久化 */
   playedVoices: Record<string, true>;
   markVoicePlayed: (msgId: string) => void;
+  /** 已失效的会话（被踢/退群/解散/删好友），值含事件类型，前端据此禁用输入 */
+  disabledConversations: Record<string, { eventType: string; operatorId?: string }>;
+  /** 标记某群会话为"已被移出/解散"：禁用输入框 + 插入系统消息（按稳定 id 去重）。relation.changed 与打开会话成员校验共用。 */
+  markGroupRemoved: (conversationId: string, eventType: string) => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -145,6 +171,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   userProfiles: {},
   loadingConversations: false,
   loadingMessages: {},
+  disabledConversations: {},
   playedVoices: (() => {
     if (typeof window === 'undefined') return {};
     try { return JSON.parse(localStorage.getItem('hichat_played_voices') || '{}'); }
@@ -176,7 +203,36 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       url: wsUrl || defaultWsUrl,
       token,
       onStateChange: (state) => set({ wsState: state }),
-      onError: (err) => console.error('[ChatStore] ws error:', err),
+      onError: (err, msgId) => {
+        // 业务错误帧（发送被鉴权拦截）：ACK 已先 resolve 了 send promise，故在此按消息 id 把对应消息标记失败（红感叹号）。
+        if (msgId) {
+          // 先定位消息所在会话（只读），再标失败 + 私聊场景弹"重新添加好友"
+          const state = get();
+          let foundCid: string | undefined;
+          for (const cid of Object.keys(state.messagesMap)) {
+            if (state.messagesMap[cid].some(m => m.id === msgId)) { foundCid = cid; break; }
+          }
+          if (!foundCid) return;
+
+          set(s => {
+            const arr = s.messagesMap[foundCid!];
+            const idx = arr.findIndex(m => m.id === msgId);
+            if (idx < 0) return {};
+            const copy = arr.slice();
+            copy[idx] = { ...copy[idx], status: 'failed' };
+            return { messagesMap: { ...s.messagesMap, [foundCid!]: copy } };
+          });
+
+          // 仅私聊被拦才引导重加好友；群被移出已有横幅 + 系统消息闭环，跳过。
+          const conv = state.conversations.find(c => c.id === foundCid);
+          if (conv?.type === 'private') {
+            const peerId = foundCid.split('_').find(p => p !== userId);
+            if (peerId) notifyFriendBlocked(peerId);
+          }
+          return;
+        }
+        console.warn('[ChatStore] ws error:', err);
+      },
     });
 
     // 服务端推送消息 — push.go NewMessage 不设 method，所以 method 为 ""
@@ -193,6 +249,14 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const imStore = useIMStore.getState();
       imStore.setMomentsUnreadCount(imStore.momentsUnreadCount + 1);
       imStore.bumpTrendNotifyVersion();
+    });
+
+    // 关系变更：好友删除走隐式（不禁用输入框，发送时红感叹号闭环）；仅群事件（被踢/解散）显式禁用 + 通知
+    ws.on('relation.changed', (data) => {
+      const evt = data as { conversationId?: string; eventType?: string; operatorId?: string } | null;
+      if (!evt?.conversationId) return;
+      if (evt.eventType !== 'group.member.removed' && evt.eventType !== 'group.disbanded') return;
+      get().markGroupRemoved(evt.conversationId, evt.eventType);
     });
 
     ws.connect();
@@ -459,10 +523,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       });
     };
 
-    ws.send('chat.user', wsData)
+    ws.send('chat.user', wsData, localMsgId)
       .then(() => updateMsgStatus('sent'))
       .catch(err => {
-        console.error('[ChatStore] send failed:', err);
+        // 被鉴权闸门拦截 / 超时等：标记失败（红感叹号）即可，不 console.error 以免开发模式错误浮层
+        console.warn('[ChatStore] send failed:', err);
         updateMsgStatus('failed');
       });
   },
@@ -667,6 +732,31 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   ensureUserProfiles: (token, userIds) => {
     const missing = userIds.filter(id => id && !get().userProfiles[id]);
     if (missing.length > 0) resolveUserProfiles(token, missing);
+  },
+
+  markGroupRemoved: (conversationId, eventType) => {
+    set(s => {
+      const sysId = `system_removed_${conversationId}`;
+      const existing = s.messagesMap[conversationId] || [];
+      const next: Partial<ChatState> = {
+        disabledConversations: {
+          ...s.disabledConversations,
+          [conversationId]: { eventType },
+        },
+      };
+      // 插入"你已被移出群聊 / 该群聊已解散"系统消息（稳定 id 去重，避免实时帧 + 打开校验重复插）
+      if (!existing.some(m => m.id === sysId)) {
+        const sysMsg: Message = {
+          id: sysId,
+          senderId: 'system',
+          content: eventType === 'group.disbanded' ? '该群聊已解散' : '你已被移出群聊',
+          timestamp: new Date(),
+          type: 'system',
+        };
+        next.messagesMap = { ...s.messagesMap, [conversationId]: [...existing, sysMsg] };
+      }
+      return next;
+    });
   },
 }));
 

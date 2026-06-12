@@ -6,6 +6,7 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
@@ -50,7 +51,14 @@ func (l *GroupKickLogic) GroupKick(in *social.GroupKickReq) (*social.GroupKickRe
 			if member.RoleLevel >= operator.RoleLevel {
 				continue // Skip
 			}
-			l.svcCtx.GroupMembersModel.Delete(l.ctx, member.Id)
+			// 删除成员 + 同事务写 outbox（踢人事件），提交后 best-effort 同步关系缓存
+			if emitErr := emitRelationChange(l.ctx, l.svcCtx, constants.RelationEventGroupMemberRemoved, in.GroupId,
+				&mq.RelationChangeTransfer{GroupId: in.GroupId, UserId: memberId, OperatorId: in.UserId},
+				func(tx *gorm.DB) error {
+					return tx.Table("group_members").Where("id = ?", member.Id).Delete(nil).Error
+				}); emitErr != nil {
+				return nil, errors.Wrapf(xerr.NewDBErr(), "kick member err %v", emitErr)
+			}
 		}
 	}
 

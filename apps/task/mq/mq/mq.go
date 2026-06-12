@@ -102,3 +102,23 @@ type TrendNotifyTransfer struct {
 	// 创建时间(时间戳)
 	CreateTime int64 `json:"createTime"`
 }
+
+// RelationChangeTransfer 关系变更事件（social outbox -> relay 生产 -> task/mq 消费）。
+// 消费端据此维护关系缓存（版本门）并推送会话失效帧给受影响用户。走独立 topic relationChangeTransfer。
+type RelationChangeTransfer struct {
+	// 事件类型，见 constants.RelationEvent*
+	EventType string `json:"eventType"`
+	// 群ID（群类事件）
+	GroupId string `json:"groupId,omitempty"`
+	// 受影响成员 uid（被踢/退群者）
+	UserId string `json:"userId,omitempty"`
+	// 操作者 uid
+	OperatorId string `json:"operatorId,omitempty"`
+	// 好友对（好友类事件，双向）
+	FriendA string `json:"friendA,omitempty"`
+	FriendB string `json:"friendB,omitempty"`
+	// 单调版本号（= outbox.id），消费端版本门用
+	Version int64 `json:"version"`
+	// 事件时间戳
+	Timestamp int64 `json:"timestamp"`
+}
