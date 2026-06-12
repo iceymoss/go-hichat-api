@@ -246,6 +246,38 @@ export function getAtMeMessages(token: string, conversationId: string, count = 0
   return imGet<{ list: ChatLogItem[] }>(`/v1/im/chatlog/atme?${params}`, token);
 }
 
+// ---------------- 公共通知（好友/群申请等实时通知） ----------------
+
+export interface NotificationItem {
+  id: number;
+  notifyType: string; // friend.apply / friend.accept / group.apply ...
+  bizId?: string;
+  actorId?: string;
+  groupId?: string;
+  title?: string;
+  content?: string;
+  payload?: string;
+  isRead: number; // 0 未读 1 已读
+  createTime: number;
+}
+
+/** 拉取当前用户的通知列表（公共通知通道） */
+export function listNotifications(token: string, unreadOnly = false, offset = 0, limit = 20) {
+  const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  if (unreadOnly) params.set('unreadOnly', 'true');
+  return imGet<{ list: NotificationItem[] }>(`/v1/im/notifications?${params}`, token);
+}
+
+/** 当前用户未读通知数 */
+export function getNotificationUnreadCount(token: string) {
+  return imGet<{ count: number }>(`/v1/im/notifications/unreadCount`, token);
+}
+
+/** 标记通知已读（ids 为空表示全部已读） */
+export function markNotificationsRead(token: string, ids: number[] = []) {
+  return imPost<{ affected: number }>(`/v1/im/notifications/read`, { ids }, token);
+}
+
 /** 获取会话列表 — 返回 {conversationList: Record<string, ConversationItem>} */
 export function getConversations(token: string) {
   return imGet<{ conversationList: Record<string, ConversationItem> }>('/v1/im/conversation', token);

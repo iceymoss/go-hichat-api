@@ -73,6 +73,10 @@ interface IMState {
   trendNotifyVersion: number;
   bumpTrendNotifyVersion: () => void;
 
+  // 公共通知（好友/群申请等）：收到 ws notify 帧后 bump，供通知中心刷新历史列表
+  notificationVersion: number;
+  bumpNotificationVersion: () => void;
+
   // Group panel
   showGroupPanel: boolean;
   setShowGroupPanel: (show: boolean) => void;
@@ -240,6 +244,9 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   setMomentsUnreadCount: (count) => set({ momentsUnreadCount: count }),
   trendNotifyVersion: 0,
   bumpTrendNotifyVersion: () => set((s) => ({ trendNotifyVersion: s.trendNotifyVersion + 1 })),
+
+  notificationVersion: 0,
+  bumpNotificationVersion: () => set((s) => ({ notificationVersion: s.notificationVersion + 1 })),
 
   // Group panel
   showGroupPanel: false,

@@ -259,6 +259,37 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       get().markGroupRemoved(evt.conversationId, evt.eventType);
     });
 
+    // 公共通知（好友/群申请等）：按 notifyType 分发 —— 实时红点 + 气泡提示。
+    // 文案硬编码中文，与本模块其余 toast 保持一致；历史列表/已读由通知中心走 REST 拉取。
+    ws.on('notify', (data) => {
+      const n = data as { notifyType?: string } | null;
+      if (!n?.notifyType) return;
+      const imStore = useIMStore.getState();
+      switch (n.notifyType) {
+        case 'friend.apply':
+          imStore.setFriendRequestUnreadCount(imStore.friendRequestUnreadCount + 1);
+          toast('有人申请添加你为好友');
+          break;
+        case 'friend.accept':
+          toast.success('对方通过了你的好友申请');
+          break;
+        case 'friend.reject':
+          toast('对方拒绝了你的好友申请');
+          break;
+        case 'group.apply':
+          imStore.setGroupAppUnreadCount(imStore.groupAppUnreadCount + 1);
+          toast('有人申请加入你管理的群聊');
+          break;
+        case 'group.accept':
+          toast.success('你的入群申请已通过');
+          break;
+        case 'group.reject':
+          toast('你的入群申请被拒绝');
+          break;
+      }
+      imStore.bumpNotificationVersion();
+    });
+
     ws.connect();
 
     // 定时刷新好友在线状态（每 30 秒）

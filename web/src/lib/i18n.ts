@@ -117,6 +117,18 @@ const dict: Record<string, Record<string, string>> = {
     'trend.notify.act.reply': '回复了你的评论',
     'trend.notify.act.atTrend': '在动态中提到了你',
     'trend.notify.act.atComment': '在评论中提到了你',
+    // 公共通知中心（好友/群申请等）
+    'notify.center.title': '通知',
+    'notify.center.markAllRead': '全部已读',
+    'notify.center.empty': '暂无通知',
+    'notify.center.allReadDone': '已全部标记为已读',
+    'notify.center.markFailed': '标记失败',
+    'notify.type.friend.apply': '申请添加你为好友',
+    'notify.type.friend.accept': '通过了你的好友申请',
+    'notify.type.friend.reject': '拒绝了你的好友申请',
+    'notify.type.group.apply': '申请加入群聊',
+    'notify.type.group.accept': '通过了你的入群申请',
+    'notify.type.group.reject': '拒绝了你的入群申请',
   },
 
   en: {
@@ -225,6 +237,18 @@ const dict: Record<string, Record<string, string>> = {
     'trend.notify.act.reply': 'replied to your comment',
     'trend.notify.act.atTrend': 'mentioned you in a moment',
     'trend.notify.act.atComment': 'mentioned you in a comment',
+    // common notification center (friend/group requests)
+    'notify.center.title': 'Notifications',
+    'notify.center.markAllRead': 'Mark all read',
+    'notify.center.empty': 'No notifications',
+    'notify.center.allReadDone': 'All marked as read',
+    'notify.center.markFailed': 'Failed to mark read',
+    'notify.type.friend.apply': 'requested to add you as a friend',
+    'notify.type.friend.accept': 'accepted your friend request',
+    'notify.type.friend.reject': 'declined your friend request',
+    'notify.type.group.apply': 'requested to join the group',
+    'notify.type.group.accept': 'approved your join request',
+    'notify.type.group.reject': 'declined your join request',
   },
 };
 
