@@ -64,15 +64,14 @@ func notifyGroupAdmins(ctx context.Context, svcCtx *svc.ServiceContext, groupId,
 	}
 }
 
-// groupMemberOmitEmptyUid 返回 INSERT group_members 时需跳过的 INT 外键列。
-// inviter_uid/operator_uid 是可空 INT 列，空字符串不能写入（Error 1366），空则跳过以落 NULL。
-func groupMemberOmitEmptyUid(gm *socialmodels.GroupMembers) []string {
-	omit := make([]string, 0, 2)
+// normalizeGroupMemberUid 把空的 inviter_uid/operator_uid 归一为 "0"（写入 INT 列为 0）。
+// 原因：列是 INT，空串写入报 Error 1366；而模型字段是 string、读取无法把 NULL 扫进 string，
+// 所以用 "0" 哨兵（无邀请人/操作人）既能写也能读，与全仓把这两列当非空 string 的约定一致。
+func normalizeGroupMemberUid(gm *socialmodels.GroupMembers) {
 	if gm.InviterUid == "" {
-		omit = append(omit, "inviter_uid")
+		gm.InviterUid = "0"
 	}
 	if gm.OperatorUid == "" {
-		omit = append(omit, "operator_uid")
+		gm.OperatorUid = "0"
 	}
-	return omit
 }
