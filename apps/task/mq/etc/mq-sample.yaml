@@ -74,6 +74,6 @@ RelationChangeTransfer:
 
 # 发送鉴权灰度开关：默认 false=现状行为（不校验，fail-open）；验证缓存/事件链路无误后分粒度打开
 AuthzGate:
-  Enabled: false
-  GroupChat: false
-  SingleChat: false
+  Enabled: true
+  GroupChat: true
+  SingleChat: true
