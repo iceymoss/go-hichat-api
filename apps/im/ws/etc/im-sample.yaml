@@ -27,6 +27,6 @@ SocialRpc:
 
 # 发送鉴权灰度开关：默认 false=现状行为（不校验，fail-open）
 AuthzGate:
-  Enabled: false
-  GroupChat: false
-  SingleChat: false
+  Enabled: true
+  GroupChat: true
+  SingleChat: true
