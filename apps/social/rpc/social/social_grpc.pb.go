@@ -40,6 +40,7 @@ const (
 	Social_GroupPutin_FullMethodName                 = "/social.social/GroupPutin"
 	Social_GroupPutinList_FullMethodName             = "/social.social/GroupPutinList"
 	Social_GetGroupPutListByUid_FullMethodName       = "/social.social/GetGroupPutListByUid"
+	Social_MarkGroupReqRead_FullMethodName           = "/social.social/MarkGroupReqRead"
 	Social_GroupPutInHandle_FullMethodName           = "/social.social/GroupPutInHandle"
 	Social_GroupList_FullMethodName                  = "/social.social/GroupList"
 	Social_GroupUsers_FullMethodName                 = "/social.social/GroupUsers"
@@ -96,6 +97,7 @@ type SocialClient interface {
 	GroupPutin(ctx context.Context, in *GroupPutinReq, opts ...grpc.CallOption) (*GroupPutinResp, error)
 	GroupPutinList(ctx context.Context, in *GroupPutinListReq, opts ...grpc.CallOption) (*GroupPutinListResp, error)
 	GetGroupPutListByUid(ctx context.Context, in *GetGroupPutListByUidReq, opts ...grpc.CallOption) (*GroupPutinListResp, error)
+	MarkGroupReqRead(ctx context.Context, in *MarkGroupReqReadReq, opts ...grpc.CallOption) (*MarkGroupReqReadResp, error)
 	GroupPutInHandle(ctx context.Context, in *GroupPutInHandleReq, opts ...grpc.CallOption) (*GroupPutInHandleResp, error)
 	GroupList(ctx context.Context, in *GroupListReq, opts ...grpc.CallOption) (*GroupListResp, error)
 	GroupUsers(ctx context.Context, in *GroupUsersReq, opts ...grpc.CallOption) (*GroupUsersResp, error)
@@ -337,6 +339,16 @@ func (c *socialClient) GetGroupPutListByUid(ctx context.Context, in *GetGroupPut
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GroupPutinListResp)
 	err := c.cc.Invoke(ctx, Social_GetGroupPutListByUid_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) MarkGroupReqRead(ctx context.Context, in *MarkGroupReqReadReq, opts ...grpc.CallOption) (*MarkGroupReqReadResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MarkGroupReqReadResp)
+	err := c.cc.Invoke(ctx, Social_MarkGroupReqRead_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -613,6 +625,7 @@ type SocialServer interface {
 	GroupPutin(context.Context, *GroupPutinReq) (*GroupPutinResp, error)
 	GroupPutinList(context.Context, *GroupPutinListReq) (*GroupPutinListResp, error)
 	GetGroupPutListByUid(context.Context, *GetGroupPutListByUidReq) (*GroupPutinListResp, error)
+	MarkGroupReqRead(context.Context, *MarkGroupReqReadReq) (*MarkGroupReqReadResp, error)
 	GroupPutInHandle(context.Context, *GroupPutInHandleReq) (*GroupPutInHandleResp, error)
 	GroupList(context.Context, *GroupListReq) (*GroupListResp, error)
 	GroupUsers(context.Context, *GroupUsersReq) (*GroupUsersResp, error)
@@ -712,6 +725,9 @@ func (UnimplementedSocialServer) GroupPutinList(context.Context, *GroupPutinList
 }
 func (UnimplementedSocialServer) GetGroupPutListByUid(context.Context, *GetGroupPutListByUidReq) (*GroupPutinListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetGroupPutListByUid not implemented")
+}
+func (UnimplementedSocialServer) MarkGroupReqRead(context.Context, *MarkGroupReqReadReq) (*MarkGroupReqReadResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MarkGroupReqRead not implemented")
 }
 func (UnimplementedSocialServer) GroupPutInHandle(context.Context, *GroupPutInHandleReq) (*GroupPutInHandleResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupPutInHandle not implemented")
@@ -1180,6 +1196,24 @@ func _Social_GetGroupPutListByUid_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SocialServer).GetGroupPutListByUid(ctx, req.(*GetGroupPutListByUidReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_MarkGroupReqRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MarkGroupReqReadReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).MarkGroupReqRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_MarkGroupReqRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).MarkGroupReqRead(ctx, req.(*MarkGroupReqReadReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1706,6 +1740,10 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetGroupPutListByUid",
 			Handler:    _Social_GetGroupPutListByUid_Handler,
+		},
+		{
+			MethodName: "MarkGroupReqRead",
+			Handler:    _Social_MarkGroupReqRead_Handler,
 		},
 		{
 			MethodName: "GroupPutInHandle",

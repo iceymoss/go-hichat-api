@@ -441,8 +441,15 @@ type GroupRequests struct {
 	HandleUserId  string `json:"handle_user_id,omitempty"`
 	HandleTime    int64  `json:"handle_time,omitempty"`
 	HandleResult  int64  `json:"handle_result,omitempty"`
+	ReceiverRead  int64  `json:"receiver_read,omitempty"`
 	User          User   `json:"user,omitempty"`
 	Group         Groups `json:"group,omitempty"`
+}
+
+type GroupPutInsReadReq struct {
+}
+
+type GroupPutInsReadResp struct {
 }
 
 type GroupSetAdminReq struct {

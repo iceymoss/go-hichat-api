@@ -96,9 +96,12 @@ type (
 		HandleUserId  string `json:"handle_user_id,omitempty"`
 		HandleTime    int64  `json:"handle_time,omitempty"`
 		HandleResult  int64  `json:"handle_result,omitempty"`
+		ReceiverRead  int64  `json:"receiver_read,omitempty"`
 		User          User   `json:"user,omitempty"`
 		Group         Groups `json:"group,omitempty"`
 	}
+	GroupPutInsReadReq  {}
+	GroupPutInsReadResp  {}
 )
 
 type (
@@ -601,6 +604,10 @@ service social {
 	@doc "用户角度的群申请列表"
 	@handler getGroupPutListByUid
 	get /group/putInsByUid (GetGroupPutListByUidReq) returns (GetGroupPutListByUidResp)
+
+	@doc "把我管理的群收到的入群申请全部标记已读"
+	@handler groupPutInsRead
+	put /group/putIns/read (GroupPutInsReadReq) returns (GroupPutInsReadResp)
 
 	@doc "用户申群列表"
 	@handler groupList

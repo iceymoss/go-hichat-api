@@ -71,6 +71,7 @@ func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(in *social.GetGroupPutL
 			HandleUid:        req.HandleUserId.String,
 			HandleResult:     int32(req.HandleResult.Int64),
 			HandleResultTime: req.HandleTime.Unix(),
+			ReceiverRead:     int32(req.ReceiverRead),
 		})
 	}
 

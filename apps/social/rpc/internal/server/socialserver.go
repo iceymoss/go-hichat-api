@@ -130,6 +130,11 @@ func (s *SocialServer) GetGroupPutListByUid(ctx context.Context, in *social.GetG
 	return l.GetGroupPutListByUid(in)
 }
 
+func (s *SocialServer) MarkGroupReqRead(ctx context.Context, in *social.MarkGroupReqReadReq) (*social.MarkGroupReqReadResp, error) {
+	l := logic.NewMarkGroupReqReadLogic(ctx, s.svcCtx)
+	return l.MarkGroupReqRead(in)
+}
+
 func (s *SocialServer) GroupPutInHandle(ctx context.Context, in *social.GroupPutInHandleReq) (*social.GroupPutInHandleResp, error) {
 	l := logic.NewGroupPutInHandleLogic(ctx, s.svcCtx)
 	return l.GroupPutInHandle(in)

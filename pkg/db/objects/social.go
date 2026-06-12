@@ -89,6 +89,7 @@ type GroupRequest struct {
 	HandleUserID  *uint64    `gorm:"column:handle_user_id;type:INT UNSIGNED;comment:请求处理人ID"`
 	HandleTime    *time.Time `gorm:"column:handle_time;type:TIMESTAMP;comment:处理时间"`
 	HandleResult  *int       `gorm:"column:handle_result;type:TINYINT;comment:处理结果（0:待处理 1:同意 2:拒绝）"`
+	ReceiverRead  int        `gorm:"column:receiver_read;type:TINYINT;default:0;not null;comment:接收方(群主/管理员)已读 0未读 1已读"`
 }
 
 func (GroupRequest) TableName() string {
