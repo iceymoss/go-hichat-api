@@ -127,6 +127,63 @@ message GetAtMeMessagesResp {
   repeated ChatLog list = 1;
 }
 
+// ------------ 公共通知 -----------------
+
+message Notification {
+  uint64 id = 1;
+  string receiverId = 2;
+  string notifyType = 3;   // friend.apply / friend.accept / group.apply ...
+  string bizId = 4;        // 业务关联ID（幂等键）
+  string actorId = 5;      // 触发者 uid
+  string groupId = 6;      // 群相关通知的群 id
+  string title = 7;
+  string content = 8;
+  string payload = 9;      // 扩展字段 JSON
+  int32  isRead = 10;      // 0未读 1已读
+  int64  createTime = 11;  // unix 秒
+}
+
+message CreateNotificationReq {
+  string receiverId = 1;
+  string notifyType = 2;
+  string bizId = 3;
+  string actorId = 4;
+  string groupId = 5;
+  string title = 6;
+  string content = 7;
+  string payload = 8;
+  int64  createTime = 9;
+}
+message CreateNotificationResp {
+  uint64 id = 1;
+  bool   inserted = 2; // false=命中幂等键被跳过（已存在）
+}
+
+message ListNotificationsReq {
+  string receiverId = 1;
+  bool   unreadOnly = 2;
+  int32  offset = 3;
+  int32  limit = 4;
+}
+message ListNotificationsResp {
+  repeated Notification list = 1;
+}
+
+message MarkNotificationsReadReq {
+  string receiverId = 1;
+  repeated uint64 ids = 2; // 为空表示标记该接收者全部未读为已读
+}
+message MarkNotificationsReadResp {
+  int64 affected = 1;
+}
+
+message GetUnreadNotificationCountReq {
+  string receiverId = 1;
+}
+message GetUnreadNotificationCountResp {
+  int64 count = 1;
+}
+
 service Im {
   // 获取会话记录
   rpc GetChatLog(GetChatLogReq) returns(GetChatLogResp);
@@ -151,5 +208,17 @@ service Im {
 
   // 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
   rpc GetAtMeMessages(GetAtMeMessagesReq) returns(GetAtMeMessagesResp);
+
+  // 公共通知通道：落库一条通知（幂等）
+  rpc CreateNotification(CreateNotificationReq) returns(CreateNotificationResp);
+
+  // 公共通知通道：拉取接收者通知列表（分页）
+  rpc ListNotifications(ListNotificationsReq) returns(ListNotificationsResp);
+
+  // 公共通知通道：标记通知已读（单条/批量/全部）
+  rpc MarkNotificationsRead(MarkNotificationsReadReq) returns(MarkNotificationsReadResp);
+
+  // 公共通知通道：接收者未读数
+  rpc GetUnreadNotificationCount(GetUnreadNotificationCountReq) returns(GetUnreadNotificationCountResp);
 }
 
