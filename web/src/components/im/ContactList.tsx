@@ -31,26 +31,38 @@ const iconMap: Record<string, React.ReactNode> = {
 export default function ContactList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [backendResults, setBackendResults] = useState<Contact[]>([]);
-  const { setSelectedContactId, selectedContactId, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, setShowGroupPanel, groupAppUnreadCount, currentUser, friends, setFriends, friendsVersion } = useIMStore();
+  const { setSelectedContactId, selectedContactId, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setFriends, friendsVersion } = useIMStore();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Poll friend request unread count every 10s
+  // 好友申请未读数：挂载时拉一次（拿离线累计），之后由 ws.on('notify') 实时 +1，无需轮询
   useEffect(() => {
     if (!currentUser?.token) return;
-    const fetchCount = () => {
-      fetch('/api/social/friend/putIn/messageCount', {
-        headers: { Authorization: `Bearer ${currentUser.token}` },
+    fetch('/api/social/friend/putIn/messageCount', {
+      headers: { Authorization: `Bearer ${currentUser.token}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) setFriendRequestUnreadCount(d.data?.count ?? 0);
       })
-        .then(r => r.json())
-        .then(d => {
-          if (d.success) setFriendRequestUnreadCount(d.data?.count ?? 0);
-        })
-        .catch(() => {});
-    };
-    fetchCount(); // 立即拉一次
-    const timer = setInterval(fetchCount, 10000); // 每 10 秒轮询
-    return () => clearInterval(timer);
+      .catch(() => {});
   }, [currentUser?.token, setFriendRequestUnreadCount]);
+
+  // 入群申请未读数：挂载时拉一次（持久化「我的群组」气泡），否则刷新后需进群申请视图才算出来。
+  // 已读模型：未读 = 我收到的(申请人≠我) 且 receiver_read=0。
+  useEffect(() => {
+    const myId = currentUser?.id;
+    if (!currentUser?.token || !myId) return;
+    fetch('/api/social/group/putInsByUid?class=2', {
+      headers: { Authorization: `Bearer ${currentUser.token}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        const list: Array<{ user_id?: string; receiver_read?: number }> = d?.data?.list || [];
+        const cnt = list.filter(x => String(x.user_id) !== String(myId) && (x.receiver_read ?? 0) === 0).length;
+        setGroupAppUnreadCount(cnt);
+      })
+      .catch(() => {});
+  }, [currentUser?.token, currentUser?.id, setGroupAppUnreadCount]);
 
   // Fetch friends list from API
   useEffect(() => {

@@ -59,6 +59,7 @@ type (
 		HandleUserId  sql.NullString `db:"handle_user_id"`
 		HandleTime    time.Time      `db:"handle_time"`
 		HandleResult  sql.NullInt64  `db:"handle_result"`
+		ReceiverRead  int            `db:"receiver_read"`
 	}
 )
 

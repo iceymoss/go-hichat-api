@@ -23,4 +23,10 @@ type Config struct {
 		Addrs []string
 		Topic string
 	}
+
+	// CommonNotifyTransfer 公共通知事件 Kafka 生产端（好友/群申请等实时通知）
+	CommonNotifyTransfer struct {
+		Addrs []string
+		Topic string
+	}
 }

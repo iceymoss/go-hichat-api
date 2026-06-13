@@ -70,3 +70,27 @@ func (s *ImServer) GetAtMeMessages(ctx context.Context, in *im.GetAtMeMessagesRe
 	l := logic.NewGetAtMeMessagesLogic(ctx, s.svcCtx)
 	return l.GetAtMeMessages(in)
 }
+
+// 公共通知通道：落库一条通知（幂等）
+func (s *ImServer) CreateNotification(ctx context.Context, in *im.CreateNotificationReq) (*im.CreateNotificationResp, error) {
+	l := logic.NewCreateNotificationLogic(ctx, s.svcCtx)
+	return l.CreateNotification(in)
+}
+
+// 公共通知通道：拉取接收者通知列表（分页）
+func (s *ImServer) ListNotifications(ctx context.Context, in *im.ListNotificationsReq) (*im.ListNotificationsResp, error) {
+	l := logic.NewListNotificationsLogic(ctx, s.svcCtx)
+	return l.ListNotifications(in)
+}
+
+// 公共通知通道：标记通知已读（单条/批量/全部）
+func (s *ImServer) MarkNotificationsRead(ctx context.Context, in *im.MarkNotificationsReadReq) (*im.MarkNotificationsReadResp, error) {
+	l := logic.NewMarkNotificationsReadLogic(ctx, s.svcCtx)
+	return l.MarkNotificationsRead(in)
+}
+
+// 公共通知通道：接收者未读数
+func (s *ImServer) GetUnreadNotificationCount(ctx context.Context, in *im.GetUnreadNotificationCountReq) (*im.GetUnreadNotificationCountResp, error) {
+	l := logic.NewGetUnreadNotificationCountLogic(ctx, s.svcCtx)
+	return l.GetUnreadNotificationCount(in)
+}

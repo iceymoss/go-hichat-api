@@ -25,6 +25,8 @@ type ServiceContext struct {
 	RelationOutboxModel socialmodels.RelationOutboxModel
 	// RelationChangeTransferClient 关系变更事件生产者（relay 投递用）
 	RelationChangeTransferClient mq_client.RelationChangeTransferClient
+	// CommonNotifyClient 公共通知事件生产者（好友/群申请等实时通知，直接 Push）
+	CommonNotifyClient mq_client.CommonNotifyClient
 	// RelationCache 关系缓存：变更后 best-effort 同步，让闸门即时生效
 	RelationCache *relationcache.Cache
 
@@ -45,6 +47,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 		RelationOutboxModel:          socialmodels.NewRelationOutboxModel(),
 		RelationChangeTransferClient: mq_client.NewRelationChangeTransferClient(c.RelationChangeTransfer.Addrs, c.RelationChangeTransfer.Topic),
+		CommonNotifyClient:           mq_client.NewCommonNotifyClient(c.CommonNotifyTransfer.Addrs, c.CommonNotifyTransfer.Topic),
 		RelationCache:                relationcache.New(db.GetRedisConn()),
 
 		User: userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),

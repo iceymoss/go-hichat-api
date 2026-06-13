@@ -111,6 +111,8 @@ type (
 	GroupUsersReq                  = social.GroupUsersReq
 	GroupUsersResp                 = social.GroupUsersResp
 	Groups                         = social.Groups
+	MarkGroupReqReadReq            = social.MarkGroupReqReadReq
+	MarkGroupReqReadResp           = social.MarkGroupReqReadResp
 	UpdateMyGroupMemberSettingReq  = social.UpdateMyGroupMemberSettingReq
 	UpdateMyGroupMemberSettingResp = social.UpdateMyGroupMemberSettingResp
 
@@ -138,6 +140,7 @@ type (
 		GroupPutin(ctx context.Context, in *GroupPutinReq, opts ...grpc.CallOption) (*GroupPutinResp, error)
 		GroupPutinList(ctx context.Context, in *GroupPutinListReq, opts ...grpc.CallOption) (*GroupPutinListResp, error)
 		GetGroupPutListByUid(ctx context.Context, in *GetGroupPutListByUidReq, opts ...grpc.CallOption) (*GroupPutinListResp, error)
+		MarkGroupReqRead(ctx context.Context, in *MarkGroupReqReadReq, opts ...grpc.CallOption) (*MarkGroupReqReadResp, error)
 		GroupPutInHandle(ctx context.Context, in *GroupPutInHandleReq, opts ...grpc.CallOption) (*GroupPutInHandleResp, error)
 		GroupList(ctx context.Context, in *GroupListReq, opts ...grpc.CallOption) (*GroupListResp, error)
 		GroupUsers(ctx context.Context, in *GroupUsersReq, opts ...grpc.CallOption) (*GroupUsersResp, error)
@@ -283,6 +286,11 @@ func (m *defaultSocial) GroupPutinList(ctx context.Context, in *GroupPutinListRe
 func (m *defaultSocial) GetGroupPutListByUid(ctx context.Context, in *GetGroupPutListByUidReq, opts ...grpc.CallOption) (*GroupPutinListResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.GetGroupPutListByUid(ctx, in, opts...)
+}
+
+func (m *defaultSocial) MarkGroupReqRead(ctx context.Context, in *MarkGroupReqReadReq, opts ...grpc.CallOption) (*MarkGroupReqReadResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.MarkGroupReqRead(ctx, in, opts...)
 }
 
 func (m *defaultSocial) GroupPutInHandle(ctx context.Context, in *GroupPutInHandleReq, opts ...grpc.CallOption) (*GroupPutInHandleResp, error) {

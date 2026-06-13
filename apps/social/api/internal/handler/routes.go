@@ -246,6 +246,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: group.GetGroupPutListByUidHandler(serverCtx),
 			},
 			{
+				// 把我管理的群收到的入群申请全部标记已读
+				Method:  http.MethodPut,
+				Path:    "/group/putIns/read",
+				Handler: group.GroupPutInsReadHandler(serverCtx),
+			},
+			{
 				// 退出群组
 				Method:  http.MethodPost,
 				Path:    "/group/quit",

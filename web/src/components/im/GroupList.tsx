@@ -153,7 +153,8 @@ function mapApplication(a: any): GroupApplication {
     joinSource: (a.join_source || 1) as GroupJoinSource,
     inviterName: a.inviter_user_id ? String(a.inviter_user_id) : undefined,
     handleResult: (a.handle_result ?? 0) as GroupAppResult,
-    readState: (a.handle_result ?? 0) !== 0,
+    // 已读模型：readState 由 receiver_read 决定（进列表即标已读），与好友申请一致
+    readState: (a.receiver_read ?? 0) === 1,
   };
 }
 
@@ -311,7 +312,7 @@ type DetailTab = 'members' | 'links' | 'announcements';
 type AppStatusFilter = 'all' | GroupAppResult;
 
 export default function GroupList() {
-  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail } = useIMStore();
+  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupAppNavTab, clearGroupAppNavTab } = useIMStore();
   const token = currentUser?.token || '';
   const myUserId = currentUser?.id || '';
 
@@ -324,6 +325,17 @@ export default function GroupList() {
   // App view
   const [appClass, setAppClass] = useState<GroupAppClass>('received');
   const [appStatusFilter, setAppStatusFilter] = useState<AppStatusFilter>('all');
+  // 申请是否已真正拉取过——拉取前不要用空 apps 把全局 groupAppUnreadCount 清零（否则进列表视图气泡会闪没）
+  const [appsLoaded, setAppsLoaded] = useState(false);
+
+  // 通知点击带来的跳转意图：进入「群申请」视图并定位子 tab（received=我收到 / sent=我发起）
+  useEffect(() => {
+    if (!groupAppNavTab) return;
+    setView('app');
+    setAppClass(groupAppNavTab);
+    setAppStatusFilter('all');
+    clearGroupAppNavTab();
+  }, [groupAppNavTab, clearGroupAppNavTab]);
 
   // List search
   const [listSearch, setListSearch] = useState('');
@@ -458,6 +470,7 @@ export default function GroupList() {
       } else {
         setApps([]);
       }
+      setAppsLoaded(true);
     } catch {
       setApps([]);
     }
@@ -523,12 +536,23 @@ export default function GroupList() {
     fetchGroups();
   }, [fetchGroups]);
 
-  // ── When entering app view: fetch applications ──
+  // ── 挂载即拉取申请：让「我的群组」列表视图的铃铛徽标也准确，而不只在进入群申请视图后才有 ──
   useEffect(() => {
-    if (view === 'app') {
-      fetchApplications();
-    }
-  }, [view, fetchApplications]);
+    if (token) fetchApplications();
+  }, [token, fetchApplications]);
+
+  // ── When entering app view: fetch applications + 全部标记已读（已读模型，清零气泡） ──
+  useEffect(() => {
+    if (view !== 'app') return;
+    fetchApplications();
+    if (!token) return;
+    apiFetch('/api/social/group/putIns/read', token, { method: 'PUT' })
+      .then(() => {
+        // 本地把我收到的申请标已读，气泡立即清零（无需等下次拉取）
+        setApps(prev => prev.map(a => (a.userId !== myUserId ? { ...a, readState: true } : a)));
+      })
+      .catch(() => {});
+  }, [view, token, myUserId, fetchApplications]);
 
   // ── When a group is selected: fetch detail, settings, announcements ──
   useEffect(() => {
@@ -547,8 +571,9 @@ export default function GroupList() {
   }, [selectedGroupId, detailTab, fetchInviteLinks]);
 
   // ── Computed ──
-  const unreadCount = useMemo(() => apps.filter(a => a.userId !== myUserId && a.handleResult === 0 && !a.readState).length, [apps, myUserId]);
-  useEffect(() => { setGroupAppUnreadCount(unreadCount); }, [unreadCount, setGroupAppUnreadCount]);
+  const unreadCount = useMemo(() => apps.filter(a => a.userId !== myUserId && !a.readState).length, [apps, myUserId]);
+  // 仅在已真正拉取过申请后才同步全局计数，避免挂载瞬间用空 apps 清零（气泡闪没）
+  useEffect(() => { if (appsLoaded) setGroupAppUnreadCount(unreadCount); }, [unreadCount, appsLoaded, setGroupAppUnreadCount]);
 
   const filteredGroups = useMemo(() => {
     if (!listSearch.trim()) return groups;
@@ -1149,8 +1174,8 @@ export default function GroupList() {
     </button>
   );
 
-  const filterPill = (active: boolean, onClick: () => void, label: string) => (
-    <button onClick={onClick} style={{ padding: '4px 14px', borderRadius: '14px', border: 'none', background: active ? 'rgba(51,144,236,0.1)' : 'rgba(0,0,0,0.04)', color: active ? '#3390EC' : '#646A73', fontSize: '12px', fontWeight: active ? 500 : 400, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>{label}</button>
+  const filterPill = (active: boolean, onClick: () => void, label: string, key?: string | number) => (
+    <button key={key} onClick={onClick} style={{ padding: '4px 14px', borderRadius: '14px', border: 'none', background: active ? 'rgba(51,144,236,0.1)' : 'rgba(0,0,0,0.04)', color: active ? '#3390EC' : '#646A73', fontSize: '12px', fontWeight: active ? 500 : 400, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>{label}</button>
   );
 
   const avatarCircle = (name: string, size: number, extra?: React.ReactNode) => (
@@ -1323,7 +1348,7 @@ export default function GroupList() {
 
         {/* Status filter */}
         <div className="flex items-center gap-2 shrink-0 overflow-x-auto" style={{ padding: '8px 16px 10px', background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-          {statusFilters.map(f => filterPill(appStatusFilter === f.key, () => setAppStatusFilter(f.key), f.label))}
+          {statusFilters.map(f => filterPill(appStatusFilter === f.key, () => setAppStatusFilter(f.key), f.label, f.key))}
         </div>
 
         {/* App list */}

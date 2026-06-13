@@ -57,6 +57,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: setConversationSettingsHandler(serverCtx),
 			},
 			{
+				// 拉取当前用户的通知列表(公共通知通道)
+				Method:  http.MethodGet,
+				Path:    "/notifications",
+				Handler: listNotificationsHandler(serverCtx),
+			},
+			{
+				// 标记通知已读(单条/批量/全部)
+				Method:  http.MethodPost,
+				Path:    "/notifications/read",
+				Handler: markNotificationsReadHandler(serverCtx),
+			},
+			{
+				// 当前用户未读通知数
+				Method:  http.MethodGet,
+				Path:    "/notifications/unreadCount",
+				Handler: getNotificationUnreadCountHandler(serverCtx),
+			},
+			{
 				// 建立会话
 				Method:  http.MethodPost,
 				Path:    "/setup/conversation",

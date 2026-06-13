@@ -73,6 +73,41 @@ type GetConversationsResp struct {
 	ConversationList map[string]Conversation `json:"conversationList"` // 移除星号*
 }
 
+type ListNotificationsReq struct {
+	UnreadOnly bool  `form:"unreadOnly,optional"`
+	Offset     int32 `form:"offset,optional"`
+	Limit      int32 `form:"limit,optional"`
+}
+
+type ListNotificationsResp struct {
+	List []NotificationItem `json:"list"`
+}
+
+type MarkNotificationsReadReq struct {
+	Ids []uint64 `json:"ids,optional"` // 为空表示全部已读
+}
+
+type MarkNotificationsReadResp struct {
+	Affected int64 `json:"affected"`
+}
+
+type NotificationItem struct {
+	Id         uint64 `json:"id"`
+	NotifyType string `json:"notifyType"` // friend.apply / group.accept ...
+	BizId      string `json:"bizId,omitempty"`
+	ActorId    string `json:"actorId,omitempty"`
+	GroupId    string `json:"groupId,omitempty"`
+	Title      string `json:"title,omitempty"`
+	Content    string `json:"content,omitempty"`
+	Payload    string `json:"payload,omitempty"`
+	IsRead     int32  `json:"isRead"`
+	CreateTime int64  `json:"createTime"`
+}
+
+type NotificationUnreadCountResp struct {
+	Count int64 `json:"count"`
+}
+
 type PutConversationsReq struct {
 	ConversationList map[string]Conversation `json:"conversationList"` // 移除星号*
 }

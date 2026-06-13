@@ -95,7 +95,8 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 		},
 		InviterUserId: sql.NullString{ //要求人，如果是群主和管理员，可以直接进入群聊
 			String: in.InviterUid,
-			Valid:  true,
+			// inviter_user_id 是 INT 列：主动申请无邀请人时写 NULL，不能写空串（否则 Error 1366）
+			Valid: in.InviterUid != "",
 		},
 		HandleResult: sql.NullInt64{ //处理结果：0未处理
 			Int64: int64(constants.NoHandlerResult),
@@ -189,6 +190,10 @@ func (l *GroupPutinLogic) createGroupReq(groupReq *socialmodels.GroupRequests, i
 	}
 
 	id, _ := strconv.Atoi(groupReq.GroupId)
+	// 公共通知：入群申请待审核 -> 扇出通知群主 + 管理员
+	notifyGroupAdmins(l.ctx, l.svcCtx, groupReq.GroupId, groupReq.ReqId,
+		fmt.Sprintf("group.apply:%s:%s:%d", groupReq.GroupId, groupReq.ReqId, groupReq.ReqTime.Time.Unix()),
+		groupReq.ReqMsg.String)
 	return &social.GroupPutinResp{
 		GroupId: int32(id),
 	}, nil
@@ -205,6 +210,7 @@ func (l *GroupPutinLogic) createGroupMember(in *social.GroupPutinReq, tx *gorm.D
 		JoinSource:  int(in.JoinSource),
 		InviterUid:  in.InviterUid,
 	}
+	normalizeGroupMemberUid(groupMember)
 	res := tx.Table(Group_Members).Create(&groupMember)
 	if res.Error != nil || res.RowsAffected == 0 {
 		tx.Rollback()

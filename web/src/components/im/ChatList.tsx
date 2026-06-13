@@ -23,7 +23,9 @@ import {
   BellOff,
 } from 'lucide-react';
 import { getAvatarColor } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
 import AddFriendPanel from './AddFriendPanel';
+import NotificationCenter from './NotificationCenter';
 import { toast } from 'sonner';
 
 /* ═══════════════════════════════════════
@@ -127,6 +129,7 @@ function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   return (
     <div
       style={{
@@ -184,7 +187,7 @@ function ConfirmDialog({
               (e.currentTarget as HTMLElement).style.background = 'transparent';
             }}
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -207,7 +210,7 @@ function ConfirmDialog({
               (e.currentTarget as HTMLElement).style.background = '#E53935';
             }}
           >
-            确认删除
+            {t('chatlist.confirmDelete')}
           </button>
         </div>
       </div>
@@ -245,6 +248,7 @@ function ConversationItem({
   const avatarSize = 48;
   const showCheckbox = editMode;
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  const t = useT();
 
   // 关闭右键菜单
   useEffect(() => {
@@ -280,9 +284,9 @@ function ConversationItem({
           onClick={(e) => e.stopPropagation()}
         >
           {[
-            { label: conversation.pinned ? '取消置顶' : '置顶', action: onTogglePin },
-            { label: conversation.muted ? '取消免打扰' : '免打扰', action: onToggleMute },
-            { label: '删除会话', action: onDelete, danger: true },
+            { label: conversation.pinned ? t('chatlist.unpin') : t('chatlist.pin'), action: onTogglePin },
+            { label: conversation.muted ? t('chatlist.unmute') : t('chatlist.mute'), action: onToggleMute },
+            { label: t('chatlist.deleteConv'), action: onDelete, danger: true },
           ].map(({ label, action, danger }) => (
             <button
               key={label}
@@ -434,7 +438,7 @@ function ConversationItem({
             }}
           >
             {conversation.hasAtMe && (
-              <span style={{ color: '#FA5151', fontWeight: 600, marginRight: 4 }}>[有人@你]</span>
+              <span style={{ color: '#FA5151', fontWeight: 600, marginRight: 4 }}>{t('chatlist.atMe')}</span>
             )}
             {conversation.lastMessage}
           </span>
@@ -699,6 +703,7 @@ function FloatingActionBar({
   onDelete: () => void;
   onToggleMute: () => void;
 }) {
+  const t = useT();
   return (
     <div
       style={{
@@ -718,23 +723,23 @@ function FloatingActionBar({
     >
       <ActionBarButton
         icon={<CheckCheck size={20} />}
-        label="全部已读"
+        label={t('chatlist.markAllRead')}
         onClick={onMarkRead}
       />
       <ActionBarButton
         icon={<Pin size={20} />}
-        label="置顶"
+        label={t('chatlist.pin')}
         onClick={onTogglePin}
       />
       <ActionBarButton
         icon={<Trash2 size={20} />}
-        label="删除"
+        label={t('chatlist.delete')}
         danger
         onClick={onDelete}
       />
       <ActionBarButton
         icon={<BellOff size={20} />}
-        label="免打扰"
+        label={t('chatlist.mute')}
         onClick={onToggleMute}
       />
     </div>
@@ -791,6 +796,7 @@ function ActionBarButton({
 export function ChatListToolbar() {
   const { localSearch, setLocalSearch, editMode, setEditMode, setSelectedIds } = useChatListContext();
   const [showAddFriend, setShowAddFriend] = useState(false);
+  const t = useT();
 
   const enterEditMode = useCallback(() => {
     setEditMode(true);
@@ -865,7 +871,7 @@ export function ChatListToolbar() {
               fontWeight: 500,
             }}
           >
-            选择会话
+            {t('chatlist.selectConv')}
           </div>
         ) : (
           <>
@@ -885,7 +891,7 @@ export function ChatListToolbar() {
             <input
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
-              placeholder="搜索联系人、群聊"
+              placeholder={t('chatlist.searchPlaceholder')}
               className="outline-none"
               style={{
                 width: '100%',
@@ -906,18 +912,21 @@ export function ChatListToolbar() {
 
       {/* Right: Plus icon (hidden in batch mode) */}
       {!editMode && (
-        <button
-          style={buttonStyle}
-          onClick={() => setShowAddFriend(true)}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'transparent';
-          }}
-        >
-          <UserPlus size={20} />
-        </button>
+        <>
+          <NotificationCenter />
+          <button
+            style={buttonStyle}
+            onClick={() => setShowAddFriend(true)}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = 'transparent';
+            }}
+          >
+            <UserPlus size={20} />
+          </button>
+        </>
       )}
 
       <AddFriendPanel open={showAddFriend} onClose={() => setShowAddFriend(false)} />
@@ -944,6 +953,7 @@ export function ChatListContent() {
 
   const { setSelectedConversationId, selectedConversationId } = useIMStore();
   const isMobile = useIsMobile();
+  const t = useT();
 
   const searchQuery = localSearch.trim();
 
@@ -1017,7 +1027,7 @@ export function ChatListContent() {
     setLocalConversations((prev) =>
       prev.map((c) => (selectedIds.has(c.id) ? { ...c, unreadCount: 0 } : c))
     );
-    toast.success('已标记为已读');
+    toast.success(t('chatlist.markedRead'));
   }, [selectedIds, setLocalConversations]);
 
   const handleTogglePin = useCallback(() => {
@@ -1034,7 +1044,7 @@ export function ChatListContent() {
         useChatStore.getState().setConversationSettings(token, id, { pinned: nextPinned })
       );
     }
-    toast.success(selectedIds.size > 0 ? '已更新置顶状态' : '');
+    toast.success(selectedIds.size > 0 ? t('chatlist.pinUpdated') : '');
   }, [selectedIds, localConversations, setLocalConversations]);
 
   const handleDelete = useCallback(() => {
@@ -1050,7 +1060,7 @@ export function ChatListContent() {
     setSelectedIds(new Set());
     setDeleteConfirm(false);
     setEditMode(false);
-    toast.success('会话已删除');
+    toast.success(t('chatlist.convDeleted'));
   }, [selectedIds, setLocalConversations, setSelectedIds, setDeleteConfirm, setEditMode]);
 
   const handleToggleMute = useCallback(() => {
@@ -1067,7 +1077,7 @@ export function ChatListContent() {
         useChatStore.getState().setConversationSettings(token, id, { muted: nextMuted })
       );
     }
-    toast.success('已更新免打扰状态');
+    toast.success(t('chatlist.muteUpdated'));
   }, [selectedIds, localConversations, setLocalConversations]);
 
   // ── Handle clicking a contact → open their conversation ──
@@ -1098,7 +1108,7 @@ export function ChatListContent() {
               <>
                 {matchedConversations.length > 0 && (
                   <>
-                    <SearchSectionHeader title="会话" count={matchedConversations.length} />
+                    <SearchSectionHeader title={t('chatlist.section.conv')} count={matchedConversations.length} />
                     {matchedConversations.map((conv) => (
                       <SearchConversationItem
                         key={conv.id}
@@ -1111,7 +1121,7 @@ export function ChatListContent() {
                 )}
                 {matchedContacts.length > 0 && (
                   <>
-                    <SearchSectionHeader title="联系人" count={matchedContacts.length} />
+                    <SearchSectionHeader title={t('chatlist.section.contact')} count={matchedContacts.length} />
                     {matchedContacts.map((contact) => (
                       <SearchContactItem
                         key={contact.id}
@@ -1124,7 +1134,7 @@ export function ChatListContent() {
                 )}
                 {matchedMessages.length > 0 && (
                   <>
-                    <SearchSectionHeader title="聊天记录" count={matchedMessages.length} />
+                    <SearchSectionHeader title={t('chatlist.section.message')} count={matchedMessages.length} />
                     {matchedMessages.slice(0, 20).map((result, idx) => (
                       <SearchMessageItem
                         key={`${result.message.id}-${idx}`}
@@ -1147,7 +1157,7 @@ export function ChatListContent() {
                   fontSize: 13,
                 }}
               >
-                没有找到相关结果
+                {t('chatlist.noResults')}
               </div>
             )}
           </div>
@@ -1169,7 +1179,7 @@ export function ChatListContent() {
                   if (token) useChatStore.getState().deleteConversation(token, conv.id);
                   setLocalConversations(prev => prev.filter(c => c.id !== conv.id));
                   if (selectedConversationId === conv.id) setSelectedConversationId(null);
-                  toast.success('会话已删除');
+                  toast.success(t('chatlist.convDeleted'));
                 }}
                 onTogglePin={() => {
                   const token = useIMStore.getState().currentUser?.token;
@@ -1199,7 +1209,7 @@ export function ChatListContent() {
                   fontSize: 13,
                 }}
               >
-                暂无会话
+                {t('chatlist.empty')}
               </div>
             )}
           </>
@@ -1220,7 +1230,7 @@ export function ChatListContent() {
       {/* ═══ Delete Confirm Dialog ═══ */}
       {deleteConfirm && (
         <ConfirmDialog
-          message={`确定删除选中的 ${selectedIds.size} 个会话吗？聊天记录将清空。`}
+          message={t('chatlist.deleteConfirm').replace('{count}', String(selectedIds.size))}
           onConfirm={confirmDelete}
           onCancel={() => setDeleteConfirm(false)}
         />

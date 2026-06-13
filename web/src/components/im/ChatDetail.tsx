@@ -8,7 +8,7 @@ import { formatTime, currentUser as mockCurrentUser, contacts, type Message, typ
 const RECALL_WINDOW_SECONDS = 120;
 
 /** 气泡时间：今天 HH:mm，昨天 昨天 HH:mm，今年 MM/DD HH:mm，跨年 YYYY/MM/DD HH:mm */
-function formatBubbleTime(date: Date): string {
+function formatBubbleTime(date: Date, t: (k: string) => string): string {
   const now = new Date();
   const hm = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   const md = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
@@ -17,7 +17,7 @@ function formatBubbleTime(date: Date): string {
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   const isYesterday = date.getFullYear() === yesterday.getFullYear() && date.getMonth() === yesterday.getMonth() && date.getDate() === yesterday.getDate();
-  if (isYesterday) return `昨天 ${hm}`;
+  if (isYesterday) return `${t('chat.yesterday')} ${hm}`;
   if (date.getFullYear() !== now.getFullYear()) return `${date.getFullYear()}/${md} ${hm}`;
   return `${md} ${hm}`;
 }
@@ -48,6 +48,7 @@ import ChatEmojiPanel, { type StickerItem } from './ChatEmojiPanel';
 import MediaLightbox, { type LightboxItem } from './MediaLightbox';
 import VoiceBubble from './VoiceBubble';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useT } from '@/hooks/use-i18n';
 import { CallDialog } from './CallDialog';
 import ChatSettingsMenu from './ChatSettingsMenu';
 import MessageContextMenu from './MessageContextMenu';
@@ -75,6 +76,7 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
   onVoicePlayed?: () => void;
 }) {
   const { type, content } = message;
+  const t = useT();
 
   if (type === 'image' || type === 'memes') {
     const meta = parseMediaContent(content);
@@ -125,7 +127,7 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
         <FileText size={32} style={{ flexShrink: 0, color: '#3390EC' }} />
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14 }}>
-            {meta.name || '文件'}
+            {meta.name || t('chat.fileFallback')}
           </span>
           <span style={{ display: 'block', fontSize: 12, opacity: 0.6 }}>{formatBytes(meta.size)}</span>
         </span>
@@ -157,6 +159,7 @@ function renderTextWithMentions(text: string, isOwn?: boolean) {
 
 /** 引用块：渲染被引用消息（图片/视频显示缩略图，否则文字预览），可点击跳转 */
 function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['replyTo']>; onJump?: () => void; recalled?: boolean }) {
+  const t = useT();
   const hasThumb = !recalled && (reply.mType === 'image' || reply.mType === 'video' || reply.mType === 'memes') && !!reply.thumbUrl;
   return (
     <div
@@ -178,7 +181,7 @@ function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['r
       <span style={{ minWidth: 0 }}>
         <span style={{ display: 'block', fontWeight: 600, color: '#3390EC' }}>{reply.senderName}</span>
         <span style={{ display: 'block', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: recalled ? 'italic' : 'normal' }}>
-          {recalled ? '消息已撤回' : reply.content}
+          {recalled ? t('chat.recalledShort') : reply.content}
         </span>
       </span>
     </div>
@@ -187,6 +190,7 @@ function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['r
 
 export default function ChatDetail() {
   const { selectedConversationId, setSelectedConversationId, setShowChatDetail } = useIMStore();
+  const t = useT();
   const [input, setInput] = useState('');
   // Track sent messages per conversation so they persist when switching back
   const [sentMap, setSentMap] = useState<Record<string, Message[]>>({});
@@ -446,7 +450,7 @@ export default function ChatDetail() {
     }
     const ok = await jumpToContext(currentUser.token, selectedConversationId, msgId);
     if (!ok) {
-      toast.error('未找到 @我的消息');
+      toast.error(t('chat.atMeNotFound'));
       consumeAtMe(selectedConversationId, msgId);
       return;
     }
@@ -543,7 +547,7 @@ export default function ChatDetail() {
     let mentionPayload: { atUsers?: string[]; atAll?: boolean } | undefined;
     if (conversation?.type === 'group') {
       const liveUsers = mentions.filter(m => text.includes('@' + m.name)).map(m => m.uid);
-      const liveAtAll = atAll && text.includes('@所有人');
+      const liveAtAll = atAll && text.includes('@' + t('chat.everyone'));
       if (liveUsers.length > 0 || liveAtAll) {
         mentionPayload = { atUsers: liveUsers.length > 0 ? Array.from(new Set(liveUsers)) : undefined, atAll: liveAtAll };
       }
@@ -607,7 +611,7 @@ export default function ChatDetail() {
   const pickAtAll = () => {
     const at = input.lastIndexOf('@');
     const base = at >= 0 ? input.slice(0, at) : input;
-    setInput(base + '@所有人 ');
+    setInput(base + '@' + t('chat.everyone') + ' ');
     setAtAll(true);
     setAtPicker(false);
     setAtQuery('');
@@ -665,7 +669,7 @@ export default function ChatDetail() {
         storeSendMessage(token, userId, convId, content, kind);
       } catch (err) {
         console.error('[ChatDetail] upload failed:', err);
-        toast.error(`${file.name} 上传失败`);
+        toast.error(t('chat.uploadFail').replace('{name}', file.name));
       }
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -703,7 +707,7 @@ export default function ChatDetail() {
         const blob = new Blob(chunksRef.current, { type: rec.mimeType || mime || 'audio/webm' });
         // 录音太短 / 空录音（仅有容器头）直接丢弃，避免发出无法播放的空语音
         if (blob.size < 1024) {
-          toast.error('录音太短，请按住多说一会');
+          toast.error(t('chat.voiceTooShort'));
           return;
         }
         const token = currentUser.token!;
@@ -714,7 +718,7 @@ export default function ChatDetail() {
           storeSendMessage(token, userId, selectedConversationId, content, 'voice');
         } catch (err) {
           console.error('[ChatDetail] voice upload failed:', err);
-          toast.error('语音发送失败');
+          toast.error(t('chat.voiceSendFail'));
         }
       };
       recorderRef.current = rec;
@@ -723,7 +727,7 @@ export default function ChatDetail() {
       setRecording(true);
     } catch (err) {
       console.error('[ChatDetail] mic permission denied:', err);
-      toast.error('无法访问麦克风，请检查授权');
+      toast.error(t('chat.micDenied'));
     }
   };
 
@@ -760,10 +764,10 @@ export default function ChatDetail() {
         }),
       });
       const d = await res.json();
-      if (d.success) toast.success('已添加到表情');
-      else toast.error(d.message || '添加失败');
+      if (d.success) toast.success(t('chat.stickerAdded'));
+      else toast.error(d.message || t('chat.addFail'));
     } catch {
-      toast.error('添加失败');
+      toast.error(t('chat.addFail'));
     }
     setContextMenu(null);
   };
@@ -832,23 +836,23 @@ export default function ChatDetail() {
     // 文本直接复制；图片尝试复制图片本身，失败则复制链接；其他富媒体复制链接
     if (msg.type === 'text' || msg.type === 'system') {
       await navigator.clipboard.writeText(msg.content);
-      toast.success('已复制');
+      toast.success(t('chat.copied'));
       return;
     }
     const meta = parseMediaContent(msg.content);
-    if (!meta?.url) { toast.error('无法复制'); return; }
+    if (!meta?.url) { toast.error(t('chat.copyFail')); return; }
     if (msg.type === 'image' || msg.type === 'memes') {
       try {
         const blob = await (await fetch(meta.url)).blob();
         await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]);
-        toast.success('图片已复制');
+        toast.success(t('chat.imgCopied'));
         return;
       } catch {
         // 跨域或不支持 → 退化为复制链接
       }
     }
     await navigator.clipboard.writeText(meta.url);
-    toast.success('已复制链接');
+    toast.success(t('chat.linkCopied'));
   }, []);
 
   // 打开图片/视频全屏预览（同会话内的图片/视频可左右切换；表情包单独预览）
@@ -886,7 +890,7 @@ export default function ChatDetail() {
     if (!currentUser?.token || !selectedConversationId) return;
     // 本地/未落库的占位消息不能撤回（没有真实 MongoID）
     if (msgId.startsWith('local_') || msgId.startsWith('push_')) {
-      toast.error('消息尚未发送完成，稍后再试');
+      toast.error(t('chat.notSentYet'));
       return;
     }
     // 本地时间窗预校验：仅拦"普通用户撤回自己消息超时"这一场景，省掉一次必然失败的请求。
@@ -898,7 +902,7 @@ export default function ChatDetail() {
       const elapsedMs = Date.now() - target.timestamp.getTime();
       if (elapsedMs > RECALL_WINDOW_SECONDS * 1000) {
         // 超时不发请求，直接弹居中提示框告知用户原因
-        setRecallBlockedReason(`消息发送已超过可撤回时间（${RECALL_WINDOW_SECONDS} 秒），无法撤回。`);
+        setRecallBlockedReason(t('chat.recallTimeout').replace('{sec}', String(RECALL_WINDOW_SECONDS)));
         return;
       }
     }
@@ -911,18 +915,18 @@ export default function ChatDetail() {
     if (!currentUser?.token || !selectedConversationId) return;
     setRecalledIds(prev => new Set(prev).add(msgId));
     storeRecallMessage(currentUser.token, selectedConversationId, msgId)
-      .then(() => toast.success('消息已撤回'))
+      .then(() => toast.success(t('chat.recalledOk')))
       .catch(() => {
         setRecalledIds(prev => { const n = new Set(prev); n.delete(msgId); return n; });
         // 失败原因（多为超时或无权限）同样用居中提示框，避免 toast 一闪而过用户没察觉
-        setRecallBlockedReason('撤回失败，可能已超过可撤回时间或无权限。');
+        setRecallBlockedReason(t('chat.recallFail'));
       });
   }, [currentUser?.token, selectedConversationId, storeRecallMessage]);
 
   const handleDeleteMessage = useCallback((msgId: string) => {
     setDeletedIds(prev => new Set(prev).add(msgId));
     setContextMenu(null);
-    toast.success('消息已删除');
+    toast.success(t('chat.msgDeleted'));
   }, []);
 
   // Bubble context menu trigger
@@ -967,7 +971,7 @@ export default function ChatDetail() {
             style={{ width: 64, height: 64, margin: '0 auto 16px', opacity: 0.3 }}
             strokeWidth={1.5}
           />
-          <p style={{ fontSize: 14, fontWeight: 500 }}>选择一个会话开始聊天</p>
+          <p style={{ fontSize: 14, fontWeight: 500 }}>{t('chat.empty')}</p>
         </div>
       </div>
     );
@@ -1022,12 +1026,15 @@ export default function ChatDetail() {
             </h2>
             {conv.type === 'group' ? (
               <p className="truncate" style={{ fontSize: 12, color: '#708499', lineHeight: 1.3, marginTop: 1 }}>
-                {(storeGroupMembers[selectedConversationId!] || []).length || conv.members || ''}位成员
+                {(() => {
+                  const n = (storeGroupMembers[selectedConversationId!] || []).length || conv.members || 0;
+                  return n ? t('chat.memberCount').replace('{count}', String(n)) : '';
+                })()}
               </p>
             ) : conv.online ? (
-              <p style={{ fontSize: 12, color: '#4DCD5E', lineHeight: 1.3, marginTop: 1 }}>在线</p>
+              <p style={{ fontSize: 12, color: '#4DCD5E', lineHeight: 1.3, marginTop: 1 }}>{t('chat.online')}</p>
             ) : (
-              <p style={{ fontSize: 12, color: '#A2ACB5', lineHeight: 1.3, marginTop: 1 }}>离线</p>
+              <p style={{ fontSize: 12, color: '#A2ACB5', lineHeight: 1.3, marginTop: 1 }}>{t('chat.offline')}</p>
             )}
           </div>
         </div>
@@ -1078,7 +1085,7 @@ export default function ChatDetail() {
           <input
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
-            placeholder="搜索聊天记录..."
+            placeholder={t('chat.searchPlaceholder')}
             autoFocus
             className="flex-1 outline-none"
             style={{ height: 36, padding: '0 14px', borderRadius: 18, border: '1px solid rgba(0,0,0,0.08)', background: '#F0F2F5', fontSize: 13, color: '#1C2733' }}
@@ -1087,7 +1094,7 @@ export default function ChatDetail() {
             onClick={() => { setSearchBarOpen(false); setSearchKeyword(''); }}
             style={{ fontSize: 13, color: '#3390EC', fontWeight: 500, background: 'transparent', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', padding: '4px 8px' }}
           >
-            取消
+            {t('common.cancel')}
           </button>
         </div>
       )}
@@ -1106,12 +1113,12 @@ export default function ChatDetail() {
         <div style={{ display: 'flex', flexDirection: 'column', padding: '0 2%', minHeight: '100%' }}>
           {loadingMore && (
             <div style={{ textAlign: 'center', padding: '8px 0', color: '#A2ACB5', fontSize: 12 }}>
-              加载中...
+              {t('common.loading')}
             </div>
           )}
           {noMoreHistory && !loadingMore && (
             <div style={{ textAlign: 'center', padding: '8px 0', color: '#A2ACB5', fontSize: 12 }}>
-              没有更多消息了
+              {t('chat.noMore')}
             </div>
           )}
           <MessageList
@@ -1127,7 +1134,7 @@ export default function ChatDetail() {
           />
           {searchBarOpen && searchKeyword && displayMessages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '24px 0', color: '#A2ACB5', fontSize: 13 }}>
-              没有找到相关消息
+              {t('chat.noMatchMsg')}
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -1136,10 +1143,10 @@ export default function ChatDetail() {
         {atMeIds.length > 0 && (
           <button
             onClick={jumpToAtMe}
-            title="跳转到 @我的消息"
+            title={t('chat.jumpAtMe')}
             style={{ position: 'absolute', right: 16, top: 16, padding: '8px 14px', borderRadius: 18, border: 'none', background: '#FA5151', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(250,81,81,0.35)', display: 'flex', alignItems: 'center', gap: 6, zIndex: 6 }}
           >
-            <span>{atMeIds.length > 1 ? `${atMeIds.length} 条@我的消息` : '有人@我'}</span>
+            <span>{atMeIds.length > 1 ? t('chat.atMeCount').replace('{count}', String(atMeIds.length)) : t('chat.atMeOne')}</span>
             <span style={{ fontSize: 12 }}>↓</span>
             <span
               role="button"
@@ -1156,7 +1163,7 @@ export default function ChatDetail() {
             onClick={() => { if (currentUser?.token && selectedConversationId) backToLatest(currentUser.token, selectedConversationId); }}
             style={{ position: 'absolute', right: 16, bottom: 16, padding: '8px 14px', borderRadius: 18, border: 'none', background: '#3390EC', color: '#fff', fontSize: 13, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', gap: 4, zIndex: 5 }}
           >
-            回到最新 ↓
+            {t('chat.backToLatest')} ↓
           </button>
         )}
       </div>
@@ -1176,8 +1183,8 @@ export default function ChatDetail() {
             background: '#FDECEA', borderTop: '1px solid rgba(0,0,0,0.06)',
           }}>
             {disabledInfo.eventType === 'friend.deleted'
-              ? '你们已不是好友关系，无法发送消息'
-              : '你已不在该群聊中，无法发送消息'}
+              ? t('chat.disabled.friend')
+              : t('chat.disabled.group')}
           </div>
         )}
         {/* Reply indicator */}
@@ -1231,7 +1238,7 @@ export default function ChatDetail() {
             background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.08)',
             borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
           }}>
-            {isGroupAdmin && (atQuery === '' || '所有人'.includes(atQuery)) && (
+            {isGroupAdmin && (atQuery === '' || t('chat.everyone').toLowerCase().includes(atQuery.toLowerCase())) && (
               <div
                 onClick={pickAtAll}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', cursor: 'pointer' }}
@@ -1239,11 +1246,11 @@ export default function ChatDetail() {
                 onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.background = 'transparent')}
               >
                 <span style={{ width: 32, height: 32, borderRadius: '50%', background: '#3390EC', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>@</span>
-                <span style={{ fontSize: 14, color: '#1C2733', fontWeight: 500 }}>所有人</span>
+                <span style={{ fontSize: 14, color: '#1C2733', fontWeight: 500 }}>{t('chat.everyone')}</span>
               </div>
             )}
-            {atCandidates.length === 0 && !(isGroupAdmin && (atQuery === '' || '所有人'.includes(atQuery))) ? (
-              <div style={{ padding: '12px', fontSize: 13, color: '#A2ACB5', textAlign: 'center' }}>无匹配成员</div>
+            {atCandidates.length === 0 && !(isGroupAdmin && (atQuery === '' || t('chat.everyone').toLowerCase().includes(atQuery.toLowerCase()))) ? (
+              <div style={{ padding: '12px', fontSize: 13, color: '#A2ACB5', textAlign: 'center' }}>{t('chat.noMatchMember')}</div>
             ) : atCandidates.map(m => (
               <div
                 key={m.uid}
@@ -1283,10 +1290,10 @@ export default function ChatDetail() {
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             disabled={!!disabledInfo}
             placeholder={disabledInfo
-              ? (disabledInfo.eventType === 'friend.deleted' ? '你们已不是好友关系' : '你已不在该群聊中')
+              ? (disabledInfo.eventType === 'friend.deleted' ? t('chat.disabled.friendShort') : t('chat.disabled.groupShort'))
               : (replyTo
-                ? `回复 ${conversation?.type === 'private' ? (peerName || replyTo.senderName) : replyTo.senderName}...`
-                : '输入消息...')}
+                ? t('chat.replyTo').replace('{name}', conversation?.type === 'private' ? (peerName || replyTo.senderName) : replyTo.senderName)
+                : t('chat.inputPlaceholder'))}
             type="text"
             className="flex-1 outline-none"
             style={{
@@ -1312,7 +1319,7 @@ export default function ChatDetail() {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            title="发送图片 / 视频 / 文件"
+            title={t('chat.attachTitle')}
             className="flex items-center justify-center shrink-0"
             style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer' }}
           >
@@ -1331,7 +1338,7 @@ export default function ChatDetail() {
           ) : (
             <button
               onClick={recording ? stopRecording : startRecording}
-              title={recording ? '点击停止并发送' : '按下录音'}
+              title={recording ? t('chat.recordStop') : t('chat.recordStart')}
               className="flex items-center justify-center shrink-0"
               style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: recording ? '#FA5151' : 'transparent', color: recording ? '#FFFFFF' : '#708499', cursor: 'pointer' }}
             >
@@ -1375,9 +1382,9 @@ export default function ChatDetail() {
       <ConfirmDialog
         open={recallConfirmId !== null}
         onClose={() => setRecallConfirmId(null)}
-        title="撤回消息"
-        description="确定撤回这条消息吗？撤回后对方将看到“撤回了一条消息”。"
-        confirmText="撤回"
+        title={t('chat.recall.title')}
+        description={t('chat.recall.desc')}
+        confirmText={t('chat.recall.confirm')}
         confirmVariant="danger"
         onConfirm={() => { if (recallConfirmId) doRecall(recallConfirmId); }}
       />
@@ -1386,9 +1393,9 @@ export default function ChatDetail() {
       <ConfirmDialog
         open={recallBlockedReason !== null}
         onClose={() => setRecallBlockedReason(null)}
-        title="无法撤回"
+        title={t('chat.recall.blockedTitle')}
         description={recallBlockedReason || ''}
-        confirmText="知道了"
+        confirmText={t('chat.recall.gotIt')}
         confirmVariant="default"
         hideCancel
         onConfirm={() => setRecallBlockedReason(null)}
@@ -1415,7 +1422,7 @@ export default function ChatDetail() {
               storeSendMessage(currentUser.token, currentUser.id, targetConvId, forwardMsg.content, forwardMsg.type);
             }
             setForwardMsg(null);
-            toast.success('转发成功');
+            toast.success(t('chat.forwardOk'));
           }}
         />
       )}
@@ -1466,6 +1473,7 @@ function MessageList({
   const { currentUser } = useIMStore();
   const { selectedConversationId } = useIMStore();
   const { friends } = useIMStore();
+  const t = useT();
   const userProfiles = useChatStore(s => s.userProfiles);
   const storeGroupMembers = useChatStore(s => s.groupMembers);
   const playedVoices = useChatStore(s => s.playedVoices);
@@ -1487,7 +1495,7 @@ function MessageList({
     // 不在当前列表 → 加载目标上下文窗口（进入浏览历史态）
     if (!currentUser?.token || !selectedConversationId) return;
     const ok = await jumpToContext(currentUser.token, selectedConversationId, msgId);
-    if (!ok) { toast.error('未找到原消息'); return; }
+    if (!ok) { toast.error(t('chat.origNotFound')); return; }
     // 等待新列表渲染后再滚动
     setTimeout(() => { if (!scrollTo()) setTimeout(scrollTo, 250); }, 80);
   };
@@ -1595,12 +1603,12 @@ function MessageList({
   // 撤回提示文案：你 / 对方 / 某成员 / 管理员撤回了一条消息
   const recalledText = useCallback((m: Message) => {
     const by = m.recalledBy;
-    if (by && by === currentUser?.id) return '你撤回了一条消息';
-    if (by && by !== m.senderId) return '管理员撤回了一条消息';
-    if (isOwnMessage(m.senderId)) return '你撤回了一条消息';
+    if (by && by === currentUser?.id) return t('chat.recalled.you');
+    if (by && by !== m.senderId) return t('chat.recalled.admin');
+    if (isOwnMessage(m.senderId)) return t('chat.recalled.you');
     return conversation?.type === 'group'
-      ? `${getSenderName(m.senderId)}撤回了一条消息`
-      : '对方撤回了一条消息';
+      ? t('chat.recalled.member').replace('{name}', getSenderName(m.senderId))
+      : t('chat.recalled.peer');
   }, [currentUser?.id, conversation?.type, isOwnMessage, getSenderName]);
 
   return (
@@ -1752,15 +1760,18 @@ function MessageList({
 
                 // 未读用中性灰，已读用品牌蓝，两者肉眼可辨
                 const checkColor = showRead ? '#3390EC' : '#C8CCD0';
-                let footerText = formatBubbleTime(lastMsg.timestamp);
+                let footerText = formatBubbleTime(lastMsg.timestamp, t);
                 if (lastMsg.status === 'failed') {
-                  footerText = '发送失败';
+                  footerText = t('chat.sendFail');
                 } else if (isSent && isGroup && readReceiptEnabled && totalMembers > 0) {
                   // 群聊自己发的消息：总是展示 X/N，哪怕 X=0，方便点开看谁没读
                   const rc = Math.min(lastMsg.readCount || 0, totalMembers);
-                  footerText = `${rc}/${totalMembers} 人已读 · ${formatBubbleTime(lastMsg.timestamp)}`;
+                  footerText = t('chat.readCount')
+                    .replace('{read}', String(rc))
+                    .replace('{total}', String(totalMembers))
+                    .replace('{time}', formatBubbleTime(lastMsg.timestamp, t));
                 } else if (showRead) {
-                  footerText = `已读 · ${formatBubbleTime(lastMsg.timestamp)}`;
+                  footerText = t('chat.readAt').replace('{time}', formatBubbleTime(lastMsg.timestamp, t));
                 }
 
                 // 仅自己发出 + 群聊 + 有真实 mongoID 才能点开已读详情
@@ -1797,7 +1808,7 @@ function MessageList({
                   }}>
                     {isSent && lastMsg.status === 'failed' && (
                       <span
-                        title="发送失败，点击重试"
+                        title={t('chat.sendFailRetry')}
                         onClick={() => {
                           if (currentUser?.token && currentUser?.id && selectedConversationId) {
                             useChatStore.getState().resendMessage(currentUser.token, currentUser.id, selectedConversationId, lastMsg.id);
@@ -1812,7 +1823,7 @@ function MessageList({
                     {isSent && lastMsg.status !== 'failed' && lastMsg.status !== 'sending' && (
                       <CheckCheck style={{ width: 14, height: 14, color: checkColor }} />
                     )}
-                    <span {...footerSpanProps} title={canShowDetail ? '查看已读详情' : undefined}>
+                    <span {...footerSpanProps} title={canShowDetail ? t('chat.readDetail') : undefined}>
                       {footerText}
                     </span>
                   </div>

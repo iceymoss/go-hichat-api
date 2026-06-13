@@ -122,3 +122,28 @@ type RelationChangeTransfer struct {
 	// 事件时间戳
 	Timestamp int64 `json:"timestamp"`
 }
+
+// CommonNotify 公共通知事件（业务方直接 Push -> task/mq 消费 -> 落库 + ws 在线推送）。
+// 单一公共 topic（commonNotifyTransfer），notifyType 字符串区分业务，后续新增业务只加 type，不动通道。
+// 多接收者（如 group.apply 通知群主+管理员）在生产端展开为多条单接收者消息。
+type CommonNotify struct {
+	// 通知类型：friend.apply / friend.accept / friend.reject / group.apply / group.accept / group.reject ...
+	NotifyType string `json:"notifyType"`
+	// 接收者 uid（单接收者）
+	ReceiverId string `json:"receiverId"`
+	// 触发者 uid
+	ActorId string `json:"actorId,omitempty"`
+	// 业务关联ID（幂等键 + 前端跳转）。同一事件重投须用相同 bizId，不同事件用不同 bizId。
+	BizId string `json:"bizId,omitempty"`
+	// 群ID（群相关通知）
+	GroupId string `json:"groupId,omitempty"`
+	// 冗余标题（可空，前端也可用 notifyType + i18n 渲染）
+	Title string `json:"title,omitempty"`
+	// 冗余正文/摘要
+	Content string `json:"content,omitempty"`
+	// 扩展字段 JSON（向前兼容，宽容反序列化）
+	Payload string `json:"payload,omitempty"`
+	// 创建时间(unix 秒)
+	CreateTime int64 `json:"createTime"`
+}
+

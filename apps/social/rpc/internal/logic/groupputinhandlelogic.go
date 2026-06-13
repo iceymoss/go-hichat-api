@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
@@ -89,6 +90,14 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 	if constants.HandlerResult(groupReq.HandleResult.Int64) != constants.PassHandlerResult {
 		//拒绝加入群
 		tx.Commit()
+		// 公共通知：申请人收到入群被拒结果
+		emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
+			NotifyType: NotifyGroupReject,
+			ReceiverId: groupReq.ReqId,
+			ActorId:    in.HandleUid,
+			BizId:      fmt.Sprintf("group.handle:%d:%d", groupReq.Id, in.HandleResult),
+			GroupId:    groupReq.GroupId,
+		})
 		return &social.GroupPutInHandleResp{GroupId: groupReq.GroupId, ReqId: groupReq.ReqId}, nil
 	}
 
@@ -103,6 +112,8 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		JoinSource:  int(groupReq.JoinSource.Int64),
 	}
 
+	// inviter_uid/operator_uid 是 INT 列：空值归一为 "0"（无邀请人），避免写空串报错、读 NULL 失败
+	normalizeGroupMemberUid(groupMember)
 	res = tx.Create(&groupMember)
 	if res.Error != nil {
 		tx.Rollback()
@@ -133,6 +144,15 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 	//}
 
 	tx.Commit()
+
+	// 公共通知：申请人收到入群通过结果
+	emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
+		NotifyType: NotifyGroupAccept,
+		ReceiverId: groupReq.ReqId,
+		ActorId:    in.HandleUid,
+		BizId:      fmt.Sprintf("group.handle:%d:%d", groupReq.Id, in.HandleResult),
+		GroupId:    groupReq.GroupId,
+	})
 
 	return &social.GroupPutInHandleResp{
 		GroupId: groupReq.GroupId,

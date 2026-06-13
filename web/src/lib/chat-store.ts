@@ -259,6 +259,53 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       get().markGroupRemoved(evt.conversationId, evt.eventType);
     });
 
+    // 公共通知（好友/群申请等）：按 notifyType 分发 —— 实时红点 + 气泡提示（点击跳到对应入口）。
+    // 文案硬编码中文，与本模块其余 toast 保持一致；历史列表/已读由通知中心走 REST 拉取。
+    ws.on('notify', (data) => {
+      const n = data as { notifyType?: string } | null;
+      if (!n?.notifyType) return;
+      const imStore = useIMStore.getState();
+      // 点击气泡跳到来源 + 子 tab（好友→新的朋友；群→群申请）
+      const go = { label: '查看', onClick: () => useIMStore.getState().navigateToNotificationSource(n.notifyType!) };
+      switch (n.notifyType) {
+        case 'friend.apply':
+          imStore.setFriendRequestUnreadCount(imStore.friendRequestUnreadCount + 1);
+          toast('有人申请添加你为好友', { action: go });
+          break;
+        case 'friend.accept':
+          toast.success('对方通过了你的好友申请', { action: go });
+          break;
+        case 'friend.reject':
+          toast('对方拒绝了你的好友申请', { action: go });
+          break;
+        case 'group.apply':
+          imStore.setGroupAppUnreadCount(imStore.groupAppUnreadCount + 1);
+          toast('有人申请加入你管理的群聊', { action: go });
+          break;
+        case 'group.accept':
+          toast.success('你的入群申请已通过', { action: go });
+          break;
+        case 'group.reject':
+          toast('你的入群申请被拒绝', { action: go });
+          break;
+        case 'group.removed':
+          toast('你已被移出群聊');
+          break;
+        case 'group.admin.set':
+          toast.success('你已被设为群管理员');
+          break;
+        case 'group.admin.unset':
+          toast('你已被取消群管理员');
+          break;
+        case 'group.owner.transferred':
+          toast.success('你已成为新群主');
+          break;
+      }
+      // 通知未读总数 +1（驱动「联系人」tab 气泡 + 铃铛角标）并 bump 版本刷新通知中心
+      imStore.setNotificationUnreadCount(imStore.notificationUnreadCount + 1);
+      imStore.bumpNotificationVersion();
+    });
+
     ws.connect();
 
     // 定时刷新好友在线状态（每 30 秒）

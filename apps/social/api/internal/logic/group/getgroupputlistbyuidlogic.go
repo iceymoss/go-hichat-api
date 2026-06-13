@@ -114,6 +114,7 @@ func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(req *types.GetGroupPutL
 			HandleUserId:  v.HandleUid,
 			HandleTime:    v.HandleResultTime,
 			HandleResult:  int64(v.HandleResult),
+			ReceiverRead:  int64(v.ReceiverRead),
 		})
 	}
 
