@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useIMStore } from '@/lib/im-store';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useT } from '@/hooks/use-i18n';
 import {
   Eye, EyeOff, Loader2, CheckCircle2, Send,
   ChevronDown, AlertCircle, Mail, Smartphone, ArrowLeft,
@@ -124,6 +125,7 @@ function NetworkCanvas() {
 }
 
 function BrandPanel() {
+  const t = useT();
   return (
     <div style={{
       width: '100%', height: '100%',
@@ -152,15 +154,15 @@ function BrandPanel() {
           <Send size={38} color={TG.blue} />
         </div>
         <h1 style={{ color: TG.darkText, fontSize: 38, fontWeight: 700, marginTop: 24, letterSpacing: '-0.02em' }}>HiChat</h1>
-        <p style={{ color: TG.darkSub, fontSize: 14, marginTop: 10, letterSpacing: '0.04em', fontWeight: 300 }}>连接世界，即刻启程</p>
+        <p style={{ color: TG.darkSub, fontSize: 14, marginTop: 10, letterSpacing: '0.04em', fontWeight: 300 }}>{t('auth.slogan')}</p>
       </div>
 
       {/* Features — minimal row */}
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', gap: 32, marginTop: 48 }}>
         {[
-          { label: '端到端加密', icon: '🔒' },
-          { label: '极速传输', icon: '⚡' },
-          { label: '全球连接', icon: '🌐' },
+          { label: t('auth.feature.e2e'), icon: '🔒' },
+          { label: t('auth.feature.fast'), icon: '⚡' },
+          { label: t('auth.feature.global'), icon: '🌐' },
         ].map(f => (
           <div key={f.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 20 }}>{f.icon}</span>
@@ -265,6 +267,7 @@ function PInput({ id, label, type = 'text', value, onChange, error, maxLength, r
 
 function PhonePasswordLogin() {
   const { login, setAuthView } = useIMStore();
+  const t = useT();
   const [phone, setPhone] = useState('');
   const [pwd, setPwd] = useState('');
   const [show, setShow] = useState(false);
@@ -272,29 +275,29 @@ function PhonePasswordLogin() {
   const [error, setError] = useState('');
 
   const submit = async () => {
-    if (!phone || !pwd) { setError('请填写完整信息'); return; }
-    if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确的手机号'); return; }
+    if (!phone || !pwd) { setError(t('auth.err.incomplete')); return; }
+    if (!/^1[3-9]\d{9}$/.test(phone)) { setError(t('auth.err.phone')); return; }
     setLoading(true); setError('');
     try {
       const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, password: pwd }) });
       const d = await r.json();
       if (d.success) login(d.data); else setError(d.message);
-    } catch { setError('网络错误'); }
+    } catch { setError(t('auth.err.network')); }
     finally { setLoading(false); }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <PInput id="lphone" label="手机号码" value={phone} onChange={v => { setPhone(v); setError(''); }} error={!!error && !phone} icon={Smartphone} prefix={<span>+86</span>} />
-      <PInput id="lpwd" label="密码" type={show ? 'text' : 'password'} value={pwd} onChange={v => { setPwd(v); setError(''); }} error={!!error && !pwd}
+      <PInput id="lphone" label={t('auth.phone')} value={phone} onChange={v => { setPhone(v); setError(''); }} error={!!error && !phone} icon={Smartphone} prefix={<span>+86</span>} />
+      <PInput id="lpwd" label={t('auth.password')} type={show ? 'text' : 'password'} value={pwd} onChange={v => { setPwd(v); setError(''); }} error={!!error && !pwd}
         rightEl={<button type="button" onClick={() => setShow(!show)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: TG.textLight }}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>}
       />
       {error && <div style={{ fontSize: 13, color: TG.error, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500, animation: 'shake 0.4s ease-out' }}><AlertCircle size={14} />{error}</div>}
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button onClick={() => setAuthView('forgot-password')} style={{ fontSize: 13, color: TG.blue, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 500 }}>忘记密码？</button>
+        <button onClick={() => setAuthView('forgot-password')} style={{ fontSize: 13, color: TG.blue, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 500 }}>{t('auth.forgotPwd')}</button>
       </div>
       <button className="hc-btn-primary" onClick={submit} disabled={loading || !phone || !pwd} style={{ marginTop: 4 }}>
-        {loading ? <Loader2 size={18} className="animate-spin" /> : '登 录'}
+        {loading ? <Loader2 size={18} className="animate-spin" /> : t('auth.login')}
       </button>
     </div>
   );
@@ -306,6 +309,7 @@ function PhonePasswordLogin() {
 
 function RegisterView() {
   const { setAuthView, login } = useIMStore();
+  const t = useT();
   const isMobile = useIsMobile();
   const [phone, setPhone] = useState('');
   const [nickname, setNickname] = useState('');
@@ -319,30 +323,30 @@ function RegisterView() {
   const cd = useCountdown();
 
   const pwdOk = (p: string) => {
-    if (p.length < 8 || p.length > 20) return '密码需8-20位';
-    if (!/[a-zA-Z]/.test(p)) return '需包含字母';
-    if (!/[0-9]/.test(p)) return '需包含数字';
+    if (p.length < 8 || p.length > 20) return t('auth.err.pwdLen');
+    if (!/[a-zA-Z]/.test(p)) return t('auth.err.pwdLetter');
+    if (!/[0-9]/.test(p)) return t('auth.err.pwdDigit');
     return '';
   };
 
   const handleSend = async () => {
-    if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确手机号'); return; }
+    if (!/^1[3-9]\d{9}$/.test(phone)) { setError(t('auth.err.phone')); return; }
     setError('');
     const r = await sendCode(phone, 'register');
     if (r.ok) { setSent(true); cd.start(); } else setError(r.msg);
   };
 
   const submit = async () => {
-    if (!nickname.trim()) { setError('请输入昵称'); return; }
+    if (!nickname.trim()) { setError(t('auth.err.nickname')); return; }
     const e = pwdOk(pwd);
     if (e) { setError(e); return; }
-    if (pwd !== pwd2) { setError('两次密码不一致'); return; }
+    if (pwd !== pwd2) { setError(t('auth.err.pwdMismatch')); return; }
     setLoading(true); setError('');
     try {
       const r = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, password: pwd, nickname: nickname.trim(), phoneCode: code }) });
       const d = await r.json();
       if (d.success) login(d.data); else setError(d.message);
-    } catch { setError('网络错误'); }
+    } catch { setError(t('auth.err.network')); }
     finally { setLoading(false); }
   };
 
@@ -354,7 +358,7 @@ function RegisterView() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 28px', maxWidth: 440, width: '100%', margin: '0 auto' }}>
           {/* Back button */}
           <button onClick={() => setAuthView('login')} style={{ fontSize: 14, color: TG.textSub, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4, padding: 0, fontWeight: 500 }}>
-            <ArrowLeft size={16} /> 返回登录
+            <ArrowLeft size={16} /> {t('auth.backToLogin')}
           </button>
 
           {isMobile && (
@@ -366,37 +370,37 @@ function RegisterView() {
             </div>
           )}
 
-          <h1 style={{ fontSize: 30, fontWeight: 700, color: TG.text, marginBottom: 6 }}>创建账号</h1>
-          <p style={{ fontSize: 15, color: TG.textSub, marginBottom: 32 }}>开始你的 HiChat 即时通讯之旅</p>
+          <h1 style={{ fontSize: 30, fontWeight: 700, color: TG.text, marginBottom: 6 }}>{t('auth.createAccount')}</h1>
+          <p style={{ fontSize: 15, color: TG.textSub, marginBottom: 32 }}>{t('auth.registerSub')}</p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <PInput id="rphone" label="手机号码" value={phone} onChange={v => { setPhone(v); setError(''); }} error={!!error && !phone} prefix={<span>+86</span>}
+            <PInput id="rphone" label={t('auth.phone')} value={phone} onChange={v => { setPhone(v); setError(''); }} error={!!error && !phone} prefix={<span>+86</span>}
               rightEl={
                 <button className="hc-btn-code" onClick={handleSend} disabled={cd.running || !/^1[3-9]\d{9}$/.test(phone)}>
-                  {cd.running ? `${cd.seconds}s` : '获取验证码'}
+                  {cd.running ? `${cd.seconds}s` : t('auth.getCode')}
                 </button>
               }
             />
-            <PInput id="rcode" label="验证码" value={code} onChange={v => { setCode(v); setError(''); }} error={!!error && !code} maxLength={6} />
-            <PInput id="rnick" label="昵称" value={nickname} onChange={v => { setNickname(v); setError(''); }} error={!!error && !nickname} maxLength={20} />
+            <PInput id="rcode" label={t('auth.code')} value={code} onChange={v => { setCode(v); setError(''); }} error={!!error && !code} maxLength={6} />
+            <PInput id="rnick" label={t('auth.nickname')} value={nickname} onChange={v => { setNickname(v); setError(''); }} error={!!error && !nickname} maxLength={20} />
             <div>
-              <PInput id="rpwd" label="设置密码" type={show ? 'text' : 'password'} value={pwd} onChange={v => { setPwd(v); setError(''); }} error={!!error && !!pwd && !!pwdOk(pwd)}
+              <PInput id="rpwd" label={t('auth.setPwd')} type={show ? 'text' : 'password'} value={pwd} onChange={v => { setPwd(v); setError(''); }} error={!!error && !!pwd && !!pwdOk(pwd)}
                 rightEl={<button type="button" onClick={() => setShow(!show)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: TG.textLight }}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>}
               />
-              <p style={{ fontSize: 12, color: TG.textLight, marginTop: 4, paddingLeft: 4 }}>8-20 位，需包含字母和数字</p>
+              <p style={{ fontSize: 12, color: TG.textLight, marginTop: 4, paddingLeft: 4 }}>{t('auth.pwdHint')}</p>
             </div>
-            <PInput id="rpwd2" label="确认密码" type={show ? 'text' : 'password'} value={pwd2} onChange={v => { setPwd2(v); setError(''); }} error={!!error && !!pwd2 && pwd !== pwd2} />
+            <PInput id="rpwd2" label={t('auth.confirmPwd')} type={show ? 'text' : 'password'} value={pwd2} onChange={v => { setPwd2(v); setError(''); }} error={!!error && !!pwd2 && pwd !== pwd2} />
             {error && <div style={{ fontSize: 13, color: TG.error, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500, animation: 'shake 0.4s ease-out' }}><AlertCircle size={14} />{error}</div>}
-            {sent && <div style={{ fontSize: 13, color: TG.success, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}><CheckCircle2 size={14} />验证码已发送</div>}
+            {sent && <div style={{ fontSize: 13, color: TG.success, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}><CheckCircle2 size={14} />{t('auth.codeSent')}</div>}
             <button className="hc-btn-primary" onClick={submit} disabled={loading || !phone || !code || !nickname || !pwd || !pwd2} style={{ marginTop: 4 }}>
-              {loading ? <Loader2 size={18} className="animate-spin" /> : '注 册'}
+              {loading ? <Loader2 size={18} className="animate-spin" /> : t('auth.register')}
             </button>
           </div>
         </div>
 
         <div style={{ textAlign: 'center', padding: '24px 0', fontSize: 14, color: TG.textSub }}>
-          已有账号？
-          <button onClick={() => setAuthView('login')} style={{ color: TG.blue, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4 }}>去登录</button>
+          {t('auth.haveAccount')}
+          <button onClick={() => setAuthView('login')} style={{ color: TG.blue, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4 }}>{t('auth.goLogin')}</button>
         </div>
       </div>
     </div>
@@ -409,6 +413,7 @@ function RegisterView() {
 
 function ForgotPasswordView() {
   const { setAuthView } = useIMStore();
+  const t = useT();
   const isMobile = useIsMobile();
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -422,22 +427,22 @@ function ForgotPasswordView() {
   const cd = useCountdown();
 
   const handleSend = async () => {
-    if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确手机号'); return; }
+    if (!/^1[3-9]\d{9}$/.test(phone)) { setError(t('auth.err.phone')); return; }
     setError('');
     const r = await sendCode(phone, 'register');
     if (r.ok) { setSent(true); cd.start(); } else setError(r.msg);
   };
 
   const submit = async () => {
-    if (!phone || !code || !pwd) { setError('请填写完整信息'); return; }
-    if (pwd.length < 8 || pwd.length > 20) { setError('密码需8-20位'); return; }
-    if (pwd !== pwd2) { setError('两次密码不一致'); return; }
+    if (!phone || !code || !pwd) { setError(t('auth.err.incomplete')); return; }
+    if (pwd.length < 8 || pwd.length > 20) { setError(t('auth.err.pwdLen')); return; }
+    if (pwd !== pwd2) { setError(t('auth.err.pwdMismatch')); return; }
     setLoading(true); setError('');
     try {
       const r = await fetch('/api/auth/reset-pwd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, code, password: pwd }) });
       const d = await r.json();
       if (d.success) setSuccess(true); else setError(d.message);
-    } catch { setError('网络错误'); }
+    } catch { setError(t('auth.err.network')); }
     finally { setLoading(false); }
   };
 
@@ -447,9 +452,9 @@ function ForgotPasswordView() {
         {!isMobile && <div style={{ width: '42%', minWidth: 340, height: '100%' }}><BrandPanel /></div>}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: TG.formBg, padding: '0 28px' }}>
           <CheckCircle2 size={48} color={TG.success} />
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: TG.text, marginTop: 16 }}>密码重置成功</h2>
-          <p style={{ fontSize: 14, color: TG.textSub, marginTop: 8 }}>请使用新密码登录</p>
-          <button className="hc-btn-primary" onClick={() => setAuthView('login')} style={{ marginTop: 24, width: 200 }}>去登录</button>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: TG.text, marginTop: 16 }}>{t('auth.resetOk')}</h2>
+          <p style={{ fontSize: 14, color: TG.textSub, marginTop: 8 }}>{t('auth.resetOkSub')}</p>
+          <button className="hc-btn-primary" onClick={() => setAuthView('login')} style={{ marginTop: 24, width: 200 }}>{t('auth.goLogin')}</button>
         </div>
       </div>
     );
@@ -461,30 +466,30 @@ function ForgotPasswordView() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: TG.formBg }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 28px', maxWidth: 440, width: '100%', margin: '0 auto' }}>
           <button onClick={() => setAuthView('login')} style={{ fontSize: 14, color: TG.textSub, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4, padding: 0, fontWeight: 500 }}>
-            <ArrowLeft size={16} /> 返回登录
+            <ArrowLeft size={16} /> {t('auth.backToLogin')}
           </button>
-          <h1 style={{ fontSize: 30, fontWeight: 700, color: TG.text, marginBottom: 6 }}>重置密码</h1>
-          <p style={{ fontSize: 15, color: TG.textSub, marginBottom: 32 }}>通过手机验证码重置登录密码</p>
+          <h1 style={{ fontSize: 30, fontWeight: 700, color: TG.text, marginBottom: 6 }}>{t('auth.resetPwd')}</h1>
+          <p style={{ fontSize: 15, color: TG.textSub, marginBottom: 32 }}>{t('auth.resetSub')}</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <PInput id="fpphone" label="手机号码" value={phone} onChange={v => { setPhone(v); setError(''); }} error={!!error && !phone} icon={Smartphone} prefix={<span>+86</span>}
+            <PInput id="fpphone" label={t('auth.phone')} value={phone} onChange={v => { setPhone(v); setError(''); }} error={!!error && !phone} icon={Smartphone} prefix={<span>+86</span>}
               rightEl={
                 <button className="hc-btn-code" onClick={handleSend} disabled={cd.running || !/^1[3-9]\d{9}$/.test(phone)}>
-                  {cd.running ? `${cd.seconds}s` : '获取验证码'}
+                  {cd.running ? `${cd.seconds}s` : t('auth.getCode')}
                 </button>
               }
             />
-            <PInput id="fpcode" label="验证码" value={code} onChange={v => { setCode(v); setError(''); }} error={!!error && !code} maxLength={6} />
+            <PInput id="fpcode" label={t('auth.code')} value={code} onChange={v => { setCode(v); setError(''); }} error={!!error && !code} maxLength={6} />
             <div>
-              <PInput id="fppwd" label="新密码" type={show ? 'text' : 'password'} value={pwd} onChange={v => { setPwd(v); setError(''); }}
+              <PInput id="fppwd" label={t('auth.newPwd')} type={show ? 'text' : 'password'} value={pwd} onChange={v => { setPwd(v); setError(''); }}
                 rightEl={<button type="button" onClick={() => setShow(!show)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: TG.textLight }}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>}
               />
-              <p style={{ fontSize: 12, color: TG.textLight, marginTop: 4, paddingLeft: 4 }}>8-20 位，需包含字母和数字</p>
+              <p style={{ fontSize: 12, color: TG.textLight, marginTop: 4, paddingLeft: 4 }}>{t('auth.pwdHint')}</p>
             </div>
-            <PInput id="fppwd2" label="确认新密码" type={show ? 'text' : 'password'} value={pwd2} onChange={v => { setPwd2(v); setError(''); }} error={!!error && !!pwd2 && pwd !== pwd2} />
+            <PInput id="fppwd2" label={t('auth.confirmNewPwd')} type={show ? 'text' : 'password'} value={pwd2} onChange={v => { setPwd2(v); setError(''); }} error={!!error && !!pwd2 && pwd !== pwd2} />
             {error && <div style={{ fontSize: 13, color: TG.error, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}><AlertCircle size={14} />{error}</div>}
-            {sent && <div style={{ fontSize: 13, color: TG.success, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}><CheckCircle2 size={14} />验证码已发送</div>}
+            {sent && <div style={{ fontSize: 13, color: TG.success, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}><CheckCircle2 size={14} />{t('auth.codeSent')}</div>}
             <button className="hc-btn-primary" onClick={submit} disabled={loading || !phone || !code || !pwd || !pwd2} style={{ marginTop: 4 }}>
-              {loading ? <Loader2 size={18} className="animate-spin" /> : '重置密码'}
+              {loading ? <Loader2 size={18} className="animate-spin" /> : t('auth.resetPwd')}
             </button>
           </div>
         </div>
@@ -499,6 +504,7 @@ function ForgotPasswordView() {
 
 export default function AuthPage() {
   const { authView, setAuthView } = useIMStore();
+  const t = useT();
   const isMobile = useIsMobile();
 
   if (authView === 'register') return <RegisterView />;
@@ -522,8 +528,8 @@ export default function AuthPage() {
             </div>
           )}
 
-          <h1 style={{ fontSize: 30, fontWeight: 700, color: TG.text, marginBottom: 6 }}>欢迎回来</h1>
-          <p style={{ fontSize: 15, color: TG.textSub, marginBottom: 32 }}>登录你的 HiChat 账号，开启对话</p>
+          <h1 style={{ fontSize: 30, fontWeight: 700, color: TG.text, marginBottom: 6 }}>{t('auth.welcomeBack')}</h1>
+          <p style={{ fontSize: 15, color: TG.textSub, marginBottom: 32 }}>{t('auth.loginSub')}</p>
 
           {/* Form */}
           <PhonePasswordLogin />
@@ -531,8 +537,8 @@ export default function AuthPage() {
 
         {/* Bottom */}
         <div style={{ textAlign: 'center', padding: '24px 0', fontSize: 14, color: TG.textSub }}>
-          还没有账号？
-          <button onClick={() => setAuthView('register')} style={{ color: TG.blue, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4 }}>立即注册</button>
+          {t('auth.noAccount')}
+          <button onClick={() => setAuthView('register')} style={{ color: TG.blue, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4 }}>{t('auth.goRegister')}</button>
         </div>
       </div>
     </div>
