@@ -36,6 +36,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useT } from '@/hooks/use-i18n';
 import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
 import { getAvatarColor } from '@/lib/utils';
@@ -56,20 +57,20 @@ import {
    Helpers
    ═══════════════════════════════════════ */
 
-function fmtTime(date: Date): string {
+function fmtTime(date: Date, t: (k: string) => string): string {
   const now = Date.now();
   const diff = now - date.getTime();
   const m = Math.floor(diff / 60000);
   const h = Math.floor(diff / 3600000);
   const d = Math.floor(diff / 86400000);
-  if (m < 1) return '刚刚';
-  if (m < 60) return `${m}分钟前`;
-  if (h < 24) return `${h}小时前`;
-  if (d < 30) return `${new Date(date).getMonth() + 1}月${new Date(date).getDate()}日`;
-  return `${new Date(date).getFullYear()}年${new Date(date).getMonth() + 1}月${new Date(date).getDate()}日`;
+  if (m < 1) return t('group.time.justNow');
+  if (m < 60) return t('group.time.minutesAgo').replace('{m}', String(m));
+  if (h < 24) return t('group.time.hoursAgo').replace('{h}', String(h));
+  if (d < 30) return t('group.time.monthDay').replace('{month}', String(new Date(date).getMonth() + 1)).replace('{day}', String(new Date(date).getDate()));
+  return t('group.time.yearMonthDay').replace('{year}', String(new Date(date).getFullYear())).replace('{month}', String(new Date(date).getMonth() + 1)).replace('{day}', String(new Date(date).getDate()));
 }
 
-const roleLabel: Record<GroupRoleLevel, string> = { 0: '成员', 1: '管理员', 2: '群主' };
+const roleLabelKey: Record<GroupRoleLevel, string> = { 0: 'group.role.member', 1: 'group.role.admin', 2: 'group.role.owner' };
 const roleIcon: Record<GroupRoleLevel, React.ReactNode> = {
   0: <Shield className="w-3 h-3" />,
   1: <ShieldCheck className="w-3 h-3" />,
@@ -82,13 +83,13 @@ const roleBg: Record<GroupRoleLevel, string> = {
   2: 'rgba(245,166,35,0.1)',
 };
 
-const joinSourceLabel: Record<GroupJoinSource, string> = { 1: '申请', 2: '邀请', 3: '链接' };
+const joinSourceLabelKey: Record<GroupJoinSource, string> = { 1: 'group.joinSource.apply', 2: 'group.joinSource.invite', 3: 'group.joinSource.link' };
 
-const appResultConfig: Record<GroupAppResult, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-  0: { label: '待处理', color: '#F5A623', bg: 'rgba(245,166,35,0.1)', icon: <AlertCircle className="w-3.5 h-3.5" /> },
-  1: { label: '已通过', color: '#4DCD5E', bg: 'rgba(77,205,94,0.1)', icon: <CheckCircle className="w-3.5 h-3.5" /> },
-  2: { label: '已拒绝', color: '#FF5252', bg: 'rgba(255,82,82,0.1)', icon: <XCircle className="w-3.5 h-3.5" /> },
-  3: { label: '已忽略', color: '#A2ACB5', bg: 'rgba(162,172,181,0.1)', icon: <MinusCircle className="w-3.5 h-3.5" /> },
+const appResultConfig: Record<GroupAppResult, { labelKey: string; color: string; bg: string; icon: React.ReactNode }> = {
+  0: { labelKey: 'group.appResult.pending', color: '#F5A623', bg: 'rgba(245,166,35,0.1)', icon: <AlertCircle className="w-3.5 h-3.5" /> },
+  1: { labelKey: 'group.appResult.approved', color: '#4DCD5E', bg: 'rgba(77,205,94,0.1)', icon: <CheckCircle className="w-3.5 h-3.5" /> },
+  2: { labelKey: 'group.appResult.rejected', color: '#FF5252', bg: 'rgba(255,82,82,0.1)', icon: <XCircle className="w-3.5 h-3.5" /> },
+  3: { labelKey: 'group.appResult.ignored', color: '#A2ACB5', bg: 'rgba(162,172,181,0.1)', icon: <MinusCircle className="w-3.5 h-3.5" /> },
 };
 
 /* ═══════════════════════════════════════
@@ -212,6 +213,7 @@ interface ConfirmOpts {
 }
 
 function ConfirmModal({ open, opts }: { open: boolean; opts: ConfirmOpts | null }) {
+  const t = useT();
   if (!open || !opts) return null;
   return (
     <div
@@ -227,7 +229,7 @@ function ConfirmModal({ open, opts }: { open: boolean; opts: ConfirmOpts | null 
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', marginBottom: '8px', paddingRight: 32 }}>{opts.title}</h3>
         <p style={{ fontSize: '14px', color: '#646A73', marginBottom: '20px', lineHeight: '1.5' }}>{opts.description}</p>
         <div className="flex items-center justify-end gap-3">
-          <button onClick={opts.onCancel} disabled={opts.loading} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: opts.loading ? 'not-allowed' : 'pointer' }}>取消</button>
+          <button onClick={opts.onCancel} disabled={opts.loading} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: opts.loading ? 'not-allowed' : 'pointer' }}>{t('common.cancel')}</button>
           <button onClick={opts.onConfirm} disabled={opts.loading} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: opts.confirmColor, color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: opts.loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: opts.loading ? 0.7 : 1 }}>
             {opts.loading && <Loader2 className="w-4 h-4" style={{ animation: 'spin 1s linear infinite' }} />}
             {opts.confirmLabel}
@@ -249,6 +251,7 @@ function InputModal({ open, title, onClose, onSubmit, children }: {
   onSubmit: () => void;
   children: React.ReactNode;
 }) {
+  const t = useT();
   if (!open) return null;
   return (
     <div className="fixed inset-0" style={{ zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -260,8 +263,8 @@ function InputModal({ open, title, onClose, onSubmit, children }: {
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', marginBottom: '16px', paddingRight: 32 }}>{title}</h3>
         {children}
         <div className="flex items-center justify-end gap-3" style={{ marginTop: '16px' }}>
-          <button onClick={onClose} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>取消</button>
-          <button onClick={onSubmit} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>确定</button>
+          <button onClick={onClose} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>{t('common.cancel')}</button>
+          <button onClick={onSubmit} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>{t('common.confirm')}</button>
         </div>
       </div>
     </div>
@@ -312,6 +315,7 @@ type DetailTab = 'members' | 'links' | 'announcements';
 type AppStatusFilter = 'all' | GroupAppResult;
 
 export default function GroupList() {
+  const t = useT();
   const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupAppNavTab, clearGroupAppNavTab } = useIMStore();
   const token = currentUser?.token || '';
   const myUserId = currentUser?.id || '';
@@ -400,12 +404,12 @@ export default function GroupList() {
 
   // ── Helper: get contact name from member data or friends list ──
   const getContactName = useCallback((userId: string): string => {
-    if (userId === myUserId) return currentUser?.name || '我';
+    if (userId === myUserId) return currentUser?.name || t('group.me');
     if (memberNameCache.current[userId]) return memberNameCache.current[userId];
     const friend = friends.find(f => f.friend_uid === userId) || friends.find(f => f.id === userId);
     if (friend) return friend.remark || friend.name;
     return userId;
-  }, [myUserId, currentUser?.name, friends]);
+  }, [myUserId, currentUser?.name, friends, t]);
 
   // ── API: Fetch groups list ──
   const fetchGroups = useCallback(async () => {
@@ -670,7 +674,7 @@ export default function GroupList() {
 
   const handleAcceptApp = useCallback((app: GroupApplication) => {
     markAppRead(app.id);
-    doConfirm('同意入群', `确定同意 ${app.userName} 加入 ${app.groupName} 吗？`, '同意', '#3390EC', async () => {
+    doConfirm(t('group.confirmAgreeTitle'), t('group.confirmAgreeDesc').replace('{user}', app.userName).replace('{group}', app.groupName), t('group.agree'), '#3390EC', async () => {
       try {
         const data = await apiFetch('/api/social/group/putIn', token, {
           method: 'PUT',
@@ -678,19 +682,19 @@ export default function GroupList() {
         });
         if (data.success) {
           setApps(prev => prev.map(a => a.id === app.id ? { ...a, handleResult: 1 as GroupAppResult, readState: true } : a));
-          toast.success(`已同意 ${app.userName} 加入 ${app.groupName}`);
+          toast.success(t('group.agreedToast').replace('{user}', app.userName).replace('{group}', app.groupName));
         } else {
-          toast.error(data.message || '操作失败');
+          toast.error(data.message || t('group.opFailed'));
         }
       } catch {
-        toast.error('网络错误');
+        toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, markAppRead, token]);
+  }, [doConfirm, markAppRead, token, t]);
 
   const handleRejectApp = useCallback((app: GroupApplication) => {
     markAppRead(app.id);
-    doConfirm('拒绝入群', `确定拒绝 ${app.userName} 加入 ${app.groupName} 吗？`, '拒绝', '#E53935', async () => {
+    doConfirm(t('group.confirmRejectTitle'), t('group.confirmRejectDesc').replace('{user}', app.userName).replace('{group}', app.groupName), t('group.reject'), '#E53935', async () => {
       try {
         const data = await apiFetch('/api/social/group/putIn', token, {
           method: 'PUT',
@@ -698,24 +702,24 @@ export default function GroupList() {
         });
         if (data.success) {
           setApps(prev => prev.map(a => a.id === app.id ? { ...a, handleResult: 2 as GroupAppResult, readState: true } : a));
-          toast.success(`已拒绝 ${app.userName} 的申请`);
+          toast.success(t('group.rejectedToast').replace('{user}', app.userName));
         } else {
-          toast.error(data.message || '操作失败');
+          toast.error(data.message || t('group.opFailed'));
         }
       } catch {
-        toast.error('网络错误');
+        toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, markAppRead, token]);
+  }, [doConfirm, markAppRead, token, t]);
 
   const markAllAppRead = useCallback(() => {
     setApps(prev => prev.map(a => a.userId !== myUserId ? { ...a, readState: true } : a));
-    toast.success('已全部标记为已读');
-  }, [myUserId]);
+    toast.success(t('group.allMarkedRead'));
+  }, [myUserId, t]);
 
   // Create group
   const handleCreateGroup = useCallback(async () => {
-    if (!newGroupName.trim()) { toast.error('请输入群名称'); return; }
+    if (!newGroupName.trim()) { toast.error(t('group.nameRequiredToast')); return; }
     try {
       setLoading(true);
 
@@ -732,7 +736,7 @@ export default function GroupList() {
         if (uploadRes.success && uploadRes.data?.url) {
           iconUrl = uploadRes.data.url;
         } else {
-          toast.error('头像上传失败');
+          toast.error(t('group.avatarUploadFailed'));
           return;
         }
       }
@@ -746,7 +750,7 @@ export default function GroupList() {
         body: JSON.stringify(body),
       });
       if (!data.success) {
-        toast.error(data.message || '创建失败');
+        toast.error(data.message || t('group.createFailed'));
         return;
       }
 
@@ -760,7 +764,7 @@ export default function GroupList() {
         });
       }
 
-      toast.success('群组创建成功' + (createInviteSelected.size > 0 ? `，已邀请 ${createInviteSelected.size} 人` : ''));
+      toast.success(t('group.createdToast') + (createInviteSelected.size > 0 ? t('group.createdInvitedSuffix').replace('{count}', String(createInviteSelected.size)) : ''));
       setShowCreateGroup(false);
       setNewGroupName('');
       setNewGroupDesc('');
@@ -770,11 +774,11 @@ export default function GroupList() {
       setCreateInviteSelected(new Set());
       await fetchGroups();
     } catch {
-      toast.error('网络错误');
+      toast.error(t('group.networkError'));
     } finally {
       setLoading(false);
     }
-  }, [newGroupName, newGroupIcon, newGroupIconFile, createInviteSelected, token, fetchGroups]);
+  }, [newGroupName, newGroupIcon, newGroupIconFile, newGroupDesc, createInviteSelected, token, fetchGroups, t]);
 
   // Edit group
   const openEditGroup = useCallback(() => {
@@ -803,7 +807,7 @@ export default function GroupList() {
         if (uploadRes.success && uploadRes.data?.url) {
           iconUrl = uploadRes.data.url;
         } else {
-          toast.error('头像上传失败');
+          toast.error(t('group.avatarUploadFailed'));
           return;
         }
       }
@@ -823,14 +827,14 @@ export default function GroupList() {
         setShowEditGroup(false);
         setEditIconFile(null);
         setEditIconPreview('');
-        toast.success('群信息已更新');
+        toast.success(t('group.updatedToast'));
       } else {
-        toast.error(data.message || '更新失败');
+        toast.error(data.message || t('group.updateFailed'));
       }
     } catch {
-      toast.error('网络错误');
+      toast.error(t('group.networkError'));
     }
-  }, [selectedGroupId, editName, editDesc, editIcon, editIconFile, editVerify, token]);
+  }, [selectedGroupId, editName, editDesc, editIcon, editIconFile, editVerify, editNotification, token, t]);
 
   // Send message to group
   const handleSendMessageToGroup = useCallback(async (group?: { id: string | number; name: string; icon?: string }) => {
@@ -874,7 +878,7 @@ export default function GroupList() {
 
   // Invite friends
   const handleInviteFriends = useCallback(async () => {
-    if (inviteSelected.size === 0) { toast.error('请选择要邀请的好友'); return; }
+    if (inviteSelected.size === 0) { toast.error(t('group.selectFriendsToInvite')); return; }
     if (!selectedGroupId) return;
     try {
       const data = await apiFetch('/api/social/group/invite', token, {
@@ -883,18 +887,18 @@ export default function GroupList() {
       });
       if (data.success) {
         const names = [...inviteSelected].map(id => getContactName(id)).join('、');
-        toast.success(`已邀请 ${names} 加入群组`);
+        toast.success(t('group.invitedToast').replace('{names}', names));
         setShowInviteFriends(false);
         setInviteSelected(new Set());
         // Refresh group detail
         fetchGroupDetail(selectedGroupId);
       } else {
-        toast.error(data.message || '邀请失败');
+        toast.error(data.message || t('group.inviteFailed'));
       }
     } catch {
-      toast.error('网络错误');
+      toast.error(t('group.networkError'));
     }
-  }, [inviteSelected, selectedGroupId, token, getContactName, fetchGroupDetail]);
+  }, [inviteSelected, selectedGroupId, token, getContactName, fetchGroupDetail, t]);
 
   // Member settings
   const openMemberSettings = useCallback(() => {
@@ -905,7 +909,7 @@ export default function GroupList() {
     setSettingNickname(myMember?.groupNickname || s?.groupNickname || '');
     setSettingRemark(myMember?.groupRemark || s?.groupRemark || '');
     setShowMemberSettings(true);
-  }, [selectedGroupId, settings]);
+  }, [selectedGroupId, settings, members, myUserId]);
 
   const handleSaveMemberSettings = useCallback(async () => {
     if (!selectedGroupId) return;
@@ -923,19 +927,19 @@ export default function GroupList() {
         // 同步更新群列表数据（让群显示名称实时刷新）
         setGroups(prev => prev.map(g => g.id === selectedGroupId ? { ...g, groupNickname: settingNickname, groupRemark: settingRemark } : g));
         setShowMemberSettings(false);
-        toast.success('设置已保存');
+        toast.success(t('group.settingsSaved'));
       } else {
-        toast.error(data.message || '保存失败');
+        toast.error(data.message || t('group.saveFailed'));
       }
     } catch {
-      toast.error('网络错误');
+      toast.error(t('group.networkError'));
     }
-  }, [selectedGroupId, settingNickname, settingRemark, token]);
+  }, [selectedGroupId, settingNickname, settingRemark, token, t]);
 
   // Disband / Quit group
   const handleDisband = useCallback(() => {
     if (!selectedGroup) return;
-    doConfirm('解散群组', `确定解散「${selectedGroup.name}」吗？此操作不可撤销！`, '解散群组', '#E53935', async () => {
+    doConfirm(t('group.confirmDisbandTitle'), t('group.confirmDisbandDesc').replace('{name}', selectedGroup.name), t('group.disband'), '#E53935', async () => {
       try {
         const data = await apiFetch('/api/social/group/disband', token, {
           method: 'POST',
@@ -945,21 +949,21 @@ export default function GroupList() {
           setGroups(prev => prev.filter(g => g.id !== selectedGroupId));
           setMembers(prev => prev.filter(m => m.groupId !== selectedGroupId));
           setSettings(prev => prev.filter(s => s.groupId !== selectedGroupId));
-          toast.success('群组已解散');
+          toast.success(t('group.disbandedToast'));
           setView('list');
           setSelectedGroupId(null);
         } else {
-          toast.error(data.message || '操作失败');
+          toast.error(data.message || t('group.opFailed'));
         }
       } catch {
-        toast.error('网络错误');
+        toast.error(t('group.networkError'));
       }
     });
-  }, [selectedGroup, selectedGroupId, doConfirm, token]);
+  }, [selectedGroup, selectedGroupId, doConfirm, token, t]);
 
   const handleQuitGroup = useCallback(() => {
     if (!selectedGroup) return;
-    doConfirm('退出群组', `确定退出「${selectedGroup.name}」吗？`, '退出群组', '#E53935', async () => {
+    doConfirm(t('group.confirmQuitTitle'), t('group.confirmQuitDesc').replace('{name}', selectedGroup.name), t('group.quit'), '#E53935', async () => {
       try {
         const data = await apiFetch('/api/social/group/quit', token, {
           method: 'POST',
@@ -969,23 +973,23 @@ export default function GroupList() {
           setGroups(prev => prev.filter(g => g.id !== selectedGroupId));
           setMembers(prev => prev.filter(m => m.groupId !== selectedGroupId));
           setSettings(prev => prev.filter(s => s.groupId !== selectedGroupId));
-          toast.success('已退出群组');
+          toast.success(t('group.quitToast'));
           setView('list');
           setSelectedGroupId(null);
         } else {
-          toast.error(data.message || '操作失败');
+          toast.error(data.message || t('group.opFailed'));
         }
       } catch {
-        toast.error('网络错误');
+        toast.error(t('group.networkError'));
       }
     });
-  }, [selectedGroup, selectedGroupId, doConfirm, token]);
+  }, [selectedGroup, selectedGroupId, doConfirm, token, t]);
 
   // Member actions
   const handleSetAdmin = useCallback((m: GroupMemberInfo) => {
     const newRole: GroupRoleLevel = m.roleLevel === 1 ? 0 : 1;
-    const label = newRole === 1 ? '设为管理员' : '取消管理员';
-    doConfirm(label, `确定将 ${getContactName(m.userId)} ${label}吗？`, label, '#3390EC', async () => {
+    const label = newRole === 1 ? t('group.setAdmin') : t('group.unsetAdmin');
+    doConfirm(label, t('group.confirmSetAdminDesc').replace('{name}', getContactName(m.userId)).replace('{label}', label), label, '#3390EC', async () => {
       try {
         const data = await apiFetch('/api/social/group/setAdmin', token, {
           method: 'POST',
@@ -997,18 +1001,18 @@ export default function GroupList() {
         });
         if (data.success) {
           setMembers(prev => prev.map(x => x.id === m.id ? { ...x, roleLevel: newRole } : x));
-          toast.success(`已${label}`);
+          toast.success(t('group.doneLabel').replace('{label}', label));
         } else {
-          toast.error(data.message || '操作失败');
+          toast.error(data.message || t('group.opFailed'));
         }
       } catch {
-        toast.error('网络错误');
+        toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, getContactName, selectedGroupId, token]);
+  }, [doConfirm, getContactName, selectedGroupId, token, t]);
 
   const handleTransferOwner = useCallback((m: GroupMemberInfo) => {
-    doConfirm('转让群主', `确定将群主转让给 ${getContactName(m.userId)} 吗？转让后你将变为普通成员。`, '转让', '#F5A623', async () => {
+    doConfirm(t('group.confirmTransferTitle'), t('group.confirmTransferDesc').replace('{name}', getContactName(m.userId)), t('group.transfer'), '#F5A623', async () => {
       try {
         const data = await apiFetch('/api/social/group/transferOwner', token, {
           method: 'POST',
@@ -1023,18 +1027,18 @@ export default function GroupList() {
             if (x.id === m.id) return { ...x, roleLevel: 3 as GroupRoleLevel };
             return x;
           }));
-          toast.success('群主已转让');
+          toast.success(t('group.transferredToast'));
         } else {
-          toast.error(data.message || '操作失败');
+          toast.error(data.message || t('group.opFailed'));
         }
       } catch {
-        toast.error('网络错误');
+        toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, getContactName, selectedGroupId, myUserId, token]);
+  }, [doConfirm, getContactName, selectedGroupId, myUserId, token, t]);
 
   const handleKickMember = useCallback((m: GroupMemberInfo) => {
-    doConfirm('踢出群组', `确定将 ${getContactName(m.userId)} 移出群组吗？`, '踢出', '#E53935', async () => {
+    doConfirm(t('group.confirmKickTitle'), t('group.confirmKickDesc').replace('{name}', getContactName(m.userId)), t('group.kick'), '#E53935', async () => {
       try {
         const data = await apiFetch('/api/social/group/kick', token, {
           method: 'POST',
@@ -1045,15 +1049,15 @@ export default function GroupList() {
         });
         if (data.success) {
           setMembers(prev => prev.filter(x => x.id !== m.id));
-          toast.success(`已将 ${getContactName(m.userId)} 移出群组`);
+          toast.success(t('group.kickedToast').replace('{name}', getContactName(m.userId)));
         } else {
-          toast.error(data.message || '操作失败');
+          toast.error(data.message || t('group.opFailed'));
         }
       } catch {
-        toast.error('网络错误');
+        toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, getContactName, selectedGroupId, token]);
+  }, [doConfirm, getContactName, selectedGroupId, token, t]);
 
   // Invite links
   const handleCreateLink = useCallback(async () => {
@@ -1072,19 +1076,19 @@ export default function GroupList() {
       });
       if (data.success) {
         setShowCreateLink(false);
-        toast.success('邀请链接已创建');
+        toast.success(t('group.linkCreatedToast'));
         // Refresh links
         fetchInviteLinks(selectedGroupId);
       } else {
-        toast.error(data.message || '创建失败');
+        toast.error(data.message || t('group.createFailed'));
       }
     } catch {
-      toast.error('网络错误');
+      toast.error(t('group.networkError'));
     }
-  }, [selectedGroupId, newLinkExpiry, newLinkMaxUses, token, fetchInviteLinks]);
+  }, [selectedGroupId, newLinkExpiry, newLinkMaxUses, token, fetchInviteLinks, t]);
 
   const handleRevokeLink = useCallback((link: GroupInviteLink) => {
-    doConfirm('撤销链接', '确定撤销此邀请链接吗？', '撤销', '#E53935', async () => {
+    doConfirm(t('group.confirmRevokeTitle'), t('group.confirmRevokeDesc'), t('group.revoke'), '#E53935', async () => {
       try {
         const data = await apiFetch('/api/social/group/inviteLink/revoke', token, {
           method: 'POST',
@@ -1092,24 +1096,24 @@ export default function GroupList() {
         });
         if (data.success) {
           setLinks(prev => prev.map(l => l.token === link.token ? { ...l, revoked: true } : l));
-          toast.success('链接已撤销');
+          toast.success(t('group.linkRevokedToast'));
         } else {
-          toast.error(data.message || '操作失败');
+          toast.error(data.message || t('group.opFailed'));
         }
       } catch {
-        toast.error('网络错误');
+        toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, token]);
+  }, [doConfirm, token, t]);
 
   const handleCopyLink = useCallback((linkToken: string) => {
     navigator.clipboard.writeText(`https://hichat.app/join/${linkToken}`).catch(() => {});
-    toast.success('链接已复制');
-  }, []);
+    toast.success(t('group.linkCopiedToast'));
+  }, [t]);
 
   // Announcements
   const handleCreateAnnouncement = useCallback(async () => {
-    if (!selectedGroupId || !newAnnContent.trim()) { toast.error('请输入公告内容'); return; }
+    if (!selectedGroupId || !newAnnContent.trim()) { toast.error(t('group.announcementRequired')); return; }
     try {
       const data = await apiFetch('/api/social/group/announcement', token, {
         method: 'POST',
@@ -1118,16 +1122,16 @@ export default function GroupList() {
       if (data.success) {
         setShowCreateAnnouncement(false);
         setNewAnnContent('');
-        toast.success('公告已发布');
+        toast.success(t('group.announcementPublished'));
         // Refresh announcements
         fetchAnnouncements(selectedGroupId);
       } else {
-        toast.error(data.message || '发布失败');
+        toast.error(data.message || t('group.publishFailed'));
       }
     } catch {
-      toast.error('网络错误');
+      toast.error(t('group.networkError'));
     }
-  }, [selectedGroupId, newAnnContent, token, fetchAnnouncements]);
+  }, [selectedGroupId, newAnnContent, token, fetchAnnouncements, t]);
 
   const handleTogglePin = useCallback(async (ann: GroupAnnouncement) => {
     const newPinned = !ann.pinned;
@@ -1138,20 +1142,20 @@ export default function GroupList() {
       });
       if (res.success) {
         setAnnouncements(prev => prev.map(a => a.id === ann.id ? { ...a, pinned: newPinned } : a));
-        toast.success(newPinned ? '已置顶' : '已取消置顶');
+        toast.success(newPinned ? t('group.pinnedToast') : t('group.unpinnedToast'));
       } else {
-        toast.error(res.message || '操作失败');
+        toast.error(res.message || t('group.opFailed'));
       }
-    } catch { toast.error('操作失败'); }
-  }, [token]);
+    } catch { toast.error(t('group.opFailed')); }
+  }, [token, t]);
 
   // Link status
   const getLinkStatus = useCallback((link: GroupInviteLink): { label: string; color: string } => {
-    if (link.revoked) return { label: '已撤销', color: '#A2ACB5' };
-    if (link.expireAt && new Date() > link.expireAt) return { label: '已过期', color: '#FF5252' };
-    if (link.maxUses > 0 && link.usedCount >= link.maxUses) return { label: '已用完', color: '#FF5252' };
-    return { label: '有效', color: '#4DCD5E' };
-  }, []);
+    if (link.revoked) return { label: t('group.linkStatus.revoked'), color: '#A2ACB5' };
+    if (link.expireAt && new Date() > link.expireAt) return { label: t('group.linkStatus.expired'), color: '#FF5252' };
+    if (link.maxUses > 0 && link.usedCount >= link.maxUses) return { label: t('group.linkStatus.usedUp'), color: '#FF5252' };
+    return { label: t('group.linkStatus.valid'), color: '#4DCD5E' };
+  }, [t]);
 
   // ── Render ──
 
@@ -1189,7 +1193,7 @@ export default function GroupList() {
   if (view === 'list') {
     return (
       <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
-        {renderHeader('我的群组',
+        {renderHeader(t('group.title'),
           <>
             <div className="relative">
               <button onClick={() => { setView('app'); setAppStatusFilter('all'); }} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1211,7 +1215,7 @@ export default function GroupList() {
         <div className="px-3 py-2.5 shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#A2ACB5' }} />
-            <input value={listSearch} onChange={(e) => setListSearch(e.target.value)} placeholder="搜索群组" style={{ ...inputStyle, paddingLeft: '36px', borderRadius: '22px', height: '36px', fontSize: '13px' }} onFocus={focusInput} onBlur={blurInput} />
+            <input value={listSearch} onChange={(e) => setListSearch(e.target.value)} placeholder={t('group.searchPlaceholder')} style={{ ...inputStyle, paddingLeft: '36px', borderRadius: '22px', height: '36px', fontSize: '13px' }} onFocus={focusInput} onBlur={blurInput} />
           </div>
         </div>
 
@@ -1228,21 +1232,21 @@ export default function GroupList() {
                     {group.icon ? (
                       <img src={group.icon} alt="" className="shrink-0" style={{ width: 48, height: 48, borderRadius: '50%' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     ) : (
-                      <div className="shrink-0 flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: '50%', background: '#3390EC', color: '#fff', fontSize: 18, fontWeight: 600 }}>{(group.name || '群')[0]}</div>
+                      <div className="shrink-0 flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: '50%', background: '#3390EC', color: '#fff', fontSize: 18, fontWeight: 600 }}>{(group.name || t('group.groupInitial'))[0]}</div>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2" style={{ marginBottom: 2 }}>
                         <span style={{ fontSize: '15px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getGroupDisplayName(group.id, group.name)}</span>
                         {role >= 1 && (
                           <span style={{ fontSize: '10px', fontWeight: 500, color: roleColor[role], backgroundColor: roleBg[role], borderRadius: '4px', padding: '1px 5px', display: 'flex', alignItems: 'center', gap: 2 }}>
-                            {roleIcon[role]}{roleLabel[role]}
+                            {roleIcon[role]}{t(roleLabelKey[role])}
                           </span>
                         )}
                         {group.isVerify && (
-                          <span style={{ fontSize: '10px', color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 5px' }}>需验证</span>
+                          <span style={{ fontSize: '10px', color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 5px' }}>{t('group.needVerify')}</span>
                         )}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#A2ACB5' }}>{gm.length > 0 ? `${gm.length} 位成员` : '群组'}</div>
+                      <div style={{ fontSize: '12px', color: '#A2ACB5' }}>{gm.length > 0 ? t('group.memberCount').replace('{count}', String(gm.length)) : t('group.groupFallback')}</div>
                       {group.notification && (
                         <div style={{ fontSize: '12px', color: '#708499', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
                           {group.notification}
@@ -1250,7 +1254,7 @@ export default function GroupList() {
                       )}
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); handleSendMessageToGroup(group); }} style={{ padding: '5px 14px', borderRadius: '16px', border: '1px solid #3390EC', background: 'transparent', color: '#3390EC', fontSize: '12px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Send className="w-3 h-3" /> 发消息
+                      <Send className="w-3 h-3" /> {t('group.sendMessage')}
                     </button>
                   </div>
                 );
@@ -1259,24 +1263,24 @@ export default function GroupList() {
           ) : (
             <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
               <Users className="w-16 h-16" style={{ color: '#D1D5DB', marginBottom: '16px' }} />
-              <div style={{ fontSize: '15px', fontWeight: 500, color: '#646A73', marginBottom: '8px' }}>{listSearch ? '没有匹配的群组' : '暂无群组'}</div>
-              <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{listSearch ? '换个关键词试试' : '点击右上角创建一个群组吧'}</div>
+              <div style={{ fontSize: '15px', fontWeight: 500, color: '#646A73', marginBottom: '8px' }}>{listSearch ? t('group.noMatch') : t('group.empty')}</div>
+              <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{listSearch ? t('group.noMatchHint') : t('group.emptyHint')}</div>
             </div>
           )}
         </div>
 
         {/* Modals */}
-        <InputModal open={showCreateGroup} title="创建群组" onClose={() => { setShowCreateGroup(false); setNewGroupIconFile(null); setNewGroupIconPreview(''); setCreateInviteSelected(new Set()); }} onSubmit={handleCreateGroup}>
+        <InputModal open={showCreateGroup} title={t('group.create')} onClose={() => { setShowCreateGroup(false); setNewGroupIconFile(null); setNewGroupIconPreview(''); setCreateInviteSelected(new Set()); }} onSubmit={handleCreateGroup}>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群名称 *</label>
-            <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="输入群名称" style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.nameRequired')}</label>
+            <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder={t('group.namePlaceholder')} style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群描述</label>
-            <textarea value={newGroupDesc} onChange={(e) => setNewGroupDesc(e.target.value)} rows={2} placeholder="介绍一下这个群（选填）" style={{ ...inputStyle, resize: 'none' }} onFocus={focusInput} onBlur={blurInput} />
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.desc')}</label>
+            <textarea value={newGroupDesc} onChange={(e) => setNewGroupDesc(e.target.value)} rows={2} placeholder={t('group.descPlaceholder')} style={{ ...inputStyle, resize: 'none' }} onFocus={focusInput} onBlur={blurInput} />
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群头像</label>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.icon')}</label>
             <div className="flex items-center gap-3">
               {newGroupIconPreview ? (
                 <img src={newGroupIconPreview} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
@@ -1284,7 +1288,7 @@ export default function GroupList() {
                 <div style={{ width: 48, height: 48, borderRadius: 8, background: '#E8EDEF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#A2ACB5' }}>+</div>
               )}
               <label style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', background: '#F5F7FA', fontSize: 13, color: '#3390EC', cursor: 'pointer', fontWeight: 500 }}>
-                选择图片
+                {t('group.pickImage')}
                 <input type="file" accept="image/*" hidden onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
@@ -1294,13 +1298,13 @@ export default function GroupList() {
                 }} />
               </label>
               {newGroupIconPreview && (
-                <button onClick={() => { setNewGroupIconFile(null); setNewGroupIconPreview(''); }} style={{ fontSize: 12, color: '#A2ACB5', background: 'none', border: 'none', cursor: 'pointer' }}>移除</button>
+                <button onClick={() => { setNewGroupIconFile(null); setNewGroupIconPreview(''); }} style={{ fontSize: 12, color: '#A2ACB5', background: 'none', border: 'none', cursor: 'pointer' }}>{t('group.remove')}</button>
               )}
             </div>
           </div>
           {friends.length > 0 && (
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>邀请好友入群 <span style={{ fontWeight: 400, color: '#A2ACB5' }}>({createInviteSelected.size} 人已选)</span></label>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.inviteFriendsLabel')} <span style={{ fontWeight: 400, color: '#A2ACB5' }}>{t('group.selectedCount').replace('{count}', String(createInviteSelected.size))}</span></label>
               <div style={{ maxHeight: '200px', overflow: 'auto', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.06)' }}>
                 {friends.map(c => (
                   <label key={c.id} className="flex items-center gap-3" style={{ padding: '8px 12px', borderBottom: '1px solid rgba(0,0,0,0.04)', cursor: 'pointer' }}>
@@ -1324,25 +1328,25 @@ export default function GroupList() {
   // ═══ VIEW: Applications ═══
   if (view === 'app') {
     const statusFilters: { key: AppStatusFilter; label: string }[] = [
-      { key: 'all', label: '全部' }, { key: 0, label: '待处理' }, { key: 1, label: '已通过' }, { key: 2, label: '已拒绝' },
+      { key: 'all', label: t('group.filter.all') }, { key: 0, label: t('group.appResult.pending') }, { key: 1, label: t('group.appResult.approved') }, { key: 2, label: t('group.appResult.rejected') },
     ];
     const getEmptyMsg = () => {
-      if (appStatusFilter === 'all') return { t: appClass === 'received' ? '暂无收到的申请' : '暂无发出的申请', d: '这里空空如也' };
-      return { t: '暂无匹配的申请', d: '换个筛选条件看看' };
+      if (appStatusFilter === 'all') return { t: appClass === 'received' ? t('group.emptyReceived') : t('group.emptySent'), d: t('group.emptyHere') };
+      return { t: t('group.emptyMatch'), d: t('group.emptyMatchHint') };
     };
     const emptyMsg = getEmptyMsg();
 
     return (
       <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
-        {renderHeader('群申请',
-          <button onClick={markAllAppRead} style={{ fontSize: '13px', color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>全部已读</button>
+        {renderHeader(t('group.appTitle'),
+          <button onClick={markAllAppRead} style={{ fontSize: '13px', color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>{t('group.allRead')}</button>
         )}
 
         {/* Class tabs */}
         <div className="flex items-center shrink-0" style={{ padding: '12px 16px 8px', background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
           <div className="flex items-center" style={{ borderRadius: '20px', background: 'rgba(0,0,0,0.04)', padding: '3px' }}>
-            {pillTab(appClass === 'received', () => { setAppClass('received'); setAppStatusFilter('all'); }, '我收到的', unreadCount)}
-            {pillTab(appClass === 'sent', () => { setAppClass('sent'); setAppStatusFilter('all'); }, '我发起的')}
+            {pillTab(appClass === 'received', () => { setAppClass('received'); setAppStatusFilter('all'); }, t('group.app.received'), unreadCount)}
+            {pillTab(appClass === 'sent', () => { setAppClass('sent'); setAppStatusFilter('all'); }, t('group.app.sent'))}
           </div>
         </div>
 
@@ -1376,11 +1380,11 @@ export default function GroupList() {
                         {/* Row 1: name + source + status + time */}
                         <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 4 }}>
                           <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>{isReceived ? app.userName : app.groupName}</span>
-                          <span style={{ fontSize: '10px', color: '#708499', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: '3px', padding: '0 4px' }}>{joinSourceLabel[app.joinSource]}</span>
+                          <span style={{ fontSize: '10px', color: '#708499', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: '3px', padding: '0 4px' }}>{t(joinSourceLabelKey[app.joinSource])}</span>
                           <span style={{ fontSize: '11px', fontWeight: 500, color: rc.color, backgroundColor: rc.bg, borderRadius: '4px', padding: '1px 6px', display: 'flex', alignItems: 'center', gap: 3 }}>
-                            {React.cloneElement(rc.icon as React.ReactElement<any>, { style: { color: rc.color, width: 12, height: 12 } })}{rc.label}
+                            {React.cloneElement(rc.icon as React.ReactElement<any>, { style: { color: rc.color, width: 12, height: 12 } })}{t(rc.labelKey)}
                           </span>
-                          <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{fmtTime(app.reqTime)}</span>
+                          <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{fmtTime(app.reqTime, t)}</span>
                         </div>
                         {/* Group info for received */}
                         {isReceived && (
@@ -1395,15 +1399,15 @@ export default function GroupList() {
                         )}
                         {/* Inviter */}
                         {app.inviterName && (
-                          <div style={{ fontSize: '12px', color: '#708499', marginBottom: 4 }}>邀请人: {app.inviterName}</div>
+                          <div style={{ fontSize: '12px', color: '#708499', marginBottom: 4 }}>{t('group.inviter').replace('{name}', app.inviterName)}</div>
                         )}
                         {/* Message */}
                         <div style={{ fontSize: '13px', color: '#646A73', lineHeight: '1.5', marginBottom: isReceived && isPending ? '6px' : 0 }}>{app.reqMsg}</div>
                         {/* Action buttons */}
                         {isReceived && isPending && (
                           <div className="flex items-center gap-2" style={{ marginTop: 6 }}>
-                            <button onClick={() => handleAcceptApp(app)} style={{ padding: '5px 16px', borderRadius: '6px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>同意</button>
-                            <button onClick={() => handleRejectApp(app)} style={{ padding: '5px 16px', borderRadius: '6px', border: '1px solid #FF5252', background: '#FFF', color: '#FF5252', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>拒绝</button>
+                            <button onClick={() => handleAcceptApp(app)} style={{ padding: '5px 16px', borderRadius: '6px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>{t('group.agree')}</button>
+                            <button onClick={() => handleRejectApp(app)} style={{ padding: '5px 16px', borderRadius: '6px', border: '1px solid #FF5252', background: '#FFF', color: '#FF5252', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>{t('group.reject')}</button>
                           </div>
                         )}
                       </div>
@@ -1429,9 +1433,9 @@ export default function GroupList() {
   // ═══ VIEW: Detail ═══
   if (view === 'detail' && selectedGroup) {
     const tabItems: { key: DetailTab; label: string; show: boolean }[] = [
-      { key: 'members', label: `成员 (${groupMembers.length})`, show: true },
-      { key: 'links', label: '邀请链接', show: isAdmin },
-      { key: 'announcements', label: '公告', show: true },
+      { key: 'members', label: t('group.tab.members').replace('{count}', String(groupMembers.length)), show: true },
+      { key: 'links', label: t('group.tab.links'), show: isAdmin },
+      { key: 'announcements', label: t('group.tab.announcements'), show: true },
     ];
 
     return (
@@ -1448,15 +1452,15 @@ export default function GroupList() {
                   <span style={{ fontSize: '18px', fontWeight: 700, color: '#1C2733' }}>{getGroupDisplayName(selectedGroup.id, selectedGroup.name)}</span>
                   {myRole >= 1 && (
                     <span style={{ fontSize: '10px', fontWeight: 500, color: roleColor[myRole], backgroundColor: roleBg[myRole], borderRadius: '4px', padding: '1px 5px', display: 'flex', alignItems: 'center', gap: 2 }}>
-                      {roleIcon[myRole]}{roleLabel[myRole]}
+                      {roleIcon[myRole]}{t(roleLabelKey[myRole])}
                     </span>
                   )}
                   {selectedGroup.isVerify && (
-                    <span style={{ fontSize: '10px', color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 5px' }}>需验证</span>
+                    <span style={{ fontSize: '10px', color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 5px' }}>{t('group.needVerify')}</span>
                   )}
                 </div>
                 <div style={{ fontSize: '13px', color: '#A2ACB5', marginBottom: 4 }}>
-                  {groupMembers.length} 位成员{onlineCount > 0 ? ` · ${onlineCount} 人在线` : ''}
+                  {t('group.membersOnline').replace('{count}', String(groupMembers.length))}{onlineCount > 0 ? t('group.membersOnlineSuffix').replace('{count}', String(onlineCount)) : ''}
                 </div>
                 {selectedGroup.description && (
                   <div style={{ fontSize: '12px', color: '#708499', marginBottom: 4, lineHeight: '1.5' }}>
@@ -1464,7 +1468,7 @@ export default function GroupList() {
                   </div>
                 )}
                 {mySetting?.groupRemark && (
-                  <div style={{ fontSize: '12px', color: '#708499', marginBottom: 4 }}>备注: {mySetting.groupRemark}</div>
+                  <div style={{ fontSize: '12px', color: '#708499', marginBottom: 4 }}>{t('group.remark').replace('{remark}', mySetting.groupRemark)}</div>
                 )}
                 {/* 置顶公告 */}
                 {groupAnns.find(a => a.pinned) && (
@@ -1485,27 +1489,27 @@ export default function GroupList() {
             {/* Action buttons */}
             <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
               <button onClick={handleSendMessage} style={{ padding: '7px 16px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Send className="w-3.5 h-3.5" /> 发消息
+                <Send className="w-3.5 h-3.5" /> {t('group.sendMessage')}
               </button>
               {isAdmin && (
                 <button onClick={openEditGroup} style={{ padding: '7px 16px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Settings className="w-3.5 h-3.5" /> 编辑群信息
+                  <Settings className="w-3.5 h-3.5" /> {t('group.editGroup')}
                 </button>
               )}
               <button onClick={() => setShowInviteFriends(true)} style={{ padding: '7px 16px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <UserPlus className="w-3.5 h-3.5" /> 邀请好友
+                <UserPlus className="w-3.5 h-3.5" /> {t('group.inviteFriends')}
               </button>
               <button onClick={openMemberSettings} style={{ padding: '7px 16px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Settings className="w-3.5 h-3.5" /> 我的设置
+                <Settings className="w-3.5 h-3.5" /> {t('group.mySettings')}
               </button>
               {isOwner && (
                 <button onClick={handleDisband} style={{ padding: '7px 16px', borderRadius: '8px', border: '1px solid #E53935', background: '#FFF', color: '#E53935', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Trash2 className="w-3.5 h-3.5" /> 解散群组
+                  <Trash2 className="w-3.5 h-3.5" /> {t('group.disband')}
                 </button>
               )}
               {!isOwner && (
                 <button onClick={handleQuitGroup} style={{ padding: '7px 16px', borderRadius: '8px', border: '1px solid #E53935', background: '#FFF', color: '#E53935', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <LogOut className="w-3.5 h-3.5" /> 退出群组
+                  <LogOut className="w-3.5 h-3.5" /> {t('group.quit')}
                 </button>
               )}
             </div>
@@ -1525,7 +1529,7 @@ export default function GroupList() {
             <div style={{ padding: '8px' }}>
               <div className="relative" style={{ marginBottom: '8px' }}>
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#A2ACB5' }} />
-                <input value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} placeholder="搜索成员" style={{ ...inputStyle, paddingLeft: '36px', borderRadius: '22px', height: '36px', fontSize: '13px' }} onFocus={focusInput} onBlur={blurInput} />
+                <input value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} placeholder={t('group.searchMember')} style={{ ...inputStyle, paddingLeft: '36px', borderRadius: '22px', height: '36px', fontSize: '13px' }} onFocus={focusInput} onBlur={blurInput} />
               </div>
               <div style={{ background: '#FFF', borderRadius: '12px', overflow: 'hidden' }}>
                 {filteredMembers.map(m => {
@@ -1547,7 +1551,7 @@ export default function GroupList() {
                           {m.groupNickname && <span style={{ fontSize: '11px', color: '#A2ACB5' }}>({m.groupNickname})</span>}
                           {m.roleLevel >= 1 && (
                             <span style={{ fontSize: '10px', fontWeight: 500, color: roleColor[m.roleLevel], backgroundColor: roleBg[m.roleLevel], borderRadius: '4px', padding: '1px 5px', display: 'flex', alignItems: 'center', gap: 2 }}>
-                              {roleIcon[m.roleLevel]}{roleLabel[m.roleLevel]}
+                              {roleIcon[m.roleLevel]}{t(roleLabelKey[m.roleLevel])}
                             </span>
                           )}
                           {m.nickname && m.nickname !== name && (
@@ -1565,13 +1569,13 @@ export default function GroupList() {
                           const items: ActionMenuItem[] = [];
                           // 群主专属操作
                           if (isOwner) {
-                            if (m.roleLevel === 1) items.push({ label: '取消管理员', onClick: () => handleSetAdmin(m) });
-                            else if (m.roleLevel === 0) items.push({ label: '设为管理员', onClick: () => handleSetAdmin(m) });
-                            items.push({ label: '转让群主', color: '#F5A623', onClick: () => handleTransferOwner(m) });
+                            if (m.roleLevel === 1) items.push({ label: t('group.unsetAdmin'), onClick: () => handleSetAdmin(m) });
+                            else if (m.roleLevel === 0) items.push({ label: t('group.setAdmin'), onClick: () => handleSetAdmin(m) });
+                            items.push({ label: t('group.transferOwner'), color: '#F5A623', onClick: () => handleTransferOwner(m) });
                           }
                           // 管理员/群主可以踢人（管理员不能踢同级或更高）
                           if (isAdmin && (isOwner || m.roleLevel < myRole)) {
-                            items.push({ label: '踢出群组', color: '#FF5252', onClick: () => handleKickMember(m) });
+                            items.push({ label: t('group.kick'), color: '#FF5252', onClick: () => handleKickMember(m) });
                           }
                           // 所有人都能看到的选项
                           const isFriend = friends.some(f => f.id === m.userId);
@@ -1579,17 +1583,17 @@ export default function GroupList() {
                           const alreadyReported = reportedUsers.has(m.userId);
                           if (!isFriend) {
                             items.push({
-                              label: alreadySent ? '申请已发送' : '加为好友',
+                              label: alreadySent ? t('group.appSent') : t('group.addFriend'),
                               color: alreadySent ? '#A2ACB5' : undefined,
                               onClick: alreadySent ? () => {} : () => {
                                 setAddFriendTarget(m);
-                                setAddFriendMsg(`来自群聊「${selectedGroup?.name || ''}」`);
+                                setAddFriendMsg(t('group.applyMsgFromGroup').replace('{name}', selectedGroup?.name || ''));
                                 setActionMenu(null);
                               },
                             });
                           }
                           items.push({
-                            label: alreadyReported ? '已举报' : '举报',
+                            label: alreadyReported ? t('group.reported') : t('group.report'),
                             color: alreadyReported ? '#A2ACB5' : '#FF5252',
                             onClick: alreadyReported ? () => {} : () => {
                               setReportTarget(m);
@@ -1614,11 +1618,11 @@ export default function GroupList() {
             <div style={{ padding: '8px' }}>
               <div className="flex items-center justify-between" style={{ marginBottom: '8px' }}>
                 <button onClick={() => setShowCreateLink(true)} style={{ padding: '7px 16px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Link className="w-3.5 h-3.5" /> 创建链接
+                  <Link className="w-3.5 h-3.5" /> {t('group.createLink')}
                 </button>
                 <button onClick={() => setShowRevoked(v => !v)} style={{ fontSize: '12px', color: '#708499', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                   {showRevoked ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  {showRevoked ? '隐藏已撤销' : '显示已撤销'}
+                  {showRevoked ? t('group.hideRevoked') : t('group.showRevoked')}
                 </button>
               </div>
               {groupLinks.length > 0 ? (
@@ -1630,18 +1634,18 @@ export default function GroupList() {
                       <div key={link.token} style={{ background: '#FFF', borderRadius: '12px', padding: '14px', border: '1px solid rgba(0,0,0,0.06)' }}>
                         <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
                           <span style={{ fontSize: '11px', fontWeight: 500, color: status.color, backgroundColor: `${status.color}15`, borderRadius: '4px', padding: '2px 8px' }}>{status.label}</span>
-                          <span style={{ fontSize: '11px', color: '#A2ACB5' }}>{fmtTime(link.createdAt)}</span>
+                          <span style={{ fontSize: '11px', color: '#A2ACB5' }}>{fmtTime(link.createdAt, t)}</span>
                         </div>
                         <div style={{ fontSize: '12px', color: '#708499', fontFamily: 'monospace', background: '#F5F7FA', borderRadius: '6px', padding: '6px 10px', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link.token}</div>
                         <div style={{ fontSize: '12px', color: '#A2ACB5', marginBottom: 6 }}>
-                          创建者: {getContactName(link.createdBy)}
-                          {link.expireAt && ` · 过期: ${new Date(link.expireAt).toLocaleDateString()}`}
-                          {!link.expireAt && ' · 永久有效'}
+                          {t('group.linkCreator').replace('{name}', getContactName(link.createdBy))}
+                          {link.expireAt && t('group.linkExpire').replace('{date}', new Date(link.expireAt).toLocaleDateString())}
+                          {!link.expireAt && t('group.linkNeverExpire')}
                         </div>
                         {link.maxUses > 0 && (
                           <div style={{ marginBottom: 8 }}>
                             <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
-                              <span style={{ fontSize: '11px', color: '#A2ACB5' }}>使用次数</span>
+                              <span style={{ fontSize: '11px', color: '#A2ACB5' }}>{t('group.linkUsage')}</span>
                               <span style={{ fontSize: '11px', color: '#646A73' }}>{link.usedCount}/{link.maxUses}</span>
                             </div>
                             <div style={{ height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.06)' }}>
@@ -1649,13 +1653,13 @@ export default function GroupList() {
                             </div>
                           </div>
                         )}
-                        {!link.revoked && status.label === '有效' && (
+                        {!link.revoked && status.label === t('group.linkStatus.valid') && (
                           <div className="flex items-center gap-2">
                             <button onClick={() => handleCopyLink(link.token)} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
-                              <Copy className="w-3 h-3" /> 复制
+                              <Copy className="w-3 h-3" /> {t('group.copy')}
                             </button>
                             <button onClick={() => handleRevokeLink(link)} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid #FF5252', background: '#FFF', color: '#FF5252', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
-                              <RefreshCw className="w-3 h-3" /> 撤销
+                              <RefreshCw className="w-3 h-3" /> {t('group.revoke')}
                             </button>
                           </div>
                         )}
@@ -1666,7 +1670,7 @@ export default function GroupList() {
               ) : (
                 <div className="flex flex-col items-center justify-center" style={{ padding: '40px 24px' }}>
                   <Link className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: '12px' }} />
-                  <div style={{ fontSize: '14px', color: '#A2ACB5' }}>{showRevoked ? '暂无链接' : '暂无有效链接'}</div>
+                  <div style={{ fontSize: '14px', color: '#A2ACB5' }}>{showRevoked ? t('group.noLinks') : t('group.noValidLinks')}</div>
                 </div>
               )}
             </div>
@@ -1678,7 +1682,7 @@ export default function GroupList() {
               {isAdmin && (
                 <div style={{ marginBottom: '8px' }}>
                   <button onClick={() => setShowCreateAnnouncement(true)} style={{ padding: '7px 16px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Megaphone className="w-3.5 h-3.5" /> 发布公告
+                    <Megaphone className="w-3.5 h-3.5" /> {t('group.publishAnnouncement')}
                   </button>
                 </div>
               )}
@@ -1689,15 +1693,15 @@ export default function GroupList() {
                       {ann.pinned && (
                         <div className="flex items-center gap-1" style={{ marginBottom: 8 }}>
                           <Pin className="w-3 h-3" style={{ color: '#3390EC' }} />
-                          <span style={{ fontSize: '11px', fontWeight: 500, color: '#3390EC' }}>置顶</span>
+                          <span style={{ fontSize: '11px', fontWeight: 500, color: '#3390EC' }}>{t('group.pinned')}</span>
                         </div>
                       )}
                       <div style={{ fontSize: '14px', color: '#1C2733', lineHeight: '1.6', marginBottom: 10 }}>{ann.content}</div>
                       <div className="flex items-center justify-between">
-                        <div style={{ fontSize: '12px', color: '#A2ACB5' }}>{getContactName(ann.createdBy)} · {fmtTime(ann.createdAt)}</div>
+                        <div style={{ fontSize: '12px', color: '#A2ACB5' }}>{getContactName(ann.createdBy)} · {fmtTime(ann.createdAt, t)}</div>
                         {isAdmin && (
                           <button onClick={() => handleTogglePin(ann)} style={{ fontSize: '12px', color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}>
-                            {ann.pinned ? <><XCircle className="w-3 h-3" /> 取消置顶</> : <><Pin className="w-3 h-3" /> 置顶</>}
+                            {ann.pinned ? <><XCircle className="w-3 h-3" /> {t('group.unpin')}</> : <><Pin className="w-3 h-3" /> {t('group.pin')}</>}
                           </button>
                         )}
                       </div>
@@ -1707,7 +1711,7 @@ export default function GroupList() {
               ) : (
                 <div className="flex flex-col items-center justify-center" style={{ padding: '40px 24px' }}>
                   <Megaphone className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: '12px' }} />
-                  <div style={{ fontSize: '14px', color: '#A2ACB5' }}>暂无公告</div>
+                  <div style={{ fontSize: '14px', color: '#A2ACB5' }}>{t('group.noAnnouncements')}</div>
                 </div>
               )}
             </div>
@@ -1718,17 +1722,17 @@ export default function GroupList() {
         {actionMenu && <ActionMenu x={actionMenu.x} y={actionMenu.y} items={actionMenu.items} onClose={() => setActionMenu(null)} />}
 
         {/* ── Edit Group Modal ── */}
-        <InputModal open={showEditGroup} title="编辑群信息" onClose={() => { setShowEditGroup(false); setEditIconFile(null); setEditIconPreview(''); }} onSubmit={handleEditGroup}>
+        <InputModal open={showEditGroup} title={t('group.editGroup')} onClose={() => { setShowEditGroup(false); setEditIconFile(null); setEditIconPreview(''); }} onSubmit={handleEditGroup}>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群名称</label>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.name')}</label>
             <input value={editName} onChange={(e) => setEditName(e.target.value)} style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群描述</label>
-            <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={2} placeholder="群描述（选填）" style={{ ...inputStyle, resize: 'none' }} onFocus={focusInput} onBlur={blurInput} />
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.desc')}</label>
+            <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={2} placeholder={t('group.descPlaceholderEdit')} style={{ ...inputStyle, resize: 'none' }} onFocus={focusInput} onBlur={blurInput} />
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群头像</label>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.icon')}</label>
             <div className="flex items-center gap-3">
               {(editIconPreview || editIcon) ? (
                 <img src={editIconPreview || editIcon} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
@@ -1736,7 +1740,7 @@ export default function GroupList() {
                 <div style={{ width: 48, height: 48, borderRadius: 8, background: '#E8EDEF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#A2ACB5' }}>+</div>
               )}
               <label style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', background: '#F5F7FA', fontSize: 13, color: '#3390EC', cursor: 'pointer', fontWeight: 500 }}>
-                更换图片
+                {t('group.changeImage')}
                 <input type="file" accept="image/*" hidden onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
@@ -1748,7 +1752,7 @@ export default function GroupList() {
             </div>
           </div>
           <div className="flex items-center justify-between" style={{ padding: '8px 0' }}>
-            <span style={{ fontSize: '13px', color: '#1C2733' }}>入群验证</span>
+            <span style={{ fontSize: '13px', color: '#1C2733' }}>{t('group.joinVerify')}</span>
             <button onClick={() => setEditVerify(v => !v)} style={{ width: 44, height: 24, borderRadius: 12, border: 'none', background: editVerify ? '#3390EC' : '#D1D5DB', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
               <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#FFF', position: 'absolute', top: 2, left: editVerify ? 22 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
             </button>
@@ -1756,9 +1760,9 @@ export default function GroupList() {
         </InputModal>
 
         {/* ── Invite Friends Modal ── */}
-        <InputModal open={showInviteFriends} title="邀请好友" onClose={() => { setShowInviteFriends(false); setInviteSelected(new Set()); }} onSubmit={handleInviteFriends}>
+        <InputModal open={showInviteFriends} title={t('group.inviteFriends')} onClose={() => { setShowInviteFriends(false); setInviteSelected(new Set()); }} onSubmit={handleInviteFriends}>
           <div style={{ marginBottom: '12px' }}>
-            <span style={{ fontSize: '13px', color: '#646A73' }}>已选择 {inviteSelected.size} 人</span>
+            <span style={{ fontSize: '13px', color: '#646A73' }}>{t('group.selectedFriends').replace('{count}', String(inviteSelected.size))}</span>
           </div>
           <div style={{ maxHeight: '300px', overflow: 'auto', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.06)' }}>
             {friendsNotInGroup.map(c => (
@@ -1771,48 +1775,48 @@ export default function GroupList() {
               </label>
             ))}
             {friendsNotInGroup.length === 0 && (
-              <div style={{ padding: '24px', textAlign: 'center', fontSize: '13px', color: '#A2ACB5' }}>所有好友都已在群中</div>
+              <div style={{ padding: '24px', textAlign: 'center', fontSize: '13px', color: '#A2ACB5' }}>{t('group.allFriendsInGroup')}</div>
             )}
           </div>
         </InputModal>
 
         {/* ── Create Link Modal ── */}
-        <InputModal open={showCreateLink} title="创建邀请链接" onClose={() => setShowCreateLink(false)} onSubmit={handleCreateLink}>
+        <InputModal open={showCreateLink} title={t('group.createLinkTitle')} onClose={() => setShowCreateLink(false)} onSubmit={handleCreateLink}>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>有效期</label>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.validity')}</label>
             <select value={newLinkExpiry} onChange={(e) => setNewLinkExpiry(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-              <option value="1d">1天</option>
-              <option value="7d">7天</option>
-              <option value="30d">30天</option>
-              <option value="never">永久</option>
+              <option value="1d">{t('group.validity.1d')}</option>
+              <option value="7d">{t('group.validity.7d')}</option>
+              <option value="30d">{t('group.validity.30d')}</option>
+              <option value="never">{t('group.validity.never')}</option>
             </select>
           </div>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>最大使用次数 (0 = 无限制)</label>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.maxUses')}</label>
             <input type="number" min="0" value={newLinkMaxUses} onChange={(e) => setNewLinkMaxUses(e.target.value)} style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
           </div>
         </InputModal>
 
         {/* ── Create Announcement Modal ── */}
-        <InputModal open={showCreateAnnouncement} title="发布公告" onClose={() => { setShowCreateAnnouncement(false); setNewAnnContent(''); }} onSubmit={handleCreateAnnouncement}>
+        <InputModal open={showCreateAnnouncement} title={t('group.publishAnnouncement')} onClose={() => { setShowCreateAnnouncement(false); setNewAnnContent(''); }} onSubmit={handleCreateAnnouncement}>
           <div>
             <div className="flex items-center justify-between" style={{ marginBottom: '6px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733' }}>公告内容</label>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733' }}>{t('group.announcementContent')}</label>
               <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{newAnnContent.length}/500</span>
             </div>
-            <textarea value={newAnnContent} onChange={(e) => setNewAnnContent(e.target.value.slice(0, 500))} rows={5} placeholder="输入公告内容..." style={{ ...inputStyle, resize: 'none' }} onFocus={focusInput} onBlur={blurInput} />
+            <textarea value={newAnnContent} onChange={(e) => setNewAnnContent(e.target.value.slice(0, 500))} rows={5} placeholder={t('group.announcementPlaceholder')} style={{ ...inputStyle, resize: 'none' }} onFocus={focusInput} onBlur={blurInput} />
           </div>
         </InputModal>
 
         {/* ── Member Settings Modal ── */}
-        <InputModal open={showMemberSettings} title="我的群设置" onClose={() => setShowMemberSettings(false)} onSubmit={handleSaveMemberSettings}>
+        <InputModal open={showMemberSettings} title={t('group.mySettingsTitle')} onClose={() => setShowMemberSettings(false)} onSubmit={handleSaveMemberSettings}>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群昵称</label>
-            <input value={settingNickname} onChange={(e) => setSettingNickname(e.target.value)} placeholder="在群中的显示名称" style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.groupNickname')}</label>
+            <input value={settingNickname} onChange={(e) => setSettingNickname(e.target.value)} placeholder={t('group.groupNicknamePlaceholder')} style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
           </div>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>群备注</label>
-            <input value={settingRemark} onChange={(e) => setSettingRemark(e.target.value)} placeholder="仅自己可见" style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
+            <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.groupRemark')}</label>
+            <input value={settingRemark} onChange={(e) => setSettingRemark(e.target.value)} placeholder={t('group.groupRemarkPlaceholder')} style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
           </div>
         </InputModal>
 
@@ -1826,7 +1830,7 @@ export default function GroupList() {
               <button onClick={() => setAddFriendTarget(null)} className="absolute" style={{ top: 16, right: 16, width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'transparent', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <X className="w-4 h-4" />
               </button>
-              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', marginBottom: '16px' }}>添加好友</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', marginBottom: '16px' }}>{t('group.addFriendTitle')}</h3>
               <div className="flex items-center gap-3" style={{ marginBottom: '16px', padding: '12px', background: '#F5F7FA', borderRadius: '12px' }}>
                 {avatarCircle(getContactName(addFriendTarget.userId), 48)}
                 <div>
@@ -1835,11 +1839,11 @@ export default function GroupList() {
                 </div>
               </div>
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>申请附言</label>
-                <textarea value={addFriendMsg} onChange={(e) => setAddFriendMsg(e.target.value)} rows={2} placeholder="向对方介绍一下自己吧" style={{ width: '100%', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 12px', fontSize: '14px', color: '#1C2733', outline: 'none', resize: 'none', background: '#F5F7FA', boxSizing: 'border-box' }} onFocus={(e) => { e.target.style.borderColor = '#3390EC'; e.target.style.boxShadow = '0 0 0 3px rgba(51,144,236,0.15)'; }} onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }} />
+                <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.applyMsg')}</label>
+                <textarea value={addFriendMsg} onChange={(e) => setAddFriendMsg(e.target.value)} rows={2} placeholder={t('group.applyMsgPlaceholder')} style={{ width: '100%', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 12px', fontSize: '14px', color: '#1C2733', outline: 'none', resize: 'none', background: '#F5F7FA', boxSizing: 'border-box' }} onFocus={(e) => { e.target.style.borderColor = '#3390EC'; e.target.style.boxShadow = '0 0 0 3px rgba(51,144,236,0.15)'; }} onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }} />
               </div>
               <div className="flex items-center justify-end gap-3">
-                <button onClick={() => setAddFriendTarget(null)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>取消</button>
+                <button onClick={() => setAddFriendTarget(null)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>{t('common.cancel')}</button>
                 <button disabled={addFriendLoading} onClick={async () => {
                   setAddFriendLoading(true);
                   try {
@@ -1848,16 +1852,16 @@ export default function GroupList() {
                       body: JSON.stringify({ user_uid: addFriendTarget.userId, req_msg: addFriendMsg || '' }),
                     });
                     if (res.success) {
-                      toast.success('好友申请已发送');
+                      toast.success(t('group.friendReqSentToast'));
                       setSentFriendReqs(prev => new Set(prev).add(addFriendTarget.userId));
                       setAddFriendTarget(null);
                     } else {
-                      toast.error(res.message || '发送失败');
+                      toast.error(res.message || t('group.sendFailed'));
                     }
-                  } catch { toast.error('发送失败'); }
+                  } catch { toast.error(t('group.sendFailed')); }
                   finally { setAddFriendLoading(false); }
                 }} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: addFriendLoading ? 'not-allowed' : 'pointer', opacity: addFriendLoading ? 0.7 : 1 }}>
-                  {addFriendLoading ? '发送中...' : '发送申请'}
+                  {addFriendLoading ? t('group.sending') : t('group.sendApply')}
                 </button>
               </div>
             </div>
@@ -1872,7 +1876,7 @@ export default function GroupList() {
               <button onClick={() => setReportTarget(null)} className="absolute" style={{ top: 16, right: 16, width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'transparent', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <X className="w-4 h-4" />
               </button>
-              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#E53935', marginBottom: '16px' }}>举报用户</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#E53935', marginBottom: '16px' }}>{t('group.reportUser')}</h3>
               <div className="flex items-center gap-3" style={{ marginBottom: '16px', padding: '12px', background: '#FFF5F5', borderRadius: '12px' }}>
                 {avatarCircle(getContactName(reportTarget.userId), 48)}
                 <div>
@@ -1881,11 +1885,11 @@ export default function GroupList() {
                 </div>
               </div>
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>举报原因</label>
-                <textarea value={reportReason} onChange={(e) => setReportReason(e.target.value)} rows={3} placeholder="请描述举报原因..." style={{ width: '100%', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 12px', fontSize: '14px', color: '#1C2733', outline: 'none', resize: 'none', background: '#F5F7FA', boxSizing: 'border-box' }} onFocus={(e) => { e.target.style.borderColor = '#E53935'; e.target.style.boxShadow = '0 0 0 3px rgba(229,57,53,0.15)'; }} onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }} />
+                <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.reportReason')}</label>
+                <textarea value={reportReason} onChange={(e) => setReportReason(e.target.value)} rows={3} placeholder={t('group.reportReasonPlaceholder')} style={{ width: '100%', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 12px', fontSize: '14px', color: '#1C2733', outline: 'none', resize: 'none', background: '#F5F7FA', boxSizing: 'border-box' }} onFocus={(e) => { e.target.style.borderColor = '#E53935'; e.target.style.boxShadow = '0 0 0 3px rgba(229,57,53,0.15)'; }} onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }} />
               </div>
               <div className="flex items-center justify-end gap-3">
-                <button onClick={() => setReportTarget(null)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>取消</button>
+                <button onClick={() => setReportTarget(null)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>{t('common.cancel')}</button>
                 <button disabled={reportLoading || !reportReason.trim()} onClick={async () => {
                   setReportLoading(true);
                   try {
@@ -1894,16 +1898,16 @@ export default function GroupList() {
                       body: JSON.stringify({ friend_uid: reportTarget.userId, reason: reportReason }),
                     });
                     if (res.success) {
-                      toast.success('举报已提交，我们会尽快处理');
+                      toast.success(t('group.reportSubmittedToast'));
                       setReportedUsers(prev => new Set(prev).add(reportTarget.userId));
                       setReportTarget(null);
                     } else {
-                      toast.error(res.message || '举报失败');
+                      toast.error(res.message || t('group.reportFailed'));
                     }
-                  } catch { toast.error('举报失败'); }
+                  } catch { toast.error(t('group.reportFailed')); }
                   finally { setReportLoading(false); }
                 }} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#E53935', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: (reportLoading || !reportReason.trim()) ? 'not-allowed' : 'pointer', opacity: (reportLoading || !reportReason.trim()) ? 0.5 : 1 }}>
-                  {reportLoading ? '提交中...' : '提交举报'}
+                  {reportLoading ? t('group.submitting') : t('group.submitReport')}
                 </button>
               </div>
             </div>
@@ -1938,23 +1942,23 @@ export default function GroupList() {
                       <span style={{ fontSize: '18px', fontWeight: 600, color: '#1C2733' }}>{pmName}</span>
                       {pm.roleLevel >= 1 && (
                         <span style={{ fontSize: '10px', fontWeight: 500, color: roleColor[pm.roleLevel], backgroundColor: roleBg[pm.roleLevel], borderRadius: '4px', padding: '1px 5px', display: 'flex', alignItems: 'center', gap: 2 }}>
-                          {roleIcon[pm.roleLevel]}{roleLabel[pm.roleLevel]}
+                          {roleIcon[pm.roleLevel]}{t(roleLabelKey[pm.roleLevel])}
                         </span>
                       )}
                     </div>
                     <div style={{ fontSize: '12px', color: '#A2ACB5' }}>ID: {pm.userId}</div>
-                    {pm.groupNickname && <div style={{ fontSize: '12px', color: '#708499', marginTop: 2 }}>群昵称: {pm.groupNickname}</div>}
+                    {pm.groupNickname && <div style={{ fontSize: '12px', color: '#708499', marginTop: 2 }}>{t('group.groupNicknameLabel').replace('{name}', pm.groupNickname)}</div>}
                   </div>
                 </div>
 
                 {/* 好友状态 */}
                 {isFriend ? (
                   <div style={{ padding: '10px 14px', background: 'rgba(77,205,94,0.08)', borderRadius: '10px', marginBottom: '16px', fontSize: '13px', color: '#4DCD5E', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <UserCheck className="w-4 h-4" /> 已是好友
+                    <UserCheck className="w-4 h-4" /> {t('group.isFriend')}
                   </div>
                 ) : alreadySent ? (
                   <div style={{ padding: '10px 14px', background: 'rgba(51,144,236,0.06)', borderRadius: '10px', marginBottom: '16px', fontSize: '13px', color: '#3390EC', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Clock className="w-4 h-4" /> 好友申请已发送
+                    <Clock className="w-4 h-4" /> {t('group.friendReqSent')}
                   </div>
                 ) : null}
 
@@ -1966,22 +1970,22 @@ export default function GroupList() {
                       setProfileTarget(null);
                       if (!currentUser?.token || !currentUser?.id || !memberId) return;
                       try {
-                        const conv = await useChatStore.getState().getOrCreateConversation(currentUser.token, currentUser.id, memberId);
+                        const conv = await useChatStore.getState().getOrCreateConversation(currentUser.token, currentUser.id, String(memberId));
                         setShowGroupPanel(false);
                         setActiveTab('chats');
                         setSelectedConversationId(conv.id);
                         setShowChatDetail(true);
-                      } catch { toast.error('打开会话失败'); }
+                      } catch { toast.error(t('group.openConvFailed')); }
                     }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                      <Send className="w-4 h-4" /> 发消息
+                      <Send className="w-4 h-4" /> {t('group.sendMessage')}
                     </button>
                   ) : !alreadySent ? (
-                    <button onClick={() => { setProfileTarget(null); setAddFriendTarget(pm); setAddFriendMsg(`来自群聊「${selectedGroup?.name || ''}」`); }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                      <UserPlus className="w-4 h-4" /> 加为好友
+                    <button onClick={() => { setProfileTarget(null); setAddFriendTarget(pm); setAddFriendMsg(t('group.applyMsgFromGroup').replace('{name}', selectedGroup?.name || '')); }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <UserPlus className="w-4 h-4" /> {t('group.addFriend')}
                     </button>
                   ) : null}
                   <button onClick={() => { setProfileTarget(null); setReportTarget(pm); setReportReason(''); }} style={{ padding: '10px 16px', borderRadius: '10px', border: '1px solid #E53935', background: '#FFF', color: '#E53935', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    <Flag className="w-4 h-4" /> 举报
+                    <Flag className="w-4 h-4" /> {t('group.report')}
                   </button>
                 </div>
               </div>
