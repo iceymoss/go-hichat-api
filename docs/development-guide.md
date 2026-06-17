@@ -178,7 +178,8 @@ services:
     environment:
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092
+      # - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092 不对外使用不配置
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092 # 对外配置填写对应的ip
     volumes:
       - kafka_data:/bitnami/kafka
     depends_on:
