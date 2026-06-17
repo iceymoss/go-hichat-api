@@ -836,16 +836,16 @@
 /* Top-right CN/EN language switcher */
 .auth-lang {
   position: absolute;
-  top: 20px;
-  right: 24px;
+  top: 18px;
+  right: 20px;
   z-index: 10;
   display: flex;
-  gap: 2px;
-  padding: 4px;
-  border-radius: 22px;
-  background: rgba(17, 39, 59, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 4px 14px rgba(17, 39, 59, 0.3);
+  gap: 1px;
+  padding: 3px;
+  border-radius: 16px;
+  background: rgba(17, 39, 59, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 3px 10px rgba(17, 39, 59, 0.25);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -853,15 +853,19 @@
   border: none;
   background: none;
   cursor: pointer;
-  padding: 6px 16px;
-  border-radius: 18px;
-  font-size: 13px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  padding: 4px 11px;
+  border-radius: 13px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.8);
+  transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.auth-lang button:hover:not(.on) { color: #fff; }
 .auth-lang button.on {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
   color: #17273b;
-  box-shadow: 0 2px 8px rgba(17, 39, 59, 0.25);
+  box-shadow: 0 1px 5px rgba(17, 39, 59, 0.2);
 }
