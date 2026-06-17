@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useIMStore } from '@/lib/im-store';
+import { useSettingsStore } from '@/lib/settings-store';
 import { useT } from '@/hooks/use-i18n';
 import { Eye, EyeOff, Loader2, CheckCircle2, ChevronDown, AlertCircle } from 'lucide-react';
 
@@ -87,6 +88,18 @@ function EyeBtn({ show, toggle }: { show: boolean; toggle: () => void }) {
 
 function Mac() {
   return <div className="auth-mac"><span className="dot r" /><span className="dot y" /><span className="dot g" /></div>;
+}
+
+/* Top-right CN/EN language switcher (persisted on login via settings store) */
+function LangSwitch() {
+  const lang = useSettingsStore(s => s.language);
+  const setLanguage = useSettingsStore(s => s.setLanguage);
+  return (
+    <div className="auth-lang">
+      <button className={lang === 'zh-CN' ? 'on' : ''} onClick={() => setLanguage('zh-CN')}>中</button>
+      <button className={lang === 'en' ? 'on' : ''} onClick={() => setLanguage('en')}>EN</button>
+    </div>
+  );
 }
 
 function Err({ dark, children }: { dark?: boolean; children: React.ReactNode }) {
@@ -325,6 +338,7 @@ export default function AuthPage() {
 
   return (
     <div className="auth-stage">
+      <LangSwitch />
       <div className={`auth-shell${mounted ? ' auth-shell-show' : ''}`} style={{ height: cardH }}>
         {boxes.map((b, i) => {
           const pos = i < activeIdx ? 'is-before' : i > activeIdx ? 'is-after' : 'is-active';

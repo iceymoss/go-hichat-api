@@ -761,7 +761,7 @@
 .auth-box-dark .pill-icon  { color: rgba(255, 255, 255, 0.6); }
 .auth-box-light .pill-icon { color: #708499; }
 
-/* Primary action button — pill, fills on hover */
+/* Primary action button — amber gradient (matches the page background) */
 .auth-go {
   height: 46px;
   min-width: 160px;
@@ -770,19 +770,27 @@
   border-radius: 24px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 2px;
   margin-top: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: 0.4s;
+  color: #17273b;
+  background: linear-gradient(135deg, #fbc531, #f0932b);
+  box-shadow: 0 6px 18px rgba(240, 147, 43, 0.4);
+  transition: transform 0.25s, box-shadow 0.25s, filter 0.25s;
 }
-.auth-box-dark .auth-go  { background: rgba(255, 255, 255, 0.14); color: rgba(255, 255, 255, 0.85); }
-.auth-box-dark .auth-go:hover:not(:disabled)  { background: #57606f; color: #fff; }
-.auth-box-light .auth-go { background: rgba(30, 144, 255, 0.14); color: #1e90ff; }
-.auth-box-light .auth-go:hover:not(:disabled) { background: #1e90ff; color: #fff; }
-.auth-go:disabled { opacity: 0.45; cursor: not-allowed; }
+.auth-go:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(240, 147, 43, 0.5);
+}
+.auth-go:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 3px 10px rgba(240, 147, 43, 0.4);
+}
+.auth-go:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; filter: grayscale(0.2); }
 
 /* Secondary inline link (forgot password / back) */
 .auth-link { background: none; border: none; cursor: pointer; font-size: 13px; padding: 0; }
@@ -824,3 +832,36 @@
 
 /* Inline status rows */
 .auth-msg { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+
+/* Top-right CN/EN language switcher */
+.auth-lang {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 10;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 22px;
+  background: rgba(17, 39, 59, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 14px rgba(17, 39, 59, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.auth-lang button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 6px 16px;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.auth-lang button.on {
+  background: #fff;
+  color: #17273b;
+  box-shadow: 0 2px 8px rgba(17, 39, 59, 0.25);
+}
