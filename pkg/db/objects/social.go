@@ -36,6 +36,9 @@ type FriendRequest struct {
 	HandledAt    *time.Time `gorm:"column:handled_at;type:TIMESTAMP;comment:处理操作时间"`
 	Status       *int       `gorm:"column:status;type:INT;comment:消息状态（0:已删除 1:正常显示 2:忽略不显示）"`
 	ReadState    int        `gorm:"column:read_state;type:TINYINT;default:0;not null;comment:读取状态（0:未读 1:已读）"`
+	ReceiverRead int        `gorm:"column:receiver_read;type:TINYINT;default:0;not null;comment:接收方已读（0:未读 1:已读）"`
+	SenderRead   int        `gorm:"column:sender_read;type:TINYINT;default:0;not null;comment:发起方已读处理结果（0:未读 1:已读）"`
+	Remark       string     `gorm:"column:remark;type:VARCHAR(64);default:'';not null;comment:申请人为对方预设的备注"`
 }
 
 func (FriendRequest) TableName() string {
@@ -47,6 +50,7 @@ type Group struct {
 	ID              uint64     `gorm:"primaryKey;column:id;type:INT UNSIGNED;autoIncrement;comment:自增主键"`
 	Name            string     `gorm:"column:name;type:VARCHAR(255);not null;comment:群名称"`
 	Icon            string     `gorm:"column:icon;type:VARCHAR(255);not null;comment:群头像URL"`
+	Description     string     `gorm:"column:description;type:VARCHAR(255);not null;default:'';comment:群描述"`
 	Status          *int       `gorm:"column:status;type:TINYINT;comment:群状态（0:正常 1:已解散 2:封禁）"`
 	CreatorUID      uint64     `gorm:"column:creator_uid;type:INT UNSIGNED;not null;comment:群主用户ID"`
 	GroupType       int        `gorm:"column:group_type;type:INT;not null;comment:群类型（1:普通群 2:企业群 3:粉丝群...）"`
@@ -71,6 +75,8 @@ type GroupMember struct {
 	JoinSource  *int       `gorm:"column:join_source;type:TINYINT;comment:加入来源（1:扫码 2:邀请 3:搜索...）"`
 	InviterUID  *uint64    `gorm:"column:inviter_uid;type:INT UNSIGNED;comment:邀请人用户ID"`
 	OperatorUID *uint64    `gorm:"column:operator_uid;type:INT UNSIGNED;comment:操作人用户ID"`
+	GroupNick   string     `gorm:"column:group_nickname;type:VARCHAR(64);not null;default:'';comment:群内昵称"`
+	GroupRemark string     `gorm:"column:group_remark;type:VARCHAR(255);not null;default:'';comment:群备注（仅自己可见）"`
 }
 
 func (GroupMember) TableName() string {

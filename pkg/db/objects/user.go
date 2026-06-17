@@ -20,6 +20,7 @@ type User struct {
 	Region       string     `gorm:"column:region;type:VARCHAR(100);comment:地区"`
 	Occupation   string     `gorm:"column:occupation;type:VARCHAR(100);comment:职业"`
 	Tags         string     `gorm:"column:tags;type:TEXT;comment:个人标签（JSON数组）"`
+	MomentsCover string     `gorm:"column:moments_cover;type:VARCHAR(255);not null;default:'';comment:朋友圈封面图URL"`
 	CreatedAt    time.Time  `gorm:"column:created_at;type:TIMESTAMP;not null;default:CURRENT_TIMESTAMP;comment:创建时间"`
 	UpdatedAt    time.Time  `gorm:"column:updated_at;type:TIMESTAMP;not null;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;comment:更新时间"`
 }

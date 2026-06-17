@@ -174,6 +174,13 @@ const dict: Record<string, Record<string, string>> = {
     'auth.err.pwdLetter': '需包含字母',
     'auth.err.pwdDigit': '需包含数字',
     'auth.err.pwdMismatch': '两次密码不一致',
+    'auth.account': '手机号 / 邮箱',
+    'auth.accountPh': '请输入手机号或邮箱',
+    'auth.err.email': '请输入正确的邮箱',
+    'auth.err.account': '请输入正确的手机号或邮箱',
+    'auth.toRegister': '去注册',
+    'auth.toLogin': '去登录',
+    'auth.toReset': '去重置',
 
     // ChatList
     'chatlist.searchPlaceholder': '搜索联系人、群聊',
@@ -598,6 +605,13 @@ const dict: Record<string, Record<string, string>> = {
     'auth.err.pwdLetter': 'Must contain a letter',
     'auth.err.pwdDigit': 'Must contain a digit',
     'auth.err.pwdMismatch': 'Passwords do not match',
+    'auth.account': 'Phone / Email',
+    'auth.accountPh': 'Enter phone or email',
+    'auth.err.email': 'Please enter a valid email',
+    'auth.err.account': 'Please enter a valid phone or email',
+    'auth.toRegister': 'Sign up',
+    'auth.toLogin': 'Log in',
+    'auth.toReset': 'Reset',
 
     // ChatList
     'chatlist.searchPlaceholder': 'Search contacts, groups',
