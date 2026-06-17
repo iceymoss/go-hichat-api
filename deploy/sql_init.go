@@ -64,11 +64,16 @@ func RunAutoMigrate(dbName string) error {
 	tables := []interface{}{
 		// 用户模块
 		&objects.User{},
+		&objects.UserSettings{},
+		&objects.Favorite{},
+		&objects.UserEmoji{},
 
 		// 动态模块
 		&objects.Trend{},
 		&objects.TrendAgree{},
 		&objects.TrendDiscuss{},
+		&objects.TrendDraft{},
+		&objects.TrendMessage{},
 
 		// 社交模块
 		&objects.Friend{},
@@ -194,11 +199,16 @@ func RunAutoMigrateInTx(tx *gorm.DB) error {
 	tables := []interface{}{
 		// 用户模块
 		&objects.User{},
+		&objects.UserSettings{},
+		&objects.Favorite{},
+		&objects.UserEmoji{},
 
 		// 动态模块
 		&objects.Trend{},
 		&objects.TrendAgree{},
 		&objects.TrendDiscuss{},
+		&objects.TrendDraft{},
+		&objects.TrendMessage{},
 
 		// 社交模块
 		&objects.Friend{},

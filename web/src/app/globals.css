@@ -634,3 +634,238 @@
   15%, 55%, 85% { transform: translateX(-5px); }
   35%, 75% { transform: translateX(5px); }
 }
+
+/* ═══════════════════════════════════════════════════════
+   HiChat Auth — faithful "顺滑简约" rotating card
+   (full-screen gradient · centered translucent card ·
+    hover-wake · corner clip-path switch · staggered Mac dots)
+   ═══════════════════════════════════════════════════════ */
+
+.auth-stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: linear-gradient(120deg, #487eb0, #fbc531);
+  overflow: hidden;
+}
+
+/* Translucent shell — height animates to fit the active box */
+.auth-shell {
+  position: relative;
+  width: 600px;
+  max-width: 92vw;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(17, 39, 59, 1);
+  box-shadow: 0 0 16px rgba(17, 39, 59, 0.8);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 1s ease, transform 1s ease,
+    height 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.auth-shell-show { opacity: 1; transform: translateY(0); }
+
+/* Content-height faces (NOT stretched) — rotate around bottom-left corner.
+   Height is content-driven so measuring it can't feed back into a resize loop. */
+.auth-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px 0 34px;
+  transform-origin: 0 100%;
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+.auth-box.is-before { transform: rotate(-90deg); pointer-events: none; }
+.auth-box.is-after  { transform: rotate(90deg);  pointer-events: none; }
+.auth-box.is-active { transform: rotate(0deg); z-index: 2; pointer-events: auto; }
+.auth-box-dark  { background: rgba(17, 39, 59, 0.86); }
+.auth-box-light { background: rgba(255, 255, 255, 0.86); }
+
+/* Mac dots — hidden, slide in on hover with staggered delays */
+.auth-mac { position: absolute; top: 12px; left: 14px; display: flex; gap: 7px; z-index: 3; }
+.auth-mac .dot { width: 13px; height: 13px; border-radius: 50%; opacity: 0; transform: translateY(-50%); }
+.auth-mac .dot.r { background: #ff5f57; transition: 0.3s; }
+.auth-mac .dot.y { background: #febc2e; transition: 0.6s; }
+.auth-mac .dot.g { background: #28c840; transition: 0.9s; }
+.auth-shell:hover .auth-mac .dot { opacity: 1; transform: translateY(0); }
+
+/* Title — shrinks on hover (demo charm) */
+.auth-h {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin: 4px 0;
+  transition: 0.4s;
+}
+.auth-box-dark .auth-h { color: #fff; text-shadow: 0 0 8px rgba(255, 255, 255, 0.6); }
+.auth-box-light .auth-h { color: #17273b; text-shadow: 0 0 10px rgba(200, 200, 200, 0.8); }
+.auth-shell:hover .auth-h { font-size: 22px; }
+
+.auth-fields {
+  position: relative;
+  z-index: 3;
+  width: 400px;
+  max-width: 84%;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 22px;
+  transition: 0.4s;
+}
+
+/* Pill input */
+.pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 46px;
+  border-radius: 45px;
+  padding: 0 8px 0 18px;
+  transition: box-shadow 0.3s, background 0.3s;
+}
+.auth-box-dark .pill  { background: rgba(255, 255, 255, 0.16); }
+.auth-box-light .pill { background: rgba(120, 140, 160, 0.14); }
+.pill.focused { box-shadow: 0 0 10px rgba(17, 39, 59, 0.55); }
+.auth-box-light .pill.focused { box-shadow: 0 0 8px rgba(30, 144, 255, 0.5); }
+.pill.err { box-shadow: 0 0 0 2px #e53935 inset; }
+.pill input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 15px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.auth-box-dark .pill input  { color: rgba(255, 255, 255, 0.92); caret-color: #fff; }
+.auth-box-dark .pill input::placeholder  { color: rgba(255, 255, 255, 0.55); }
+.auth-box-light .pill input { color: #17273b; }
+.auth-box-light .pill input::placeholder { color: #8a99a8; }
+.pill-prefix { display: flex; align-items: center; gap: 1px; font-size: 14px; font-weight: 500; white-space: nowrap; }
+.auth-box-dark .pill-prefix  { color: #fff; }
+.auth-box-light .pill-prefix { color: #17273b; }
+.pill-icon { background: none; border: none; cursor: pointer; padding: 6px; display: flex; }
+.auth-box-dark .pill-icon  { color: rgba(255, 255, 255, 0.6); }
+.auth-box-light .pill-icon { color: #708499; }
+
+/* Primary action button — amber gradient (matches the page background) */
+.auth-go {
+  height: 46px;
+  min-width: 160px;
+  padding: 0 26px;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #17273b;
+  background: linear-gradient(135deg, #fbc531, #f0932b);
+  box-shadow: 0 6px 18px rgba(240, 147, 43, 0.4);
+  transition: transform 0.25s, box-shadow 0.25s, filter 0.25s;
+}
+.auth-go:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(240, 147, 43, 0.5);
+}
+.auth-go:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 3px 10px rgba(240, 147, 43, 0.4);
+}
+.auth-go:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; filter: grayscale(0.2); }
+
+/* Secondary inline link (forgot password / back) */
+.auth-link { background: none; border: none; cursor: pointer; font-size: 13px; padding: 0; }
+.auth-box-dark .auth-link  { color: #8ec5ff; }
+.auth-box-light .auth-link { color: #1e90ff; }
+
+/* Corner clip-path switch button — always visible, grows on hover.
+   pointer-events:none so the decoration never eats the button's click. */
+.auth-corner {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 96px;
+  clip-path: polygon(100% 42%, 42% 100%, 100% 100%);
+  transition: height 0.4s;
+  overflow: hidden;
+  z-index: 2;
+  pointer-events: none;
+}
+.auth-shell:hover .auth-corner { height: 200px; }
+.auth-box-dark .auth-corner  { background: rgba(255, 255, 255, 0.82); }
+.auth-box-light .auth-corner { background: rgba(17, 39, 59, 0.82); }
+.auth-change {
+  position: absolute;
+  right: 22px;
+  bottom: 18px;
+  z-index: 3;
+  font-size: 16px;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: text-shadow 0.25s;
+}
+.auth-change:hover { text-shadow: 0 0 4px rgba(150, 150, 150, 0.8); }
+.auth-box-dark .auth-change  { color: #17273b; }
+.auth-box-light .auth-change { color: #fff; }
+
+/* Inline status rows */
+.auth-msg { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+
+/* Top-right CN/EN language switcher */
+.auth-lang {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  z-index: 10;
+  display: flex;
+  gap: 1px;
+  padding: 3px;
+  border-radius: 16px;
+  background: rgba(17, 39, 59, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 3px 10px rgba(17, 39, 59, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.auth-lang button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px 11px;
+  border-radius: 13px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.8);
+  transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.auth-lang button:hover:not(.on) { color: #fff; }
+.auth-lang button.on {
+  background: rgba(255, 255, 255, 0.96);
+  color: #17273b;
+  box-shadow: 0 1px 5px rgba(17, 39, 59, 0.2);
+}

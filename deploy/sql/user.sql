@@ -13,6 +13,7 @@ CREATE TABLE `users` (
                          `region` VARCHAR(100) DEFAULT NULL COMMENT '地区',
                          `occupation` VARCHAR(100) DEFAULT NULL COMMENT '职业',
                          `tags` TEXT DEFAULT NULL COMMENT '个人标签（JSON数组）',
+                         `moments_cover` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '朋友圈封面图URL',
                          `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                          `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                          PRIMARY KEY (`id`),
