@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useT } from '@/hooks/use-i18n';
+import { toast } from 'sonner';
 
 interface ChatSettingsMenuProps {
   conversation: {
@@ -67,7 +68,7 @@ export default function ChatSettingsMenu({
         }}
       >
         {/* Group 1 — 会话信息与搜索 */}
-        <MenuItem icon={<User />} label={t('csmenu.viewProfile')} />
+        <MenuItem icon={<User />} label={t('csmenu.viewProfile')} onSelect={() => toast(t('common.featureWip'))} />
 
         <MenuItem
           icon={<Search />}
@@ -98,7 +99,7 @@ export default function ChatSettingsMenu({
           onCheckedChange={onPinnedChange}
         />
 
-        <MenuItem icon={<ImageIcon />} label={t('csmenu.setBg')} />
+        <MenuItem icon={<ImageIcon />} label={t('csmenu.setBg')} onSelect={() => toast(t('common.featureWip'))} />
 
         {/* Group 3 — 媒体与文件 */}
         <DropdownMenuSeparator
@@ -109,7 +110,7 @@ export default function ChatSettingsMenu({
           }}
         />
 
-        <MenuItem icon={<FolderOpen />} label={t('csmenu.sharedFiles')} />
+        <MenuItem icon={<FolderOpen />} label={t('csmenu.sharedFiles')} onSelect={() => toast(t('common.featureWip'))} />
 
         {/* Red divider before danger zone */}
         <DropdownMenuSeparator
@@ -127,8 +128,8 @@ export default function ChatSettingsMenu({
           danger
           onSelect={onClearChat}
         />
-        <MenuItem icon={<Ban />} label={t('csmenu.block')} danger />
-        <MenuItem icon={<Flag />} label={t('csmenu.report')} danger />
+        <MenuItem icon={<Ban />} label={t('csmenu.block')} danger onSelect={() => toast(t('common.featureWip'))} />
+        <MenuItem icon={<Flag />} label={t('csmenu.report')} danger onSelect={() => toast(t('common.featureWip'))} />
       </DropdownMenuContent>
     </DropdownMenu>
   );

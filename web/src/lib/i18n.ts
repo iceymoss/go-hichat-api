@@ -70,6 +70,7 @@ const dict: Record<string, Record<string, string>> = {
     // Common
     'common.save': '保存',
     'common.cancel': '取消',
+    'common.featureWip': '功能开发中',
     'common.confirm': '确定',
     'common.back': '返回',
     'common.search': '搜索',
@@ -904,6 +905,7 @@ const dict: Record<string, Record<string, string>> = {
 
     'common.save': 'Save',
     'common.cancel': 'Cancel',
+    'common.featureWip': 'Feature under development',
     'common.confirm': 'OK',
     'common.back': 'Back',
     'common.search': 'Search',
