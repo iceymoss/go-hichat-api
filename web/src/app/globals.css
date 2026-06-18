@@ -647,7 +647,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-image: linear-gradient(120deg, #487eb0, #fbc531);
+  background-image: linear-gradient(135deg, #15161A, #0E7A43, #1BB45B);
   overflow: hidden;
 }
 
@@ -759,8 +759,8 @@
 }
 .auth-box-dark .pill  { background: rgba(255, 255, 255, 0.16); }
 .auth-box-light .pill { background: rgba(120, 140, 160, 0.14); }
-.pill.focused { box-shadow: 0 0 10px rgba(17, 39, 59, 0.55); }
-.auth-box-light .pill.focused { box-shadow: 0 0 8px rgba(30, 144, 255, 0.5); }
+.pill.focused { box-shadow: 0 0 10px rgba(27, 180, 91, 0.45); }
+.auth-box-light .pill.focused { box-shadow: 0 0 8px rgba(27, 180, 91, 0.5); }
 .pill.err { box-shadow: 0 0 0 2px #e53935 inset; }
 .pill input {
   flex: 1;
@@ -785,7 +785,7 @@
 .auth-box-dark .pill-icon  { color: rgba(255, 255, 255, 0.6); }
 .auth-box-light .pill-icon { color: #708499; }
 
-/* Primary action button — amber gradient (matches the page background) */
+/* Primary action button — brand green gradient */
 .auth-go {
   height: 46px;
   min-width: 160px;
@@ -800,26 +800,26 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #17273b;
-  background: linear-gradient(135deg, #fbc531, #f0932b);
-  box-shadow: 0 6px 18px rgba(240, 147, 43, 0.4);
+  color: #fff;
+  background: linear-gradient(135deg, #1BB45B, #149a4c);
+  box-shadow: 0 6px 18px rgba(27, 180, 91, 0.4);
   transition: transform 0.25s, box-shadow 0.25s, filter 0.25s;
 }
 .auth-go:hover:not(:disabled) {
   filter: brightness(1.08);
   transform: translateY(-2px);
-  box-shadow: 0 10px 26px rgba(240, 147, 43, 0.5);
+  box-shadow: 0 10px 26px rgba(27, 180, 91, 0.5);
 }
 .auth-go:active:not(:disabled) {
   transform: translateY(0) scale(0.98);
-  box-shadow: 0 3px 10px rgba(240, 147, 43, 0.4);
+  box-shadow: 0 3px 10px rgba(27, 180, 91, 0.4);
 }
 .auth-go:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; filter: grayscale(0.2); }
 
 /* Secondary inline link (forgot password / back) */
 .auth-link { background: none; border: none; cursor: pointer; font-size: 13px; padding: 0; }
-.auth-box-dark .auth-link  { color: #8ec5ff; }
-.auth-box-light .auth-link { color: #1e90ff; }
+.auth-box-dark .auth-link  { color: #5fd68f; }
+.auth-box-light .auth-link { color: #149a4c; }
 
 /* Corner clip-path switch button — always visible, grows on hover.
    pointer-events:none so the decoration never eats the button's click. */
