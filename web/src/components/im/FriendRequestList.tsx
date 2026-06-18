@@ -516,7 +516,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
               {request.nickname}
             </span>
             {request.sex === 'male' && (
-              <span style={{ fontSize: '11px', color: '#1BB45B', backgroundColor: 'rgba(27,180,91,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♂</span>
+              <span style={{ fontSize: '11px', color: '#2D7FF9', backgroundColor: 'rgba(45,127,249,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♂</span>
             )}
             {request.sex === 'female' && (
               <span style={{ fontSize: '11px', color: '#E91E63', backgroundColor: 'rgba(233,30,99,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♀</span>
@@ -795,7 +795,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
               {request.nickname}
             </span>
             {request.sex === 'male' && (
-              <span style={{ fontSize: '10px', color: '#1BB45B', backgroundColor: 'rgba(27,180,91,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♂</span>
+              <span style={{ fontSize: '10px', color: '#2D7FF9', backgroundColor: 'rgba(45,127,249,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♂</span>
             )}
             {request.sex === 'female' && (
               <span style={{ fontSize: '10px', color: '#E91E63', backgroundColor: 'rgba(233,30,99,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♀</span>
