@@ -189,7 +189,7 @@ function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['r
 }
 
 export default function ChatDetail() {
-  const { selectedConversationId, setSelectedConversationId, setShowChatDetail } = useIMStore();
+  const { selectedConversationId, setSelectedConversationId, setShowChatDetail, openUserProfile, invalidateFriends } = useIMStore();
   const t = useT();
   const [input, setInput] = useState('');
   // Track sent messages per conversation so they persist when switching back
@@ -811,6 +811,44 @@ export default function ChatDetail() {
     setSearchBarOpen(true);
   };
 
+  // ── More-menu actions (private chat): view profile / block / report ──
+  const peerId = contactMatch?.friend_uid || contactMatch?.id || '';
+
+  const handleViewProfile = () => {
+    if (peerId) openUserProfile(peerId);
+    else toast(t('common.featureWip'));
+  };
+
+  const handleBlockPeer = () => {
+    if (!currentUser?.token || !peerId) return;
+    fetch('/api/social/friend/block', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ friend_uid: peerId, block: true }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) { toast.success(t('contact.blockedOk')); invalidateFriends(); }
+        else toast.error(d.message || t('group.opFailed'));
+      })
+      .catch(() => toast.error(t('group.opFailed')));
+  };
+
+  const handleReportPeer = () => {
+    if (!currentUser?.token || !peerId) return;
+    fetch('/api/social/friend/report', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ friend_uid: peerId, reason: '' }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) toast.success(t('contact.reportOk'));
+        else toast.error(d.message || t('group.reportFailed'));
+      })
+      .catch(() => toast.error(t('group.reportFailed')));
+  };
+
   // Close context menu when clicking elsewhere
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
@@ -1063,6 +1101,9 @@ export default function ChatDetail() {
             onPinnedChange={handlePinnedChange}
             onClearChat={handleClearChat}
             onSearchHistory={handleSearchHistory}
+            onViewProfile={conv.type === 'private' ? handleViewProfile : undefined}
+            onBlock={conv.type === 'private' ? handleBlockPeer : undefined}
+            onReport={conv.type === 'private' ? handleReportPeer : undefined}
           >
             <button
               className="hc-header-btn"

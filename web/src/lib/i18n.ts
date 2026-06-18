@@ -70,6 +70,7 @@ const dict: Record<string, Record<string, string>> = {
     // Common
     'common.save': '保存',
     'common.cancel': '取消',
+    'common.featureWip': '功能开发中',
     'common.confirm': '确定',
     'common.back': '返回',
     'common.search': '搜索',
@@ -615,6 +616,7 @@ const dict: Record<string, Record<string, string>> = {
     'upc.videoCall': '视频通话',
     'upc.moments': '朋友圈',
     'upc.moreSettings': '更多设置',
+    'upc.editProfile': '编辑资料',
     'upc.copyHiChat': '复制HiChat号',
     'upc.copyAccountOk': 'HiChat号已复制',
     'upc.copySignatureOk': '签名已复制',
@@ -904,6 +906,7 @@ const dict: Record<string, Record<string, string>> = {
 
     'common.save': 'Save',
     'common.cancel': 'Cancel',
+    'common.featureWip': 'Feature under development',
     'common.confirm': 'OK',
     'common.back': 'Back',
     'common.search': 'Search',
@@ -1445,6 +1448,7 @@ const dict: Record<string, Record<string, string>> = {
     'upc.videoCall': 'Video Call',
     'upc.moments': 'Moments',
     'upc.moreSettings': 'More',
+    'upc.editProfile': 'Edit Profile',
     'upc.copyHiChat': 'Copy HiChat ID',
     'upc.copyAccountOk': 'HiChat ID copied',
     'upc.copySignatureOk': 'Bio copied',

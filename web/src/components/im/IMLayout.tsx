@@ -42,7 +42,7 @@ const navItems: { tab: TabType; icon: React.ReactNode }[] = [
 ];
 
 export default function IMLayout() {
-  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, setNotificationUnreadCount, setGroupAppUnreadCount, friendRequestUnreadCount, groupAppUnreadCount } = useIMStore();
+  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, showUserCard, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, setNotificationUnreadCount, setGroupAppUnreadCount, friendRequestUnreadCount, groupAppUnreadCount } = useIMStore();
   // 「联系人」tab 角标 = 好友申请未读 + 群申请未读：看了对应申请列表即各自清零（与铃铛/通知中心解耦）
   const contactsUnread = friendRequestUnreadCount + groupAppUnreadCount;
   const chatConversations = useChatStore(s => s.conversations);
@@ -164,12 +164,14 @@ export default function IMLayout() {
     </div>
   );
 
-  /* ── Floating user profile card (opened from moments; overlays everything,
-        closing returns to the exact trend underneath) ── */
+  /* ── Floating user profile card (opened from moments / sidebar avatar; overlays
+        everything, closing returns to the exact view underneath) ── */
+  const floatingIsSelf = !!floatingProfile && !!currentUser?.id && floatingProfile.id === currentUser.id;
   const floatingCard = floatingProfile ? (
     <FloatingProfileCard
       contact={floatingProfile}
       isStranger={floatingProfileIsStranger}
+      isSelf={floatingIsSelf}
       zIndex={10020}
       onClose={closeUserCard}
       onSendMessage={async () => {
@@ -186,6 +188,7 @@ export default function IMLayout() {
       }}
       onAddFriend={floatingProfileIsStranger ? () => { toast('请在通讯录中搜索添加好友'); closeUserCard(); } : undefined}
       onViewProfile={() => { const id = floatingProfile.id; closeUserCard(); openUserProfile(id); }}
+      onEditProfile={() => { closeUserCard(); setActiveTab('me'); setMeSubPage('profile'); }}
     />
   ) : null;
 
@@ -295,11 +298,16 @@ export default function IMLayout() {
         <div className="mb-2" title="HiChat">
           <Logo variant="mark" height={26} />
         </div>
-        {/* User Avatar */}
+        {/* User Avatar — click to open own profile card */}
         <div className="mb-3">
-          <Avatar className="w-8 h-8 cursor-pointer" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>
-            <AvatarImage src={currentUser?.avatar} alt={currentUser?.name} />
-            <AvatarFallback>{currentUser?.name}</AvatarFallback>
+          <Avatar
+            className="w-8 h-8 cursor-pointer rounded-lg"
+            style={{ border: '2px solid rgba(255,255,255,0.15)' }}
+            title={currentUser?.name}
+            onClick={() => { if (currentUser?.id) showUserCard(currentUser.id); }}
+          >
+            <AvatarImage src={currentUser?.avatar} alt={currentUser?.name} className="rounded-lg" />
+            <AvatarFallback className="rounded-lg">{currentUser?.name}</AvatarFallback>
           </Avatar>
         </div>
 
