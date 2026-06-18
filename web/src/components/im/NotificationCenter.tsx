@@ -130,7 +130,7 @@ export default function NotificationCenter() {
         >
           <div className="flex items-center justify-between shrink-0" style={{ height: 48, padding: '0 16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
             <span style={{ fontSize: 15, fontWeight: 600, color: '#1C2733' }}>{t('notify.center.title')}</span>
-            <button onClick={handleMarkAllRead} style={{ fontSize: 13, color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
+            <button onClick={handleMarkAllRead} style={{ fontSize: 13, color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
               {t('notify.center.markAllRead')}
             </button>
           </div>
@@ -144,8 +144,8 @@ export default function NotificationCenter() {
                   style={{
                     display: 'flex', gap: 10, padding: '12px 16px',
                     borderBottom: '1px solid rgba(0,0,0,0.05)',
-                    background: n.isRead ? '#FFF' : 'rgba(51,144,236,0.04)',
-                    borderLeft: n.isRead ? '3px solid transparent' : '3px solid #3390EC',
+                    background: n.isRead ? '#FFF' : 'rgba(27,180,91,0.04)',
+                    borderLeft: n.isRead ? '3px solid transparent' : '3px solid #1BB45B',
                     cursor: 'pointer',
                   }}
                 >
@@ -181,7 +181,7 @@ function Avatar({ name, avatar }: { name: string; avatar: string }) {
     return <img src={avatar} alt={name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />;
   }
   return (
-    <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#3390EC', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, flexShrink: 0 }}>
+    <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#1BB45B', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, flexShrink: 0 }}>
       {(name || '?').charAt(0).toUpperCase()}
     </div>
   );

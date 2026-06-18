@@ -312,7 +312,7 @@ function ConversationItem({
             height: 22,
             borderRadius: '50%',
             border: editSelected ? 'none' : '2px solid rgba(255,255,255,0.35)',
-            background: editSelected ? '#3390EC' : 'transparent',
+            background: editSelected ? '#1BB45B' : 'transparent',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -360,7 +360,7 @@ function ConversationItem({
               width: 12,
               height: 12,
               background: '#4DCD5E',
-              border: `2.5px solid ${isActive && !editMode ? '#3390EC' : '#2C3E50'}`,
+              border: `2.5px solid ${isActive && !editMode ? '#1BB45B' : '#2C3E50'}`,
             }}
           />
         )}
@@ -462,7 +462,7 @@ function ConversationItem({
                   height: 20,
                   padding: '0 6px',
                   borderRadius: 10,
-                  background: isActive && !editMode ? undefined : '#3390EC',
+                  background: isActive && !editMode ? undefined : '#1BB45B',
                   color: '#FFFFFF',
                   fontSize: 11,
                   fontWeight: 700,

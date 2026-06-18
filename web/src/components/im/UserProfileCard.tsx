@@ -62,7 +62,7 @@ function StrangerInfo({ contact }: { contact: Contact }) {
       {tagList.length > 0 && (
         <div className="flex flex-wrap" style={{ gap: 6, marginTop: 6 }}>
           {tagList.map((t, i) => (
-            <span key={i} style={{ fontSize: 12, color: '#3390EC', background: 'rgba(51,144,236,0.1)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+            <span key={i} style={{ fontSize: 12, color: '#1BB45B', background: 'rgba(27,180,91,0.1)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
           ))}
         </div>
       )}
@@ -371,7 +371,7 @@ export default function UserProfileCard({
                 width: '100%',
                 height: 36,
                 borderRadius: 8,
-                background: '#3390EC',
+                background: '#1BB45B',
                 color: '#FFFFFF',
                 fontSize: 13,
                 fontWeight: 600,
@@ -387,7 +387,7 @@ export default function UserProfileCard({
                 (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#3390EC';
+                (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
               }}
             >
               <Send size={14} />
@@ -402,7 +402,7 @@ export default function UserProfileCard({
                 width: '100%',
                 height: 36,
                 borderRadius: 8,
-                background: '#3390EC',
+                background: '#1BB45B',
                 color: '#FFFFFF',
                 fontSize: 13,
                 fontWeight: 600,
@@ -418,7 +418,7 @@ export default function UserProfileCard({
                 (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#3390EC';
+                (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
               }}
             >
               <UserPlus size={14} />
@@ -625,7 +625,7 @@ export default function UserProfileCard({
                     transition: 'color 0.15s',
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = '#3390EC';
+                    (e.currentTarget as HTMLButtonElement).style.color = '#1BB45B';
                   }}
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.color = '#A2ACB5';
@@ -675,7 +675,7 @@ export default function UserProfileCard({
           {parsedTags.length > 0 && (
             <div className="flex flex-wrap" style={{ gap: 6, marginTop: 2 }}>
               {parsedTags.map((t, i) => (
-                <span key={i} style={{ fontSize: 12, color: '#3390EC', background: 'rgba(51,144,236,0.1)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+                <span key={i} style={{ fontSize: 12, color: '#1BB45B', background: 'rgba(27,180,91,0.1)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
               ))}
             </div>
           )}
@@ -724,7 +724,7 @@ export default function UserProfileCard({
               onClick={() => openUserTrends(contact.id, displayName)}
               style={{
                 fontSize: 13,
-                color: '#3390EC',
+                color: '#1BB45B',
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
@@ -777,7 +777,7 @@ export default function UserProfileCard({
                   width: '100%',
                   height: 40,
                   borderRadius: 8,
-                  background: '#3390EC',
+                  background: '#1BB45B',
                   color: '#FFFFFF',
                   fontSize: 14,
                   fontWeight: 600,
@@ -793,7 +793,7 @@ export default function UserProfileCard({
                   (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = '#3390EC';
+                  (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
                 }}
               >
                 <Send size={16} />
@@ -808,8 +808,8 @@ export default function UserProfileCard({
                   height: 40,
                   borderRadius: 8,
                   background: '#FFFFFF',
-                  border: '1px solid #3390EC',
-                  color: '#3390EC',
+                  border: '1px solid #1BB45B',
+                  color: '#1BB45B',
                   fontSize: 14,
                   fontWeight: 500,
                   cursor: 'pointer',
@@ -820,7 +820,7 @@ export default function UserProfileCard({
                   transition: 'all 0.2s',
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,144,236,0.06)';
+                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(27,180,91,0.06)';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background = '#FFFFFF';
@@ -838,8 +838,8 @@ export default function UserProfileCard({
                   height: 40,
                   borderRadius: 8,
                   background: '#FFFFFF',
-                  border: '1px solid #3390EC',
-                  color: '#3390EC',
+                  border: '1px solid #1BB45B',
+                  color: '#1BB45B',
                   fontSize: 14,
                   fontWeight: 500,
                   cursor: 'pointer',
@@ -850,7 +850,7 @@ export default function UserProfileCard({
                   transition: 'all 0.2s',
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,144,236,0.06)';
+                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(27,180,91,0.06)';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background = '#FFFFFF';
@@ -869,7 +869,7 @@ export default function UserProfileCard({
                 width: '100%',
                 height: 40,
                 borderRadius: 8,
-                background: '#3390EC',
+                background: '#1BB45B',
                 color: '#FFFFFF',
                 fontSize: 14,
                 fontWeight: 600,
@@ -885,7 +885,7 @@ export default function UserProfileCard({
                 (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#3390EC';
+                (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
               }}
             >
               <UserPlus size={16} />

@@ -51,13 +51,13 @@ export default function ChatEmojiPanel({ token, onPickEmoji, onPickSticker, chil
         <div className="flex" style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
           <button
             onClick={() => setTab('emoji')}
-            style={{ flex: 1, padding: '8px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: tab === 'emoji' ? 600 : 400, color: tab === 'emoji' ? '#3390EC' : '#708499' }}
+            style={{ flex: 1, padding: '8px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: tab === 'emoji' ? 600 : 400, color: tab === 'emoji' ? '#1BB45B' : '#708499' }}
           >
             Emoji
           </button>
           <button
             onClick={() => setTab('sticker')}
-            style={{ flex: 1, padding: '8px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: tab === 'sticker' ? 600 : 400, color: tab === 'sticker' ? '#3390EC' : '#708499' }}
+            style={{ flex: 1, padding: '8px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: tab === 'sticker' ? 600 : 400, color: tab === 'sticker' ? '#1BB45B' : '#708499' }}
           >
             表情
           </button>

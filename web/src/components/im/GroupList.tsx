@@ -76,10 +76,10 @@ const roleIcon: Record<GroupRoleLevel, React.ReactNode> = {
   1: <ShieldCheck className="w-3 h-3" />,
   2: <Crown className="w-3 h-3" />,
 };
-const roleColor: Record<GroupRoleLevel, string> = { 0: '#A2ACB5', 1: '#3390EC', 2: '#F5A623' };
+const roleColor: Record<GroupRoleLevel, string> = { 0: '#A2ACB5', 1: '#1BB45B', 2: '#F5A623' };
 const roleBg: Record<GroupRoleLevel, string> = {
   0: 'rgba(162,172,181,0.1)',
-  1: 'rgba(51,144,236,0.1)',
+  1: 'rgba(27,180,91,0.1)',
   2: 'rgba(245,166,35,0.1)',
 };
 
@@ -264,7 +264,7 @@ function InputModal({ open, title, onClose, onSubmit, children }: {
         {children}
         <div className="flex items-center justify-end gap-3" style={{ marginTop: '16px' }}>
           <button onClick={onClose} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>{t('common.cancel')}</button>
-          <button onClick={onSubmit} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>{t('common.confirm')}</button>
+          <button onClick={onSubmit} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#1BB45B', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>{t('common.confirm')}</button>
         </div>
       </div>
     </div>
@@ -272,7 +272,7 @@ function InputModal({ open, title, onClose, onSubmit, children }: {
 }
 
 const inputStyle = { width: '100%', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 12px', fontSize: '14px', color: '#1C2733', outline: 'none', background: '#F5F7FA', boxSizing: 'border-box' as const };
-const focusInput = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => { e.target.style.borderColor = '#3390EC'; e.target.style.boxShadow = '0 0 0 3px rgba(51,144,236,0.15)'; };
+const focusInput = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => { e.target.style.borderColor = '#1BB45B'; e.target.style.boxShadow = '0 0 0 3px rgba(27,180,91,0.15)'; };
 const blurInput = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; };
 
 /* ═══════════════════════════════════════
@@ -674,7 +674,7 @@ export default function GroupList() {
 
   const handleAcceptApp = useCallback((app: GroupApplication) => {
     markAppRead(app.id);
-    doConfirm(t('group.confirmAgreeTitle'), t('group.confirmAgreeDesc').replace('{user}', app.userName).replace('{group}', app.groupName), t('group.agree'), '#3390EC', async () => {
+    doConfirm(t('group.confirmAgreeTitle'), t('group.confirmAgreeDesc').replace('{user}', app.userName).replace('{group}', app.groupName), t('group.agree'), '#1BB45B', async () => {
       try {
         const data = await apiFetch('/api/social/group/putIn', token, {
           method: 'PUT',
@@ -989,7 +989,7 @@ export default function GroupList() {
   const handleSetAdmin = useCallback((m: GroupMemberInfo) => {
     const newRole: GroupRoleLevel = m.roleLevel === 1 ? 0 : 1;
     const label = newRole === 1 ? t('group.setAdmin') : t('group.unsetAdmin');
-    doConfirm(label, t('group.confirmSetAdminDesc').replace('{name}', getContactName(m.userId)).replace('{label}', label), label, '#3390EC', async () => {
+    doConfirm(label, t('group.confirmSetAdminDesc').replace('{name}', getContactName(m.userId)).replace('{label}', label), label, '#1BB45B', async () => {
       try {
         const data = await apiFetch('/api/social/group/setAdmin', token, {
           method: 'POST',
@@ -1161,7 +1161,7 @@ export default function GroupList() {
 
   const renderHeader = (title: string, rightContent?: React.ReactNode) => (
     <div className="flex items-center justify-between shrink-0" style={{ height: 56, background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.08)', paddingLeft: 4, paddingRight: 16 }}>
-      <button onClick={handleBack} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#3390EC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <button onClick={handleBack} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#1BB45B', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <ArrowLeft className="w-5 h-5" />
       </button>
       <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{title}</span>
@@ -1170,7 +1170,7 @@ export default function GroupList() {
   );
 
   const pillTab = (active: boolean, onClick: () => void, label: string, badge?: number) => (
-    <button onClick={onClick} style={{ padding: '6px 20px', borderRadius: '17px', border: 'none', background: active ? '#3390EC' : 'transparent', color: active ? '#FFF' : '#646A73', fontSize: '13px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 4 }}>
+    <button onClick={onClick} style={{ padding: '6px 20px', borderRadius: '17px', border: 'none', background: active ? '#1BB45B' : 'transparent', color: active ? '#FFF' : '#646A73', fontSize: '13px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 4 }}>
       {label}
       {badge !== undefined && badge > 0 && !active && (
         <span className="inline-flex items-center justify-center" style={{ width: 16, height: 16, borderRadius: 8, background: '#E53935', color: '#FFF', fontSize: '10px', fontWeight: 700 }}>{badge > 9 ? '9+' : badge}</span>
@@ -1179,7 +1179,7 @@ export default function GroupList() {
   );
 
   const filterPill = (active: boolean, onClick: () => void, label: string, key?: string | number) => (
-    <button key={key} onClick={onClick} style={{ padding: '4px 14px', borderRadius: '14px', border: 'none', background: active ? 'rgba(51,144,236,0.1)' : 'rgba(0,0,0,0.04)', color: active ? '#3390EC' : '#646A73', fontSize: '12px', fontWeight: active ? 500 : 400, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>{label}</button>
+    <button key={key} onClick={onClick} style={{ padding: '4px 14px', borderRadius: '14px', border: 'none', background: active ? 'rgba(27,180,91,0.1)' : 'rgba(0,0,0,0.04)', color: active ? '#1BB45B' : '#646A73', fontSize: '12px', fontWeight: active ? 500 : 400, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>{label}</button>
   );
 
   const avatarCircle = (name: string, size: number, extra?: React.ReactNode) => (
@@ -1232,7 +1232,7 @@ export default function GroupList() {
                     {group.icon ? (
                       <img src={group.icon} alt="" className="shrink-0" style={{ width: 48, height: 48, borderRadius: '50%' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     ) : (
-                      <div className="shrink-0 flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: '50%', background: '#3390EC', color: '#fff', fontSize: 18, fontWeight: 600 }}>{(group.name || t('group.groupInitial'))[0]}</div>
+                      <div className="shrink-0 flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: '50%', background: '#1BB45B', color: '#fff', fontSize: 18, fontWeight: 600 }}>{(group.name || t('group.groupInitial'))[0]}</div>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2" style={{ marginBottom: 2 }}>
@@ -1253,7 +1253,7 @@ export default function GroupList() {
                         </div>
                       )}
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); handleSendMessageToGroup(group); }} style={{ padding: '5px 14px', borderRadius: '16px', border: '1px solid #3390EC', background: 'transparent', color: '#3390EC', fontSize: '12px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button onClick={(e) => { e.stopPropagation(); handleSendMessageToGroup(group); }} style={{ padding: '5px 14px', borderRadius: '16px', border: '1px solid #1BB45B', background: 'transparent', color: '#1BB45B', fontSize: '12px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Send className="w-3 h-3" /> {t('group.sendMessage')}
                     </button>
                   </div>
@@ -1287,7 +1287,7 @@ export default function GroupList() {
               ) : (
                 <div style={{ width: 48, height: 48, borderRadius: 8, background: '#E8EDEF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#A2ACB5' }}>+</div>
               )}
-              <label style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', background: '#F5F7FA', fontSize: 13, color: '#3390EC', cursor: 'pointer', fontWeight: 500 }}>
+              <label style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', background: '#F5F7FA', fontSize: 13, color: '#1BB45B', cursor: 'pointer', fontWeight: 500 }}>
                 {t('group.pickImage')}
                 <input type="file" accept="image/*" hidden onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -1310,7 +1310,7 @@ export default function GroupList() {
                   <label key={c.id} className="flex items-center gap-3" style={{ padding: '8px 12px', borderBottom: '1px solid rgba(0,0,0,0.04)', cursor: 'pointer' }}>
                     <input type="checkbox" checked={createInviteSelected.has(c.id)} onChange={() => {
                       setCreateInviteSelected(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; });
-                    }} style={{ width: 16, height: 16, accentColor: '#3390EC' }} />
+                    }} style={{ width: 16, height: 16, accentColor: '#1BB45B' }} />
                     {avatarCircle(c.name, 32)}
                     <span style={{ fontSize: '14px', color: '#1C2733' }}>{c.name}</span>
                   </label>
@@ -1339,7 +1339,7 @@ export default function GroupList() {
     return (
       <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
         {renderHeader(t('group.appTitle'),
-          <button onClick={markAllAppRead} style={{ fontSize: '13px', color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>{t('group.allRead')}</button>
+          <button onClick={markAllAppRead} style={{ fontSize: '13px', color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>{t('group.allRead')}</button>
         )}
 
         {/* Class tabs */}
@@ -1406,7 +1406,7 @@ export default function GroupList() {
                         {/* Action buttons */}
                         {isReceived && isPending && (
                           <div className="flex items-center gap-2" style={{ marginTop: 6 }}>
-                            <button onClick={() => handleAcceptApp(app)} style={{ padding: '5px 16px', borderRadius: '6px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>{t('group.agree')}</button>
+                            <button onClick={() => handleAcceptApp(app)} style={{ padding: '5px 16px', borderRadius: '6px', border: 'none', background: '#1BB45B', color: '#FFF', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>{t('group.agree')}</button>
                             <button onClick={() => handleRejectApp(app)} style={{ padding: '5px 16px', borderRadius: '6px', border: '1px solid #FF5252', background: '#FFF', color: '#FF5252', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>{t('group.reject')}</button>
                           </div>
                         )}
@@ -1472,7 +1472,7 @@ export default function GroupList() {
                 )}
                 {/* 置顶公告 */}
                 {groupAnns.find(a => a.pinned) && (
-                  <div className="flex items-start gap-1.5" style={{ fontSize: '12px', color: '#3390EC', padding: '6px 10px', background: 'rgba(51,144,236,0.06)', borderRadius: '8px', marginTop: 6 }}>
+                  <div className="flex items-start gap-1.5" style={{ fontSize: '12px', color: '#1BB45B', padding: '6px 10px', background: 'rgba(27,180,91,0.06)', borderRadius: '8px', marginTop: 6 }}>
                     <Pin className="w-3 h-3 shrink-0" style={{ marginTop: 1 }} />
                     <span>{groupAnns.find(a => a.pinned)!.content}</span>
                   </div>
@@ -1488,7 +1488,7 @@ export default function GroupList() {
 
             {/* Action buttons */}
             <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-              <button onClick={handleSendMessage} style={{ padding: '7px 16px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={handleSendMessage} style={{ padding: '7px 16px', borderRadius: '8px', border: 'none', background: '#1BB45B', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Send className="w-3.5 h-3.5" /> {t('group.sendMessage')}
               </button>
               {isAdmin && (
@@ -1518,7 +1518,7 @@ export default function GroupList() {
           {/* ── Tab Bar ── */}
           <div className="flex items-center shrink-0" style={{ padding: '8px 8px 0' }}>
             {tabItems.filter(t => t.show).map(tab => (
-              <button key={tab.key} onClick={() => setDetailTab(tab.key)} style={{ padding: '8px 16px', borderBottom: detailTab === tab.key ? '2px solid #3390EC' : '2px solid transparent', background: 'none', borderLeft: 'none', borderRight: 'none', borderTop: 'none', color: detailTab === tab.key ? '#3390EC' : '#646A73', fontSize: '13px', fontWeight: detailTab === tab.key ? 600 : 400, cursor: 'pointer', transition: 'all 0.2s' }}>
+              <button key={tab.key} onClick={() => setDetailTab(tab.key)} style={{ padding: '8px 16px', borderBottom: detailTab === tab.key ? '2px solid #1BB45B' : '2px solid transparent', background: 'none', borderLeft: 'none', borderRight: 'none', borderTop: 'none', color: detailTab === tab.key ? '#1BB45B' : '#646A73', fontSize: '13px', fontWeight: detailTab === tab.key ? 600 : 400, cursor: 'pointer', transition: 'all 0.2s' }}>
                 {tab.label}
               </button>
             ))}
@@ -1617,7 +1617,7 @@ export default function GroupList() {
           {detailTab === 'links' && isAdmin && (
             <div style={{ padding: '8px' }}>
               <div className="flex items-center justify-between" style={{ marginBottom: '8px' }}>
-                <button onClick={() => setShowCreateLink(true)} style={{ padding: '7px 16px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button onClick={() => setShowCreateLink(true)} style={{ padding: '7px 16px', borderRadius: '8px', border: 'none', background: '#1BB45B', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                   <Link className="w-3.5 h-3.5" /> {t('group.createLink')}
                 </button>
                 <button onClick={() => setShowRevoked(v => !v)} style={{ fontSize: '12px', color: '#708499', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -1649,7 +1649,7 @@ export default function GroupList() {
                               <span style={{ fontSize: '11px', color: '#646A73' }}>{link.usedCount}/{link.maxUses}</span>
                             </div>
                             <div style={{ height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.06)' }}>
-                              <div style={{ height: '100%', borderRadius: 2, background: progress >= 100 ? '#FF5252' : '#3390EC', width: `${progress}%`, transition: 'width 0.3s' }} />
+                              <div style={{ height: '100%', borderRadius: 2, background: progress >= 100 ? '#FF5252' : '#1BB45B', width: `${progress}%`, transition: 'width 0.3s' }} />
                             </div>
                           </div>
                         )}
@@ -1681,7 +1681,7 @@ export default function GroupList() {
             <div style={{ padding: '8px' }}>
               {isAdmin && (
                 <div style={{ marginBottom: '8px' }}>
-                  <button onClick={() => setShowCreateAnnouncement(true)} style={{ padding: '7px 16px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <button onClick={() => setShowCreateAnnouncement(true)} style={{ padding: '7px 16px', borderRadius: '8px', border: 'none', background: '#1BB45B', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                     <Megaphone className="w-3.5 h-3.5" /> {t('group.publishAnnouncement')}
                   </button>
                 </div>
@@ -1689,18 +1689,18 @@ export default function GroupList() {
               {groupAnns.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {groupAnns.map(ann => (
-                    <div key={ann.id} style={{ background: '#FFF', borderRadius: '12px', padding: '14px', border: ann.pinned ? '1px solid rgba(51,144,236,0.2)' : '1px solid rgba(0,0,0,0.06)' }}>
+                    <div key={ann.id} style={{ background: '#FFF', borderRadius: '12px', padding: '14px', border: ann.pinned ? '1px solid rgba(27,180,91,0.2)' : '1px solid rgba(0,0,0,0.06)' }}>
                       {ann.pinned && (
                         <div className="flex items-center gap-1" style={{ marginBottom: 8 }}>
-                          <Pin className="w-3 h-3" style={{ color: '#3390EC' }} />
-                          <span style={{ fontSize: '11px', fontWeight: 500, color: '#3390EC' }}>{t('group.pinned')}</span>
+                          <Pin className="w-3 h-3" style={{ color: '#1BB45B' }} />
+                          <span style={{ fontSize: '11px', fontWeight: 500, color: '#1BB45B' }}>{t('group.pinned')}</span>
                         </div>
                       )}
                       <div style={{ fontSize: '14px', color: '#1C2733', lineHeight: '1.6', marginBottom: 10 }}>{ann.content}</div>
                       <div className="flex items-center justify-between">
                         <div style={{ fontSize: '12px', color: '#A2ACB5' }}>{getContactName(ann.createdBy)} · {fmtTime(ann.createdAt, t)}</div>
                         {isAdmin && (
-                          <button onClick={() => handleTogglePin(ann)} style={{ fontSize: '12px', color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <button onClick={() => handleTogglePin(ann)} style={{ fontSize: '12px', color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}>
                             {ann.pinned ? <><XCircle className="w-3 h-3" /> {t('group.unpin')}</> : <><Pin className="w-3 h-3" /> {t('group.pin')}</>}
                           </button>
                         )}
@@ -1739,7 +1739,7 @@ export default function GroupList() {
               ) : (
                 <div style={{ width: 48, height: 48, borderRadius: 8, background: '#E8EDEF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#A2ACB5' }}>+</div>
               )}
-              <label style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', background: '#F5F7FA', fontSize: 13, color: '#3390EC', cursor: 'pointer', fontWeight: 500 }}>
+              <label style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', background: '#F5F7FA', fontSize: 13, color: '#1BB45B', cursor: 'pointer', fontWeight: 500 }}>
                 {t('group.changeImage')}
                 <input type="file" accept="image/*" hidden onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -1753,7 +1753,7 @@ export default function GroupList() {
           </div>
           <div className="flex items-center justify-between" style={{ padding: '8px 0' }}>
             <span style={{ fontSize: '13px', color: '#1C2733' }}>{t('group.joinVerify')}</span>
-            <button onClick={() => setEditVerify(v => !v)} style={{ width: 44, height: 24, borderRadius: 12, border: 'none', background: editVerify ? '#3390EC' : '#D1D5DB', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+            <button onClick={() => setEditVerify(v => !v)} style={{ width: 44, height: 24, borderRadius: 12, border: 'none', background: editVerify ? '#1BB45B' : '#D1D5DB', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
               <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#FFF', position: 'absolute', top: 2, left: editVerify ? 22 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
             </button>
           </div>
@@ -1769,7 +1769,7 @@ export default function GroupList() {
               <label key={c.id} className="flex items-center gap-3" style={{ padding: '8px 12px', borderBottom: '1px solid rgba(0,0,0,0.04)', cursor: 'pointer' }}>
                 <input type="checkbox" checked={inviteSelected.has(c.id)} onChange={() => {
                   setInviteSelected(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; });
-                }} style={{ width: 16, height: 16, accentColor: '#3390EC' }} />
+                }} style={{ width: 16, height: 16, accentColor: '#1BB45B' }} />
                 {avatarCircle(c.name, 32)}
                 <span style={{ fontSize: '14px', color: '#1C2733' }}>{c.name}</span>
               </label>
@@ -1840,7 +1840,7 @@ export default function GroupList() {
               </div>
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '6px', display: 'block' }}>{t('group.applyMsg')}</label>
-                <textarea value={addFriendMsg} onChange={(e) => setAddFriendMsg(e.target.value)} rows={2} placeholder={t('group.applyMsgPlaceholder')} style={{ width: '100%', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 12px', fontSize: '14px', color: '#1C2733', outline: 'none', resize: 'none', background: '#F5F7FA', boxSizing: 'border-box' }} onFocus={(e) => { e.target.style.borderColor = '#3390EC'; e.target.style.boxShadow = '0 0 0 3px rgba(51,144,236,0.15)'; }} onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }} />
+                <textarea value={addFriendMsg} onChange={(e) => setAddFriendMsg(e.target.value)} rows={2} placeholder={t('group.applyMsgPlaceholder')} style={{ width: '100%', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 12px', fontSize: '14px', color: '#1C2733', outline: 'none', resize: 'none', background: '#F5F7FA', boxSizing: 'border-box' }} onFocus={(e) => { e.target.style.borderColor = '#1BB45B'; e.target.style.boxShadow = '0 0 0 3px rgba(27,180,91,0.15)'; }} onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }} />
               </div>
               <div className="flex items-center justify-end gap-3">
                 <button onClick={() => setAddFriendTarget(null)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>{t('common.cancel')}</button>
@@ -1860,7 +1860,7 @@ export default function GroupList() {
                     }
                   } catch { toast.error(t('group.sendFailed')); }
                   finally { setAddFriendLoading(false); }
-                }} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: addFriendLoading ? 'not-allowed' : 'pointer', opacity: addFriendLoading ? 0.7 : 1 }}>
+                }} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#1BB45B', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: addFriendLoading ? 'not-allowed' : 'pointer', opacity: addFriendLoading ? 0.7 : 1 }}>
                   {addFriendLoading ? t('group.sending') : t('group.sendApply')}
                 </button>
               </div>
@@ -1957,7 +1957,7 @@ export default function GroupList() {
                     <UserCheck className="w-4 h-4" /> {t('group.isFriend')}
                   </div>
                 ) : alreadySent ? (
-                  <div style={{ padding: '10px 14px', background: 'rgba(51,144,236,0.06)', borderRadius: '10px', marginBottom: '16px', fontSize: '13px', color: '#3390EC', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ padding: '10px 14px', background: 'rgba(27,180,91,0.06)', borderRadius: '10px', marginBottom: '16px', fontSize: '13px', color: '#1BB45B', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Clock className="w-4 h-4" /> {t('group.friendReqSent')}
                   </div>
                 ) : null}
@@ -1976,11 +1976,11 @@ export default function GroupList() {
                         setSelectedConversationId(conv.id);
                         setShowChatDetail(true);
                       } catch { toast.error(t('group.openConvFailed')); }
-                    }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#1BB45B', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <Send className="w-4 h-4" /> {t('group.sendMessage')}
                     </button>
                   ) : !alreadySent ? (
-                    <button onClick={() => { setProfileTarget(null); setAddFriendTarget(pm); setAddFriendMsg(t('group.applyMsgFromGroup').replace('{name}', selectedGroup?.name || '')); }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#3390EC', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <button onClick={() => { setProfileTarget(null); setAddFriendTarget(pm); setAddFriendMsg(t('group.applyMsgFromGroup').replace('{name}', selectedGroup?.name || '')); }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#1BB45B', color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <UserPlus className="w-4 h-4" /> {t('group.addFriend')}
                     </button>
                   ) : null}

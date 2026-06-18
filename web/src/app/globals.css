@@ -197,8 +197,8 @@
 }
 
 .im-sidebar-icon.active {
-  background: rgba(51,144,236,0.25);
-  color: #3390EC;
+  background: rgba(27,180,91,0.25);
+  color: #1BB45B;
 }
 
 .im-sidebar-icon .unread-dot {
@@ -209,7 +209,7 @@
   height: 18px;
   padding: 0 4px;
   border-radius: 9px;
-  background: #3390EC;
+  background: #1BB45B;
   color: white;
   font-size: 11px;
   font-weight: 700;
@@ -236,7 +236,7 @@
 }
 
 .im-conversation-item.active {
-  background: #3390EC;
+  background: #1BB45B;
 }
 
 .im-conversation-item.active .conv-name,
@@ -279,7 +279,7 @@
 }
 
 .im-contact-item.selected {
-  background: rgba(51,144,236,0.08);
+  background: rgba(27,180,91,0.08);
 }
 
 /* ── Chat bubbles: blue sent + white received ── */
@@ -295,7 +295,7 @@
 }
 
 .im-chat-bubble.sent {
-  background: #3390EC;
+  background: #1BB45B;
   color: #FFFFFF;
   border-radius: 12px 12px 4px 12px;
 }
@@ -336,7 +336,7 @@
 }
 
 .im-profile-menu-item:hover {
-  background: rgba(51,144,236,0.06);
+  background: rgba(27,180,91,0.06);
 }
 
 .im-profile-menu-item:last-child {
@@ -372,7 +372,7 @@
   align-items: center;
   padding: 4px 0;
   font-size: 10px;
-  color: #3390EC;
+  color: #1BB45B;
   z-index: 10;
 }
 
@@ -385,7 +385,7 @@
 }
 
 .im-alpha-index span:hover {
-  background: rgba(51,144,236,0.15);
+  background: rgba(27,180,91,0.15);
 }
 
 /* ── Mobile bottom tab bar: TG blue ── */
@@ -403,7 +403,7 @@
 }
 
 .im-bottom-tab.active {
-  color: #3390EC;
+  color: #1BB45B;
 }
 
 .im-bottom-tab .tab-icon {
@@ -418,7 +418,7 @@
   height: 16px;
   padding: 0 3px;
   border-radius: 8px;
-  background: #3390EC;
+  background: #1BB45B;
   color: white;
   font-size: 10px;
   font-weight: 700;
@@ -465,7 +465,7 @@
 /* 点击引用跳转到原消息时的高亮闪烁 */
 @keyframes msg-flash {
   0%, 100% { background-color: transparent; }
-  30% { background-color: rgba(51,144,236,0.18); }
+  30% { background-color: rgba(27,180,91,0.18); }
 }
 .msg-flash {
   animation: msg-flash 1.5s ease-in-out;
@@ -506,7 +506,7 @@
 }
 
 .hc-btn-primary:hover:not(:disabled) {
-  background: #3390EC;
+  background: #1BB45B;
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(42, 171, 238, 0.4);
 }
@@ -539,7 +539,7 @@
 }
 
 .hc-btn-text:hover:not(:disabled) {
-  color: #229ED9;
+  color: #149a4c;
 }
 
 .hc-btn-text:disabled {

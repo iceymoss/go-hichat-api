@@ -101,10 +101,10 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#3390EC', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{userName}</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#1BB45B', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{userName}</span>
             {replyToName && (
               <span style={{ fontSize: '12px', color: '#A2ACB5' }}>
-                回复 <span style={{ color: '#3390EC', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); comment.user && showUserCard(comment.user.id); }}>{replyToName}</span>
+                回复 <span style={{ color: '#1BB45B', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); comment.user && showUserCard(comment.user.id); }}>{replyToName}</span>
               </span>
             )}
             <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', flexShrink: 0 }}>{fmtTime(comment.createTime)}</span>
@@ -115,7 +115,7 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
             <div className="flex items-center gap-3" style={{ marginTop: 4 }}>
               <button
                 onClick={() => onReply(comment)}
-                style={{ fontSize: '12px', color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer' }}
+                style={{ fontSize: '12px', color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 回复
               </button>
@@ -358,7 +358,7 @@ export default function TrendDetailPanel() {
     return parts.map((part, i) => {
       if (part.startsWith('@')) {
         const atUser = trend.atUsers.find(u => `@${u.name}` === part);
-        return <span key={i} style={{ color: '#3390EC', cursor: 'pointer' }}>{atUser ? atUser.name : part}</span>;
+        return <span key={i} style={{ color: '#1BB45B', cursor: 'pointer' }}>{atUser ? atUser.name : part}</span>;
       }
       return <span key={i}>{part}</span>;
     });
@@ -386,7 +386,7 @@ export default function TrendDetailPanel() {
           style={{
             width: 40, height: 40, borderRadius: '50%',
             border: 'none', background: 'transparent',
-            color: '#3390EC', cursor: 'pointer',
+            color: '#1BB45B', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
@@ -421,7 +421,7 @@ export default function TrendDetailPanel() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span style={{ fontSize: '15px', fontWeight: 600, color: '#3390EC', cursor: 'pointer' }} onClick={() => showUserCard(trend.userId)}>{userName}</span>
+                  <span style={{ fontSize: '15px', fontWeight: 600, color: '#1BB45B', cursor: 'pointer' }} onClick={() => showUserCard(trend.userId)}>{userName}</span>
                   {trend.isTop && (
                     <span style={{ fontSize: '10px', fontWeight: 500, color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 6px', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                       <Pin className="w-3 h-3" />置顶
@@ -499,8 +499,8 @@ export default function TrendDetailPanel() {
                 }}
                 onClick={() => window.open(trend.shareUrl, '_blank')}
               >
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(51,144,236,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <ExternalLink className="w-4 h-4" style={{ color: '#3390EC' }} />
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(27,180,91,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <ExternalLink className="w-4 h-4" style={{ color: '#1BB45B' }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div style={{ fontSize: '12px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>分享链接</div>
@@ -527,14 +527,14 @@ export default function TrendDetailPanel() {
                 className="flex items-center gap-1.5 transition-all duration-200"
                 style={{
                   padding: '6px 16px', borderRadius: '18px', border: 'none',
-                  background: liked ? 'rgba(51,144,236,0.1)' : 'transparent',
+                  background: liked ? 'rgba(27,180,91,0.1)' : 'transparent',
                   cursor: 'pointer',
                   transform: likeAnim ? 'scale(1.15)' : 'scale(1)',
                   transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                 }}
               >
-                <Heart className="w-4 h-4" style={{ color: liked ? '#3390EC' : '#A2ACB5', fill: liked ? '#3390EC' : 'none' }} />
-                <span style={{ fontSize: '13px', color: liked ? '#3390EC' : '#708499', fontWeight: liked ? 600 : 400 }}>
+                <Heart className="w-4 h-4" style={{ color: liked ? '#1BB45B' : '#A2ACB5', fill: liked ? '#1BB45B' : 'none' }} />
+                <span style={{ fontSize: '13px', color: liked ? '#1BB45B' : '#708499', fontWeight: liked ? 600 : 400 }}>
                   {likeCount > 0 ? likeCount : '赞'}
                 </span>
               </button>
@@ -558,7 +558,7 @@ export default function TrendDetailPanel() {
               style={{ padding: '14px 20px', borderBottom: likeUsers.length > 0 ? '1px solid rgba(0,0,0,0.06)' : 'none' }}
             >
               <div className="flex items-center gap-2">
-                <ThumbsUp className="w-4 h-4" style={{ color: '#3390EC' }} />
+                <ThumbsUp className="w-4 h-4" style={{ color: '#1BB45B' }} />
                 <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>
                   点赞好友
                 </span>
@@ -577,7 +577,7 @@ export default function TrendDetailPanel() {
                     onClick={() => setLikeExpanded(prev => !prev)}
                     className="flex items-center gap-1 mt-3"
                     style={{
-                      fontSize: '12px', color: '#3390EC', background: 'none',
+                      fontSize: '12px', color: '#1BB45B', background: 'none',
                       border: 'none', cursor: 'pointer', padding: '4px 0',
                       fontWeight: 500,
                     }}
@@ -611,7 +611,7 @@ export default function TrendDetailPanel() {
               style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}
             >
               <div className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4" style={{ color: '#3390EC' }} />
+                <MessageCircle className="w-4 h-4" style={{ color: '#1BB45B' }} />
                 <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>
                   动态评论区
                 </span>
@@ -655,7 +655,7 @@ export default function TrendDetailPanel() {
           {replyTarget && (
             <div className="flex items-center gap-1 shrink-0" style={{ fontSize: '11px', color: '#708499', maxWidth: 120, overflow: 'hidden', whiteSpace: 'nowrap' }}>
               <span>回复</span>
-              <span style={{ color: '#3390EC', fontWeight: 500 }}>{getUserName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
+              <span style={{ color: '#1BB45B', fontWeight: 500 }}>{getUserName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
               <button
                 onClick={() => setReplyTarget(null)}
                 style={{ marginLeft: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 0, display: 'flex' }}
@@ -676,7 +676,7 @@ export default function TrendDetailPanel() {
               outline: 'none', background: '#F5F7FA',
               transition: 'border-color 0.2s, box-shadow 0.2s',
             }}
-            onFocus={(e) => { e.target.style.borderColor = '#3390EC'; e.target.style.boxShadow = '0 0 0 3px rgba(51,144,236,0.15)'; }}
+            onFocus={(e) => { e.target.style.borderColor = '#1BB45B'; e.target.style.boxShadow = '0 0 0 3px rgba(27,180,91,0.15)'; }}
             onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }}
           />
           {commentText.trim() && (
@@ -684,7 +684,7 @@ export default function TrendDetailPanel() {
               onClick={handleSubmitComment}
               style={{
                 width: 34, height: 34, borderRadius: '50%',
-                border: 'none', background: '#3390EC', color: '#FFF',
+                border: 'none', background: '#1BB45B', color: '#FFF',
                 cursor: 'pointer', display: 'flex', alignItems: 'center',
                 justifyContent: 'center', flexShrink: 0,
               }}

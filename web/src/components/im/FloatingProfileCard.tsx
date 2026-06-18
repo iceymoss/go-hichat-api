@@ -171,10 +171,10 @@ export default function FloatingProfileCard({
               height: 40,
               borderRadius: 8,
               background: 'transparent',
-              color: '#3390EC',
+              color: '#1BB45B',
               fontSize: 13,
               fontWeight: 600,
-              border: '1px solid rgba(51,144,236,0.4)',
+              border: '1px solid rgba(27,180,91,0.4)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -182,7 +182,7 @@ export default function FloatingProfileCard({
               gap: 6,
               transition: 'background 0.2s',
             }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,144,236,0.06)'; }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(27,180,91,0.06)'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
           >
             <User size={14} />

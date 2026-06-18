@@ -85,7 +85,7 @@ export default function UserQRCodeDialog({
         {/* Header gradient */}
         <div style={{
           height: 80,
-          background: 'linear-gradient(135deg, #2AABEE 0%, #3390EC 50%, #229ED9 100%)',
+          background: 'linear-gradient(135deg, #2AABEE 0%, #1BB45B 50%, #149a4c 100%)',
           position: 'relative',
         }}>
           {/* Close button */}
@@ -131,7 +131,7 @@ export default function UserQRCodeDialog({
               background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 2, display: 'flex',
               transition: 'color 0.15s',
             }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#3390EC'; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#1BB45B'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#A2ACB5'; }}
             ><Copy size={12} /></button>
           </div>
@@ -165,12 +165,12 @@ export default function UserQRCodeDialog({
         {/* Download button */}
         <div style={{ padding: '0 24px 20px' }}>
           <button onClick={handleDownload} style={{
-            width: '100%', height: 40, borderRadius: 20, border: '1.5px solid #3390EC',
-            background: '#fff', color: '#3390EC', fontSize: 14, fontWeight: 500,
+            width: '100%', height: 40, borderRadius: 20, border: '1.5px solid #1BB45B',
+            background: '#fff', color: '#1BB45B', fontSize: 14, fontWeight: 500,
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             transition: 'all 0.2s',
           }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(51,144,236,0.06)'; }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(27,180,91,0.06)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
           >
             <Download size={15} />

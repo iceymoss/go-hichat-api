@@ -178,14 +178,14 @@ export default function AlbumPage({ onBack }: { onBack: () => void }) {
       }}>
         <button onClick={onBack} style={{
           background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-          color: '#3390EC', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
+          color: '#1BB45B', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
           transition: 'background 0.15s',
         }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(51,144,236,0.06)'; }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(27,180,91,0.06)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         ><ArrowLeft size={18} /></button>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <ImageIcon size={18} style={{ color: '#3390EC' }} />
+          <ImageIcon size={18} style={{ color: '#1BB45B' }} />
           <span style={{ fontSize: 17, fontWeight: 600, color: '#1C2733' }}>我的相册</span>
         </div>
         {totalCount > 0 && (
@@ -200,7 +200,7 @@ export default function AlbumPage({ onBack }: { onBack: () => void }) {
       <div style={{ flex: 1, overflowY: 'auto' }} className="im-scroll">
         {loading && items.length === 0 ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-            <Loader2 size={24} className="animate-spin" style={{ color: '#3390EC' }} />
+            <Loader2 size={24} className="animate-spin" style={{ color: '#1BB45B' }} />
           </div>
         ) : items.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -288,7 +288,7 @@ export default function AlbumPage({ onBack }: { onBack: () => void }) {
                 <button onClick={() => fetchAlbum(lastId)} disabled={loading}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 13, color: '#3390EC', fontWeight: 500,
+                    fontSize: 13, color: '#1BB45B', fontWeight: 500,
                   }}>
                   {loading ? <Loader2 size={14} className="animate-spin" /> : '加载更多'}
                 </button>

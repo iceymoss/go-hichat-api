@@ -114,7 +114,7 @@ function avatarCircle(name: string, size: number, extra?: React.ReactNode, avata
 }
 
 const inputStyle = { width: '100%', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 12px', fontSize: '14px', color: '#1C2733', outline: 'none', background: '#F5F7FA', boxSizing: 'border-box' as const };
-const focusInput = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => { e.target.style.borderColor = '#3390EC'; e.target.style.boxShadow = '0 0 0 3px rgba(51,144,236,0.15)'; };
+const focusInput = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => { e.target.style.borderColor = '#1BB45B'; e.target.style.boxShadow = '0 0 0 3px rgba(27,180,91,0.15)'; };
 const blurInput = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; };
 
 const trendTypeLabels: Record<number, { label: string; icon: React.ReactNode }> = {
@@ -237,9 +237,9 @@ function CommentItem({ comment, onReply, onDelete, depth = 0 }: CommentItemProps
     <div>
       <div className="flex items-start gap-2" style={{ padding: '4px 0' }}>
         <div style={{ fontSize: '12px', lineHeight: '1.6', flex: 1 }}>
-          <span style={{ color: '#3390EC', fontWeight: 600, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{friendDisplayName(comment.replyer.id, comment.replyer.name)}</span>
+          <span style={{ color: '#1BB45B', fontWeight: 600, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{friendDisplayName(comment.replyer.id, comment.replyer.name)}</span>
           {comment.father !== 0 && comment.user && comment.user.id !== comment.replyer.id && (
-            <span> 回复 <span style={{ color: '#3390EC', fontWeight: 500, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.user.id); }}>{friendDisplayName(comment.user.id, comment.user.name)}</span></span>
+            <span> 回复 <span style={{ color: '#1BB45B', fontWeight: 500, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.user.id); }}>{friendDisplayName(comment.user.id, comment.user.name)}</span></span>
           )}
           <span style={{ color: '#1C2733' }}>：{comment.content}</span>
         </div>
@@ -249,13 +249,13 @@ function CommentItem({ comment, onReply, onDelete, depth = 0 }: CommentItemProps
               删除
             </button>
           )}
-          <button onClick={() => onReply(comment)} style={{ padding: '2px 6px', border: 'none', background: 'transparent', color: '#A2ACB5', fontSize: '11px', cursor: 'pointer', borderRadius: '4px' }} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#3390EC'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#A2ACB5'; }}>
+          <button onClick={() => onReply(comment)} style={{ padding: '2px 6px', border: 'none', background: 'transparent', color: '#A2ACB5', fontSize: '11px', cursor: 'pointer', borderRadius: '4px' }} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#1BB45B'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#A2ACB5'; }}>
             回复
           </button>
         </div>
       </div>
       {comment.children && comment.children.length > 0 && (
-        <div style={{ marginLeft: 12, paddingLeft: 10, borderLeft: '2px solid rgba(51,144,236,0.15)' }}>
+        <div style={{ marginLeft: 12, paddingLeft: 10, borderLeft: '2px solid rgba(27,180,91,0.15)' }}>
           {comment.children.map(child => (
             <CommentItem key={child.id} comment={child} onReply={onReply} onDelete={onDelete} depth={depth + 1} />
           ))}
@@ -328,7 +328,7 @@ function TrendCard({
     return parts.map((part, i) => {
       if (part.startsWith('@')) {
         const atUser = trend.atUsers.find(u => `@${u.name}` === part);
-        return <span key={i} style={{ color: '#3390EC', cursor: 'pointer' }} onClick={(e) => { if (atUser) { e.stopPropagation(); showUserCard(atUser.id); } }}>{atUser ? atUser.name : part}</span>;
+        return <span key={i} style={{ color: '#1BB45B', cursor: 'pointer' }} onClick={(e) => { if (atUser) { e.stopPropagation(); showUserCard(atUser.id); } }}>{atUser ? atUser.name : part}</span>;
       }
       return <span key={i}>{part}</span>;
     });
@@ -340,8 +340,8 @@ function TrendCard({
       style={{
         padding: '14px 12px',
         borderBottom: '1px solid rgba(0,0,0,0.06)',
-        background: selected ? 'rgba(51,144,236,0.06)' : undefined,
-        borderLeft: selected ? '3px solid #3390EC' : undefined,
+        background: selected ? 'rgba(27,180,91,0.06)' : undefined,
+        borderLeft: selected ? '3px solid #1BB45B' : undefined,
         paddingLeft: selected ? 9 : 12,
         transition: 'background 0.15s',
       }}
@@ -371,7 +371,7 @@ function TrendCard({
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className="text-sm font-semibold cursor-pointer"
-              style={{ color: '#3390EC' }}
+              style={{ color: '#1BB45B' }}
               onClick={onAvatarClick}
             >
               {userName}
@@ -427,8 +427,8 @@ function TrendCard({
               style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)', maxWidth: 300 }}
               onClick={onOpenDetail}
             >
-              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(51,144,236,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <ExternalLink className="w-4 h-4" style={{ color: '#3390EC' }} />
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(27,180,91,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <ExternalLink className="w-4 h-4" style={{ color: '#1BB45B' }} />
               </div>
               <div className="flex-1 min-w-0">
                 <div style={{ fontSize: '12px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>分享链接</div>
@@ -469,14 +469,14 @@ function TrendCard({
                   padding: '4px 10px',
                   borderRadius: '16px',
                   border: 'none',
-                  background: liked ? 'rgba(51,144,236,0.1)' : 'transparent',
+                  background: liked ? 'rgba(27,180,91,0.1)' : 'transparent',
                   cursor: 'pointer',
                   transform: likeAnim ? 'scale(1.2)' : 'scale(1)',
                   transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                 }}
               >
-                <Heart className="w-3.5 h-3.5" style={{ color: liked ? '#3390EC' : '#A2ACB5', fill: liked ? '#3390EC' : 'none', transition: 'all 0.15s' }} />
-                {likeCount > 0 && <span style={{ fontSize: '11px', color: liked ? '#3390EC' : '#A2ACB5', fontWeight: liked ? 600 : 400 }}>{likeCount}</span>}
+                <Heart className="w-3.5 h-3.5" style={{ color: liked ? '#1BB45B' : '#A2ACB5', fill: liked ? '#1BB45B' : 'none', transition: 'all 0.15s' }} />
+                {likeCount > 0 && <span style={{ fontSize: '11px', color: liked ? '#1BB45B' : '#A2ACB5', fontWeight: liked ? 600 : 400 }}>{likeCount}</span>}
               </button>
 
               {/* Comment */}
@@ -521,7 +521,7 @@ function TrendCard({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start gap-1.5">
-                <Heart className="w-3 h-3 shrink-0 mt-0.5" style={{ color: '#3390EC', fill: '#3390EC' }} />
+                <Heart className="w-3 h-3 shrink-0 mt-0.5" style={{ color: '#1BB45B', fill: '#1BB45B' }} />
                 <span style={{ color: '#708499' }}>
                   {(likeNamesExpanded ? likeUsers : likeUsers.slice(0, FEED_LIKE_COLLAPSE_LIMIT)).map((u, i) => {
                     const displayName = u.id === 'me' ? '我' : friendDisplayName(u.id, u.name);
@@ -529,7 +529,7 @@ function TrendCard({
                       <span key={u.id || `like-${i}`}>
                         {i > 0 && <span style={{ margin: '0 2px' }}>、</span>}
                         <span
-                          style={{ color: '#3390EC', cursor: 'pointer' }}
+                          style={{ color: '#1BB45B', cursor: 'pointer' }}
                           onClick={(e) => { e.stopPropagation(); showUserCard(u.id); }}
                           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.textDecoration = 'underline'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.textDecoration = 'none'; }}
@@ -546,7 +546,7 @@ function TrendCard({
                     <button
                       onClick={(e) => { e.stopPropagation(); setLikeNamesExpanded(prev => !prev); }}
                       style={{
-                        color: '#3390EC', background: 'none', border: 'none',
+                        color: '#1BB45B', background: 'none', border: 'none',
                         cursor: 'pointer', fontSize: '12px', padding: 0, fontWeight: 500,
                       }}
                     >
@@ -567,7 +567,7 @@ function TrendCard({
               {hiddenCount > 0 && (
                 <button
                   onClick={onExpandComments}
-                  style={{ fontSize: '12px', color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0 0', fontWeight: 500 }}
+                  style={{ fontSize: '12px', color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0 0', fontWeight: 500 }}
                 >
                   展开全部{trend.replyCount}条评论
                 </button>
@@ -581,7 +581,7 @@ function TrendCard({
               {replyTarget && (
                 <div className="flex items-center gap-1 text-xs w-full" style={{ color: '#708499', marginBottom: 4, padding: '0 4px' }}>
                   <span>回复</span>
-                  <span style={{ color: '#3390EC', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
+                  <span style={{ color: '#1BB45B', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
                   <button onClick={() => onSetReplyTarget(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 0 }}>
                     <X className="w-3 h-3" />
                   </button>
@@ -600,7 +600,7 @@ function TrendCard({
                 {commentText.trim() && (
                   <button
                     onClick={onSubmitComment}
-                    style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: '#3390EC', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                    style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: '#1BB45B', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
@@ -826,7 +826,7 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
           <button
             onClick={handleSubmit}
             disabled={uploading}
-            style={{ padding: '6px 16px', borderRadius: '16px', border: 'none', background: uploading ? '#A2ACB5' : '#3390EC', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: uploading ? 'not-allowed' : 'pointer' }}
+            style={{ padding: '6px 16px', borderRadius: '16px', border: 'none', background: uploading ? '#A2ACB5' : '#1BB45B', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: uploading ? 'not-allowed' : 'pointer' }}
           >
             {uploading ? '上传中' : '发布'}
           </button>
@@ -842,8 +842,8 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
                 onClick={() => setType(t)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: '16px',
-                  border: 'none', background: type === t ? 'rgba(51,144,236,0.1)' : 'rgba(0,0,0,0.04)',
-                  color: type === t ? '#3390EC' : '#708499', fontSize: '12px', fontWeight: type === t ? 500 : 400, cursor: 'pointer',
+                  border: 'none', background: type === t ? 'rgba(27,180,91,0.1)' : 'rgba(0,0,0,0.04)',
+                  color: type === t ? '#1BB45B' : '#708499', fontSize: '12px', fontWeight: type === t ? 500 : 400, cursor: 'pointer',
                 }}
               >
                 {trendTypeLabels[t].icon}
@@ -889,15 +889,15 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
                   />
                   <div
                     className="flex flex-col items-center justify-center gap-2"
-                    style={{ border: '1.5px dashed rgba(51,144,236,0.35)', borderRadius: 12, padding: '18px 12px', background: 'rgba(51,144,236,0.04)', cursor: 'pointer', marginBottom: 10 }}
+                    style={{ border: '1.5px dashed rgba(27,180,91,0.35)', borderRadius: 12, padding: '18px 12px', background: 'rgba(27,180,91,0.04)', cursor: 'pointer', marginBottom: 10 }}
                     onClick={() => fileInputRef.current?.click()}
                     onDragOver={(e) => { e.preventDefault(); }}
                     onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
                   >
-                    <ImagePlus className="w-7 h-7" style={{ color: '#3390EC' }} />
+                    <ImagePlus className="w-7 h-7" style={{ color: '#1BB45B' }} />
                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#1C2733' }}>{type === 5 ? '选择或拖拽视频' : '选择或拖拽图片'}</div>
                     <div style={{ fontSize: '12px', color: '#708499' }}>{type === 5 ? '视频限制由系统配置控制' : `最多 ${maxMediaCount} 张，单张默认 ${config?.max_image_size_mb || 50}MB`}</div>
-                    {uploading && <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#3390EC' }} />}
+                    {uploading && <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#1BB45B' }} />}
                   </div>
                 </>
               ) : (
@@ -960,9 +960,9 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
                   onClick={() => setScope(s)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: '16px',
-                    border: scope === s ? '1.5px solid #3390EC' : '1.5px solid rgba(0,0,0,0.1)',
-                    background: scope === s ? 'rgba(51,144,236,0.06)' : '#FFF',
-                    color: scope === s ? '#3390EC' : '#708499', fontSize: '12px', fontWeight: scope === s ? 500 : 400, cursor: 'pointer',
+                    border: scope === s ? '1.5px solid #1BB45B' : '1.5px solid rgba(0,0,0,0.1)',
+                    background: scope === s ? 'rgba(27,180,91,0.06)' : '#FFF',
+                    color: scope === s ? '#1BB45B' : '#708499', fontSize: '12px', fontWeight: scope === s ? 500 : 400, cursor: 'pointer',
                   }}
                 >
                   {scopeLabels[s].icon}{scopeLabels[s].label}
@@ -1051,7 +1051,7 @@ function TrendDetailModal({
     return parts.map((part, i) => {
       if (part.startsWith('@')) {
         const atUser = trend.atUsers.find(u => `@${u.name}` === part);
-        return <span key={i} style={{ color: '#3390EC' }}>{atUser ? atUser.name : part}</span>;
+        return <span key={i} style={{ color: '#1BB45B' }}>{atUser ? atUser.name : part}</span>;
       }
       return <span key={i}>{part}</span>;
     });
@@ -1092,7 +1092,7 @@ function TrendDetailModal({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span style={{ fontSize: '15px', fontWeight: 600, color: '#3390EC', cursor: 'pointer' }} onClick={() => onAvatarClick(trend.userId)}>{userName}</span>
+                <span style={{ fontSize: '15px', fontWeight: 600, color: '#1BB45B', cursor: 'pointer' }} onClick={() => onAvatarClick(trend.userId)}>{userName}</span>
                 {trend.isTop && (
                   <span style={{ fontSize: '10px', fontWeight: 500, color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 6px' }}>置顶</span>
                 )}
@@ -1153,8 +1153,8 @@ function TrendDetailModal({
 
           {trend.type === 4 && (
             <div className="flex items-center gap-3 mb-4" style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}>
-              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(51,144,236,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <ExternalLink className="w-4 h-4" style={{ color: '#3390EC' }} />
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(27,180,91,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <ExternalLink className="w-4 h-4" style={{ color: '#1BB45B' }} />
               </div>
               <div className="flex-1 min-w-0">
                 <div style={{ fontSize: '12px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>分享链接</div>
@@ -1176,9 +1176,9 @@ function TrendDetailModal({
 
           {/* Actions */}
           <div className="flex items-center gap-4 mb-4" style={{ paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-            <button onClick={onToggleLike} className="flex items-center gap-1.5" style={{ padding: '6px 14px', borderRadius: '18px', border: 'none', background: liked ? 'rgba(51,144,236,0.1)' : 'transparent', cursor: 'pointer' }}>
-              <Heart className="w-4 h-4" style={{ color: liked ? '#3390EC' : '#A2ACB5', fill: liked ? '#3390EC' : 'none' }} />
-              <span style={{ fontSize: '13px', color: liked ? '#3390EC' : '#708499', fontWeight: liked ? 600 : 400 }}>{likeCount > 0 ? likeCount : '赞'}</span>
+            <button onClick={onToggleLike} className="flex items-center gap-1.5" style={{ padding: '6px 14px', borderRadius: '18px', border: 'none', background: liked ? 'rgba(27,180,91,0.1)' : 'transparent', cursor: 'pointer' }}>
+              <Heart className="w-4 h-4" style={{ color: liked ? '#1BB45B' : '#A2ACB5', fill: liked ? '#1BB45B' : 'none' }} />
+              <span style={{ fontSize: '13px', color: liked ? '#1BB45B' : '#708499', fontWeight: liked ? 600 : 400 }}>{likeCount > 0 ? likeCount : '赞'}</span>
             </button>
             <button onClick={onLikeCountClick} style={{ padding: '6px 14px', borderRadius: '18px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
               <ThumbsUp className="w-4 h-4" style={{ color: '#A2ACB5' }} />
@@ -1212,7 +1212,7 @@ function TrendDetailModal({
             {replyTarget && (
               <div className="flex items-center gap-1 shrink-0" style={{ fontSize: '11px', color: '#708499', maxWidth: 100, overflow: 'hidden' }}>
                 <span>回复</span>
-                <span style={{ color: '#3390EC', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
+                <span style={{ color: '#1BB45B', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
               </div>
             )}
             <input
@@ -1225,7 +1225,7 @@ function TrendDetailModal({
               onBlur={blurInput}
             />
             {commentText.trim() && (
-              <button onClick={onSubmitComment} style={{ width: 34, height: 34, borderRadius: '50%', border: 'none', background: '#3390EC', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <button onClick={onSubmitComment} style={{ width: 34, height: 34, borderRadius: '50%', border: 'none', background: '#1BB45B', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Send className="w-4 h-4" />
               </button>
             )}
@@ -1862,7 +1862,7 @@ export default function MomentsFeed() {
         {/* Publish */}
         <button
           onClick={() => setShowPublish(true)}
-          style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#3390EC', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#1BB45B', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <Plus className="w-5 h-5" style={{ color: '#FFF' }} />
         </button>
@@ -1893,7 +1893,7 @@ export default function MomentsFeed() {
             <div
               className="absolute inset-0"
               style={{
-                background: 'linear-gradient(135deg, rgba(51,144,236,0.7), rgba(111,177,252,0.5))',
+                background: 'linear-gradient(135deg, rgba(27,180,91,0.7), rgba(111,177,252,0.5))',
               }}
             />
           </>
@@ -1927,11 +1927,11 @@ export default function MomentsFeed() {
           <img
             src={opts.avatar}
             alt={opts.name}
-            style={{ width: 68, height: 68, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
+            style={{ width: 68, height: 68, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 0 0 3px rgba(27,180,91,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
           />
         ) : (
           <div
-            style={{ width: 68, height: 68, borderRadius: '50%', backgroundColor: getAvatarColor(opts.name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 600, color: '#FFF', boxShadow: '0 0 0 3px rgba(51,144,236,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
+            style={{ width: 68, height: 68, borderRadius: '50%', backgroundColor: getAvatarColor(opts.name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 600, color: '#FFF', boxShadow: '0 0 0 3px rgba(27,180,91,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}
           >
             {opts.name ? opts.name[0] : '?'}
           </div>
@@ -1948,7 +1948,7 @@ export default function MomentsFeed() {
   );
 
   const pillTab = (active: boolean, onClick: () => void, label: string, badge?: number) => (
-    <button onClick={onClick} style={{ padding: '6px 18px', borderRadius: '17px', border: 'none', background: active ? '#3390EC' : 'transparent', color: active ? '#FFF' : '#646A73', fontSize: '13px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 4 }}>
+    <button onClick={onClick} style={{ padding: '6px 18px', borderRadius: '17px', border: 'none', background: active ? '#1BB45B' : 'transparent', color: active ? '#FFF' : '#646A73', fontSize: '13px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 4 }}>
       {label}
       {badge !== undefined && badge > 0 && !active && (
         <span className="inline-flex items-center justify-center" style={{ width: 16, height: 16, borderRadius: 8, background: '#E53935', color: '#FFF', fontSize: '10px', fontWeight: 700 }}>{badge > 9 ? '9+' : badge}</span>
@@ -2025,7 +2025,7 @@ export default function MomentsFeed() {
         <button
           onClick={() => setShowPublish(true)}
           className="absolute"
-          style={{ bottom: 24, right: 20, width: 52, height: 52, borderRadius: '50%', background: '#3390EC', color: '#FFF', border: 'none', boxShadow: '0 4px 16px rgba(51,144,236,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s' }}
+          style={{ bottom: 24, right: 20, width: 52, height: 52, borderRadius: '50%', background: '#1BB45B', color: '#FFF', border: 'none', boxShadow: '0 4px 16px rgba(27,180,91,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.05)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
         >
@@ -2099,11 +2099,11 @@ export default function MomentsFeed() {
       <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
         {/* Header */}
         <div className="flex items-center justify-between shrink-0" style={{ height: 56, background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.08)', paddingLeft: 4, paddingRight: 16 }}>
-          <button onClick={handleBackFromNotifications} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#3390EC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={handleBackFromNotifications} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#1BB45B', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{t('trend.notify.title')}</span>
-          <button onClick={handleMarkAllRead} style={{ fontSize: '13px', color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>{t('trend.notify.markAllRead')}</button>
+          <button onClick={handleMarkAllRead} style={{ fontSize: '13px', color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>{t('trend.notify.markAllRead')}</button>
         </div>
 
         {/* Tabs */}
@@ -2202,7 +2202,7 @@ export default function MomentsFeed() {
       <div className="h-full flex flex-col relative" style={{ background: '#F5F7FA' }}>
         {/* Slim top bar: back + title (+ publish on my own circle) */}
         <div className="flex items-center justify-between shrink-0" style={{ height: 56, background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.08)', paddingLeft: 4, paddingRight: 16 }}>
-          <button onClick={handleBackFromUserTrends} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#3390EC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={handleBackFromUserTrends} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#1BB45B', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{isSelfTrends ? t('moments.mine') : `${headerName}的动态`}</span>
@@ -2224,7 +2224,7 @@ export default function MomentsFeed() {
               </div>
               <button
                 onClick={() => setShowPublish(true)}
-                style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#3390EC', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#1BB45B', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <Plus className="w-5 h-5" style={{ color: '#FFF' }} />
               </button>

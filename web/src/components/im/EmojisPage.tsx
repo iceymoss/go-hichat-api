@@ -172,15 +172,15 @@ export default function EmojisPage({ onBack }: { onBack: () => void }) {
       }}>
         <button onClick={onBack} style={{
           background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-          color: '#3390EC', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
+          color: '#1BB45B', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
           transition: 'background 0.15s',
         }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(51,144,236,0.06)'; }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(27,180,91,0.06)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         ><ArrowLeft size={18} /></button>
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Smile size={18} style={{ color: '#3390EC' }} />
+          <Smile size={18} style={{ color: '#1BB45B' }} />
           <span style={{ fontSize: 17, fontWeight: 600, color: '#1C2733' }}>我的表情</span>
           <span style={{ fontSize: 12, color: '#A2ACB5', marginLeft: 4 }}>{total}</span>
         </div>
@@ -194,7 +194,7 @@ export default function EmojisPage({ onBack }: { onBack: () => void }) {
 
         <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{
           width: 32, height: 32, borderRadius: 8, border: 'none',
-          background: '#3390EC', color: '#fff', cursor: 'pointer',
+          background: '#1BB45B', color: '#fff', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           {uploading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
@@ -206,7 +206,7 @@ export default function EmojisPage({ onBack }: { onBack: () => void }) {
       <div style={{ flex: 1, overflowY: 'auto' }} className="im-scroll">
         {loading && items.length === 0 ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-            <Loader2 size={24} className="animate-spin" style={{ color: '#3390EC' }} />
+            <Loader2 size={24} className="animate-spin" style={{ color: '#1BB45B' }} />
           </div>
         ) : items.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -215,7 +215,7 @@ export default function EmojisPage({ onBack }: { onBack: () => void }) {
             <div style={{ fontSize: 13, color: '#A2ACB5', marginTop: 4 }}>点击右上角 + 上传你的表情包</div>
             <button onClick={() => fileInputRef.current?.click()} style={{
               marginTop: 20, padding: '10px 24px', borderRadius: 20,
-              background: '#3390EC', color: '#fff', border: 'none',
+              background: '#1BB45B', color: '#fff', border: 'none',
               fontSize: 14, fontWeight: 500, cursor: 'pointer',
               display: 'inline-flex', alignItems: 'center', gap: 6,
             }}><Upload size={16} /> 上传表情</button>
@@ -283,7 +283,7 @@ export default function EmojisPage({ onBack }: { onBack: () => void }) {
         {items.length < total && items.length > 0 && (
           <div style={{ textAlign: 'center', padding: '12px 0 20px' }}>
             <button onClick={() => fetchList(page + 1)} disabled={loading}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#3390EC', fontWeight: 500 }}>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#1BB45B', fontWeight: 500 }}>
               {loading ? <Loader2 size={14} className="animate-spin" /> : '加载更多'}
             </button>
           </div>

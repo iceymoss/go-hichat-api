@@ -280,7 +280,7 @@ function ConfirmDialog({ open, type, nickname, loading, onClose, onConfirm }: Co
       ? `确定同意 ${nickname} 的好友请求吗？`
       : `确定拒绝 ${nickname} 的好友请求吗？`;
   const confirmLabel = isDelete ? '删除' : type === 'accept' ? '同意' : '拒绝';
-  const confirmColor = isDelete ? '#E53935' : type === 'accept' ? '#3390EC' : '#E53935';
+  const confirmColor = isDelete ? '#E53935' : type === 'accept' ? '#1BB45B' : '#E53935';
 
   const handleConfirm = () => {
     onConfirm(message);
@@ -362,8 +362,8 @@ function ConfirmDialog({ open, type, nickname, loading, onClose, onConfirm }: Co
                 lineHeight: '1.5',
               }}
               onFocus={(e) => {
-                e.target.style.borderColor = '#3390EC';
-                e.target.style.boxShadow = '0 0 0 3px rgba(51,144,236,0.15)';
+                e.target.style.borderColor = '#1BB45B';
+                e.target.style.boxShadow = '0 0 0 3px rgba(27,180,91,0.15)';
               }}
               onBlur={(e) => {
                 e.target.style.borderColor = 'rgba(0,0,0,0.1)';
@@ -516,7 +516,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
               {request.nickname}
             </span>
             {request.sex === 'male' && (
-              <span style={{ fontSize: '11px', color: '#3390EC', backgroundColor: 'rgba(51,144,236,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♂</span>
+              <span style={{ fontSize: '11px', color: '#1BB45B', backgroundColor: 'rgba(27,180,91,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♂</span>
             )}
             {request.sex === 'female' && (
               <span style={{ fontSize: '11px', color: '#E91E63', backgroundColor: 'rgba(233,30,99,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♀</span>
@@ -543,8 +543,8 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
                   key={i}
                   style={{
                     fontSize: '11px',
-                    color: '#3390EC',
-                    backgroundColor: 'rgba(51,144,236,0.08)',
+                    color: '#1BB45B',
+                    backgroundColor: 'rgba(27,180,91,0.08)',
                     borderRadius: '4px',
                     padding: '2px 8px',
                   }}
@@ -617,7 +617,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
               <div className="flex items-center gap-2">
                 <UserCircle className="w-4 h-4" style={{ color: '#A2ACB5' }} />
                 <span style={{ fontSize: '13px', color: '#646A73' }}>
-                  HiChat: <span style={{ color: '#3390EC' }}>{request.hiChatId}</span>
+                  HiChat: <span style={{ color: '#1BB45B' }}>{request.hiChatId}</span>
                 </span>
               </div>
             )}
@@ -670,7 +670,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
                   padding: '8px 20px',
                   borderRadius: '8px',
                   border: 'none',
-                  background: '#3390EC',
+                  background: '#1BB45B',
                   color: '#FFFFFF',
                   fontSize: '14px',
                   fontWeight: 500,
@@ -727,20 +727,20 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
     <div
       className="relative"
       style={{
-        background: request.readState ? '#FFFFFF' : 'rgba(51,144,236,0.03)',
-        borderLeft: request.readState ? 'none' : '3px solid #3390EC',
+        background: request.readState ? '#FFFFFF' : 'rgba(27,180,91,0.03)',
+        borderLeft: request.readState ? 'none' : '3px solid #1BB45B',
         borderBottom: '1px solid rgba(0,0,0,0.05)',
         padding: '12px 16px 12px 16px',
         cursor: 'pointer',
         transition: 'background 0.15s',
-        boxShadow: request.readState ? 'none' : 'inset 3px 0 8px -4px rgba(51,144,236,0.15)',
+        boxShadow: request.readState ? 'none' : 'inset 3px 0 8px -4px rgba(27,180,91,0.15)',
       }}
       onClick={() => onClick(request)}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.02)';
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.background = request.readState ? '#FFFFFF' : 'rgba(51,144,236,0.03)';
+        (e.currentTarget as HTMLElement).style.background = request.readState ? '#FFFFFF' : 'rgba(27,180,91,0.03)';
       }}
     >
       <div className="flex gap-3">
@@ -795,7 +795,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
               {request.nickname}
             </span>
             {request.sex === 'male' && (
-              <span style={{ fontSize: '10px', color: '#3390EC', backgroundColor: 'rgba(51,144,236,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♂</span>
+              <span style={{ fontSize: '10px', color: '#1BB45B', backgroundColor: 'rgba(27,180,91,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♂</span>
             )}
             {request.sex === 'female' && (
               <span style={{ fontSize: '10px', color: '#E91E63', backgroundColor: 'rgba(233,30,99,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♀</span>
@@ -850,8 +850,8 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                   key={i}
                   style={{
                     fontSize: '10px',
-                    color: '#3390EC',
-                    backgroundColor: 'rgba(51,144,236,0.08)',
+                    color: '#1BB45B',
+                    backgroundColor: 'rgba(27,180,91,0.08)',
                     borderRadius: '3px',
                     padding: '1px 6px',
                   }}
@@ -871,7 +871,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                   padding: '5px 16px',
                   borderRadius: '6px',
                   border: 'none',
-                  background: '#3390EC',
+                  background: '#1BB45B',
                   color: '#FFFFFF',
                   fontSize: '12px',
                   fontWeight: 500,
@@ -1152,7 +1152,7 @@ export default function FriendRequestList() {
             borderRadius: '50%',
             border: 'none',
             background: 'transparent',
-            color: '#3390EC',
+            color: '#1BB45B',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -1175,7 +1175,7 @@ export default function FriendRequestList() {
               borderRadius: '50%',
               border: 'none',
               background: 'transparent',
-              color: '#3390EC',
+              color: '#1BB45B',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -1246,7 +1246,7 @@ export default function FriendRequestList() {
                 padding: '6px 20px',
                 borderRadius: '17px',
                 border: 'none',
-                background: activeTab === tab ? '#3390EC' : 'transparent',
+                background: activeTab === tab ? '#1BB45B' : 'transparent',
                 color: activeTab === tab ? '#FFFFFF' : '#646A73',
                 fontSize: '13px',
                 fontWeight: 500,
@@ -1293,8 +1293,8 @@ export default function FriendRequestList() {
               padding: '4px 14px',
               borderRadius: '14px',
               border: 'none',
-              background: statusFilter === opt.key ? 'rgba(51,144,236,0.1)' : 'rgba(0,0,0,0.04)',
-              color: statusFilter === opt.key ? '#3390EC' : '#646A73',
+              background: statusFilter === opt.key ? 'rgba(27,180,91,0.1)' : 'rgba(0,0,0,0.04)',
+              color: statusFilter === opt.key ? '#1BB45B' : '#646A73',
               fontSize: '12px',
               fontWeight: statusFilter === opt.key ? 500 : 400,
               cursor: 'pointer',
@@ -1311,7 +1311,7 @@ export default function FriendRequestList() {
       <div className="flex-1 overflow-y-auto im-scroll">
         {loading ? (
           <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
-            <Loader2 className="w-8 h-8" style={{ color: '#3390EC', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
+            <Loader2 className="w-8 h-8" style={{ color: '#1BB45B', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
             <div style={{ fontSize: '13px', color: '#A2ACB5' }}>加载中...</div>
           </div>
         ) : filteredRequests.length > 0 ? (

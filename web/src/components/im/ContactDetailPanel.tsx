@@ -146,7 +146,7 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
             borderRadius: 10,
             border: 'none',
             background: 'transparent',
-            color: '#3390EC',
+            color: '#1BB45B',
             cursor: 'pointer',
           }}
         >
