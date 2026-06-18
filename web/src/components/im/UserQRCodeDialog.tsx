@@ -101,8 +101,8 @@ export default function UserQRCodeDialog({
           ><X size={14} /></button>
 
           {/* Decorative circles */}
-          <div style={{ position: 'absolute', width: 120, height: 120, top: -40, right: -20, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-          <div style={{ position: 'absolute', width: 80, height: 80, bottom: -30, left: 20, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+          <div style={{ position: 'absolute', width: 120, height: 120, top: -40, right: -20, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', width: 80, height: 80, bottom: -30, left: 20, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
         </div>
 
         {/* Avatar (overlapping header) */}
