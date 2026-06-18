@@ -357,7 +357,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
                 {parsedTags.map((t, i) => (
                   <span key={i} style={{
                     padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 500,
-                    background: 'rgba(120,140,160,0.12)', color: '#5b6b7a',
+                    background: tagColor(t).b, color: tagColor(t).c,
                   }}>{t}</span>
                 ))}
               </div>
