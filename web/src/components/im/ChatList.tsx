@@ -462,7 +462,7 @@ function ConversationItem({
                   height: 20,
                   padding: '0 6px',
                   borderRadius: 10,
-                  background: isActive && !editMode ? undefined : '#1BB45B',
+                  background: isActive && !editMode ? undefined : '#E53935',
                   color: '#FFFFFF',
                   fontSize: 11,
                   fontWeight: 700,
