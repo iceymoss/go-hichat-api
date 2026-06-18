@@ -237,9 +237,9 @@ function CommentItem({ comment, onReply, onDelete, depth = 0 }: CommentItemProps
     <div>
       <div className="flex items-start gap-2" style={{ padding: '4px 0' }}>
         <div style={{ fontSize: '12px', lineHeight: '1.6', flex: 1 }}>
-          <span style={{ color: '#1BB45B', fontWeight: 600, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{friendDisplayName(comment.replyer.id, comment.replyer.name)}</span>
+          <span style={{ color: '#576b95', fontWeight: 600, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{friendDisplayName(comment.replyer.id, comment.replyer.name)}</span>
           {comment.father !== 0 && comment.user && comment.user.id !== comment.replyer.id && (
-            <span> 回复 <span style={{ color: '#1BB45B', fontWeight: 500, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.user.id); }}>{friendDisplayName(comment.user.id, comment.user.name)}</span></span>
+            <span> 回复 <span style={{ color: '#576b95', fontWeight: 500, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.user.id); }}>{friendDisplayName(comment.user.id, comment.user.name)}</span></span>
           )}
           <span style={{ color: '#1C2733' }}>：{comment.content}</span>
         </div>
@@ -328,7 +328,7 @@ function TrendCard({
     return parts.map((part, i) => {
       if (part.startsWith('@')) {
         const atUser = trend.atUsers.find(u => `@${u.name}` === part);
-        return <span key={i} style={{ color: '#1BB45B', cursor: 'pointer' }} onClick={(e) => { if (atUser) { e.stopPropagation(); showUserCard(atUser.id); } }}>{atUser ? atUser.name : part}</span>;
+        return <span key={i} style={{ color: '#576b95', cursor: 'pointer' }} onClick={(e) => { if (atUser) { e.stopPropagation(); showUserCard(atUser.id); } }}>{atUser ? atUser.name : part}</span>;
       }
       return <span key={i}>{part}</span>;
     });
@@ -371,7 +371,7 @@ function TrendCard({
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className="text-sm font-semibold cursor-pointer"
-              style={{ color: '#1BB45B' }}
+              style={{ color: '#576b95' }}
               onClick={onAvatarClick}
             >
               {userName}
@@ -529,7 +529,7 @@ function TrendCard({
                       <span key={u.id || `like-${i}`}>
                         {i > 0 && <span style={{ margin: '0 2px' }}>、</span>}
                         <span
-                          style={{ color: '#1BB45B', cursor: 'pointer' }}
+                          style={{ color: '#576b95', cursor: 'pointer' }}
                           onClick={(e) => { e.stopPropagation(); showUserCard(u.id); }}
                           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.textDecoration = 'underline'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.textDecoration = 'none'; }}
@@ -581,7 +581,7 @@ function TrendCard({
               {replyTarget && (
                 <div className="flex items-center gap-1 text-xs w-full" style={{ color: '#708499', marginBottom: 4, padding: '0 4px' }}>
                   <span>回复</span>
-                  <span style={{ color: '#1BB45B', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
+                  <span style={{ color: '#576b95', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
                   <button onClick={() => onSetReplyTarget(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 0 }}>
                     <X className="w-3 h-3" />
                   </button>

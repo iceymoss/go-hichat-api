@@ -62,7 +62,7 @@ function StrangerInfo({ contact }: { contact: Contact }) {
       {tagList.length > 0 && (
         <div className="flex flex-wrap" style={{ gap: 6, marginTop: 6 }}>
           {tagList.map((t, i) => (
-            <span key={i} style={{ fontSize: 12, color: '#1BB45B', background: 'rgba(27,180,91,0.1)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+            <span key={i} style={{ fontSize: 12, color: '#5b6b7a', background: 'rgba(120,140,160,0.12)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
           ))}
         </div>
       )}
@@ -675,7 +675,7 @@ export default function UserProfileCard({
           {parsedTags.length > 0 && (
             <div className="flex flex-wrap" style={{ gap: 6, marginTop: 2 }}>
               {parsedTags.map((t, i) => (
-                <span key={i} style={{ fontSize: 12, color: '#1BB45B', background: 'rgba(27,180,91,0.1)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+                <span key={i} style={{ fontSize: 12, color: '#5b6b7a', background: 'rgba(120,140,160,0.12)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
               ))}
             </div>
           )}
