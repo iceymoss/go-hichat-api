@@ -339,7 +339,7 @@ export default function IMLayout() {
       <div
         className="w-[420px] flex flex-col shrink-0"
         style={{
-          background: activeTab === 'chats' ? '#FFFFFF' : '#FFFFFF',
+          background: activeTab === 'chats' ? '#F5F7FA' : '#FFFFFF',
           borderRight: (showChatDetail && activeTab === 'chats') || showContactDetail || showFriendRequestPanel || showGroupPanelView || showTrendDetail || (activeTab === 'me' && meSubPage)
             ? '1px solid rgba(0,0,0,0.08)'
             : 'none',

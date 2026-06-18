@@ -218,6 +218,7 @@
   transition: background-color 0.15s;
   border-radius: 0;
   margin: 0;
+  background: #FFFFFF;
 }
 
 .im-conversation-item:hover {
