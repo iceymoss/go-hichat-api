@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useIMStore } from '@/lib/im-store';
+import { useT } from '@/hooks/use-i18n';
 import {
   ArrowLeft, Plus, Trash2, Loader2, X, Smile, Upload,
 } from 'lucide-react';
@@ -23,6 +24,7 @@ interface EmojiItem {
 function EmojiPreview({ emoji, onClose, onDelete }: {
   emoji: EmojiItem; onClose: () => void; onDelete: () => void;
 }) {
+  const t = useT();
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
@@ -53,13 +55,13 @@ function EmojiPreview({ emoji, onClose, onDelete }: {
       }}>
         {emoji.name && <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{emoji.name}</span>}
         <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
-          {emoji.fileType === 'gif' ? 'GIF' : '静态'} · {emoji.width > 0 ? `${emoji.width}×${emoji.height}` : ''} · {formatSize(emoji.size)}
+          {emoji.fileType === 'gif' ? 'GIF' : t('emoji.static')} · {emoji.width > 0 ? `${emoji.width}×${emoji.height}` : ''} · {formatSize(emoji.size)}
         </span>
         <button onClick={onDelete} style={{
           padding: '6px 14px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.25)',
           background: 'transparent', color: '#E53935', fontSize: 13, cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 4,
-        }}><Trash2 size={13} /> 删除</button>
+        }}><Trash2 size={13} /> {t('emoji.delete')}</button>
       </div>
     </div>
   );
@@ -77,6 +79,7 @@ function formatSize(bytes: number) {
    ═══════════════════════════════════════════════ */
 export default function EmojisPage({ onBack }: { onBack: () => void }) {
   const { currentUser: user } = useIMStore();
+  const t = useT();
   const [items, setItems] = useState<EmojiItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -133,9 +136,9 @@ export default function EmojisPage({ onBack }: { onBack: () => void }) {
           }),
         });
         const addData = await addRes.json();
-        if (addData.success) toast.success(`已添加: ${file.name}`);
+        if (addData.success) toast.success(t('emoji.added').replace('{name}', file.name));
         else toast.error(addData.message);
-      } catch { toast.error(`${file.name} 上传失败`); }
+      } catch { toast.error(t('emoji.uploadFail').replace('{name}', file.name)); }
     }
 
     setUploading(false);
@@ -156,9 +159,9 @@ export default function EmojisPage({ onBack }: { onBack: () => void }) {
         setItems(items.filter(i => i.id !== id));
         setTotal(t => t - 1);
         setPreview(null);
-        toast.success('已删除');
+        toast.success(t('emoji.deleted'));
       } else toast.error(d.message);
-    } catch { toast.error('删除失败'); }
+    } catch { toast.error(t('emoji.deleteFail')); }
   };
 
   if (!user) return null;
@@ -181,7 +184,7 @@ export default function EmojisPage({ onBack }: { onBack: () => void }) {
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Smile size={18} style={{ color: '#1BB45B' }} />
-          <span style={{ fontSize: 17, fontWeight: 600, color: '#1C2733' }}>我的表情</span>
+          <span style={{ fontSize: 17, fontWeight: 600, color: '#1C2733' }}>{t('emoji.title')}</span>
           <span style={{ fontSize: 12, color: '#A2ACB5', marginLeft: 4 }}>{total}</span>
         </div>
 
@@ -190,7 +193,7 @@ export default function EmojisPage({ onBack }: { onBack: () => void }) {
           background: editMode ? '#E53935' : '#F0F2F5',
           color: editMode ? '#fff' : '#646A73',
           transition: 'all 0.2s',
-        }}>{editMode ? '完成' : '管理'}</button>
+        }}>{editMode ? t('emoji.done') : t('emoji.manage')}</button>
 
         <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{
           width: 32, height: 32, borderRadius: 8, border: 'none',
@@ -211,14 +214,14 @@ export default function EmojisPage({ onBack }: { onBack: () => void }) {
         ) : items.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <Smile size={48} style={{ color: '#E0E3E8', margin: '0 auto 16px' }} />
-            <div style={{ fontSize: 15, color: '#646A73', fontWeight: 500 }}>暂无自定义表情</div>
-            <div style={{ fontSize: 13, color: '#A2ACB5', marginTop: 4 }}>点击右上角 + 上传你的表情包</div>
+            <div style={{ fontSize: 15, color: '#646A73', fontWeight: 500 }}>{t('emoji.empty')}</div>
+            <div style={{ fontSize: 13, color: '#A2ACB5', marginTop: 4 }}>{t('emoji.emptyHint')}</div>
             <button onClick={() => fileInputRef.current?.click()} style={{
               marginTop: 20, padding: '10px 24px', borderRadius: 20,
               background: '#1BB45B', color: '#fff', border: 'none',
               fontSize: 14, fontWeight: 500, cursor: 'pointer',
               display: 'inline-flex', alignItems: 'center', gap: 6,
-            }}><Upload size={16} /> 上传表情</button>
+            }}><Upload size={16} /> {t('emoji.upload')}</button>
           </div>
         ) : (
           <div style={{
@@ -284,7 +287,7 @@ export default function EmojisPage({ onBack }: { onBack: () => void }) {
           <div style={{ textAlign: 'center', padding: '12px 0 20px' }}>
             <button onClick={() => fetchList(page + 1)} disabled={loading}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#1BB45B', fontWeight: 500 }}>
-              {loading ? <Loader2 size={14} className="animate-spin" /> : '加载更多'}
+              {loading ? <Loader2 size={14} className="animate-spin" /> : t('common.loadMore')}
             </button>
           </div>
         )}

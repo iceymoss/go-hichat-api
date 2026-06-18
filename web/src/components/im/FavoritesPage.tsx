@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useIMStore } from '@/lib/im-store';
+import { useT } from '@/hooks/use-i18n';
 import {
   ArrowLeft, Search, Plus, FileText, Image as ImageIcon, Link2,
   File, Video, MapPin, StickyNote, Trash2, Loader2, X, Star,
@@ -10,14 +11,14 @@ import {
 import { toast } from 'sonner';
 
 /* ── Type config ── */
-const TYPE_MAP: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  text:     { label: '文本', icon: <FileText size={16} />, color: '#1BB45B' },
-  image:    { label: '图片', icon: <ImageIcon size={16} />, color: '#FF9500' },
-  link:     { label: '链接', icon: <Link2 size={16} />, color: '#5856D6' },
-  file:     { label: '文件', icon: <File size={16} />, color: '#34C759' },
-  video:    { label: '视频', icon: <Video size={16} />, color: '#FF2D55' },
-  location: { label: '位置', icon: <MapPin size={16} />, color: '#FF6B35' },
-  note:     { label: '笔记', icon: <StickyNote size={16} />, color: '#AF52DE' },
+const TYPE_MAP: Record<string, { labelKey: string; icon: React.ReactNode; color: string }> = {
+  text:     { labelKey: 'fav.type.text', icon: <FileText size={16} />, color: '#1BB45B' },
+  image:    { labelKey: 'fav.type.image', icon: <ImageIcon size={16} />, color: '#FF9500' },
+  link:     { labelKey: 'fav.type.link', icon: <Link2 size={16} />, color: '#5856D6' },
+  file:     { labelKey: 'fav.type.file', icon: <File size={16} />, color: '#34C759' },
+  video:    { labelKey: 'fav.type.video', icon: <Video size={16} />, color: '#FF2D55' },
+  location: { labelKey: 'fav.type.location', icon: <MapPin size={16} />, color: '#FF6B35' },
+  note:     { labelKey: 'fav.type.note', icon: <StickyNote size={16} />, color: '#AF52DE' },
 };
 
 interface FavItem {
@@ -37,6 +38,7 @@ const FILE_TYPES = new Set(['image', 'file', 'video']);
 function AddFavoriteDialog({ open, onClose, onAdded, token }: {
   open: boolean; onClose: () => void; onAdded: () => void; token: string;
 }) {
+  const t = useT();
   const [type, setType] = useState('text');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -73,9 +75,9 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
       if (d.success) {
         setUploadedFile(d.data);
         if (!title) setTitle(d.data.name || file.name);
-        toast.success('文件上传成功');
-      } else toast.error(d.message || '上传失败');
-    } catch { toast.error('上传失败'); }
+        toast.success(t('fav.uploadOk'));
+      } else toast.error(d.message || t('fav.uploadFail'));
+    } catch { toast.error(t('fav.uploadFail')); }
     finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
@@ -95,9 +97,9 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
       if (d.success) {
         setUploadedFile(d.data);
         if (!title) setTitle(d.data.name || file.name);
-        toast.success('文件上传成功');
-      } else toast.error(d.message || '上传失败');
-    } catch { toast.error('上传失败'); }
+        toast.success(t('fav.uploadOk'));
+      } else toast.error(d.message || t('fav.uploadFail'));
+    } catch { toast.error(t('fav.uploadFail')); }
     finally { setUploading(false); }
   };
 
@@ -111,8 +113,8 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
 
   const submit = async () => {
     // For file types, need uploaded file; for text types, need content
-    if (isFileType && !uploadedFile) { toast.error('请先上传文件'); return; }
-    if (!isFileType && !content.trim()) { toast.error('内容不能为空'); return; }
+    if (isFileType && !uploadedFile) { toast.error(t('fav.needFile')); return; }
+    if (!isFileType && !content.trim()) { toast.error(t('fav.needContent')); return; }
     setSaving(true);
     try {
       let body: any = { type, title: title.trim(), source: 'manual' };
@@ -140,9 +142,9 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
         body: JSON.stringify(body),
       });
       const d = await res.json();
-      if (d.success) { toast.success('收藏成功'); onAdded(); onClose(); }
+      if (d.success) { toast.success(t('fav.addOk')); onAdded(); onClose(); }
       else toast.error(d.message);
-    } catch { toast.error('收藏失败'); }
+    } catch { toast.error(t('fav.addFail')); }
     finally { setSaving(false); }
   };
 
@@ -164,7 +166,7 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
           padding: '16px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           borderBottom: '1px solid rgba(0,0,0,0.06)',
         }}>
-          <span style={{ fontSize: 16, fontWeight: 600, color: '#1C2733' }}>添加收藏</span>
+          <span style={{ fontSize: 16, fontWeight: 600, color: '#1C2733' }}>{t('fav.add')}</span>
           <button onClick={onClose} style={{
             width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'transparent',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#A2ACB5',
@@ -181,13 +183,13 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
                 background: type === k ? v.color : '#F0F2F5',
                 color: type === k ? '#fff' : '#646A73',
                 transition: 'all 0.2s',
-              }}>{v.icon} {v.label}</button>
+              }}>{v.icon} {t(v.labelKey)}</button>
             ))}
           </div>
 
           {/* Title */}
           <input value={title} onChange={e => setTitle(e.target.value)}
-            placeholder="标题（可选）" maxLength={100}
+            placeholder={t('fav.titlePlaceholder')} maxLength={100}
             style={{
               width: '100%', height: 40, padding: '0 14px', borderRadius: 10,
               border: '1.5px solid #E0E3E8', fontSize: 14, color: '#1C2733',
@@ -239,10 +241,10 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
                     </div>
                   )}
                   <div style={{ fontSize: 14, color: '#646A73', fontWeight: 500 }}>
-                    {uploading ? '上传中...' : '点击或拖拽文件到此处'}
+                    {uploading ? t('fav.uploading') : t('fav.dropHint')}
                   </div>
                   <div style={{ fontSize: 12, color: '#A2ACB5', marginTop: 4 }}>
-                    {type === 'image' ? '支持 JPG、PNG、GIF、WebP' : type === 'video' ? '支持 MP4、MOV、AVI' : '支持任意文件，最大 50MB'}
+                    {type === 'image' ? t('fav.supportImage') : type === 'video' ? t('fav.supportVideo') : t('fav.supportFile')}
                   </div>
                   <input ref={fileInputRef} type="file" accept={fileAccept} className="hidden" onChange={handleFileSelect} />
                 </div>
@@ -251,7 +253,7 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
           ) : (
             /* Text input for text/note/link/location */
             <textarea value={content} onChange={e => setContent(e.target.value)}
-              placeholder={type === 'link' ? '输入链接地址...' : type === 'location' ? '输入位置名称...' : '输入内容...'}
+              placeholder={type === 'link' ? t('fav.placeholderLink') : type === 'location' ? t('fav.placeholderLocation') : t('fav.placeholderContent')}
               rows={4}
               style={{
                 width: '100%', padding: '10px 14px', borderRadius: 10,
@@ -268,7 +270,7 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
             disabled={saving || (isFileType ? !uploadedFile : !content.trim())}
             onClick={submit}
             style={{ marginTop: 16, padding: '12px 24px', borderRadius: 22 }}>
-            {saving ? <Loader2 size={16} className="animate-spin" /> : '收藏'}
+            {saving ? <Loader2 size={16} className="animate-spin" /> : t('fav.saveBtn')}
           </button>
         </div>
       </div>
@@ -278,6 +280,7 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
 
 /* ── Favorite Card ── */
 function FavCard({ item, onDelete }: { item: FavItem; onDelete: () => void }) {
+  const t = useT();
   const cfg = TYPE_MAP[item.type] || TYPE_MAP.text;
   const [deleting, setDeleting] = useState(false);
 
@@ -302,7 +305,7 @@ function FavCard({ item, onDelete }: { item: FavItem; onDelete: () => void }) {
   };
 
   const date = item.createdAt?.replace(/T.*/, '') || '';
-  const sourceLabel = item.source === 'chat' ? '来自聊天' : item.source === 'moment' ? '来自朋友圈' : '';
+  const sourceLabel = item.source === 'chat' ? t('fav.fromChat') : item.source === 'moment' ? t('fav.fromMoment') : '';
 
   return (
     <div className="im-profile-menu-item" style={{
@@ -346,7 +349,7 @@ function FavCard({ item, onDelete }: { item: FavItem; onDelete: () => void }) {
           <span style={{
             fontSize: 11, padding: '1px 6px', borderRadius: 4,
             background: `${cfg.color}14`, color: cfg.color, fontWeight: 500,
-          }}>{cfg.label}</span>
+          }}>{t(cfg.labelKey)}</span>
           <span style={{ fontSize: 11, color: '#A2ACB5' }}>{date}</span>
           {sourceLabel && <span style={{ fontSize: 11, color: '#A2ACB5' }}>{sourceLabel}</span>}
         </div>
@@ -370,6 +373,7 @@ function FavCard({ item, onDelete }: { item: FavItem; onDelete: () => void }) {
    ═══════════════════════════════════════════════ */
 export default function FavoritesPage({ onBack }: { onBack: () => void }) {
   const { currentUser: user } = useIMStore();
+  const t = useT();
   const [items, setItems] = useState<FavItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -420,9 +424,9 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
       if (d.success) {
         setItems(items.filter(i => i.id !== id));
         setTotal(t => t - 1);
-        toast.success('已取消收藏');
+        toast.success(t('fav.removed'));
       } else toast.error(d.message);
-    } catch { toast.error('删除失败'); }
+    } catch { toast.error(t('fav.deleteFail')); }
   };
 
   if (!user) return null;
@@ -445,7 +449,7 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Star size={18} style={{ color: '#1BB45B' }} />
-          <span style={{ fontSize: 17, fontWeight: 600, color: '#1C2733' }}>我的收藏</span>
+          <span style={{ fontSize: 17, fontWeight: 600, color: '#1C2733' }}>{t('fav.title')}</span>
           <span style={{ fontSize: 12, color: '#A2ACB5', marginLeft: 4 }}>{total}</span>
         </div>
 
@@ -465,7 +469,7 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
         <div style={{ flex: 1, position: 'relative' }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#A2ACB5' }} />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="搜索收藏内容"
+            placeholder={t('fav.searchPlaceholder')}
             style={{
               width: '100%', height: 36, paddingLeft: 32, paddingRight: 10, borderRadius: 22,
               border: 'none', background: '#F0F2F5', fontSize: 13, color: '#1C2733', outline: 'none',
@@ -481,7 +485,7 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
             display: 'flex', alignItems: 'center', gap: 4,
           }}>
             <Filter size={13} />
-            {filterType ? TYPE_MAP[filterType]?.label : '筛选'}
+            {filterType ? t(TYPE_MAP[filterType]?.labelKey) : t('fav.filter')}
             <ChevronDown size={12} />
           </button>
 
@@ -498,7 +502,7 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
                   background: !filterType ? 'rgba(27,180,91,0.08)' : 'transparent',
                   color: !filterType ? '#1BB45B' : '#1C2733',
                   fontSize: 13, textAlign: 'left', cursor: 'pointer',
-                }}>全部</button>
+                }}>{t('fav.filterAll')}</button>
               {Object.entries(TYPE_MAP).map(([k, v]) => (
                 <button key={k} onClick={() => { setFilterType(k); setShowFilter(false); }}
                   style={{
@@ -507,7 +511,7 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
                     color: filterType === k ? v.color : '#1C2733',
                     fontSize: 13, textAlign: 'left', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 6,
-                  }}>{v.icon} {v.label}</button>
+                  }}>{v.icon} {t(v.labelKey)}</button>
               ))}
             </div>
           )}
@@ -523,8 +527,8 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
         ) : items.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <Star size={48} style={{ color: '#E0E3E8', margin: '0 auto 16px' }} />
-            <div style={{ fontSize: 15, color: '#646A73', fontWeight: 500 }}>暂无收藏</div>
-            <div style={{ fontSize: 13, color: '#A2ACB5', marginTop: 4 }}>点击右上角 + 添加你的第一个收藏</div>
+            <div style={{ fontSize: 15, color: '#646A73', fontWeight: 500 }}>{t('fav.empty')}</div>
+            <div style={{ fontSize: 13, color: '#A2ACB5', marginTop: 4 }}>{t('fav.emptyHint')}</div>
           </div>
         ) : (
           <div className="mx-3 mt-2">
@@ -545,7 +549,7 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
                     background: 'none', border: 'none', cursor: 'pointer',
                     fontSize: 13, color: '#1BB45B', fontWeight: 500,
                   }}>
-                  {loading ? <Loader2 size={14} className="animate-spin" /> : '加载更多'}
+                  {loading ? <Loader2 size={14} className="animate-spin" /> : t('common.loadMore')}
                 </button>
               </div>
             )}

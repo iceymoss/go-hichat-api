@@ -155,6 +155,7 @@ const inputStyle: React.CSSProperties = {
 
 function AccountSecurityPage({ onBack }: { onBack: () => void }) {
   const { currentUser: user, updateCurrentUser, logout } = useIMStore();
+  const t = useT();
   const [dialog, setDialog] = useState<'password' | 'email' | 'delete' | null>(null);
 
   // Change password state
@@ -194,8 +195,8 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
   if (!user) return null;
 
   const handleChangePassword = async () => {
-    if (!newPwd || newPwd.length < 8) { setError('新密码至少8位'); return; }
-    if (newPwd !== newPwd2) { setError('两次密码不一致'); return; }
+    if (!newPwd || newPwd.length < 8) { setError(t('sec.pwdMin8')); return; }
+    if (newPwd !== newPwd2) { setError(t('sec.pwdMismatch')); return; }
     setSaving(true); setError('');
     try {
       // Send phone code first
@@ -208,14 +209,14 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
 
       // For now, use the reset_pwd endpoint (requires phone + code)
       // In production this would be a proper change-password flow
-      toast.info('密码修改需要短信验证，请通过"忘记密码"流程重置');
+      toast.info(t('sec.changePwdToast'));
       setDialog(null);
-    } catch { setError('操作失败'); }
+    } catch { setError(t('sec.opFail')); }
     finally { setSaving(false); }
   };
 
   const handleSendEmailCode = async () => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error('邮箱格式不正确'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error(t('sec.emailFormat')); return; }
     setEmailSending(true);
     try {
       const res = await fetch('/api/auth/send-code', {
@@ -223,14 +224,14 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
         body: JSON.stringify({ target: email, type: 'register' }),
       });
       const d = await res.json();
-      if (d.success) { setEmailStep('verify'); setCountdown(60); toast.success('验证码已发送'); }
+      if (d.success) { setEmailStep('verify'); setCountdown(60); toast.success(t('sec.codeSent')); }
       else toast.error(d.message);
-    } catch { toast.error('发送失败'); }
+    } catch { toast.error(t('sec.sendFail')); }
     finally { setEmailSending(false); }
   };
 
   const handleBindEmail = async () => {
-    if (emailCode.length !== 6) { toast.error('请输入6位验证码'); return; }
+    if (emailCode.length !== 6) { toast.error(t('sec.code6')); return; }
     setSaving(true);
     try {
       const res = await fetch('/api/user/email/bind', {
@@ -240,16 +241,16 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
       const d = await res.json();
       if (d.success) {
         updateCurrentUser({ email });
-        toast.success('邮箱绑定成功');
+        toast.success(t('sec.emailBound'));
         setDialog(null); setEmail(''); setEmailCode(''); setEmailStep('input');
       } else toast.error(d.message);
-    } catch { toast.error('绑定失败'); }
+    } catch { toast.error(t('sec.bindFail')); }
     finally { setSaving(false); }
   };
 
   // Step 1: Verify password (try login with same phone+password)
   const handleDeleteVerifyPassword = async () => {
-    if (!deletePwd) { setDeleteError('请输入密码'); return; }
+    if (!deletePwd) { setDeleteError(t('sec.pwdRequired')); return; }
     setSaving(true); setDeleteError('');
     try {
       const res = await fetch('/api/auth/login', {
@@ -267,18 +268,18 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
         if (codeData.success) {
           setDeleteStep('sms');
           setDeleteCountdown(60);
-          toast.success('验证码已发送');
-        } else setDeleteError(codeData.message || '发送验证码失败');
+          toast.success(t('sec.codeSent'));
+        } else setDeleteError(codeData.message || t('sec.sendCodeFail'));
       } else {
-        setDeleteError('密码错误');
+        setDeleteError(t('sec.pwdWrong'));
       }
-    } catch { setDeleteError('验证失败'); }
+    } catch { setDeleteError(t('sec.verifyFail')); }
     finally { setSaving(false); }
   };
 
   // Step 2: Verify SMS code
   const handleDeleteVerifySms = async () => {
-    if (deleteSmsCode.length !== 6) { setDeleteError('请输入6位验证码'); return; }
+    if (deleteSmsCode.length !== 6) { setDeleteError(t('sec.code6')); return; }
     setSaving(true); setDeleteError('');
     try {
       const res = await fetch('/api/auth/verify-code', {
@@ -288,8 +289,8 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
       const d = await res.json();
       if (d.success) {
         setDeleteStep('confirm');
-      } else setDeleteError(d.message || '验证码错误');
-    } catch { setDeleteError('验证失败'); }
+      } else setDeleteError(d.message || t('sec.codeWrong'));
+    } catch { setDeleteError(t('sec.verifyFail')); }
     finally { setSaving(false); }
   };
 
@@ -301,24 +302,24 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
         method: 'DELETE', headers: { Authorization: `Bearer ${user.token}` },
       });
       const d = await res.json();
-      if (d.success) { toast.success('账号已注销'); logout(); }
+      if (d.success) { toast.success(t('sec.accountDeleted')); logout(); }
       else toast.error(d.message);
-    } catch { toast.error('注销失败'); }
+    } catch { toast.error(t('sec.deleteFail')); }
     finally { setSaving(false); }
   };
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#F0F2F5' }}>
-      <PageHeader title="账号与安全" onBack={onBack} />
+      <PageHeader title={t('settings.accountSecurity')} onBack={onBack} />
       <div style={{ flex: 1, overflowY: 'auto' }} className="im-scroll">
         <div className="mx-3 mt-3">
           <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <MenuItem icon={<Smartphone size={16} />} label="手机号" value={user.phone} />
+            <MenuItem icon={<Smartphone size={16} />} label={t('settings.phone')} value={user.phone} />
             <Divider />
-            <MenuItem icon={<Mail size={16} />} label="邮箱" value={user.email || '未绑定'}
+            <MenuItem icon={<Mail size={16} />} label={t('settings.email')} value={user.email || t('settings.notBound')}
               onClick={() => { setDialog('email'); setEmail(user.email || ''); setEmailCode(''); setEmailStep('input'); }} />
             <Divider />
-            <MenuItem icon={<Key size={16} />} label="修改密码" onClick={() => {
+            <MenuItem icon={<Key size={16} />} label={t('settings.changePassword')} onClick={() => {
               setDialog('password'); setOldPwd(''); setNewPwd(''); setNewPwd2(''); setError('');
             }} />
           </div>
@@ -326,7 +327,7 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
 
         <div className="mx-3 mt-3">
           <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <MenuItem icon={<UserX size={16} />} label="注销账号" onClick={() => {
+            <MenuItem icon={<UserX size={16} />} label={t('settings.deleteAccount')} onClick={() => {
               setDialog('delete'); setDeleteStep('password'); setDeletePwd(''); setDeleteSmsCode(''); setDeleteError('');
             }} danger />
           </div>
@@ -335,87 +336,87 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
       </div>
 
       {/* Change Password Dialog */}
-      <Dialog open={dialog === 'password'} onClose={() => setDialog(null)} title="修改密码">
+      <Dialog open={dialog === 'password'} onClose={() => setDialog(null)} title={t('settings.changePassword')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ position: 'relative' }}>
             <input type={showPwd ? 'text' : 'password'} value={newPwd} onChange={e => { setNewPwd(e.target.value); setError(''); }}
-              placeholder="输入新密码（8位以上）" style={inputStyle}
+              placeholder={t('sec.newPwdPlaceholder')} style={inputStyle}
               onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
             />
           </div>
           <input type={showPwd ? 'text' : 'password'} value={newPwd2} onChange={e => { setNewPwd2(e.target.value); setError(''); }}
-            placeholder="确认新密码" style={inputStyle}
+            placeholder={t('sec.confirmPwdPlaceholder')} style={inputStyle}
             onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button onClick={() => setShowPwd(!showPwd)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-              {showPwd ? <EyeOff size={14} /> : <Eye size={14} />} {showPwd ? '隐藏' : '显示'}密码
+              {showPwd ? <EyeOff size={14} /> : <Eye size={14} />} {showPwd ? t('sec.hidePwd') : t('sec.showPwd')}
             </button>
           </div>
           {error && <div style={{ fontSize: 13, color: '#E53935', display: 'flex', alignItems: 'center', gap: 4 }}><AlertCircle size={14} />{error}</div>}
           <div style={{ fontSize: 12, color: '#A2ACB5', lineHeight: 1.5 }}>
-            修改密码需要短信验证。点击保存后将发送验证码到绑定手机号。
+            {t('sec.changePwdHint')}
           </div>
           <button className="hc-btn-primary" disabled={saving || !newPwd || !newPwd2}
             onClick={handleChangePassword} style={{ marginTop: 4, padding: '12px 24px', borderRadius: 22 }}>
-            {saving ? <Loader2 size={16} className="animate-spin" /> : '保存'}
+            {saving ? <Loader2 size={16} className="animate-spin" /> : t('common.save')}
           </button>
         </div>
       </Dialog>
 
       {/* Bind Email Dialog */}
-      <Dialog open={dialog === 'email'} onClose={() => setDialog(null)} title={user.email ? '更换邮箱' : '绑定邮箱'}>
+      <Dialog open={dialog === 'email'} onClose={() => setDialog(null)} title={user.email ? t('sec.changeEmail') : t('sec.bindEmail')}>
         {emailStep === 'input' ? (
           <>
             {user.email && (
               <div style={{ fontSize: 13, color: '#646A73', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <CheckCircle2 size={14} color="#4DCD5E" /> 当前: {user.email}
+                <CheckCircle2 size={14} color="#4DCD5E" /> {t('sec.current').replace('{email}', user.email)}
               </div>
             )}
             <input autoFocus value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="请输入邮箱地址" type="email" style={inputStyle}
+              placeholder={t('sec.emailPlaceholder')} type="email" style={inputStyle}
               onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
             />
             <button className="hc-btn-primary" disabled={emailSending || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)}
               onClick={handleSendEmailCode} style={{ marginTop: 16, padding: '12px 24px', borderRadius: 22 }}>
-              {emailSending ? <Loader2 size={16} className="animate-spin" /> : '发送验证码'}
+              {emailSending ? <Loader2 size={16} className="animate-spin" /> : t('sec.sendCode')}
             </button>
           </>
         ) : (
           <>
             <div style={{ fontSize: 13, color: '#646A73', marginBottom: 12 }}>
-              验证码已发送至 <span style={{ color: '#1C2733', fontWeight: 500 }}>{email}</span>
+              {t('sec.codeSentTo').replace('{email}', email)}
             </div>
             <input autoFocus value={emailCode} onChange={e => setEmailCode(e.target.value.replace(/\D/g, ''))}
-              placeholder="请输入6位验证码" maxLength={6}
+              placeholder={t('sec.codePlaceholder')} maxLength={6}
               style={{ ...inputStyle, letterSpacing: 4, textAlign: 'center', fontWeight: 600 }}
               onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
               onKeyDown={e => { if (e.key === 'Enter' && emailCode.length === 6) handleBindEmail(); }}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-              <button onClick={() => setEmailStep('input')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#1BB45B' }}>更换邮箱</button>
+              <button onClick={() => setEmailStep('input')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#1BB45B' }}>{t('sec.changeEmailLink')}</button>
               <button disabled={countdown > 0} onClick={handleSendEmailCode} style={{
                 background: 'none', border: 'none', cursor: countdown > 0 ? 'default' : 'pointer',
                 fontSize: 13, color: countdown > 0 ? '#A2ACB5' : '#1BB45B',
-              }}>{countdown > 0 ? `${countdown}s` : '重新发送'}</button>
+              }}>{countdown > 0 ? t('sec.resendIn').replace('{sec}', String(countdown)) : t('sec.resend')}</button>
             </div>
             <button className="hc-btn-primary" disabled={saving || emailCode.length !== 6}
               onClick={handleBindEmail} style={{ marginTop: 12, padding: '12px 24px', borderRadius: 22 }}>
-              {saving ? <Loader2 size={16} className="animate-spin" /> : '确认绑定'}
+              {saving ? <Loader2 size={16} className="animate-spin" /> : t('sec.confirmBind')}
             </button>
           </>
         )}
       </Dialog>
 
       {/* Delete Account Dialog — 3-step verification */}
-      <Dialog open={dialog === 'delete'} onClose={() => setDialog(null)} title="注销账号">
+      <Dialog open={dialog === 'delete'} onClose={() => setDialog(null)} title={t('settings.deleteAccount')}>
         {/* Step indicator */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
-          {['验证密码', '短信验证', '确认注销'].map((label, i) => {
+          {[t('sec.step.pwd'), t('sec.step.sms'), t('sec.step.confirm')].map((label, i) => {
             const stepKeys = ['password', 'sms', 'confirm'] as const;
             const current = stepKeys.indexOf(deleteStep);
             const done = i < current;
@@ -439,10 +440,10 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
         {deleteStep === 'password' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 13, color: '#646A73', lineHeight: 1.5 }}>
-              为确保是本人操作，请输入当前账号密码
+              {t('sec.verifyPwdHint')}
             </div>
             <input type="password" value={deletePwd} onChange={e => { setDeletePwd(e.target.value); setDeleteError(''); }}
-              placeholder="请输入密码" autoFocus style={inputStyle}
+              placeholder={t('sec.pwdPlaceholder')} autoFocus style={inputStyle}
               onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
               onKeyDown={e => { if (e.key === 'Enter') handleDeleteVerifyPassword(); }}
@@ -452,12 +453,12 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
               <button onClick={() => setDialog(null)} style={{
                 flex: 1, height: 44, borderRadius: 22, border: '1.5px solid #E0E3E8',
                 background: '#fff', color: '#1C2733', fontSize: 14, fontWeight: 500, cursor: 'pointer',
-              }}>取消</button>
+              }}>{t('common.cancel')}</button>
               <button onClick={handleDeleteVerifyPassword} disabled={saving || !deletePwd} style={{
                 flex: 1, height: 44, borderRadius: 22, border: 'none',
                 background: '#E53935', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                 opacity: saving || !deletePwd ? 0.6 : 1,
-              }}>{saving ? <Loader2 size={16} className="animate-spin" /> : '下一步'}</button>
+              }}>{saving ? <Loader2 size={16} className="animate-spin" /> : t('sec.next')}</button>
             </div>
           </div>
         )}
@@ -466,10 +467,10 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
         {deleteStep === 'sms' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 13, color: '#646A73', lineHeight: 1.5 }}>
-              验证码已发送至 <span style={{ color: '#1C2733', fontWeight: 500 }}>{user.phone}</span>
+              {t('sec.smsSentTo').replace('{phone}', user.phone)}
             </div>
             <input value={deleteSmsCode} onChange={e => { setDeleteSmsCode(e.target.value.replace(/\D/g, '')); setDeleteError(''); }}
-              placeholder="请输入6位验证码" maxLength={6} autoFocus
+              placeholder={t('sec.codePlaceholder')} maxLength={6} autoFocus
               style={{ ...inputStyle, letterSpacing: 4, textAlign: 'center', fontWeight: 600 }}
               onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
@@ -482,23 +483,23 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
                   body: JSON.stringify({ target: user.phone, type: 'register' }),
                 });
                 const d = await res.json();
-                if (d.success) { setDeleteCountdown(60); toast.success('已重新发送'); }
+                if (d.success) { setDeleteCountdown(60); toast.success(t('sec.resent')); }
               }} style={{
                 background: 'none', border: 'none', fontSize: 13, cursor: deleteCountdown > 0 ? 'default' : 'pointer',
                 color: deleteCountdown > 0 ? '#A2ACB5' : '#1BB45B',
-              }}>{deleteCountdown > 0 ? `${deleteCountdown}s 后重发` : '重新发送'}</button>
+              }}>{deleteCountdown > 0 ? t('sec.resendIn').replace('{sec}', String(deleteCountdown)) : t('sec.resend')}</button>
             </div>
             {deleteError && <div style={{ fontSize: 13, color: '#E53935', display: 'flex', alignItems: 'center', gap: 4 }}><AlertCircle size={14} />{deleteError}</div>}
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button onClick={() => setDeleteStep('password')} style={{
                 flex: 1, height: 44, borderRadius: 22, border: '1.5px solid #E0E3E8',
                 background: '#fff', color: '#1C2733', fontSize: 14, fontWeight: 500, cursor: 'pointer',
-              }}>上一步</button>
+              }}>{t('sec.prev')}</button>
               <button onClick={handleDeleteVerifySms} disabled={saving || deleteSmsCode.length !== 6} style={{
                 flex: 1, height: 44, borderRadius: 22, border: 'none',
                 background: '#E53935', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                 opacity: saving || deleteSmsCode.length !== 6 ? 0.6 : 1,
-              }}>{saving ? <Loader2 size={16} className="animate-spin" /> : '下一步'}</button>
+              }}>{saving ? <Loader2 size={16} className="animate-spin" /> : t('sec.next')}</button>
             </div>
           </div>
         )}
@@ -508,22 +509,21 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
           <div>
             <div style={{ textAlign: 'center', padding: '8px 0 20px' }}>
               <UserX size={40} style={{ color: '#E53935', margin: '0 auto 12px' }} />
-              <div style={{ fontSize: 15, color: '#1C2733', fontWeight: 600 }}>身份验证通过</div>
+              <div style={{ fontSize: 15, color: '#1C2733', fontWeight: 600 }}>{t('sec.verifiedTitle')}</div>
               <div style={{ fontSize: 13, color: '#8F959E', marginTop: 8, lineHeight: 1.6 }}>
-                注销后你的所有数据将被<strong style={{ color: '#E53935' }}>永久删除</strong>，<br />
-                包括好友关系、聊天记录、收藏、表情包等。<br />
-                <strong>此操作不可撤销！</strong>
+                {t('sec.deleteWarn1')}<strong style={{ color: '#E53935' }}>{t('sec.deleteWarnStrong')}</strong>{t('sec.deleteWarn2')}<br />
+                <strong>{t('sec.deleteWarn3')}</strong>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setDialog(null)} style={{
                 flex: 1, height: 44, borderRadius: 22, border: '1.5px solid #E0E3E8',
                 background: '#fff', color: '#1C2733', fontSize: 14, fontWeight: 500, cursor: 'pointer',
-              }}>取消</button>
+              }}>{t('common.cancel')}</button>
               <button onClick={handleDeleteAccount} disabled={saving} style={{
                 flex: 1, height: 44, borderRadius: 22, border: 'none',
                 background: '#E53935', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-              }}>{saving ? <Loader2 size={16} className="animate-spin" /> : '确认注销'}</button>
+              }}>{saving ? <Loader2 size={16} className="animate-spin" /> : t('sec.confirmDelete')}</button>
             </div>
           </div>
         )}
