@@ -387,7 +387,7 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
         ) : (
           <>
             <div style={{ fontSize: 13, color: '#646A73', marginBottom: 12 }}>
-              验证码已发送至 <span style={{ color: '#1BB45B', fontWeight: 500 }}>{email}</span>
+              验证码已发送至 <span style={{ color: '#1C2733', fontWeight: 500 }}>{email}</span>
             </div>
             <input autoFocus value={emailCode} onChange={e => setEmailCode(e.target.value.replace(/\D/g, ''))}
               placeholder="请输入6位验证码" maxLength={6}
@@ -466,7 +466,7 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
         {deleteStep === 'sms' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 13, color: '#646A73', lineHeight: 1.5 }}>
-              验证码已发送至 <span style={{ color: '#1BB45B', fontWeight: 500 }}>{user.phone}</span>
+              验证码已发送至 <span style={{ color: '#1C2733', fontWeight: 500 }}>{user.phone}</span>
             </div>
             <input value={deleteSmsCode} onChange={e => { setDeleteSmsCode(e.target.value.replace(/\D/g, '')); setDeleteError(''); }}
               placeholder="请输入6位验证码" maxLength={6} autoFocus

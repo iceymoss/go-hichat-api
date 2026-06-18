@@ -85,7 +85,7 @@ export default function UserQRCodeDialog({
         {/* Header gradient */}
         <div style={{
           height: 80,
-          background: 'linear-gradient(135deg, #2AABEE 0%, #1BB45B 50%, #149a4c 100%)',
+          background: 'linear-gradient(135deg, #1BB45B 0%, #1BB45B 50%, #149a4c 100%)',
           position: 'relative',
         }}>
           {/* Close button */}

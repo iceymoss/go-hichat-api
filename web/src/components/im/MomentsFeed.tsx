@@ -475,8 +475,8 @@ function TrendCard({
                   transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                 }}
               >
-                <Heart className="w-3.5 h-3.5" style={{ color: liked ? '#1BB45B' : '#A2ACB5', fill: liked ? '#1BB45B' : 'none', transition: 'all 0.15s' }} />
-                {likeCount > 0 && <span style={{ fontSize: '11px', color: liked ? '#1BB45B' : '#A2ACB5', fontWeight: liked ? 600 : 400 }}>{likeCount}</span>}
+                <Heart className="w-3.5 h-3.5" style={{ color: liked ? '#FA5151' : '#A2ACB5', fill: liked ? '#FA5151' : 'none', transition: 'all 0.15s' }} />
+                {likeCount > 0 && <span style={{ fontSize: '11px', color: liked ? '#FA5151' : '#A2ACB5', fontWeight: liked ? 600 : 400 }}>{likeCount}</span>}
               </button>
 
               {/* Comment */}
@@ -521,7 +521,7 @@ function TrendCard({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start gap-1.5">
-                <Heart className="w-3 h-3 shrink-0 mt-0.5" style={{ color: '#1BB45B', fill: '#1BB45B' }} />
+                <Heart className="w-3 h-3 shrink-0 mt-0.5" style={{ color: '#FA5151', fill: '#FA5151' }} />
                 <span style={{ color: '#708499' }}>
                   {(likeNamesExpanded ? likeUsers : likeUsers.slice(0, FEED_LIKE_COLLAPSE_LIMIT)).map((u, i) => {
                     const displayName = u.id === 'me' ? '我' : friendDisplayName(u.id, u.name);
@@ -1051,7 +1051,7 @@ function TrendDetailModal({
     return parts.map((part, i) => {
       if (part.startsWith('@')) {
         const atUser = trend.atUsers.find(u => `@${u.name}` === part);
-        return <span key={i} style={{ color: '#1BB45B' }}>{atUser ? atUser.name : part}</span>;
+        return <span key={i} style={{ color: '#576b95' }}>{atUser ? atUser.name : part}</span>;
       }
       return <span key={i}>{part}</span>;
     });
@@ -1177,8 +1177,8 @@ function TrendDetailModal({
           {/* Actions */}
           <div className="flex items-center gap-4 mb-4" style={{ paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
             <button onClick={onToggleLike} className="flex items-center gap-1.5" style={{ padding: '6px 14px', borderRadius: '18px', border: 'none', background: liked ? 'rgba(27,180,91,0.1)' : 'transparent', cursor: 'pointer' }}>
-              <Heart className="w-4 h-4" style={{ color: liked ? '#1BB45B' : '#A2ACB5', fill: liked ? '#1BB45B' : 'none' }} />
-              <span style={{ fontSize: '13px', color: liked ? '#1BB45B' : '#708499', fontWeight: liked ? 600 : 400 }}>{likeCount > 0 ? likeCount : '赞'}</span>
+              <Heart className="w-4 h-4" style={{ color: liked ? '#FA5151' : '#A2ACB5', fill: liked ? '#FA5151' : 'none' }} />
+              <span style={{ fontSize: '13px', color: liked ? '#FA5151' : '#708499', fontWeight: liked ? 600 : 400 }}>{likeCount > 0 ? likeCount : '赞'}</span>
             </button>
             <button onClick={onLikeCountClick} style={{ padding: '6px 14px', borderRadius: '18px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
               <ThumbsUp className="w-4 h-4" style={{ color: '#A2ACB5' }} />
@@ -1212,7 +1212,7 @@ function TrendDetailModal({
             {replyTarget && (
               <div className="flex items-center gap-1 shrink-0" style={{ fontSize: '11px', color: '#708499', maxWidth: 100, overflow: 'hidden' }}>
                 <span>回复</span>
-                <span style={{ color: '#1BB45B', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
+                <span style={{ color: '#576b95', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
               </div>
             )}
             <input
@@ -1893,7 +1893,7 @@ export default function MomentsFeed() {
             <div
               className="absolute inset-0"
               style={{
-                background: 'linear-gradient(135deg, rgba(27,180,91,0.7), rgba(111,177,252,0.5))',
+                background: 'linear-gradient(135deg, rgba(27,180,91,0.7), rgba(95,214,143,0.5))',
               }}
             />
           </>

@@ -617,7 +617,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
               <div className="flex items-center gap-2">
                 <UserCircle className="w-4 h-4" style={{ color: '#A2ACB5' }} />
                 <span style={{ fontSize: '13px', color: '#646A73' }}>
-                  HiChat: <span style={{ color: '#1BB45B' }}>{request.hiChatId}</span>
+                  HiChat: <span style={{ color: '#1C2733' }}>{request.hiChatId}</span>
                 </span>
               </div>
             )}

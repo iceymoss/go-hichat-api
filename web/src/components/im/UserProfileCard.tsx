@@ -384,7 +384,7 @@ export default function UserProfileCard({
                 transition: 'background 0.2s',
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
+                (e.currentTarget as HTMLButtonElement).style.background = '#149A4C';
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
@@ -415,7 +415,7 @@ export default function UserProfileCard({
                 transition: 'background 0.2s',
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
+                (e.currentTarget as HTMLButtonElement).style.background = '#149A4C';
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
@@ -790,7 +790,7 @@ export default function UserProfileCard({
                   transition: 'background 0.2s',
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
+                  (e.currentTarget as HTMLButtonElement).style.background = '#149A4C';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
@@ -882,7 +882,7 @@ export default function UserProfileCard({
                 transition: 'background 0.2s',
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
+                (e.currentTarget as HTMLButtonElement).style.background = '#149A4C';
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';

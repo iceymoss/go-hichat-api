@@ -455,7 +455,7 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'background 0.15s',
         }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#2A7BD6'; }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#149A4C'; }}
           onMouseLeave={e => { e.currentTarget.style.background = '#1BB45B'; }}
         ><Plus size={16} /></button>
       </div>

@@ -273,7 +273,7 @@ export default function SetRemarkDialog({
               transition: 'background 0.15s',
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
+              (e.currentTarget as HTMLButtonElement).style.background = '#149A4C';
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';

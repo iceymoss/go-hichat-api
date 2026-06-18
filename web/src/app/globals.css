@@ -493,7 +493,7 @@
 .hc-btn-primary {
   width: 100%;
   padding: 16px 24px;
-  background: #2AABEE;
+  background: #1BB45B;
   color: white;
   font-size: 15px;
   font-weight: 600;
@@ -501,26 +501,26 @@
   border-radius: 30px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 16px rgba(42, 171, 238, 0.35);
+  box-shadow: 0 4px 16px rgba(27, 180, 91, 0.35);
   letter-spacing: 0.04em;
 }
 
 .hc-btn-primary:hover:not(:disabled) {
   background: #1BB45B;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(42, 171, 238, 0.4);
+  box-shadow: 0 8px 24px rgba(27, 180, 91, 0.4);
 }
 
 .hc-btn-primary:active:not(:disabled) {
   transform: translateY(0) scale(0.98);
-  box-shadow: 0 2px 8px rgba(42, 171, 238, 0.3);
+  box-shadow: 0 2px 8px rgba(27, 180, 91, 0.3);
 }
 
 .hc-btn-primary:disabled {
-  background: #B8D4E8;
+  background: #C2E0CE;
   box-shadow: none;
   cursor: not-allowed;
-  color: #8CB4CF;
+  color: #93BCA2;
 }
 
 /* ═══════════════════════════════════════════════
@@ -529,7 +529,7 @@
 .hc-btn-text {
   font-size: 13px;
   font-weight: 600;
-  color: #2AABEE;
+  color: #1BB45B;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -543,7 +543,7 @@
 }
 
 .hc-btn-text:disabled {
-  color: #B0C4D4;
+  color: #A8C2B2;
   cursor: not-allowed;
 }
 
@@ -556,9 +556,9 @@
   justify-content: center;
   font-size: 12px;
   font-weight: 600;
-  color: #2AABEE;
-  background: rgba(42, 171, 238, 0.06);
-  border: 1.5px solid rgba(42, 171, 238, 0.25);
+  color: #1BB45B;
+  background: rgba(27, 180, 91, 0.06);
+  border: 1.5px solid rgba(27, 180, 91, 0.25);
   border-radius: 16px;
   cursor: pointer;
   white-space: nowrap;
@@ -569,9 +569,9 @@
 }
 
 .hc-btn-code:hover:not(:disabled) {
-  background: rgba(42, 171, 238, 0.14);
-  border-color: #2AABEE;
-  box-shadow: 0 2px 8px rgba(42, 171, 238, 0.2);
+  background: rgba(27, 180, 91, 0.14);
+  border-color: #1BB45B;
+  box-shadow: 0 2px 8px rgba(27, 180, 91, 0.2);
 }
 
 .hc-btn-code:active:not(:disabled) {
@@ -580,8 +580,8 @@
 
 .hc-btn-code:disabled {
   color: #A2ACB5;
-  background: rgba(42, 171, 238, 0.04);
-  border-color: rgba(42, 171, 238, 0.12);
+  background: rgba(27, 180, 91, 0.04);
+  border-color: rgba(27, 180, 91, 0.12);
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -610,13 +610,13 @@
   left: 0;
   height: 2.5px;
   width: 0;
-  background: #2AABEE;
+  background: #1BB45B;
   border-radius: 2px;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hc-tab.active {
-  color: #2AABEE;
+  color: #1BB45B;
   font-weight: 600;
 }
 

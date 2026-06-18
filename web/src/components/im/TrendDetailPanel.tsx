@@ -533,8 +533,8 @@ export default function TrendDetailPanel() {
                   transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                 }}
               >
-                <Heart className="w-4 h-4" style={{ color: liked ? '#1BB45B' : '#A2ACB5', fill: liked ? '#1BB45B' : 'none' }} />
-                <span style={{ fontSize: '13px', color: liked ? '#1BB45B' : '#708499', fontWeight: liked ? 600 : 400 }}>
+                <Heart className="w-4 h-4" style={{ color: liked ? '#FA5151' : '#A2ACB5', fill: liked ? '#FA5151' : 'none' }} />
+                <span style={{ fontSize: '13px', color: liked ? '#FA5151' : '#708499', fontWeight: liked ? 600 : 400 }}>
                   {likeCount > 0 ? likeCount : '赞'}
                 </span>
               </button>
@@ -655,7 +655,7 @@ export default function TrendDetailPanel() {
           {replyTarget && (
             <div className="flex items-center gap-1 shrink-0" style={{ fontSize: '11px', color: '#708499', maxWidth: 120, overflow: 'hidden', whiteSpace: 'nowrap' }}>
               <span>回复</span>
-              <span style={{ color: '#1BB45B', fontWeight: 500 }}>{getUserName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
+              <span style={{ color: '#576b95', fontWeight: 500 }}>{getUserName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
               <button
                 onClick={() => setReplyTarget(null)}
                 style={{ marginLeft: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 0, display: 'flex' }}

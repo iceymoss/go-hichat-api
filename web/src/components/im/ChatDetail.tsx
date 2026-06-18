@@ -179,7 +179,7 @@ function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['r
         </span>
       )}
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', fontWeight: 600, color: '#1BB45B' }}>{reply.senderName}</span>
+        <span style={{ display: 'block', fontWeight: 600, color: '#576b95' }}>{reply.senderName}</span>
         <span style={{ display: 'block', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: recalled ? 'italic' : 'normal' }}>
           {recalled ? t('chat.recalledShort') : reply.content}
         </span>
@@ -1204,7 +1204,7 @@ export default function ChatDetail() {
               return thumb ? <img src={thumb} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} /> : null;
             })()}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#1BB45B' }}>{replyTo.senderName}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#576b95' }}>{replyTo.senderName}</div>
               <div style={{ fontSize: 13, color: '#708499', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {mediaPreview(replyTo.message.type, replyTo.message.content)}
               </div>
@@ -1680,7 +1680,7 @@ function MessageList({
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* Group sender name (only for first message in group) */}
               {conversation.type === 'group' && !isSent && (
-                <div style={{ fontSize: 12, color: '#1BB45B', fontWeight: 600, marginBottom: 2, textAlign: 'left' }}>
+                <div style={{ fontSize: 12, color: '#576b95', fontWeight: 600, marginBottom: 2, textAlign: 'left' }}>
                   {groupMemberNames[msgs[0].senderId] || msgs[0].senderId}
                 </div>
               )}

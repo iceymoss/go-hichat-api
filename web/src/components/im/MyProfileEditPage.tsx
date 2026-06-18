@@ -355,7 +355,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
                 {parsedTags.map((t, i) => (
                   <span key={i} style={{
                     padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 500,
-                    background: 'rgba(27,180,91,0.08)', color: '#1BB45B',
+                    background: 'rgba(120,140,160,0.12)', color: '#5b6b7a',
                   }}>{t}</span>
                 ))}
               </div>
@@ -567,7 +567,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
         ) : (
           <>
             <div style={{ fontSize: 13, color: '#646A73', marginBottom: 12 }}>
-              验证码已发送至 <span style={{ color: '#1BB45B', fontWeight: 500 }}>{bindEmail}</span>
+              验证码已发送至 <span style={{ color: '#1C2733', fontWeight: 500 }}>{bindEmail}</span>
             </div>
             <input
               autoFocus value={emailCode} onChange={e => setEmailCode(e.target.value.replace(/\D/g, ''))}

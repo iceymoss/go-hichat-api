@@ -297,7 +297,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
               }}
               onMouseEnter={(e) => {
                 if (!(isGroup && selectedCount === 0)) {
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2B7FD4';
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#149A4C';
                 }
               }}
               onMouseLeave={(e) => {

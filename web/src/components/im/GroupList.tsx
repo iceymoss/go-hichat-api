@@ -1472,7 +1472,7 @@ export default function GroupList() {
                 )}
                 {/* 置顶公告 */}
                 {groupAnns.find(a => a.pinned) && (
-                  <div className="flex items-start gap-1.5" style={{ fontSize: '12px', color: '#1BB45B', padding: '6px 10px', background: 'rgba(27,180,91,0.06)', borderRadius: '8px', marginTop: 6 }}>
+                  <div className="flex items-start gap-1.5" style={{ fontSize: '12px', color: '#646A73', padding: '6px 10px', background: 'rgba(120,140,160,0.08)', borderRadius: '8px', marginTop: 6 }}>
                     <Pin className="w-3 h-3 shrink-0" style={{ marginTop: 1 }} />
                     <span>{groupAnns.find(a => a.pinned)!.content}</span>
                   </div>
