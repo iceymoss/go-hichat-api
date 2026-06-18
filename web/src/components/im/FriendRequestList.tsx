@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIMStore } from '@/lib/im-store';
-import { getAvatarColor } from '@/lib/utils';
+import { getAvatarColor, tagColor } from '@/lib/utils';
 import AddFriendPanel from './AddFriendPanel';
 
 /* ═══════════════════════════════════════
@@ -543,8 +543,8 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
                   key={i}
                   style={{
                     fontSize: '11px',
-                    color: '#1BB45B',
-                    backgroundColor: 'rgba(27,180,91,0.08)',
+                    color: tagColor(tag).c,
+                    backgroundColor: tagColor(tag).b,
                     borderRadius: '4px',
                     padding: '2px 8px',
                   }}
@@ -850,8 +850,8 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                   key={i}
                   style={{
                     fontSize: '10px',
-                    color: '#1BB45B',
-                    backgroundColor: 'rgba(27,180,91,0.08)',
+                    color: tagColor(tag).c,
+                    backgroundColor: tagColor(tag).b,
                     borderRadius: '3px',
                     padding: '1px 6px',
                   }}

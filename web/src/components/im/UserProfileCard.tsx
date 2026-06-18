@@ -5,31 +5,12 @@ import { type Contact } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
 import { getUserTrends } from '@/lib/trend-api';
 import { useT } from '@/hooks/use-i18n';
-import { getAvatarColor } from '@/lib/utils';
+import { getAvatarColor, tagColor } from '@/lib/utils';
 import { Phone, Video, Send, UserPlus, Copy, MapPin, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
 import ProfileActionMenu from './ProfileActionMenu';
 import SetRemarkDialog from './SetRemarkDialog';
 import ConfirmDialog from './ConfirmDialog';
-
-// Colorful tag chips — each tag gets a stable color from its hash so the same
-// tag always renders the same hue, while a tag list looks varied.
-const TAG_COLORS: { c: string; b: string }[] = [
-  { c: '#2D7FF9', b: 'rgba(45,127,249,0.10)' },   // blue
-  { c: '#1BB45B', b: 'rgba(27,180,91,0.10)' },    // green
-  { c: '#F59E0B', b: 'rgba(245,158,11,0.12)' },   // amber
-  { c: '#9B59B6', b: 'rgba(155,89,182,0.10)' },   // purple
-  { c: '#E84393', b: 'rgba(232,67,147,0.10)' },   // pink
-  { c: '#14B8A6', b: 'rgba(20,184,166,0.12)' },   // teal
-  { c: '#FA5151', b: 'rgba(250,81,81,0.10)' },    // red
-  { c: '#EC6F1A', b: 'rgba(236,111,26,0.10)' },   // orange
-];
-function tagColor(tag: string): { c: string; b: string } {
-  let hash = 0;
-  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
-  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
-}
-
 
 interface UserProfileCardProps {
   contact: Contact;
