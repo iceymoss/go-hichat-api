@@ -717,9 +717,9 @@
   user-select: none;
 }
 
-/* Brand copyright footer pinned to the bottom of the auth stage */
+/* Brand copyright footer pinned to the bottom of the viewport */
 .auth-footer {
-  position: absolute;
+  position: fixed;
   left: 0;
   right: 0;
   bottom: 18px;

@@ -7,6 +7,7 @@ const app = new URL('../src/app/', import.meta.url);
 
 // Rounded app-icon tiles (corners kept) — favicons / apple / standard PWA.
 const rounded = [
+  [new URL('icon.png', app), 256],
   [new URL('apple-icon.png', app), 180],
   [new URL('icon-192.png', out), 192],
   [new URL('icon-512.png', out), 512],
