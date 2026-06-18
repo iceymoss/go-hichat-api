@@ -9,11 +9,14 @@ import { X, User } from 'lucide-react';
 interface FloatingProfileCardProps {
   contact: Contact;
   isStranger?: boolean;
+  isSelf?: boolean;
   isBlocked?: boolean;
   zIndex?: number;
   onClose: () => void;
   /** Optional: jump to the full contact detail page (contacts tab). Renders a footer entry. */
   onViewProfile?: () => void;
+  /** Self-card only: open the profile editor. */
+  onEditProfile?: () => void;
   onSendMessage?: () => void;
   onVoiceCall?: () => void;
   onVideoCall?: () => void;
@@ -28,10 +31,12 @@ interface FloatingProfileCardProps {
 export default function FloatingProfileCard({
   contact,
   isStranger = false,
+  isSelf = false,
   isBlocked = false,
   zIndex = 9998,
   onClose,
   onViewProfile,
+  onEditProfile,
   onSendMessage,
   onVoiceCall,
   onVideoCall,
@@ -150,6 +155,7 @@ export default function FloatingProfileCard({
         <UserProfileCard
           contact={contact}
           isStranger={isStranger}
+          isSelf={isSelf}
           isBlocked={isBlocked}
           onSendMessage={handleSendMessage}
           onVoiceCall={handleVoiceCall}
@@ -160,9 +166,10 @@ export default function FloatingProfileCard({
           onToggleBlock={handleToggleBlock}
           onReport={onReport || handleReport}
           onDeleteFriend={onDeleteFriend || handleDeleteFriend}
+          onEditProfile={onEditProfile}
         />
 
-        {onViewProfile && (
+        {!isSelf && onViewProfile && (
           <button
             onClick={onViewProfile}
             style={{

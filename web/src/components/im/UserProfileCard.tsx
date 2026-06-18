@@ -6,7 +6,7 @@ import { useIMStore } from '@/lib/im-store';
 import { getUserTrends } from '@/lib/trend-api';
 import { useT } from '@/hooks/use-i18n';
 import { getAvatarColor, tagColor } from '@/lib/utils';
-import { Phone, Video, Send, UserPlus, Copy, MapPin, Briefcase } from 'lucide-react';
+import { Phone, Video, Send, UserPlus, Copy, MapPin, Briefcase, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import ProfileActionMenu from './ProfileActionMenu';
 import SetRemarkDialog from './SetRemarkDialog';
@@ -16,6 +16,8 @@ interface UserProfileCardProps {
   contact: Contact;
   /** If true, hide phone/region/moments, show "添加好友" button */
   isStranger?: boolean;
+  /** If true, this is the current user's own card: hide message/call/“…” actions, optionally show edit entry */
+  isSelf?: boolean;
   isBlocked?: boolean;
   onSendMessage?: () => void;
   onVoiceCall?: () => void;
@@ -27,6 +29,8 @@ interface UserProfileCardProps {
   onToggleBlock?: (blocked: boolean) => void;
   onReport?: () => void;
   onDeleteFriend?: () => void;
+  /** Self-card edit entry (rendered as the single bottom button when isSelf) */
+  onEditProfile?: () => void;
   /** Compact mode for small cards */
   compact?: boolean;
 }
@@ -74,6 +78,7 @@ function StrangerInfo({ contact }: { contact: Contact }) {
 export default function UserProfileCard({
   contact,
   isStranger = false,
+  isSelf = false,
   isBlocked: isBlockedProp = false,
   onSendMessage,
   onVoiceCall,
@@ -85,6 +90,7 @@ export default function UserProfileCard({
   onToggleBlock,
   onReport,
   onDeleteFriend,
+  onEditProfile,
   compact = false,
 }: UserProfileCardProps) {
   const avatarColor = getAvatarColor(contact.name);
@@ -437,7 +443,7 @@ export default function UserProfileCard({
   return (
     <div style={{ position: 'relative' }}>
       {/* Settings icon - top right — opens ActionMenu */}
-      {(onSettings || onRecommend || onDeleteFriend) && (
+      {!isSelf && (onSettings || onRecommend || onDeleteFriend) && (
         <button
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
@@ -769,7 +775,34 @@ export default function UserProfileCard({
 
       {/* ── 底部操作按钮 — 竖排 ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {!isStranger ? (
+        {isSelf ? (
+          onEditProfile && (
+            <button
+              onClick={onEditProfile}
+              style={{
+                width: '100%',
+                height: 40,
+                borderRadius: 8,
+                background: '#1BB45B',
+                color: '#FFFFFF',
+                fontSize: 14,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                transition: 'background 0.2s',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#149A4C'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B'; }}
+            >
+              <Pencil size={16} />
+              {t('upc.editProfile')}
+            </button>
+          )
+        ) : !isStranger ? (
           <>
             {onSendMessage && (
               <button
