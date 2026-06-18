@@ -5,31 +5,12 @@ import { type Contact } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
 import { getUserTrends } from '@/lib/trend-api';
 import { useT } from '@/hooks/use-i18n';
-import { getAvatarColor } from '@/lib/utils';
+import { getAvatarColor, tagColor } from '@/lib/utils';
 import { Phone, Video, Send, UserPlus, Copy, MapPin, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
 import ProfileActionMenu from './ProfileActionMenu';
 import SetRemarkDialog from './SetRemarkDialog';
 import ConfirmDialog from './ConfirmDialog';
-
-// Colorful tag chips — each tag gets a stable color from its hash so the same
-// tag always renders the same hue, while a tag list looks varied.
-const TAG_COLORS: { c: string; b: string }[] = [
-  { c: '#2D7FF9', b: 'rgba(45,127,249,0.10)' },   // blue
-  { c: '#1BB45B', b: 'rgba(27,180,91,0.10)' },    // green
-  { c: '#F59E0B', b: 'rgba(245,158,11,0.12)' },   // amber
-  { c: '#9B59B6', b: 'rgba(155,89,182,0.10)' },   // purple
-  { c: '#E84393', b: 'rgba(232,67,147,0.10)' },   // pink
-  { c: '#14B8A6', b: 'rgba(20,184,166,0.12)' },   // teal
-  { c: '#FA5151', b: 'rgba(250,81,81,0.10)' },    // red
-  { c: '#EC6F1A', b: 'rgba(236,111,26,0.10)' },   // orange
-];
-function tagColor(tag: string): { c: string; b: string } {
-  let hash = 0;
-  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
-  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
-}
-
 
 interface UserProfileCardProps {
   contact: Contact;
@@ -52,7 +33,8 @@ interface UserProfileCardProps {
 
 /** 陌生人资料：性别/地区/职业/标签（仅搜索加好友场景展示） */
 function StrangerInfo({ contact }: { contact: Contact }) {
-  const sexLabel = contact.gender === 'male' ? '男' : contact.gender === 'female' ? '女' : '';
+  const t = useT();
+  const sexLabel = contact.gender === 'male' ? t('upc.gender.male') : contact.gender === 'female' ? t('upc.gender.female') : '';
   let tagList: string[] = [];
   if (contact.tags) {
     try {
@@ -64,9 +46,9 @@ function StrangerInfo({ contact }: { contact: Contact }) {
   }
 
   const rows: Array<[string, string]> = [];
-  if (sexLabel) rows.push(['性别', sexLabel]);
-  if (contact.region) rows.push(['地区', contact.region]);
-  if (contact.occupation) rows.push(['职业', contact.occupation]);
+  if (sexLabel) rows.push([t('upc.label.gender'), sexLabel]);
+  if (contact.region) rows.push([t('upc.label.region'), contact.region]);
+  if (contact.occupation) rows.push([t('upc.label.occupation'), contact.occupation]);
 
   if (rows.length === 0 && tagList.length === 0) return null;
 
@@ -167,19 +149,19 @@ export default function UserProfileCard({
   const handleCopySignature = () => {
     if (contact.signature) {
       navigator.clipboard.writeText(contact.signature);
-      toast.success('签名已复制');
+      toast.success(t('upc.copySignatureOk'));
     }
   };
 
   const handleCopyAccount = () => {
     if (contact.account) {
       navigator.clipboard.writeText(contact.account);
-      toast.success('HiChat号已复制');
+      toast.success(t('upc.copyAccountOk'));
     }
   };
 
   const genderIcon = contact.gender === 'male' ? '🚹' : contact.gender === 'female' ? '🚺' : '';
-  const genderText = contact.gender === 'male' ? '男' : contact.gender === 'female' ? '女' : '';
+  const genderText = contact.gender === 'male' ? t('upc.gender.male') : contact.gender === 'female' ? t('upc.gender.female') : '';
 
   // ── ActionMenu callbacks ──
   const handleSetRemark = () => {
@@ -190,7 +172,7 @@ export default function UserProfileCard({
     if (onRecommend) {
       onRecommend();
     } else {
-      toast('功能开发中');
+      toast(t('upc.featureWip'));
     }
   };
 
@@ -198,7 +180,7 @@ export default function UserProfileCard({
     if (onSetPermissions) {
       onSetPermissions();
     } else {
-      toast('功能开发中');
+      toast(t('upc.featureWip'));
     }
   };
 
@@ -207,7 +189,7 @@ export default function UserProfileCard({
       // Unblock directly
       setLocalBlocked(false);
       onToggleBlock?.(false);
-      toast.success('已将 ' + contact.name + ' 移出黑名单');
+      toast.success(t('upc.unblocked').replace('{name}', contact.name));
     } else {
       // Show block confirmation
       setShowBlockConfirm(true);
@@ -218,7 +200,7 @@ export default function UserProfileCard({
     if (onReport) {
       onReport();
     } else {
-      toast('功能开发中');
+      toast(t('upc.featureWip'));
     }
   };
 
@@ -228,13 +210,13 @@ export default function UserProfileCard({
 
   const handleConfirmDelete = () => {
     onDeleteFriend?.();
-    toast.success('已删除好友 ' + contact.name);
+    toast.success(t('upc.deletedFriend').replace('{name}', contact.name));
   };
 
   const handleConfirmBlock = () => {
     setLocalBlocked(true);
     onToggleBlock?.(true);
-    toast.success('已将 ' + contact.name + ' 加入黑名单');
+    toast.success(t('upc.blocked').replace('{name}', contact.name));
   };
 
   const handleAddFriend = () => {
@@ -254,7 +236,7 @@ export default function UserProfileCard({
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ friend_uid: contact.id, remark }),
         }).then(res => res.json());
-        if (!r.success) { toast.error(r.message || '备注更新失败'); return; }
+        if (!r.success) { toast.error(r.message || t('upc.remarkFail')); return; }
       }
       // Save tags
       if (tags.length > 0) {
@@ -263,14 +245,14 @@ export default function UserProfileCard({
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ friend_uid: contact.id, tags }),
         }).then(res => res.json());
-        if (!r.success) { toast.error(r.message || '标签更新失败'); return; }
+        if (!r.success) { toast.error(r.message || t('upc.tagsFail')); return; }
       }
-      const tagStr = tags.length > 0 ? `，标签: ${tags.join('、')}` : '';
-      toast.success(`备注已更新: ${remark}${tagStr}`);
+      const tagStr = tags.length > 0 ? t('upc.tagsSuffix').replace('{tags}', tags.join('、')) : '';
+      toast.success(t('upc.remarkUpdated').replace('{remark}', remark).replace('{tags}', tagStr));
       // 同步刷新好友列表
       invalidateFriends();
     } catch {
-      toast.error('更新失败');
+      toast.error(t('upc.updateFail'));
     }
   };
 
@@ -340,11 +322,11 @@ export default function UserProfileCard({
               {displayName}
             </div>
             <div style={{ fontSize: 12, color: '#A2ACB5', lineHeight: 1.3, marginTop: 2 }}>
-              {contact.remark ? `昵称: ${contact.nickname || contact.name}` : ''}
+              {contact.remark ? t('upc.nickname').replace('{name}', contact.nickname || contact.name) : ''}
             </div>
           </div>
           <div style={{ fontSize: 12, color: contact.online ? '#4DCD5E' : '#A2ACB5' }}>
-            {contact.online ? '在线' : '离线'}
+            {contact.online ? t('chat.online') : t('chat.offline')}
           </div>
         </div>
 
@@ -410,7 +392,7 @@ export default function UserProfileCard({
               }}
             >
               <Send size={14} />
-              发消息
+              {t('group.sendMessage')}
             </button>
           )
         ) : (
@@ -441,7 +423,7 @@ export default function UserProfileCard({
               }}
             >
               <UserPlus size={14} />
-              添加好友
+              {t('group.addFriendTitle')}
             </button>
           )
         )}
@@ -492,7 +474,7 @@ export default function UserProfileCard({
             (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
             (e.currentTarget as HTMLButtonElement).style.color = '#8F959E';
           }}
-          title="更多设置"
+          title={t('upc.moreSettings')}
         >
           <MoreDotsIcon size={18} />
         </button>
@@ -527,10 +509,10 @@ export default function UserProfileCard({
       <ConfirmDialog
         open={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
-        title="删除好友"
-        description={`确定删除好友「${contact.name}」吗？删除后将无法接收对方消息。`}
-        confirmText="删除"
-        cancelText="取消"
+        title={t('upc.deleteFriendTitle')}
+        description={t('upc.deleteFriendDesc').replace('{name}', contact.name)}
+        confirmText={t('upc.delete')}
+        cancelText={t('common.cancel')}
         confirmVariant="danger"
         onConfirm={handleConfirmDelete}
       />
@@ -539,10 +521,10 @@ export default function UserProfileCard({
       <ConfirmDialog
         open={showBlockConfirm}
         onClose={() => setShowBlockConfirm(false)}
-        title="加入黑名单"
-        description={`确定将「${contact.name}」加入黑名单吗？加入后你将不再收到对方的消息。`}
-        confirmText="加入黑名单"
-        cancelText="取消"
+        title={t('upc.blockTitle')}
+        description={t('upc.blockDesc').replace('{name}', contact.name)}
+        confirmText={t('upc.block')}
+        cancelText={t('common.cancel')}
         confirmVariant="default"
         onConfirm={handleConfirmBlock}
       />
@@ -649,7 +631,7 @@ export default function UserProfileCard({
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.color = '#A2ACB5';
                   }}
-                  title="复制HiChat号"
+                  title={t('upc.copyHiChat')}
                 >
                   <Copy size={13} />
                 </button>
@@ -657,7 +639,7 @@ export default function UserProfileCard({
             )}
             {(genderIcon || contact.age) && (
               <span style={{ fontSize: 14, color: '#646A73' }}>
-                {genderIcon} {genderText}{contact.age ? ` / ${contact.age}岁` : ''}
+                {genderIcon} {genderText}{contact.age ? ` / ${t('upc.age').replace('{age}', String(contact.age))}` : ''}
               </span>
             )}
           </div>
@@ -665,11 +647,11 @@ export default function UserProfileCard({
           {/* Row 3: 用户昵称 + 手机号 并排 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, lineHeight: 1.8 }}>
             <span style={{ fontSize: 14, color: '#646A73' }}>
-              昵称：{contact.nickname || contact.name}
+              {t('upc.nickname').replace('{name}', contact.nickname || contact.name)}
             </span>
             {contact.phone && (
               <span style={{ fontSize: 14, color: '#8F959E' }}>
-                手机：{contact.phone}
+                {t('upc.phone').replace('{phone}', contact.phone)}
               </span>
             )}
           </div>
@@ -719,7 +701,7 @@ export default function UserProfileCard({
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLDivElement).style.backgroundColor = '#F5F7FA';
           }}
-          title="点击复制签名"
+          title={t('upc.copySignatureTitle')}
         >
           <div style={{ fontSize: 14, color: '#646A73', lineHeight: 1.6 }}>
             {contact.signature}
@@ -738,12 +720,12 @@ export default function UserProfileCard({
               marginBottom: moments.length > 0 ? 10 : 0,
             }}
           >
-            <span style={{ fontSize: 16, fontWeight: 600, color: '#1F2329' }}>朋友圈</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: '#1F2329' }}>{t('upc.moments')}</span>
             <button
               onClick={() => openUserTrends(contact.id, displayName)}
               style={{
                 fontSize: 13,
-                color: '#1BB45B',
+                color: '#646A73',
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
@@ -816,7 +798,7 @@ export default function UserProfileCard({
                 }}
               >
                 <Send size={16} />
-                发消息
+                {t('group.sendMessage')}
               </button>
             )}
             {onVoiceCall && (
@@ -846,7 +828,7 @@ export default function UserProfileCard({
                 }}
               >
                 <Phone size={16} />
-                语音通话
+                {t('upc.voiceCall')}
               </button>
             )}
             {onVideoCall && (
@@ -876,7 +858,7 @@ export default function UserProfileCard({
                 }}
               >
                 <Video size={16} />
-                视频通话
+                {t('upc.videoCall')}
               </button>
             )}
           </>
@@ -908,7 +890,7 @@ export default function UserProfileCard({
               }}
             >
               <UserPlus size={16} />
-              添加好友
+              {t('group.addFriendTitle')}
             </button>
           )
         )}

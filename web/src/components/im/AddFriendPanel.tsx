@@ -5,6 +5,7 @@ import { Search, X, UserPlus, Send, Loader2, UserCircle, Users, Clock } from 'lu
 import { toast } from 'sonner';
 import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
+import { useT } from '@/hooks/use-i18n';
 import { getAvatarColor } from '@/lib/utils';
 import type { Contact } from '@/lib/mock-data';
 import {
@@ -50,6 +51,7 @@ function userToContact(u: BackendUser): Contact {
 
 export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanelProps) {
   const { currentUser, friends, setActiveTab, setSelectedConversationId } = useIMStore();
+  const t = useT();
   const token = currentUser?.token || '';
   const myId = currentUser?.id || '';
 
@@ -170,8 +172,8 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
   const handleSendFriend = async (uid: string, msg?: string, remark?: string) => {
     if (!token) return false;
     const ok = await sendFriendRequest(token, uid, msg, remark);
-    if (ok) { toast.success('好友请求已发送'); onSent?.(); }
-    else toast.error('发送失败，请重试');
+    if (ok) { toast.success(t('group.friendReqSent')); onSent?.(); }
+    else toast.error(t('friend.sendFailRetry'));
     return ok;
   };
 
@@ -189,7 +191,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
     </button>
   );
 
-  const placeholder = tab === 'user' ? '搜索手机号/邮箱/昵称' : '搜索群号/群名';
+  const placeholder = tab === 'user' ? t('friend.searchUserPh') : t('friend.searchGroupPh');
 
   return (
     <div
@@ -204,7 +206,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
       >
         {/* Header */}
         <div className="flex items-center justify-between" style={{ padding: '16px 20px 0' }}>
-          <span style={{ fontSize: 16, fontWeight: 600, color: '#1C2733' }}>添加好友 / 群</span>
+          <span style={{ fontSize: 16, fontWeight: 600, color: '#1C2733' }}>{t('friend.addTitle')}</span>
           <button onClick={handleClose} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.04)', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X className="w-4 h-4" />
           </button>
@@ -212,8 +214,8 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
 
         {/* Tabs */}
         <div className="flex" style={{ padding: '8px 20px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-          {tabBtn('user', '用户')}
-          {tabBtn('group', '群聊')}
+          {tabBtn('user', t('friend.tabUser'))}
+          {tabBtn('group', t('friend.tabGroup'))}
         </div>
 
         {/* Search input */}
@@ -235,7 +237,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
         {/* Results */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto im-scroll" style={{ padding: '0 20px 16px' }}>
           {!keyword.trim() ? (
-            <Empty icon={<Search className="w-12 h-12" />} text={tab === 'user' ? '输入手机号、邮箱或昵称搜索用户' : '输入群号或群名搜索群聊'} />
+            <Empty icon={<Search className="w-12 h-12" />} text={tab === 'user' ? t('friend.hintUser') : t('friend.hintGroup')} />
           ) : tab === 'user' ? (
             users.length > 0 ? (
               <>
@@ -245,7 +247,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
                 <ListFooter loading={loading} hasMore={hasMore} error={error} onRetry={() => runSearch(keyword, page, tab)} sentinelRef={sentinelRef} count={users.length} total={total} />
               </>
             ) : !loading ? (
-              error ? <ErrorState onRetry={() => runSearch(keyword, 1, tab)} /> : <Empty icon={<UserCircle className="w-12 h-12" />} text="未找到用户" />
+              error ? <ErrorState onRetry={() => runSearch(keyword, 1, tab)} /> : <Empty icon={<UserCircle className="w-12 h-12" />} text={t('friend.noUser')} />
             ) : null
           ) : (
             groups.length > 0 ? (
@@ -256,7 +258,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
                 <ListFooter loading={loading} hasMore={hasMore} error={error} onRetry={() => runSearch(keyword, page, tab)} sentinelRef={sentinelRef} count={groups.length} total={total} />
               </>
             ) : !loading ? (
-              error ? <ErrorState onRetry={() => runSearch(keyword, 1, tab)} /> : <Empty icon={<Users className="w-12 h-12" />} text="未找到群聊" />
+              error ? <ErrorState onRetry={() => runSearch(keyword, 1, tab)} /> : <Empty icon={<Users className="w-12 h-12" />} text={t('friend.noGroup')} />
             ) : null
           )}
         </div>
@@ -291,24 +293,24 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
         <div className="fixed inset-0" style={{ zIndex: 10003, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) setFriendReqUser(null); }}>
           <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
           <div className="relative" style={{ background: '#FFFFFF', borderRadius: 14, width: '88%', maxWidth: 360, padding: 20 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: '#1C2733', marginBottom: 4 }}>添加好友</div>
-            <div style={{ fontSize: 13, color: '#A2ACB5', marginBottom: 12 }}>发送给「{friendReqUser.nickname || friendReqUser.id}」</div>
-            <div style={{ fontSize: 13, color: '#646A73', marginBottom: 6 }}>验证内容</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#1C2733', marginBottom: 4 }}>{t('group.addFriendTitle')}</div>
+            <div style={{ fontSize: 13, color: '#A2ACB5', marginBottom: 12 }}>{t('friend.sendTo').replace('{name}', friendReqUser.nickname || friendReqUser.id)}</div>
+            <div style={{ fontSize: 13, color: '#646A73', marginBottom: 6 }}>{t('friend.verifyMsg')}</div>
             <textarea
               value={friendReqMsg}
               onChange={(e) => setFriendReqMsg(e.target.value)}
-              placeholder="我是…（对方通过验证后即可成为好友）"
+              placeholder={t('friend.verifyPh')}
               autoFocus
               rows={3}
               maxLength={120}
               style={{ width: '100%', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 8, padding: '8px 10px', fontSize: 13, outline: 'none', resize: 'none', color: '#1C2733' }}
             />
-            <div style={{ fontSize: 13, color: '#646A73', margin: '12px 0 6px' }}>备注</div>
+            <div style={{ fontSize: 13, color: '#646A73', margin: '12px 0 6px' }}>{t('friend.remark')}</div>
             <input
               type="text"
               value={friendRemark}
               onChange={(e) => setFriendRemark(e.target.value)}
-              placeholder="设置好友备注（对方通过后生效，选填）"
+              placeholder={t('friend.remarkPh')}
               maxLength={64}
               style={{ width: '100%', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 8, padding: '8px 10px', fontSize: 13, outline: 'none', color: '#1C2733' }}
             />
@@ -317,7 +319,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
                 onClick={() => setFriendReqUser(null)}
                 style={{ flex: 1, height: 38, borderRadius: 8, border: '1px solid rgba(0,0,0,0.12)', background: '#FFF', color: '#646A73', fontSize: 14, cursor: 'pointer' }}
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 onClick={async () => {
@@ -331,7 +333,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
                 style={{ flex: 1, height: 38, borderRadius: 8, border: 'none', background: friendSending ? '#B9C4CE' : '#1BB45B', color: '#FFF', fontSize: 14, fontWeight: 600, cursor: friendSending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
               >
                 {friendSending ? <Loader2 className="w-4 h-4" style={{ animation: 'spin 1s linear infinite' }} /> : <UserPlus size={15} />}
-                发送申请
+                {t('group.sendApply')}
               </button>
             </div>
           </div>
@@ -349,13 +351,14 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
 /* ── 列表行 ── */
 
 function UserRow({ user, self, onClick }: { user: BackendUser; self: boolean; onClick: () => void }) {
+  const t = useT();
   const sub = user.introduction || user.region || (user.id ? `ID: ${user.id}` : '');
   return (
     <div onClick={onClick} className="flex items-center" style={{ gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)', cursor: 'pointer' }}>
       <Avatar src={user.avatar} name={user.nickname} />
       <div className="flex-1 min-w-0">
         <div style={{ fontSize: 14, fontWeight: 500, color: '#1C2733' }}>
-          {user.nickname || '未知'}{self && <span style={{ fontSize: 12, color: '#A2ACB5', marginLeft: 6 }}>（我）</span>}
+          {user.nickname || t('friend.unknownUser')}{self && <span style={{ fontSize: 12, color: '#A2ACB5', marginLeft: 6 }}>{t('friend.meSuffix')}</span>}
         </div>
         {sub && <div className="truncate" style={{ fontSize: 12, color: '#A2ACB5' }}>{sub}</div>}
       </div>
@@ -364,13 +367,14 @@ function UserRow({ user, self, onClick }: { user: BackendUser; self: boolean; on
 }
 
 function GroupRow({ group, onClick }: { group: GroupSearchItem; onClick: () => void }) {
+  const t = useT();
   return (
     <div onClick={onClick} className="flex items-center" style={{ gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)', cursor: 'pointer' }}>
       <Avatar src={group.icon} name={group.name} square />
       <div className="flex-1 min-w-0">
-        <div style={{ fontSize: 14, fontWeight: 500, color: '#1C2733' }}>{group.name || '未命名群聊'}</div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: '#1C2733' }}>{group.name || t('friend.unnamedGroup')}</div>
         <div className="flex items-center gap-1" style={{ fontSize: 12, color: '#A2ACB5' }}>
-          <Users className="w-3 h-3" />{group.member_count} 人 · 群号 {group.id}
+          <Users className="w-3 h-3" />{t('friend.groupMeta').replace('{count}', String(group.member_count)).replace('{id}', String(group.id))}
         </div>
       </div>
     </div>
@@ -392,16 +396,17 @@ function Avatar({ src, name, square }: { src?: string; name?: string; square?: b
 }
 
 function ListFooter({ loading, hasMore, error, onRetry, sentinelRef, count, total }: { loading: boolean; hasMore: boolean; error: boolean; onRetry: () => void; sentinelRef: React.RefObject<HTMLDivElement | null>; count: number; total: number }) {
+  const t = useT();
   return (
     <div ref={sentinelRef} className="flex items-center justify-center" style={{ padding: '12px 0', fontSize: 12, color: '#A2ACB5' }}>
       {error ? (
-        <button onClick={onRetry} style={{ color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer' }}>加载失败，点击重试</button>
+        <button onClick={onRetry} style={{ color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer' }}>{t('friend.loadFailRetry')}</button>
       ) : loading ? (
         <Loader2 className="w-4 h-4" style={{ animation: 'spin 1s linear infinite' }} />
       ) : hasMore ? (
-        '上滑加载更多'
+        t('friend.scrollMore')
       ) : (
-        `共 ${total} 条`
+        t('friend.totalCount').replace('{total}', String(total))
       )}
     </div>
   );
@@ -417,11 +422,12 @@ function Empty({ icon, text }: { icon: React.ReactNode; text: string }) {
 }
 
 function ErrorState({ onRetry }: { onRetry: () => void }) {
+  const t = useT();
   return (
     <div className="flex flex-col items-center" style={{ padding: '40px 0' }}>
       <Clock className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: 8 }} />
-      <div style={{ fontSize: 13, color: '#A2ACB5', marginBottom: 8 }}>加载失败</div>
-      <button onClick={onRetry} style={{ color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>重试</button>
+      <div style={{ fontSize: 13, color: '#A2ACB5', marginBottom: 8 }}>{t('friend.loadFail')}</div>
+      <button onClick={onRetry} style={{ color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>{t('friend.retry')}</button>
     </div>
   );
 }

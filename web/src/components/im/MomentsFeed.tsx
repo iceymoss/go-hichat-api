@@ -75,29 +75,29 @@ import {
    Helpers
    ═══════════════════════════════════════ */
 
-function fmtTime(date: Date): string {
+function fmtTime(date: Date, t: (k: string) => string): string {
   const now = Date.now();
   const diff = now - date.getTime();
   const m = Math.floor(diff / 60000);
   const h = Math.floor(diff / 3600000);
   const d = Math.floor(diff / 86400000);
-  if (m < 1) return '刚刚';
-  if (m < 60) return `${m}分钟前`;
-  if (h < 24) return `${h}小时前`;
-  if (d < 30) return `${new Date(date).getMonth() + 1}月${new Date(date).getDate()}日`;
+  if (m < 1) return t('group.time.justNow');
+  if (m < 60) return t('group.time.minutesAgo').replace('{m}', String(m));
+  if (h < 24) return t('group.time.hoursAgo').replace('{h}', String(h));
+  if (d < 30) return t('group.time.monthDay').replace('{month}', String(new Date(date).getMonth() + 1)).replace('{day}', String(new Date(date).getDate()));
   return `${new Date(date).getFullYear()}/${new Date(date).getMonth() + 1}/${new Date(date).getDate()}`;
 }
 
-function getUserName(userId: string, fallback?: string): string {
-  if (userId === 'me') return fallback || useIMStore.getState().currentUser?.name || '我';
+function getUserName(userId: string, fallback?: string, t?: (k: string) => string): string {
+  if (userId === 'me') return fallback || useIMStore.getState().currentUser?.name || (t ? t('trend.me') : '我');
   // 好友备注优先，其次后端昵称兜底
   const c = useIMStore.getState().friends.find(ct => ct.id === userId);
   if (c?.remark) return c.remark;
   return fallback || c?.name || userId;
 }
 
-function trendDisplayName(trend: Trend): string {
-  return getUserName(trend.userId, trend.userName);
+function trendDisplayName(trend: Trend, t?: (k: string) => string): string {
+  return getUserName(trend.userId, trend.userName, t);
 }
 
 function avatarCircle(name: string, size: number, extra?: React.ReactNode, avatar?: string) {
@@ -117,18 +117,18 @@ const inputStyle = { width: '100%', borderRadius: '10px', border: '1px solid rgb
 const focusInput = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => { e.target.style.borderColor = '#1BB45B'; e.target.style.boxShadow = '0 0 0 3px rgba(27,180,91,0.15)'; };
 const blurInput = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; };
 
-const trendTypeLabels: Record<number, { label: string; icon: React.ReactNode }> = {
-  1: { label: '文本', icon: <Type className="w-4 h-4" /> },
-  2: { label: '图文', icon: <ImageIcon className="w-4 h-4" /> },
-  3: { label: '文章', icon: <FileText className="w-4 h-4" /> },
-  4: { label: '分享', icon: <Link2 className="w-4 h-4" /> },
-  5: { label: '视频', icon: <Video className="w-4 h-4" /> },
+const trendTypeLabels: Record<number, { labelKey: string; icon: React.ReactNode }> = {
+  1: { labelKey: 'trend.type.text', icon: <Type className="w-4 h-4" /> },
+  2: { labelKey: 'trend.type.imageText', icon: <ImageIcon className="w-4 h-4" /> },
+  3: { labelKey: 'trend.type.article', icon: <FileText className="w-4 h-4" /> },
+  4: { labelKey: 'trend.type.share', icon: <Link2 className="w-4 h-4" /> },
+  5: { labelKey: 'trend.type.video', icon: <Video className="w-4 h-4" /> },
 };
 
-const scopeLabels: Record<number, { label: string; icon: React.ReactNode }> = {
-  1: { label: '仅自己', icon: <Lock className="w-3.5 h-3.5" /> },
-  2: { label: '仅好友', icon: <Users className="w-3.5 h-3.5" /> },
-  3: { label: '所有人', icon: <Globe className="w-3.5 h-3.5" /> },
+const scopeLabels: Record<number, { labelKey: string; icon: React.ReactNode }> = {
+  1: { labelKey: 'trend.vis.private', icon: <Lock className="w-3.5 h-3.5" /> },
+  2: { labelKey: 'trend.vis.friends', icon: <Users className="w-3.5 h-3.5" /> },
+  3: { labelKey: 'trend.vis.public', icon: <Globe className="w-3.5 h-3.5" /> },
 };
 
 /* ═══════════════════════════════════════
@@ -147,6 +147,7 @@ interface ConfirmOpts {
 }
 
 function ConfirmModal({ open, opts }: { open: boolean; opts: ConfirmOpts | null }) {
+  const t = useT();
   if (!open || !opts) return null;
   return (
     <div className="fixed inset-0" style={{ zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) opts.onClose(); }}>
@@ -158,7 +159,7 @@ function ConfirmModal({ open, opts }: { open: boolean; opts: ConfirmOpts | null 
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', marginBottom: '8px', paddingRight: 32 }}>{opts.title}</h3>
         <p style={{ fontSize: '14px', color: '#646A73', marginBottom: '20px', lineHeight: '1.5' }}>{opts.description}</p>
         <div className="flex items-center justify-end gap-3">
-          <button onClick={opts.onCancel} disabled={opts.loading} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: opts.loading ? 'not-allowed' : 'pointer' }}>取消</button>
+          <button onClick={opts.onCancel} disabled={opts.loading} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', background: '#FFF', color: '#646A73', fontSize: '14px', fontWeight: 500, cursor: opts.loading ? 'not-allowed' : 'pointer' }}>{t('common.cancel')}</button>
           <button onClick={opts.onConfirm} disabled={opts.loading} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: opts.confirmColor, color: '#FFF', fontSize: '14px', fontWeight: 500, cursor: opts.loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: opts.loading ? 0.7 : 1 }}>
             {opts.loading && <Loader2 className="w-4 h-4" style={{ animation: 'spin 1s linear infinite' }} />}
             {opts.confirmLabel}
@@ -233,24 +234,25 @@ interface CommentItemProps {
 
 function CommentItem({ comment, onReply, onDelete, depth = 0 }: CommentItemProps) {
   const showUserCard = useIMStore(s => s.showUserCard);
+  const t = useT();
   return (
     <div>
       <div className="flex items-start gap-2" style={{ padding: '4px 0' }}>
         <div style={{ fontSize: '12px', lineHeight: '1.6', flex: 1 }}>
           <span style={{ color: '#576b95', fontWeight: 600, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{friendDisplayName(comment.replyer.id, comment.replyer.name)}</span>
           {comment.father !== 0 && comment.user && comment.user.id !== comment.replyer.id && (
-            <span> 回复 <span style={{ color: '#576b95', fontWeight: 500, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.user.id); }}>{friendDisplayName(comment.user.id, comment.user.name)}</span></span>
+            <span> {t('trend.replyConnector')} <span style={{ color: '#576b95', fontWeight: 500, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.user.id); }}>{friendDisplayName(comment.user.id, comment.user.name)}</span></span>
           )}
           <span style={{ color: '#1C2733' }}>：{comment.content}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0" style={{ marginTop: 2 }}>
           {comment.replyer.id === 'me' && (
             <button onClick={() => onDelete(comment)} style={{ padding: '2px 6px', border: 'none', background: 'transparent', color: '#A2ACB5', fontSize: '11px', cursor: 'pointer', borderRadius: '4px' }} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#E53935'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#A2ACB5'; }}>
-              删除
+              {t('trend.delete')}
             </button>
           )}
           <button onClick={() => onReply(comment)} style={{ padding: '2px 6px', border: 'none', background: 'transparent', color: '#A2ACB5', fontSize: '11px', cursor: 'pointer', borderRadius: '4px' }} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#1BB45B'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#A2ACB5'; }}>
-            回复
+            {t('trend.reply')}
           </button>
         </div>
       </div>
@@ -305,7 +307,8 @@ function TrendCard({
   const [likeNamesExpanded, setLikeNamesExpanded] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(-1);
   const showUserCard = useIMStore(s => s.showUserCard);
-  const userName = trendDisplayName(trend);
+  const t = useT();
+  const userName = trendDisplayName(trend, t);
   const userAvatar = trend.userAvatar || '';
   const totalComments = trend.replyCount + (expanded ? comments.reduce((acc, c) => acc + 1 + (c.children?.length || 0), 0) - comments.reduce((acc, c) => acc, 0) : 0);
   const visibleComments = expanded ? comments : comments.slice(0, 2);
@@ -378,15 +381,15 @@ function TrendCard({
             </span>
             {showTopBadge && trend.isTop && (
               <span style={{ fontSize: '10px', fontWeight: 500, color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 6px', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                <Pin className="w-3 h-3" />置顶
+                <Pin className="w-3 h-3" />{t('trend.top')}
               </span>
             )}
             {!trend.openReply && (
               <span style={{ fontSize: '10px', fontWeight: 500, color: '#A2ACB5', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: '4px', padding: '1px 6px', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                <MessageSquareOff className="w-3 h-3" />评论已关闭
+                <MessageSquareOff className="w-3 h-3" />{t('trend.commentClosed')}
               </span>
             )}
-            <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{fmtTime(trend.createTime)}</span>
+            <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{fmtTime(trend.createTime, t)}</span>
           </div>
 
           {/* Text content */}
@@ -431,7 +434,7 @@ function TrendCard({
                 <ExternalLink className="w-4 h-4" style={{ color: '#1BB45B' }} />
               </div>
               <div className="flex-1 min-w-0">
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>分享链接</div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('trend.shareLink')}</div>
                 <div style={{ fontSize: '11px', color: '#A2ACB5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
                   {trend.shareUrl}
                 </div>
@@ -492,7 +495,7 @@ function TrendCard({
               {/* Share */}
               <button
                 style={{ padding: '4px 10px', borderRadius: '16px', border: 'none', background: 'transparent', cursor: 'pointer' }}
-                onClick={() => toast.success('链接已复制')}
+                onClick={() => toast.success(t('trend.linkCopied'))}
               >
                 <Send className="w-3.5 h-3.5" style={{ color: '#A2ACB5' }} />
               </button>
@@ -524,7 +527,7 @@ function TrendCard({
                 <Heart className="w-3 h-3 shrink-0 mt-0.5" style={{ color: '#FA5151', fill: '#FA5151' }} />
                 <span style={{ color: '#708499' }}>
                   {(likeNamesExpanded ? likeUsers : likeUsers.slice(0, FEED_LIKE_COLLAPSE_LIMIT)).map((u, i) => {
-                    const displayName = u.id === 'me' ? '我' : friendDisplayName(u.id, u.name);
+                    const displayName = u.id === 'me' ? t('trend.me') : friendDisplayName(u.id, u.name);
                     return (
                       <span key={u.id || `like-${i}`}>
                         {i > 0 && <span style={{ margin: '0 2px' }}>、</span>}
@@ -550,7 +553,7 @@ function TrendCard({
                         cursor: 'pointer', fontSize: '12px', padding: 0, fontWeight: 500,
                       }}
                     >
-                      {likeNamesExpanded ? '收起' : `等${likeUsers.length}人`}
+                      {likeNamesExpanded ? t('trend.collapse') : t('trend.andNPeople').replace('{count}', String(likeUsers.length))}
                     </button>
                   )}
                 </span>
@@ -569,7 +572,7 @@ function TrendCard({
                   onClick={onExpandComments}
                   style={{ fontSize: '12px', color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0 0', fontWeight: 500 }}
                 >
-                  展开全部{trend.replyCount}条评论
+                  {t('trend.expandComments').replace('{count}', String(trend.replyCount))}
                 </button>
               )}
             </div>
@@ -580,7 +583,7 @@ function TrendCard({
             <div className="flex items-center gap-2 mt-2">
               {replyTarget && (
                 <div className="flex items-center gap-1 text-xs w-full" style={{ color: '#708499', marginBottom: 4, padding: '0 4px' }}>
-                  <span>回复</span>
+                  <span>{t('trend.reply')}</span>
                   <span style={{ color: '#576b95', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
                   <button onClick={() => onSetReplyTarget(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 0 }}>
                     <X className="w-3 h-3" />
@@ -592,7 +595,7 @@ function TrendCard({
                   value={commentText}
                   onChange={(e) => onCommentTextChange(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && commentText.trim()) onSubmitComment(); }}
-                  placeholder={replyTarget ? `回复 ${friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}...` : '写评论...'}
+                  placeholder={replyTarget ? t('trend.replyPlaceholder').replace('{name}', friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)) : t('trend.writeComment')}
                   style={{ ...inputStyle, flex: 1, padding: '7px 12px', fontSize: '13px', borderRadius: '18px' }}
                   onFocus={focusInput}
                   onBlur={blurInput}
@@ -665,6 +668,7 @@ async function compressImageFile(file: File): Promise<File> {
 }
 
 function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
+  const t = useT();
   const [type, setType] = useState<number>(1);
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
@@ -729,18 +733,18 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
 
   const handleFiles = async (files: FileList | File[]) => {
     if (!token) {
-      toast.error('请先登录');
+      toast.error(t('trend.needLogin'));
       return;
     }
     const nextFiles = Array.from(files);
     if (nextFiles.length === 0) return;
     const allowed = Math.max(0, maxMediaCount - images.length);
     if (allowed <= 0) {
-      toast.error(`最多只能上传 ${maxMediaCount} 个媒体文件`);
+      toast.error(t('trend.maxMedia').replace('{count}', String(maxMediaCount)));
       return;
     }
     const picked = nextFiles.slice(0, allowed);
-    if (picked.length < nextFiles.length) toast.warning(`最多只能上传 ${maxMediaCount} 个媒体文件，已忽略超出部分`);
+    if (picked.length < nextFiles.length) toast.warning(t('trend.maxMediaIgnored').replace('{count}', String(maxMediaCount)));
 
     setUploading(true);
     try {
@@ -750,13 +754,13 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
           ? await compressImageFile(file).catch(() => file)
           : file;
         const r = await uploadTrendMedia(token, uploadFile);
-        if (!r.success || !r.data?.url) throw new Error(r.message || '上传失败');
+        if (!r.success || !r.data?.url) throw new Error(r.message || t('trend.uploadFail'));
         urls.push(r.data.url);
       }
       setImages(prev => [...prev, ...urls]);
-      toast.success('媒体上传成功');
+      toast.success(t('trend.mediaUploaded'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '上传失败，请重试');
+      toast.error(err instanceof Error ? err.message : t('trend.uploadRetry'));
     } finally {
       setUploading(false);
     }
@@ -779,25 +783,25 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
   const requestClose = () => {
     if (uploading) return;
     const hasDraft = content.trim() || title.trim() || images.length > 0 || shareUrl.trim() || location.trim();
-    if (hasDraft && !window.confirm('当前动态还没有发布，关闭后会保留草稿，确定关闭吗？')) return;
+    if (hasDraft && !window.confirm(t('trend.draftConfirm'))) return;
     onClose();
   };
 
   const handleSubmit = () => {
     if (uploading) {
-      toast.error('媒体上传中，请稍候');
+      toast.error(t('trend.mediaUploading'));
       return;
     }
     if (type !== 4 && !content.trim() && images.length === 0) {
-      toast.error(type === 1 ? '请输入内容' : '请输入内容或上传媒体');
+      toast.error(type === 1 ? t('trend.needContent') : t('trend.needContentOrMedia'));
       return;
     }
     if (type === 3 && !title.trim()) {
-      toast.error('请输入文章标题');
+      toast.error(t('trend.needArticleTitle'));
       return;
     }
     if (type === 4 && !shareUrl.trim()) {
-      toast.error('请输入分享链接');
+      toast.error(t('trend.needShareUrl'));
       return;
     }
     onSubmit({ type, content: content.trim(), title: title.trim(), images, shareUrl: shareUrl.trim(), location: location.trim(), scope });
@@ -822,13 +826,13 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
           <button onClick={requestClose} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: uploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X className="w-5 h-5" />
           </button>
-          <span style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>发布动态</span>
+          <span style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>{t('trend.publish')}</span>
           <button
             onClick={handleSubmit}
             disabled={uploading}
             style={{ padding: '6px 16px', borderRadius: '16px', border: 'none', background: uploading ? '#A2ACB5' : '#1BB45B', color: '#FFF', fontSize: '13px', fontWeight: 500, cursor: uploading ? 'not-allowed' : 'pointer' }}
           >
-            {uploading ? '上传中' : '发布'}
+            {uploading ? t('trend.uploading') : t('trend.publishBtn')}
           </button>
         </div>
 
@@ -836,18 +840,18 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
         <div className="flex-1 overflow-y-auto" style={{ padding: '16px 20px' }}>
           {/* Type selector */}
           <div className="flex items-center gap-2 mb-4 flex-wrap">
-            {[1, 2, 3, 4, 5].map(t => (
+            {[1, 2, 3, 4, 5].map(ty => (
               <button
-                key={t}
-                onClick={() => setType(t)}
+                key={ty}
+                onClick={() => setType(ty)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: '16px',
-                  border: 'none', background: type === t ? 'rgba(27,180,91,0.1)' : 'rgba(0,0,0,0.04)',
-                  color: type === t ? '#1BB45B' : '#708499', fontSize: '12px', fontWeight: type === t ? 500 : 400, cursor: 'pointer',
+                  border: 'none', background: type === ty ? 'rgba(27,180,91,0.1)' : 'rgba(0,0,0,0.04)',
+                  color: type === ty ? '#1BB45B' : '#708499', fontSize: '12px', fontWeight: type === ty ? 500 : 400, cursor: 'pointer',
                 }}
               >
-                {trendTypeLabels[t].icon}
-                {trendTypeLabels[t].label}
+                {trendTypeLabels[ty].icon}
+                {t(trendTypeLabels[ty].labelKey)}
               </button>
             ))}
           </div>
@@ -855,7 +859,7 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
           {/* Title (article) */}
           {type === 3 && (
             <div style={{ marginBottom: 12 }}>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="文章标题" style={{ ...inputStyle, fontWeight: 600, fontSize: '15px' }} onFocus={focusInput} onBlur={blurInput} />
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('trend.articleTitle')} style={{ ...inputStyle, fontWeight: 600, fontSize: '15px' }} onFocus={focusInput} onBlur={blurInput} />
             </div>
           )}
 
@@ -865,7 +869,7 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder={type === 1 ? '分享你的想法...' : type === 3 ? '文章内容...' : '添加描述...'}
+                placeholder={type === 1 ? t('trend.placeholderText') : type === 3 ? t('trend.placeholderArticle') : t('trend.placeholderDesc')}
                 rows={4}
                 style={{ ...inputStyle, resize: 'vertical', minHeight: 80, lineHeight: '1.6' }}
                 onFocus={focusInput}
@@ -895,14 +899,14 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
                     onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
                   >
                     <ImagePlus className="w-7 h-7" style={{ color: '#1BB45B' }} />
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#1C2733' }}>{type === 5 ? '选择或拖拽视频' : '选择或拖拽图片'}</div>
-                    <div style={{ fontSize: '12px', color: '#708499' }}>{type === 5 ? '视频限制由系统配置控制' : `最多 ${maxMediaCount} 张，单张默认 ${config?.max_image_size_mb || 50}MB`}</div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#1C2733' }}>{type === 5 ? t('trend.pickVideo') : t('trend.pickImage')}</div>
+                    <div style={{ fontSize: '12px', color: '#708499' }}>{type === 5 ? t('trend.videoLimit') : t('trend.imageLimit').replace('{count}', String(maxMediaCount)).replace('{size}', String(config?.max_image_size_mb || 50))}</div>
                     {uploading && <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#1BB45B' }} />}
                   </div>
                 </>
               ) : (
                 <div style={{ borderRadius: 10, padding: '10px 12px', background: 'rgba(245,166,35,0.08)', color: '#A06400', fontSize: 12, marginBottom: 10 }}>
-                  已达到最多 {maxMediaCount} 张，删除图片后可继续添加
+                  {t('trend.maxReached').replace('{count}', String(maxMediaCount))}
                 </div>
               )}
               {images.length > 0 && (
@@ -926,7 +930,7 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
                       <button onClick={() => handleRemoveImage(idx)} className="absolute" style={{ top: 5, right: 5, width: 24, height: 24, borderRadius: '50%', background: '#E53935', border: '2px solid #FFF', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>
                         <X className="w-4 h-4" strokeWidth={3} />
                       </button>
-                      <div className="absolute" style={{ left: 4, bottom: 4, borderRadius: 999, background: 'rgba(0,0,0,0.45)', color: '#FFF', fontSize: 10, padding: '1px 6px' }}>拖动排序</div>
+                      <div className="absolute" style={{ left: 4, bottom: 4, borderRadius: 999, background: 'rgba(0,0,0,0.45)', color: '#FFF', fontSize: 10, padding: '1px 6px' }}>{t('trend.dragSort')}</div>
                     </div>
                   ))}
                 </div>
@@ -937,8 +941,8 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
           {/* Share link (type 4) */}
           {type === 4 && (
             <div style={{ marginBottom: 12 }}>
-              <input value={shareUrl} onChange={(e) => setShareUrl(e.target.value)} placeholder="分享链接" style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
-              <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="推荐理由（可选）" rows={3} style={{ ...inputStyle, resize: 'vertical', marginTop: 8, minHeight: 60 }} onFocus={focusInput} onBlur={blurInput} />
+              <input value={shareUrl} onChange={(e) => setShareUrl(e.target.value)} placeholder={t('trend.shareUrlPlaceholder')} style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
+              <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder={t('trend.shareReasonPlaceholder')} rows={3} style={{ ...inputStyle, resize: 'vertical', marginTop: 8, minHeight: 60 }} onFocus={focusInput} onBlur={blurInput} />
             </div>
           )}
 
@@ -946,13 +950,13 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
           <div style={{ marginBottom: 12 }}>
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4" style={{ color: '#A2ACB5', flexShrink: 0 }} />
-              <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="添加位置（可选）" style={{ ...inputStyle, flex: 1 }} onFocus={focusInput} onBlur={blurInput} />
+              <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={t('trend.locationPlaceholder')} style={{ ...inputStyle, flex: 1 }} onFocus={focusInput} onBlur={blurInput} />
             </div>
           </div>
 
           {/* Scope */}
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '8px' }}>可见范围</div>
+            <div style={{ fontSize: '13px', fontWeight: 500, color: '#1C2733', marginBottom: '8px' }}>{t('trend.visRange')}</div>
             <div className="flex items-center gap-2">
               {[1, 2, 3].map(s => (
                 <button
@@ -965,7 +969,7 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
                     color: scope === s ? '#1BB45B' : '#708499', fontSize: '12px', fontWeight: scope === s ? 500 : 400, cursor: 'pointer',
                   }}
                 >
-                  {scopeLabels[s].icon}{scopeLabels[s].label}
+                  {scopeLabels[s].icon}{t(scopeLabels[s].labelKey)}
                 </button>
               ))}
             </div>
@@ -982,13 +986,14 @@ function PublishModal({ open, token, onClose, onSubmit }: PublishModalProps) {
 
 function LikeListModal({ open, users, onClose }: { open: boolean; users: { id: string; name: string; avatar: string }[]; onClose: () => void }) {
   const showUserCard = useIMStore(s => s.showUserCard);
+  const t = useT();
   if (!open) return null;
   return (
     <div className="fixed inset-0" style={{ zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
       <div className="relative" style={{ background: '#FFF', borderRadius: '16px', width: '90%', maxWidth: '400px', maxHeight: '60vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
         <div className="flex items-center justify-between shrink-0" style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-          <span style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>点赞列表</span>
+          <span style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>{t('trend.likeList')}</span>
           <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'transparent', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X className="w-4 h-4" />
           </button>
@@ -997,7 +1002,7 @@ function LikeListModal({ open, users, onClose }: { open: boolean; users: { id: s
           {users.length === 0 ? (
             <div className="flex flex-col items-center justify-center" style={{ padding: '40px 0' }}>
               <Heart className="w-12 h-12" style={{ color: '#E8EDEF', marginBottom: 12 }} />
-              <div style={{ fontSize: '13px', color: '#A2ACB5' }}>暂无点赞</div>
+              <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{t('trend.noLikes')}</div>
             </div>
           ) : (
             users.map(user => (
@@ -1042,8 +1047,9 @@ function TrendDetailModal({
   onSetReplyTarget, onDeleteComment, onAvatarClick, onClose,
 }: TrendDetailModalProps) {
   const [viewerIndex, setViewerIndex] = useState(-1);
+  const t = useT();
   if (!open || !trend) return null;
-  const userName = trendDisplayName(trend);
+  const userName = trendDisplayName(trend, t);
   const userAvatar = trend.userAvatar || '';
 
   const renderContent = () => {
@@ -1069,7 +1075,7 @@ function TrendDetailModal({
       <div className="relative" style={{ background: '#FFF', borderRadius: '16px', width: '94%', maxWidth: '520px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
         {/* Header */}
         <div className="flex items-center justify-between shrink-0" style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-          <span style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>动态详情</span>
+          <span style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>{t('trend.detail')}</span>
           <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'transparent', color: '#A2ACB5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X className="w-4 h-4" />
           </button>
@@ -1094,10 +1100,10 @@ function TrendDetailModal({
               <div className="flex items-center gap-2">
                 <span style={{ fontSize: '15px', fontWeight: 600, color: '#1BB45B', cursor: 'pointer' }} onClick={() => onAvatarClick(trend.userId)}>{userName}</span>
                 {trend.isTop && (
-                  <span style={{ fontSize: '10px', fontWeight: 500, color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 6px' }}>置顶</span>
+                  <span style={{ fontSize: '10px', fontWeight: 500, color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 6px' }}>{t('trend.top')}</span>
                 )}
               </div>
-              <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{fmtTime(trend.createTime)}</span>
+              <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{fmtTime(trend.createTime, t)}</span>
             </div>
           </div>
 
@@ -1105,12 +1111,12 @@ function TrendDetailModal({
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             {trend.scope !== 3 && (
               <span style={{ fontSize: '11px', color: '#708499', display: 'flex', alignItems: 'center', gap: 3 }}>
-                {scopeLabels[trend.scope].icon}{scopeLabels[trend.scope].label}
+                {scopeLabels[trend.scope].icon}{t(scopeLabels[trend.scope].labelKey)}
               </span>
             )}
             {!trend.openReply && (
               <span style={{ fontSize: '11px', color: '#A2ACB5', display: 'flex', alignItems: 'center', gap: 3 }}>
-                <MessageSquareOff className="w-3 h-3" />评论已关闭
+                <MessageSquareOff className="w-3 h-3" />{t('trend.commentClosed')}
               </span>
             )}
           </div>
@@ -1157,7 +1163,7 @@ function TrendDetailModal({
                 <ExternalLink className="w-4 h-4" style={{ color: '#1BB45B' }} />
               </div>
               <div className="flex-1 min-w-0">
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>分享链接</div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('trend.shareLink')}</div>
                 <div style={{ fontSize: '11px', color: '#A2ACB5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{trend.shareUrl}</div>
               </div>
             </div>
@@ -1178,23 +1184,23 @@ function TrendDetailModal({
           <div className="flex items-center gap-4 mb-4" style={{ paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
             <button onClick={onToggleLike} className="flex items-center gap-1.5" style={{ padding: '6px 14px', borderRadius: '18px', border: 'none', background: liked ? 'rgba(27,180,91,0.1)' : 'transparent', cursor: 'pointer' }}>
               <Heart className="w-4 h-4" style={{ color: liked ? '#FA5151' : '#A2ACB5', fill: liked ? '#FA5151' : 'none' }} />
-              <span style={{ fontSize: '13px', color: liked ? '#FA5151' : '#708499', fontWeight: liked ? 600 : 400 }}>{likeCount > 0 ? likeCount : '赞'}</span>
+              <span style={{ fontSize: '13px', color: liked ? '#FA5151' : '#708499', fontWeight: liked ? 600 : 400 }}>{likeCount > 0 ? likeCount : t('trend.like')}</span>
             </button>
             <button onClick={onLikeCountClick} style={{ padding: '6px 14px', borderRadius: '18px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
               <ThumbsUp className="w-4 h-4" style={{ color: '#A2ACB5' }} />
-              <span style={{ fontSize: '13px', color: '#708499' }}>赞过的人</span>
+              <span style={{ fontSize: '13px', color: '#708499' }}>{t('trend.likedPeople')}</span>
             </button>
           </div>
 
           {/* Comments */}
           <div>
             <div style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733', marginBottom: 8 }}>
-              评论 ({trend.replyCount})
+              {t('trend.commentCount').replace('{count}', String(trend.replyCount))}
             </div>
             {comments.length === 0 ? (
               <div className="flex flex-col items-center justify-center" style={{ padding: '32px 0' }}>
                 <MessageCircle className="w-10 h-10" style={{ color: '#E8EDEF', marginBottom: 8 }} />
-                <div style={{ fontSize: '13px', color: '#A2ACB5' }}>暂无评论</div>
+                <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{t('trend.noComments')}</div>
               </div>
             ) : (
               <div style={{ background: 'rgba(0,0,0,0.03)', borderRadius: 10, padding: '10px 14px' }}>
@@ -1211,7 +1217,7 @@ function TrendDetailModal({
           <div className="shrink-0 flex items-center gap-2" style={{ padding: '12px 20px', borderTop: '1px solid rgba(0,0,0,0.06)', background: '#FFF', borderBottomLeftRadius: 16, borderBottomRightRadius: 16 }}>
             {replyTarget && (
               <div className="flex items-center gap-1 shrink-0" style={{ fontSize: '11px', color: '#708499', maxWidth: 100, overflow: 'hidden' }}>
-                <span>回复</span>
+                <span>{t('trend.reply')}</span>
                 <span style={{ color: '#576b95', fontWeight: 500 }}>{friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}</span>
               </div>
             )}
@@ -1219,7 +1225,7 @@ function TrendDetailModal({
               value={commentText}
               onChange={(e) => onCommentTextChange(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && commentText.trim()) onSubmitComment(); }}
-              placeholder={replyTarget ? `回复 ${friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)}...` : '写评论...'}
+              placeholder={replyTarget ? t('trend.replyPlaceholder').replace('{name}', friendDisplayName(replyTarget.replyer.id, replyTarget.replyer.name)) : t('trend.writeComment')}
               style={{ ...inputStyle, flex: 1, padding: '8px 14px', fontSize: '13px', borderRadius: '20px' }}
               onFocus={focusInput}
               onBlur={blurInput}
@@ -1278,13 +1284,13 @@ export default function MomentsFeed() {
       fd.append('file', file);
       const up = await fetch('/api/user/avatar', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
       const upData = await up.json();
-      if (!upData.success || !upData.data?.url) { toast.error('封面上传失败'); return; }
+      if (!upData.success || !upData.data?.url) { toast.error(t('trend.coverUploadFail')); return; }
       const url = upData.data.url as string;
       const save = await fetch('/api/user/update', { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ moments_cover: url }) });
       const saveData = await save.json();
-      if (saveData.success) { updateCurrentUser({ momentsCover: url }); toast.success('朋友圈封面已更新'); }
-      else toast.error(saveData.message || '保存封面失败');
-    } catch { toast.error('封面上传失败'); }
+      if (saveData.success) { updateCurrentUser({ momentsCover: url }); toast.success(t('trend.coverUpdated')); }
+      else toast.error(saveData.message || t('trend.coverSaveFail'));
+    } catch { toast.error(t('trend.coverUploadFail')); }
   }, [token, updateCurrentUser]);
 
   // ── View state ──
@@ -1359,7 +1365,7 @@ export default function MomentsFeed() {
       }
     } catch (err) {
       console.error('loadFeed error', err);
-      toast.error('加载动态失败');
+      toast.error(t('trend.loadFail'));
     } finally {
       setLoading(false);
     }
@@ -1511,7 +1517,7 @@ export default function MomentsFeed() {
   // ── Like handlers ──
   const handleToggleLike = useCallback((trendId: number) => {
     if (!token) {
-      toast.error('请先登录');
+      toast.error(t('trend.needLogin'));
       return;
     }
     // Optimistic update
@@ -1556,7 +1562,7 @@ export default function MomentsFeed() {
       setTrends(ts => ts.map(t => t.id === trendId ? {
         ...t, agreeCount: wasLiked ? t.agreeCount + 1 : Math.max(0, t.agreeCount - 1),
       } : t));
-      toast.error('点赞操作失败');
+      toast.error(t('trend.likeFail'));
     });
   }, [token, likedTrends, meName, meAvatar, trendAuthorBackendId, trendVersions, bumpTrendVersion]);
 
@@ -1604,7 +1610,7 @@ export default function MomentsFeed() {
 
     createComment(token, payload).then(async r => {
       if (!r.success) {
-        toast.error(r.message || '评论失败');
+        toast.error(r.message || t('trend.commentFail'));
         return;
       }
       await refreshCommentsFor(trendId);
@@ -1612,27 +1618,27 @@ export default function MomentsFeed() {
       setExpandedTrendIds(prev => new Set(prev).add(trendId));
       seenVersionsRef.current[trendId] = (trendVersions[trendId] || 0) + 1;
       bumpTrendVersion(trendId);
-      toast.success('评论已发布');
+      toast.success(t('trend.commentPublished'));
     }).catch(err => {
       console.error('createComment error', err);
-      toast.error('评论失败');
+      toast.error(t('trend.commentFail'));
     });
   }, [token, trends, meUserId, refreshCommentsFor, trendVersions, bumpTrendVersion]);
 
   const handleDeleteComment = useCallback((trendId: number, comment: TrendComment) => {
     if (!token) return;
-    doConfirm('删除评论', '确定删除这条评论吗？', '删除', '#E53935', () => {
+    doConfirm(t('trend.deleteCommentTitle'), t('trend.deleteCommentDesc'), t('trend.delete'), '#E53935', () => {
       apiDeleteComment(token, comment.id).then(async r => {
         if (!r.success) {
-          toast.error(r.message || '删除失败');
+          toast.error(r.message || t('trend.deleteFail'));
           return;
         }
         await refreshCommentsFor(trendId);
         setTrends(ts => ts.map(t => t.id === trendId ? { ...t, replyCount: Math.max(0, t.replyCount - 1) } : t));
         seenVersionsRef.current[trendId] = (trendVersions[trendId] || 0) + 1;
         bumpTrendVersion(trendId);
-        toast.success('评论已删除');
-      }).catch(() => toast.error('删除失败'));
+        toast.success(t('trend.commentDeleted'));
+      }).catch(() => toast.error(t('trend.deleteFail')));
     });
   }, [token, doConfirm, refreshCommentsFor, trendVersions, bumpTrendVersion]);
 
@@ -1653,15 +1659,15 @@ export default function MomentsFeed() {
       open_reply: true,
     }).then(r => {
       if (!r.success) {
-        toast.error(r.message || '发布失败');
+        toast.error(r.message || t('trend.publishFail'));
         return;
       }
       setShowPublish(false);
-      toast.success('动态已发布');
+      toast.success(t('trend.published'));
       loadFeed();
     }).catch(err => {
       console.error('publish error', err);
-      toast.error('发布失败');
+      toast.error(t('trend.publishFail'));
     });
   }, [token, loadFeed]);
 
@@ -1711,13 +1717,13 @@ export default function MomentsFeed() {
       bumpTrendVersion(trendId);
       toast.success(
         field === 'isTop'
-          ? (currentVal ? '已取消置顶' : '已置顶')
-          : (currentVal ? '评论已关闭' : '评论已开启'),
+          ? (currentVal ? t('trend.unpinned') : t('trend.pinnedToast'))
+          : (currentVal ? t('trend.commentClosed') : t('trend.commentOpened')),
       );
     }).catch(err => {
       console.error('updateTrend error', err);
       setTrends(prev => prev.map(t => t.id === trendId ? { ...t, [field]: currentVal } : t));
-      toast.error('操作失败');
+      toast.error(t('trend.opFail'));
     });
   }, [token, trends, trendVersions, bumpTrendVersion]);
 
@@ -1725,7 +1731,7 @@ export default function MomentsFeed() {
     if (!token) return;
     apiDeleteTrend(token, trendId).then(r => {
       if (!r.success) {
-        toast.error(r.message || '删除失败');
+        toast.error(r.message || t('trend.deleteFail'));
         return;
       }
       // Close the detail panel if it was showing the deleted trend.
@@ -1734,8 +1740,8 @@ export default function MomentsFeed() {
       setTrends(prev => prev.filter(t => t.id !== trendId));
       setCommentsMap(prev => { const next = { ...prev }; delete next[trendId]; return next; });
       setLikeUsersMap(prev => { const next = { ...prev }; delete next[trendId]; return next; });
-      toast.success('动态已删除');
-    }).catch(() => toast.error('删除失败'));
+      toast.success(t('trend.trendDeleted'));
+    }).catch(() => toast.error(t('trend.deleteFail')));
   }, [token, selectedTrendId, setSelectedTrendId, bumpTrendVersion]);
 
   // ── Navigation ──
@@ -1840,7 +1846,7 @@ export default function MomentsFeed() {
         <input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="搜索动态"
+          placeholder={t('trend.searchPlaceholder')}
           style={{ width: '100%', borderRadius: '20px', background: '#F0F2F5', border: 'none', padding: '7px 14px 7px 34px', fontSize: '13px', color: '#1C2733', outline: 'none' }}
         />
       </div>
@@ -1911,7 +1917,7 @@ export default function MomentsFeed() {
               onClick={() => coverInputRef.current?.click()}
               style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, border: 'none', borderRadius: 14, padding: '4px 10px', background: 'rgba(0,0,0,0.35)', color: '#FFF', fontSize: 12, cursor: 'pointer' }}
             >
-              更换封面
+              {t('trend.changeCover')}
             </button>
           </>
         )}
@@ -2007,17 +2013,17 @@ export default function MomentsFeed() {
               <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
                 <Inbox className="w-16 h-16" style={{ color: '#D1D5DB', marginBottom: 16 }} />
                 <div style={{ fontSize: '15px', fontWeight: 500, color: '#646A73', marginBottom: 8 }}>
-                  {searchQuery ? '没有找到相关动态' : '暂无动态'}
+                  {searchQuery ? t('trend.noMatch') : t('trend.empty')}
                 </div>
                 <div style={{ fontSize: '13px', color: '#A2ACB5' }}>
-                  {searchQuery ? '换个关键词试试' : '点击右上角 + 发布第一条动态'}
+                  {searchQuery ? t('trend.noMatchHint') : t('trend.emptyHint')}
                 </div>
               </div>
             )}
           </div>
 
           <div style={{ padding: '20px 0 12px', textAlign: 'center', fontSize: '12px', color: '#A2ACB5' }}>
-            — 已经到底了 —
+            {t('trend.reachedEnd')}
           </div>
         </div>
 
@@ -2062,22 +2068,22 @@ export default function MomentsFeed() {
             y={actionMenu.y}
             items={[
               {
-                label: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.isTop ? '取消置顶' : '置顶'; })(),
-                icon: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.isTop ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />; })(),
+                label: (() => { const tr = trends.find(tr => tr.id === actionMenu.trendId); return tr?.isTop ? t('trend.unpin') : t('trend.pin'); })(),
+                icon: (() => { const tr = trends.find(tr => tr.id === actionMenu.trendId); return tr?.isTop ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />; })(),
                 onClick: () => handleToggleTrendField(actionMenu.trendId, 'isTop'),
               },
               {
-                label: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.openReply ? '关闭评论' : '开启评论'; })(),
-                icon: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.openReply ? <MessageSquareOff className="w-3.5 h-3.5" /> : <MessageCircle className="w-3.5 h-3.5" />; })(),
+                label: (() => { const tr = trends.find(tr => tr.id === actionMenu.trendId); return tr?.openReply ? t('trend.closeComment') : t('trend.openComment'); })(),
+                icon: (() => { const tr = trends.find(tr => tr.id === actionMenu.trendId); return tr?.openReply ? <MessageSquareOff className="w-3.5 h-3.5" /> : <MessageCircle className="w-3.5 h-3.5" />; })(),
                 onClick: () => handleToggleTrendField(actionMenu.trendId, 'openReply'),
               },
               {
-                label: '删除动态',
+                label: t('trend.deleteTrend'),
                 color: '#FF5252',
                 icon: <Trash2 className="w-3.5 h-3.5" />,
                 onClick: () => {
                   const tid = actionMenu.trendId;
-                  doConfirm('删除动态', '确定删除这条动态吗？删除后不可恢复。', '删除', '#E53935', () => handleDeleteTrend(tid));
+                  doConfirm(t('trend.deleteTrend'), t('trend.deleteTrendDesc'), t('trend.delete'), '#E53935', () => handleDeleteTrend(tid));
                 },
               },
             ]}
@@ -2150,7 +2156,7 @@ export default function MomentsFeed() {
                           <span>{notif.content}</span>
                         </div>
                       ) : null}
-                      <div style={{ fontSize: '11px', color: '#A2ACB5', marginTop: 4 }}>{fmtTime(notif.createTime)}</div>
+                      <div style={{ fontSize: '11px', color: '#A2ACB5', marginTop: 4 }}>{fmtTime(notif.createTime, t)}</div>
                     </div>
                   </div>
                 </div>
@@ -2205,7 +2211,7 @@ export default function MomentsFeed() {
           <button onClick={handleBackFromUserTrends} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#1BB45B', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{isSelfTrends ? t('moments.mine') : `${headerName}的动态`}</span>
+          <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{isSelfTrends ? t('moments.mine') : t('trend.othersTrends').replace('{name}', headerName)}</span>
           {/* Message queue (互动消息) + publish — only on my own 朋友圈 */}
           {isSelfTrends ? (
             <div className="flex items-center gap-1 shrink-0">
@@ -2270,14 +2276,14 @@ export default function MomentsFeed() {
             ) : (
               <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
                 <Inbox className="w-16 h-16" style={{ color: '#D1D5DB', marginBottom: 16 }} />
-                <div style={{ fontSize: '15px', fontWeight: 500, color: '#646A73', marginBottom: 8 }}>暂无动态</div>
-                <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{isSelfTrends ? '点击右上角 + 发布第一条动态' : '该用户还没有发布动态'}</div>
+                <div style={{ fontSize: '15px', fontWeight: 500, color: '#646A73', marginBottom: 8 }}>{t('trend.empty')}</div>
+                <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{isSelfTrends ? t('trend.emptyHint') : t('trend.userEmptyHint')}</div>
               </div>
             )}
           </div>
 
           <div style={{ padding: '20px 0 12px', textAlign: 'center', fontSize: '12px', color: '#A2ACB5' }}>
-            — 已经到底了 —
+            {t('trend.reachedEnd')}
           </div>
         </div>
 
@@ -2310,17 +2316,17 @@ export default function MomentsFeed() {
             y={actionMenu.y}
             items={[
               {
-                label: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.isTop ? '取消置顶' : '置顶'; })(),
-                icon: (() => { const t = trends.find(tr => tr.id === actionMenu.trendId); return t?.isTop ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />; })(),
+                label: (() => { const tr = trends.find(tr => tr.id === actionMenu.trendId); return tr?.isTop ? t('trend.unpin') : t('trend.pin'); })(),
+                icon: (() => { const tr = trends.find(tr => tr.id === actionMenu.trendId); return tr?.isTop ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />; })(),
                 onClick: () => handleToggleTrendField(actionMenu.trendId, 'isTop'),
               },
               {
-                label: '删除动态',
+                label: t('trend.deleteTrend'),
                 color: '#FF5252',
                 icon: <Trash2 className="w-3.5 h-3.5" />,
                 onClick: () => {
                   const tid = actionMenu.trendId;
-                  doConfirm('删除动态', '确定删除这条动态吗？', '删除', '#E53935', () => handleDeleteTrend(tid));
+                  doConfirm(t('trend.deleteTrend'), t('trend.deleteTrendDescShort'), t('trend.delete'), '#E53935', () => handleDeleteTrend(tid));
                 },
               },
             ]}

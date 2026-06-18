@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useT } from '@/hooks/use-i18n';
 
 interface SetRemarkDialogProps {
   open: boolean;
@@ -12,14 +13,14 @@ interface SetRemarkDialogProps {
   onSave: (remark: string, tags: string[]) => void;
 }
 
-const PRESET_TAGS = ['同事', '朋友', '家人', '重要'];
-
 export default function SetRemarkDialog({
   open,
   onClose,
   currentRemark = '',
   onSave,
 }: SetRemarkDialogProps) {
+  const t = useT();
+  const PRESET_TAGS = [t('friend.tag.colleague'), t('friend.tag.friend'), t('friend.tag.family'), t('friend.tag.important')];
   const [remark, setRemark] = useState(currentRemark);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +33,7 @@ export default function SetRemarkDialog({
 
   const handleSave = () => {
     if (!remark.trim() && selectedTags.length === 0) {
-      toast.info('请输入备注名或选择标签');
+      toast.info(t('friend.needRemarkOrTag'));
       return;
     }
     onSave(remark.trim(), selectedTags);
@@ -111,7 +112,7 @@ export default function SetRemarkDialog({
               color: '#1F2329',
             }}
           >
-            设置备注
+            {t('friend.setRemark')}
           </div>
         </div>
 
@@ -157,13 +158,13 @@ export default function SetRemarkDialog({
               marginBottom: 8,
             }}
           >
-            备注名
+            {t('friend.remarkName')}
           </label>
           <Input
             ref={inputRef}
             value={remark}
             onChange={(e) => setRemark(e.target.value)}
-            placeholder="输入备注名"
+            placeholder={t('friend.remarkNamePh')}
             maxLength={20}
             style={{
               height: 40,
@@ -187,7 +188,7 @@ export default function SetRemarkDialog({
               marginBottom: 10,
             }}
           >
-            标签
+            {t('pe.label.tags')}
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {PRESET_TAGS.map((tag) => {
@@ -257,7 +258,7 @@ export default function SetRemarkDialog({
               (e.currentTarget as HTMLButtonElement).style.background = '#FFFFFF';
             }}
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -279,7 +280,7 @@ export default function SetRemarkDialog({
               (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
             }}
           >
-            保存
+            {t('common.save')}
           </button>
         </div>
       </div>

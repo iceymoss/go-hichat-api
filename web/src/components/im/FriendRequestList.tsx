@@ -21,7 +21,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIMStore } from '@/lib/im-store';
-import { getAvatarColor } from '@/lib/utils';
+import { getAvatarColor, tagColor } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
 import AddFriendPanel from './AddFriendPanel';
 
 /* ═══════════════════════════════════════
@@ -196,45 +197,45 @@ async function apiMarkAsRead(token: string, friendReqId: number): Promise<boolea
    Helpers
    ═══════════════════════════════════════ */
 
-function formatRelativeTime(date: Date): string {
+function formatRelativeTime(date: Date, t: (k: string) => string): string {
   const now = Date.now();
   const diff = now - date.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes}分钟前`;
-  if (hours < 24) return `${hours}小时前`;
+  if (minutes < 1) return t('group.time.justNow');
+  if (minutes < 60) return t('group.time.minutesAgo').replace('{m}', String(minutes));
+  if (hours < 24) return t('group.time.hoursAgo').replace('{h}', String(hours));
   if (days < 30) {
     const d = new Date(date);
-    return `${d.getMonth() + 1}月${d.getDate()}日`;
+    return t('group.time.monthDay').replace('{month}', String(d.getMonth() + 1)).replace('{day}', String(d.getDate()));
   }
   const d = new Date(date);
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  return t('group.time.yearMonthDay').replace('{year}', String(d.getFullYear())).replace('{month}', String(d.getMonth() + 1)).replace('{day}', String(d.getDate()));
 }
 
-const statusConfig: Record<FriendRequestStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+const statusConfig: Record<FriendRequestStatus, { labelKey: string; color: string; bg: string; icon: React.ReactNode }> = {
   pending: {
-    label: '待处理',
+    labelKey: 'friend.status.pending',
     color: '#F5A623',
     bg: 'rgba(245,166,35,0.1)',
     icon: <AlertCircle className="w-3.5 h-3.5" />,
   },
   accepted: {
-    label: '已同意',
+    labelKey: 'friend.status.accepted',
     color: '#4DCD5E',
     bg: 'rgba(77,205,94,0.1)',
     icon: <CheckCircle className="w-3.5 h-3.5" />,
   },
   rejected: {
-    label: '已拒绝',
+    labelKey: 'friend.status.rejected',
     color: '#FF5252',
     bg: 'rgba(255,82,82,0.1)',
     icon: <XCircle className="w-3.5 h-3.5" />,
   },
   ignored: {
-    label: '已忽略',
+    labelKey: 'friend.status.ignored',
     color: '#A2ACB5',
     bg: 'rgba(162,172,181,0.1)',
     icon: <MinusCircle className="w-3.5 h-3.5" />,
@@ -265,21 +266,22 @@ interface ConfirmDialogProps {
 
 function ConfirmDialog({ open, type, nickname, loading, onClose, onConfirm }: ConfirmDialogProps) {
   const [message, setMessage] = useState('');
+  const t = useT();
 
   if (!open) return null;
 
   const isDelete = type === 'delete';
   const title = isDelete
-    ? '删除记录'
+    ? t('friend.confirm.deleteTitle')
     : type === 'accept'
-      ? '同意好友请求'
-      : '拒绝好友请求';
+      ? t('friend.confirm.acceptTitle')
+      : t('friend.confirm.rejectTitle');
   const description = isDelete
-    ? `确定要删除与 ${nickname} 的好友请求记录吗？`
+    ? t('friend.confirm.deleteDesc').replace('{name}', nickname)
     : type === 'accept'
-      ? `确定同意 ${nickname} 的好友请求吗？`
-      : `确定拒绝 ${nickname} 的好友请求吗？`;
-  const confirmLabel = isDelete ? '删除' : type === 'accept' ? '同意' : '拒绝';
+      ? t('friend.confirm.acceptDesc').replace('{name}', nickname)
+      : t('friend.confirm.rejectDesc').replace('{name}', nickname);
+  const confirmLabel = isDelete ? t('friend.delete') : type === 'accept' ? t('group.agree') : t('group.reject');
   const confirmColor = isDelete ? '#E53935' : type === 'accept' ? '#1BB45B' : '#E53935';
 
   const handleConfirm = () => {
@@ -347,7 +349,7 @@ function ConfirmDialog({ open, type, nickname, loading, onClose, onConfirm }: Co
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={type === 'accept' ? '附言（选填）' : '拒绝原因（选填）'}
+              placeholder={type === 'accept' ? t('friend.acceptMsgPh') : t('friend.rejectMsgPh')}
               rows={3}
               style={{
                 width: '100%',
@@ -389,7 +391,7 @@ function ConfirmDialog({ open, type, nickname, loading, onClose, onConfirm }: Co
               cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleConfirm}
@@ -431,6 +433,7 @@ interface DetailModalProps {
 }
 
 function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailModalProps) {
+  const t = useT();
   if (!request) return null;
 
   const sc = statusConfig[request.status];
@@ -516,7 +519,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
               {request.nickname}
             </span>
             {request.sex === 'male' && (
-              <span style={{ fontSize: '11px', color: '#1BB45B', backgroundColor: 'rgba(27,180,91,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♂</span>
+              <span style={{ fontSize: '11px', color: '#2D7FF9', backgroundColor: 'rgba(45,127,249,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♂</span>
             )}
             {request.sex === 'female' && (
               <span style={{ fontSize: '11px', color: '#E91E63', backgroundColor: 'rgba(233,30,99,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♀</span>
@@ -543,8 +546,8 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
                   key={i}
                   style={{
                     fontSize: '11px',
-                    color: '#1BB45B',
-                    backgroundColor: 'rgba(27,180,91,0.08)',
+                    color: tagColor(tag).c,
+                    backgroundColor: tagColor(tag).b,
                     borderRadius: '4px',
                     padding: '2px 8px',
                   }}
@@ -559,7 +562,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
         {/* Request info section */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#1C2733', marginBottom: '12px' }}>
-            申请信息
+            {t('friend.reqInfo')}
           </div>
 
           {/* Request message */}
@@ -573,7 +576,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
           {/* Time */}
           <div className="flex items-center gap-2" style={{ marginBottom: '10px' }}>
             <Clock className="w-3.5 h-3.5" style={{ color: '#A2ACB5' }} />
-            <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{formatRelativeTime(request.reqTime)}</span>
+            <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{formatRelativeTime(request.reqTime, t)}</span>
           </div>
 
           {/* Status */}
@@ -589,10 +592,10 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
                 padding: '2px 8px',
               }}
             >
-              {sc.label}
+              {t(sc.labelKey)}
             </span>
             <span style={{ fontSize: '12px', color: '#A2ACB5' }}>
-              ({request.class === 'received' ? '我收到的' : '我发起的'})
+              ({request.class === 'received' ? t('group.app.received') : t('group.app.sent')})
             </span>
           </div>
 
@@ -601,7 +604,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
             <div className="flex gap-2" style={{ marginTop: '10px' }}>
               <CheckCircle className="w-4 h-4 shrink-0" style={{ color: '#4DCD5E', marginTop: 2 }} />
               <span style={{ fontSize: '13px', color: '#646A73' }}>
-                回复：{request.handleMsg}
+                {t('friend.replyPrefix').replace('{msg}', request.handleMsg)}
               </span>
             </div>
           )}
@@ -610,7 +613,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
         {/* Personal info section */}
         <div style={{ padding: '16px 20px' }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#1C2733', marginBottom: '12px' }}>
-            个人信息
+            {t('friend.personalInfo')}
           </div>
           <div className="flex flex-col gap-3">
             {request.hiChatId && (
@@ -662,7 +665,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
                   cursor: 'pointer',
                 }}
               >
-                拒绝
+                {t('group.reject')}
               </button>
               <button
                 onClick={() => onAccept(request.id)}
@@ -677,7 +680,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
                   cursor: 'pointer',
                 }}
               >
-                同意
+                {t('group.agree')}
               </button>
             </>
           ) : (
@@ -698,7 +701,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
               }}
             >
               <Trash2 className="w-4 h-4" />
-              删除
+              {t('friend.delete')}
             </button>
           )}
         </div>
@@ -720,6 +723,7 @@ interface RequestCardProps {
 }
 
 function RequestCard({ request, onClick, onAccept, onReject, onDelete }: RequestCardProps) {
+  const t = useT();
   const sc = statusConfig[request.status];
   const canAction = request.status === 'pending' && request.class === 'received';
 
@@ -795,7 +799,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
               {request.nickname}
             </span>
             {request.sex === 'male' && (
-              <span style={{ fontSize: '10px', color: '#1BB45B', backgroundColor: 'rgba(27,180,91,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♂</span>
+              <span style={{ fontSize: '10px', color: '#2D7FF9', backgroundColor: 'rgba(45,127,249,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♂</span>
             )}
             {request.sex === 'female' && (
               <span style={{ fontSize: '10px', color: '#E91E63', backgroundColor: 'rgba(233,30,99,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♀</span>
@@ -814,10 +818,10 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
               }}
             >
               {React.cloneElement(sc.icon as React.ReactElement<any>, { style: { color: sc.color, width: 12, height: 12 } })}
-              {sc.label}
+              {t(sc.labelKey)}
             </span>
             <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-              {formatRelativeTime(request.reqTime)}
+              {formatRelativeTime(request.reqTime, t)}
             </span>
           </div>
 
@@ -850,8 +854,8 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                   key={i}
                   style={{
                     fontSize: '10px',
-                    color: '#1BB45B',
-                    backgroundColor: 'rgba(27,180,91,0.08)',
+                    color: tagColor(tag).c,
+                    backgroundColor: tagColor(tag).b,
                     borderRadius: '3px',
                     padding: '1px 6px',
                   }}
@@ -878,7 +882,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                   cursor: 'pointer',
                 }}
               >
-                同意
+                {t('group.agree')}
               </button>
               <button
                 onClick={() => onReject(request.id)}
@@ -893,7 +897,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                   cursor: 'pointer',
                 }}
               >
-                拒绝
+                {t('group.reject')}
               </button>
             </div>
           ) : (
@@ -914,7 +918,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                 }}
               >
                 <Trash2 className="w-3 h-3" />
-                删除
+                {t('friend.delete')}
               </button>
             </div>
           )}
@@ -930,6 +934,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
 
 export default function FriendRequestList() {
   const { currentUser, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, invalidateFriends, friendReqNavTab, clearFriendReqNavTab } = useIMStore();
+  const t = useT();
   const token = currentUser?.token || '';
 
   // Local state
@@ -977,7 +982,7 @@ export default function FriendRequestList() {
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error('加载好友请求失败');
+        if (!cancelled) toast.error(t('friend.loadReqFail'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1045,31 +1050,31 @@ export default function FriendRequestList() {
 
       if (confirmType === 'accept') {
         const ok = await apiHandleRequest(token, reqId, 1, msg || undefined);
-        if (!ok) { toast.error('操作失败，请重试'); return; }
+        if (!ok) { toast.error(t('friend.opFailRetry')); return; }
         setRequests(prev => prev.map(r =>
           r.id === confirmTargetId
             ? { ...r, status: 'accepted' as const, handleMsg: msg, readState: true }
             : r
         ));
         const req = requests.find(r => r.id === confirmTargetId);
-        toast.success(`已同意 ${req?.nickname || ''} 的好友请求`);
+        toast.success(t('friend.acceptedToast').replace('{name}', req?.nickname || ''));
         invalidateFriends();
       } else if (confirmType === 'reject') {
         const ok = await apiHandleRequest(token, reqId, 2, msg || undefined);
-        if (!ok) { toast.error('操作失败，请重试'); return; }
+        if (!ok) { toast.error(t('friend.opFailRetry')); return; }
         setRequests(prev => prev.map(r =>
           r.id === confirmTargetId
             ? { ...r, status: 'rejected' as const, handleMsg: msg, readState: true }
             : r
         ));
         const req = requests.find(r => r.id === confirmTargetId);
-        toast.success(`已拒绝 ${req?.nickname || ''} 的好友请求`);
+        toast.success(t('friend.rejectedToast').replace('{name}', req?.nickname || ''));
       } else {
         // delete
         const ok = await apiDeleteRequest(token, reqId);
-        if (!ok) { toast.error('删除失败，请重试'); return; }
+        if (!ok) { toast.error(t('friend.deleteFailRetry')); return; }
         setRequests(prev => prev.filter(r => r.id !== confirmTargetId));
-        toast.success('已删除记录');
+        toast.success(t('friend.recordDeleted'));
         if (detailRequest?.id === confirmTargetId) {
           setDetailRequest(null);
         }
@@ -1079,7 +1084,7 @@ export default function FriendRequestList() {
       fetchUnreadCount(token).then((count) => setFriendRequestUnreadCount(count));
       setConfirmOpen(false);
     } catch {
-      toast.error('操作失败，请稍后重试');
+      toast.error(t('friend.opFailLater'));
     } finally {
       setConfirmLoading(false);
     }
@@ -1107,26 +1112,26 @@ export default function FriendRequestList() {
 
   // Status filter options
   const filterOptions: { key: StatusFilter; label: string }[] = [
-    { key: 'all', label: '全部' },
-    { key: 'pending', label: '待处理' },
-    { key: 'accepted', label: '已同意' },
-    { key: 'rejected', label: '已拒绝' },
-    { key: 'ignored', label: '已忽略' },
+    { key: 'all', label: t('group.filter.all') },
+    { key: 'pending', label: t('friend.status.pending') },
+    { key: 'accepted', label: t('friend.status.accepted') },
+    { key: 'rejected', label: t('friend.status.rejected') },
+    { key: 'ignored', label: t('friend.status.ignored') },
   ];
 
   // Empty state messages
   const getEmptyMessage = () => {
     if (statusFilter === 'all') {
       return activeTab === 'received'
-        ? { title: '暂无收到的请求', desc: '当有人添加你为好友时，会显示在这里' }
-        : { title: '暂无发出的请求', desc: '当你添加好友时，会记录在这里' };
+        ? { title: t('friend.emptyReceivedTitle'), desc: t('friend.emptyReceivedDesc') }
+        : { title: t('friend.emptySentTitle'), desc: t('friend.emptySentDesc') };
     }
     const filterLabels: Record<FriendRequestStatus, string> = {
-      pending: '待处理', accepted: '已同意', rejected: '已拒绝', ignored: '已忽略',
+      pending: t('friend.status.pending'), accepted: t('friend.status.accepted'), rejected: t('friend.status.rejected'), ignored: t('friend.status.ignored'),
     };
     return {
-      title: `暂无${filterLabels[statusFilter]}的请求`,
-      desc: '换个筛选条件看看',
+      title: t('friend.emptyFilterTitle').replace('{status}', filterLabels[statusFilter]),
+      desc: t('group.emptyMatchHint'),
     };
   };
 
@@ -1163,7 +1168,7 @@ export default function FriendRequestList() {
         </button>
 
         <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>
-          新的朋友
+          {t('contact.newFriends')}
         </span>
 
         <div className="flex items-center gap-1">
@@ -1254,7 +1259,7 @@ export default function FriendRequestList() {
                 transition: 'all 0.2s',
               }}
             >
-              {tab === 'received' ? '我收到的' : '我发起的'}
+              {tab === 'received' ? t('group.app.received') : t('group.app.sent')}
               {tab === 'received' && friendRequestUnreadCount > 0 && activeTab !== tab && (
                 <span
                   className="inline-flex items-center justify-center"
@@ -1312,7 +1317,7 @@ export default function FriendRequestList() {
         {loading ? (
           <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
             <Loader2 className="w-8 h-8" style={{ color: '#1BB45B', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
-            <div style={{ fontSize: '13px', color: '#A2ACB5' }}>加载中...</div>
+            <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{t('common.loading')}</div>
           </div>
         ) : filteredRequests.length > 0 ? (
           <div style={{ background: '#FFFFFF', borderRadius: '12px', margin: '8px', overflow: 'hidden' }}>

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useT } from '@/hooks/use-i18n';
 
 export interface StickerItem {
   id: number;
@@ -25,6 +26,7 @@ interface Props {
 
 /** 输入框左侧的表情面板：Emoji（全量开源数据）+ 我的表情收藏 */
 export default function ChatEmojiPanel({ token, onPickEmoji, onPickSticker, children }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'emoji' | 'sticker'>('emoji');
   const [stickers, setStickers] = useState<StickerItem[]>([]);
@@ -59,7 +61,7 @@ export default function ChatEmojiPanel({ token, onPickEmoji, onPickSticker, chil
             onClick={() => setTab('sticker')}
             style={{ flex: 1, padding: '8px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: tab === 'sticker' ? 600 : 400, color: tab === 'sticker' ? '#1BB45B' : '#708499' }}
           >
-            表情
+            {t('emojiPanel.title')}
           </button>
         </div>
 
@@ -76,7 +78,7 @@ export default function ChatEmojiPanel({ token, onPickEmoji, onPickSticker, chil
           <div style={{ height: 320, overflowY: 'auto', padding: 12 }}>
             {stickers.length === 0 ? (
               <div style={{ textAlign: 'center', color: '#999', fontSize: 13, paddingTop: 40 }}>
-                {loaded ? '暂无收藏表情，去「我的表情」添加' : '加载中…'}
+                {loaded ? t('emojiPanel.empty') : t('emojiPanel.loading')}
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>

@@ -146,7 +146,7 @@ function ConfirmDialog({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#2C3E50',
+          background: '#FFFFFF',
           borderRadius: 14,
           padding: '24px 20px 16px',
           width: 320,
@@ -156,7 +156,7 @@ function ConfirmDialog({
       >
         <p
           style={{
-            color: '#FFFFFF',
+            color: '#1C2733',
             fontSize: 15,
             lineHeight: 1.6,
             marginBottom: 20,
@@ -172,16 +172,16 @@ function ConfirmDialog({
               flex: 1,
               padding: '10px 0',
               borderRadius: 10,
-              border: '1px solid rgba(255,255,255,0.15)',
+              border: '1px solid rgba(0,0,0,0.08)',
               background: 'transparent',
-              color: 'rgba(255,255,255,0.7)',
+              color: '#646A73',
               fontSize: 14,
               fontWeight: 500,
               cursor: 'pointer',
               transition: 'background 0.15s',
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)';
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLElement).style.background = 'transparent';
@@ -277,9 +277,9 @@ function ConversationItem({
         <div
           style={{
             position: 'fixed', left: ctxMenu.x, top: ctxMenu.y, zIndex: 9999,
-            background: '#2C3E50', borderRadius: 10, padding: '4px 0',
+            background: '#FFFFFF', borderRadius: 10, padding: '4px 0',
             boxShadow: '0 4px 20px rgba(0,0,0,0.4)', minWidth: 140,
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '1px solid rgba(0,0,0,0.08)',
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -293,10 +293,10 @@ function ConversationItem({
               onClick={() => { setCtxMenu(null); action?.(); }}
               style={{
                 display: 'block', width: '100%', padding: '8px 16px', border: 'none',
-                background: 'transparent', color: danger ? '#E53935' : '#FFFFFF',
+                background: 'transparent', color: danger ? '#E53935' : '#1C2733',
                 fontSize: 13, textAlign: 'left', cursor: 'pointer',
               }}
-              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
+              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'rgba(0,0,0,0.05)'; }}
               onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
             >
               {label}
@@ -311,7 +311,7 @@ function ConversationItem({
             width: 22,
             height: 22,
             borderRadius: '50%',
-            border: editSelected ? 'none' : '2px solid rgba(255,255,255,0.35)',
+            border: editSelected ? 'none' : '2px solid #A2ACB5',
             background: editSelected ? '#1BB45B' : 'transparent',
             display: 'flex',
             alignItems: 'center',
@@ -335,7 +335,7 @@ function ConversationItem({
             width: avatarSize,
             height: avatarSize,
             borderRadius: '50%',
-            background: conversation.avatar ? 'transparent' : (isActive && !editMode ? 'rgba(255,255,255,0.2)' : getAvatarColor(conversation.name)),
+            background: conversation.avatar ? 'transparent' : (getAvatarColor(conversation.name)),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -360,7 +360,7 @@ function ConversationItem({
               width: 12,
               height: 12,
               background: '#4DCD5E',
-              border: `2.5px solid ${isActive && !editMode ? '#1BB45B' : '#2C3E50'}`,
+              border: `2.5px solid ${isActive && !editMode ? '#1BB45B' : '#FFFFFF'}`,
             }}
           />
         )}
@@ -374,7 +374,7 @@ function ConversationItem({
             {conversation.pinned && (
               <svg
                 className="conv-pin shrink-0"
-                style={{ width: 13, height: 13, color: isActive && !editMode ? undefined : 'rgba(255,255,255,0.35)' }}
+                style={{ width: 13, height: 13, color: isActive && !editMode ? undefined : '#A2ACB5' }}
                 viewBox="0 0 24 24"
                 fill="currentColor"
               >
@@ -386,7 +386,7 @@ function ConversationItem({
               style={{
                 fontSize: 14,
                 fontWeight: 600,
-                color: isActive && !editMode ? undefined : '#FFFFFF',
+                color: isActive && !editMode ? undefined : '#1C2733',
                 lineHeight: '20px',
               }}
             >
@@ -395,7 +395,7 @@ function ConversationItem({
             {conversation.muted && (
               <svg
                 className="conv-mute shrink-0"
-                style={{ width: 14, height: 14, color: isActive && !editMode ? undefined : 'rgba(255,255,255,0.35)' }}
+                style={{ width: 14, height: 14, color: isActive && !editMode ? undefined : '#A2ACB5' }}
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -411,7 +411,7 @@ function ConversationItem({
             className="conv-time shrink-0"
             style={{
               fontSize: 12,
-              color: isActive && !editMode ? undefined : 'rgba(255,255,255,0.4)',
+              color: isActive && !editMode ? undefined : '#A2ACB5',
               marginLeft: 8,
               lineHeight: '16px',
               whiteSpace: 'nowrap',
@@ -427,7 +427,7 @@ function ConversationItem({
             className="conv-message truncate"
             style={{
               fontSize: 13,
-              color: isActive && !editMode ? undefined : 'rgba(255,255,255,0.5)',
+              color: isActive && !editMode ? undefined : '#8F959E',
               lineHeight: '18px',
               paddingRight: 8,
               display: 'block',
@@ -451,7 +451,7 @@ function ConversationItem({
                   width: 8,
                   height: 8,
                   borderRadius: 4,
-                  background: 'rgba(255,255,255,0.4)',
+                  background: '#A2ACB5',
                 }}
               />
             ) : (
@@ -522,17 +522,17 @@ function SearchConversationItem({
       </div>
       <div className="flex-1 min-w-0">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#FFFFFF' }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#1C2733' }}>
             <HighlightText text={conv.name} query={query} />
           </span>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginLeft: 8, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 11, color: '#A2ACB5', marginLeft: 8, whiteSpace: 'nowrap' }}>
             {formatTime(conv.lastMessageTime)}
           </span>
         </div>
         <span
           style={{
             fontSize: 13,
-            color: 'rgba(255,255,255,0.45)',
+            color: '#8F959E',
             display: 'block',
             maxWidth: '100%',
             overflow: 'hidden',
@@ -590,13 +590,13 @@ function SearchContactItem({
               width: 11,
               height: 11,
               background: '#4DCD5E',
-              border: '2px solid #2C3E50',
+              border: '2px solid #FFFFFF',
             }}
           />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#FFFFFF' }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#1C2733' }}>
           <HighlightText text={contact.name} query={query} />
         </span>
       </div>
@@ -641,17 +641,17 @@ function SearchMessageItem({
       </div>
       <div className="flex-1 min-w-0">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#1C2733' }}>
             {result.conversationName}
           </span>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginLeft: 8, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 11, color: '#C2C8CE', marginLeft: 8, whiteSpace: 'nowrap' }}>
             {formatTime(result.message.timestamp)}
           </span>
         </div>
         <span
           style={{
             fontSize: 13,
-            color: 'rgba(255,255,255,0.45)',
+            color: '#8F959E',
             display: 'block',
             maxWidth: '100%',
             overflow: 'hidden',
@@ -677,7 +677,7 @@ function SearchSectionHeader({ title, count }: { title: string; count: number })
         padding: '12px 14px 4px',
         fontSize: 12,
         fontWeight: 600,
-        color: 'rgba(255,255,255,0.35)',
+        color: '#A2ACB5',
         letterSpacing: '0.02em',
       }}
     >
@@ -711,8 +711,8 @@ function FloatingActionBar({
         bottom: 0,
         left: 0,
         right: 0,
-        background: '#2C3E50',
-        borderTop: '1px solid rgba(255,255,255,0.08)',
+        background: '#FFFFFF',
+        borderTop: '1px solid rgba(0,0,0,0.05)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
@@ -757,7 +757,7 @@ function ActionBarButton({
   onClick: () => void;
   danger?: boolean;
 }) {
-  const color = danger ? '#E53935' : '#FFFFFF';
+  const color = danger ? '#E53935' : '#1C2733';
 
   return (
     <button
@@ -776,7 +776,7 @@ function ActionBarButton({
         color,
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)';
+        (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)';
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.background = 'transparent';
@@ -814,7 +814,7 @@ export function ChatListToolbar() {
     borderRadius: 10,
     border: 'none',
     background: 'transparent',
-    color: 'rgba(255,255,255,0.7)',
+    color: '#646A73',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -831,7 +831,7 @@ export function ChatListToolbar() {
           onClick={exitEditMode}
           style={buttonStyle}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
+            (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.05)';
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.background = 'transparent';
@@ -844,7 +844,7 @@ export function ChatListToolbar() {
           onClick={enterEditMode}
           style={buttonStyle}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
+            (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.05)';
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.background = 'transparent';
@@ -862,11 +862,11 @@ export function ChatListToolbar() {
               width: '100%',
               height: 36,
               borderRadius: 20,
-              background: 'rgba(255,255,255,0.06)',
+              background: 'rgba(0,0,0,0.04)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'rgba(255,255,255,0.5)',
+              color: '#8F959E',
               fontSize: 13,
               fontWeight: 500,
             }}
@@ -884,7 +884,7 @@ export function ChatListToolbar() {
                 transform: 'translateY(-50%)',
                 width: 16,
                 height: 16,
-                color: 'rgba(255,255,255,0.35)',
+                color: '#A2ACB5',
                 pointerEvents: 'none',
               }}
             />
@@ -899,10 +899,10 @@ export function ChatListToolbar() {
                 paddingLeft: 34,
                 paddingRight: 12,
                 borderRadius: 20,
-                background: '#34495E',
+                background: '#F0F2F5',
                 border: 'none',
                 fontSize: 13,
-                color: '#FFFFFF',
+                color: '#1C2733',
                 boxShadow: 'none',
               }}
             />
@@ -918,7 +918,7 @@ export function ChatListToolbar() {
             style={buttonStyle}
             onClick={() => setShowAddFriend(true)}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.05)';
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLElement).style.background = 'transparent';
@@ -1153,7 +1153,7 @@ export function ChatListContent() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   height: 120,
-                  color: 'rgba(255,255,255,0.35)',
+                  color: '#A2ACB5',
                   fontSize: 13,
                 }}
               >
@@ -1205,7 +1205,7 @@ export function ChatListContent() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   height: 120,
-                  color: 'rgba(255,255,255,0.35)',
+                  color: '#A2ACB5',
                   fontSize: 13,
                 }}
               >

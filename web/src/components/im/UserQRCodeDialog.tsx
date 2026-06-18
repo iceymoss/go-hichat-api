@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { X, Download, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAvatarColor } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
 
 interface UserQRCodeDialogProps {
   open: boolean;
@@ -20,6 +21,7 @@ export default function UserQRCodeDialog({
 }: UserQRCodeDialogProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dataUrl, setDataUrl] = useState('');
+  const t = useT();
 
   useEffect(() => {
     if (!open || !canvasRef.current) return;
@@ -55,12 +57,12 @@ export default function UserQRCodeDialog({
     a.href = dataUrl;
     a.download = `HiChat_${userName}_QR.png`;
     a.click();
-    toast.success('二维码已保存');
+    toast.success(t('friend.qrSaved'));
   };
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(`hichat_${userId}`);
-    toast.success('HiChat ID 已复制');
+    toast.success(t('friend.idCopied'));
   };
 
   return (
@@ -101,8 +103,8 @@ export default function UserQRCodeDialog({
           ><X size={14} /></button>
 
           {/* Decorative circles */}
-          <div style={{ position: 'absolute', width: 120, height: 120, top: -40, right: -20, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-          <div style={{ position: 'absolute', width: 80, height: 80, bottom: -30, left: 20, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+          <div style={{ position: 'absolute', width: 120, height: 120, top: -40, right: -20, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', width: 80, height: 80, bottom: -30, left: 20, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
         </div>
 
         {/* Avatar (overlapping header) */}
@@ -158,7 +160,7 @@ export default function UserQRCodeDialog({
           </div>
 
           <div style={{ fontSize: 12, color: '#A2ACB5', marginTop: 10 }}>
-            扫一扫，加我为好友
+            {t('friend.scanToAdd')}
           </div>
         </div>
 
@@ -174,7 +176,7 @@ export default function UserQRCodeDialog({
             onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
           >
             <Download size={15} />
-            保存二维码
+            {t('friend.saveQr')}
           </button>
         </div>
       </div>
