@@ -6,7 +6,7 @@ import { useT } from '@/hooks/use-i18n';
 import {
   ArrowLeft, Search, Plus, FileText, Image as ImageIcon, Link2,
   File, Video, MapPin, StickyNote, Trash2, Loader2, X, Star,
-  Filter, ChevronDown,
+  Filter, ChevronDown, Download, Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,6 +30,39 @@ interface FavItem {
   sourceId: string;
   tags: string;
   createdAt: string;
+}
+
+/** Parsed favorite content (text / file url / link / location). */
+interface FavContent { url?: string; text?: string; name?: string; title?: string; lat?: number; lng?: number }
+function parseFav(item: FavItem): FavContent {
+  try { return JSON.parse(item.content) as FavContent; } catch { return { text: item.content }; }
+}
+
+/** Types whose content is a downloadable file. */
+const DOWNLOADABLE = new Set(['image', 'video', 'file']);
+
+/** Normalize a possibly schemeless link to an absolute URL. */
+function toAbsUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+/** Download a file via blob so the browser saves it instead of navigating. */
+async function downloadFavFile(url?: string, name?: string) {
+  if (!url) return;
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = href;
+    a.download = name || 'download';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(href);
+  } catch {
+    window.open(url, '_blank');
+  }
 }
 
 /* ── Add Favorite Dialog ── */
@@ -279,10 +312,11 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
 }
 
 /* ── Favorite Card ── */
-function FavCard({ item, onDelete }: { item: FavItem; onDelete: () => void }) {
+function FavCard({ item, onDelete, onOpen, onDownload }: { item: FavItem; onDelete: () => void; onOpen: () => void; onDownload: () => void }) {
   const t = useT();
   const cfg = TYPE_MAP[item.type] || TYPE_MAP.text;
   const [deleting, setDeleting] = useState(false);
+  const canDownload = DOWNLOADABLE.has(item.type);
 
   let preview = '';
   try {
@@ -308,9 +342,9 @@ function FavCard({ item, onDelete }: { item: FavItem; onDelete: () => void }) {
   const sourceLabel = item.source === 'chat' ? t('fav.fromChat') : item.source === 'moment' ? t('fav.fromMoment') : '';
 
   return (
-    <div className="im-profile-menu-item" style={{
+    <div className="im-profile-menu-item" onClick={onOpen} style={{
       padding: '14px 16px', alignItems: 'flex-start', gap: 12,
-      display: 'flex',
+      display: 'flex', cursor: 'pointer',
     }}>
       {/* Type icon */}
       <div style={{
@@ -356,7 +390,17 @@ function FavCard({ item, onDelete }: { item: FavItem; onDelete: () => void }) {
       </div>
 
       {/* Delete button */}
-      <button onClick={handleDelete} disabled={deleting} style={{
+      {canDownload && (
+        <button onClick={(e) => { e.stopPropagation(); onDownload(); }} title={t('fav.download')} style={{
+          width: 28, height: 28, borderRadius: 6, border: 'none', background: 'transparent',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#A2ACB5', flexShrink: 0, transition: 'all 0.15s',
+        }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(27,180,91,0.1)'; e.currentTarget.style.color = '#1BB45B'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#A2ACB5'; }}
+        ><Download size={14} /></button>
+      )}
+      <button onClick={(e) => { e.stopPropagation(); handleDelete(); }} disabled={deleting} title={t('fav.delete')} style={{
         width: 28, height: 28, borderRadius: 6, border: 'none', background: 'transparent',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: '#A2ACB5', flexShrink: 0, transition: 'all 0.15s',
@@ -364,6 +408,52 @@ function FavCard({ item, onDelete }: { item: FavItem; onDelete: () => void }) {
         onMouseEnter={e => { e.currentTarget.style.background = '#FFF0F0'; e.currentTarget.style.color = '#E53935'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#A2ACB5'; }}
       ><Trash2 size={14} /></button>
+    </div>
+  );
+}
+
+/* ── Favorite Viewer (in-app preview overlay) ── */
+function FavViewer({ viewer, onClose }: { viewer: { kind: 'image' | 'video' | 'text'; url?: string; text?: string; title?: string }; onClose: () => void }) {
+  const t = useT();
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 1100,
+      background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+      animation: 'fade-in 0.15s ease-out',
+    }}>
+      <button onClick={onClose} style={{
+        position: 'absolute', top: 16, right: 16, width: 36, height: 36, borderRadius: '50%',
+        border: 'none', background: 'rgba(255,255,255,0.18)', color: '#fff', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1,
+      }}><X size={18} /></button>
+
+      {viewer.kind === 'image' && viewer.url && (
+        <img src={viewer.url} alt="" onClick={e => e.stopPropagation()}
+          style={{ maxWidth: '92vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 8 }} />
+      )}
+
+      {viewer.kind === 'video' && viewer.url && (
+        <video src={viewer.url} controls autoPlay onClick={e => e.stopPropagation()}
+          style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: 8, background: '#000' }} />
+      )}
+
+      {viewer.kind === 'text' && (
+        <div onClick={e => e.stopPropagation()} style={{
+          background: '#fff', borderRadius: 16, padding: '20px 22px',
+          width: 'min(520px, 92vw)', maxHeight: '72vh', overflow: 'auto',
+          boxShadow: '0 12px 48px rgba(0,0,0,0.3)',
+        }}>
+          {viewer.title && <div style={{ fontSize: 16, fontWeight: 600, color: '#1C2733', marginBottom: 10 }}>{viewer.title}</div>}
+          <div style={{ fontSize: 14, color: '#1C2733', lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{viewer.text}</div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+            <button onClick={() => { navigator.clipboard.writeText(viewer.text || ''); toast.success(t('fav.copied')); }} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8,
+              border: 'none', background: '#1BB45B', color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+            }}><Copy size={14} /> {t('fav.copy')}</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -382,6 +472,22 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
   const [filterType, setFilterType] = useState('');
   const [showFilter, setShowFilter] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [viewer, setViewer] = useState<{ kind: 'image' | 'video' | 'text'; url?: string; text?: string; title?: string } | null>(null);
+
+  const openFavorite = (item: FavItem) => {
+    const c = parseFav(item);
+    switch (item.type) {
+      case 'image': setViewer({ kind: 'image', url: c.url, title: item.title }); break;
+      case 'video': setViewer({ kind: 'video', url: c.url, title: item.title }); break;
+      case 'file': if (c.url) window.open(c.url, '_blank'); break;
+      case 'link': if (c.url) window.open(toAbsUrl(c.url), '_blank'); break;
+      case 'location':
+        if (c.lat != null && c.lng != null) window.open(`https://www.google.com/maps?q=${c.lat},${c.lng}`, '_blank');
+        else setViewer({ kind: 'text', text: c.text || c.title || item.title, title: item.title });
+        break;
+      default: setViewer({ kind: 'text', text: c.text || item.content, title: item.title });
+    }
+  };
 
   const fetchList = useCallback(async (p = 1, type = filterType, keyword = search) => {
     if (!user?.token) return;
@@ -536,7 +642,9 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
               {items.map((item, idx) => (
                 <React.Fragment key={item.id}>
                   {idx > 0 && <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', marginLeft: 64 }} />}
-                  <FavCard item={item} onDelete={() => handleDelete(item.id)} />
+                  <FavCard item={item} onDelete={() => handleDelete(item.id)}
+                    onOpen={() => openFavorite(item)}
+                    onDownload={() => { const c = parseFav(item); downloadFavFile(c.url, c.name || item.title); }} />
                 </React.Fragment>
               ))}
             </div>
@@ -562,6 +670,9 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
       {/* Add dialog */}
       <AddFavoriteDialog open={showAdd} onClose={() => setShowAdd(false)}
         onAdded={() => fetchList(1)} token={user.token} />
+
+      {/* In-app viewer */}
+      {viewer && <FavViewer viewer={viewer} onClose={() => setViewer(null)} />}
     </div>
   );
 }
