@@ -158,7 +158,7 @@ export default function NotificationCenter() {
                     {n.content ? (
                       <div style={{ fontSize: 12, color: '#646A73', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.content}</div>
                     ) : null}
-                    <div style={{ fontSize: 11, color: '#A2ACB5', marginTop: 3 }}>{fmtTime(n.createTime)}</div>
+                    <div style={{ fontSize: 11, color: '#A2ACB5', marginTop: 3 }}>{fmtTime(n.createTime, t)}</div>
                   </div>
                 </div>
               ))
@@ -188,15 +188,15 @@ function Avatar({ name, avatar }: { name: string; avatar: string }) {
 }
 
 /** unix 秒 -> 简单相对时间 */
-function fmtTime(sec: number): string {
+function fmtTime(sec: number, t: (k: string) => string): string {
   if (!sec) return '';
   const ms = sec * 1000;
   const diff = Date.now() - ms;
   const min = Math.floor(diff / 60000);
-  if (min < 1) return '刚刚';
-  if (min < 60) return `${min}分钟前`;
+  if (min < 1) return t('group.time.justNow');
+  if (min < 60) return t('group.time.minutesAgo').replace('{m}', String(min));
   const h = Math.floor(min / 60);
-  if (h < 24) return `${h}小时前`;
+  if (h < 24) return t('group.time.hoursAgo').replace('{h}', String(h));
   const d = new Date(ms);
   const pad = (x: number) => String(x).padStart(2, '0');
   return `${d.getMonth() + 1}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
