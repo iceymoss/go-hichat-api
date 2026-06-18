@@ -34,6 +34,9 @@ interface ChatSettingsMenuProps {
   onPinnedChange: (pinned: boolean) => void;
   onClearChat: () => void;
   onSearchHistory: () => void;
+  onViewProfile?: () => void;
+  onBlock?: () => void;
+  onReport?: () => void;
   children: ReactNode;
 }
 
@@ -48,9 +51,13 @@ export default function ChatSettingsMenu({
   onPinnedChange,
   onClearChat,
   onSearchHistory,
+  onViewProfile,
+  onBlock,
+  onReport,
   children,
 }: ChatSettingsMenuProps) {
   const t = useT();
+  const wip = () => toast(t('common.featureWip'));
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
@@ -68,7 +75,7 @@ export default function ChatSettingsMenu({
         }}
       >
         {/* Group 1 — 会话信息与搜索 */}
-        <MenuItem icon={<User />} label={t('csmenu.viewProfile')} onSelect={() => toast(t('common.featureWip'))} />
+        <MenuItem icon={<User />} label={t('csmenu.viewProfile')} onSelect={onViewProfile || wip} />
 
         <MenuItem
           icon={<Search />}
@@ -99,7 +106,7 @@ export default function ChatSettingsMenu({
           onCheckedChange={onPinnedChange}
         />
 
-        <MenuItem icon={<ImageIcon />} label={t('csmenu.setBg')} onSelect={() => toast(t('common.featureWip'))} />
+        <MenuItem icon={<ImageIcon />} label={t('csmenu.setBg')} onSelect={wip} />
 
         {/* Group 3 — 媒体与文件 */}
         <DropdownMenuSeparator
@@ -110,7 +117,7 @@ export default function ChatSettingsMenu({
           }}
         />
 
-        <MenuItem icon={<FolderOpen />} label={t('csmenu.sharedFiles')} onSelect={() => toast(t('common.featureWip'))} />
+        <MenuItem icon={<FolderOpen />} label={t('csmenu.sharedFiles')} onSelect={wip} />
 
         {/* Red divider before danger zone */}
         <DropdownMenuSeparator
@@ -128,8 +135,8 @@ export default function ChatSettingsMenu({
           danger
           onSelect={onClearChat}
         />
-        <MenuItem icon={<Ban />} label={t('csmenu.block')} danger onSelect={() => toast(t('common.featureWip'))} />
-        <MenuItem icon={<Flag />} label={t('csmenu.report')} danger onSelect={() => toast(t('common.featureWip'))} />
+        <MenuItem icon={<Ban />} label={t('csmenu.block')} danger onSelect={onBlock || wip} />
+        <MenuItem icon={<Flag />} label={t('csmenu.report')} danger onSelect={onReport || wip} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
