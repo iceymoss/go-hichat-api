@@ -247,6 +247,24 @@
   color: #A2ACB5 !important;
 }
 
+/* Subtle inset divider between conversations (aligned with the text, not the avatar) */
+.im-conversation-item {
+  position: relative;
+}
+.im-conversation-item::after {
+  content: '';
+  position: absolute;
+  left: 74px;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: rgba(0,0,0,0.06);
+  pointer-events: none;
+}
+.im-conversation-item:last-child::after {
+  display: none;
+}
+
 /* ── Contact list ── */
 .im-contact-item {
   display: flex;
