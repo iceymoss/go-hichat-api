@@ -32,6 +32,7 @@ import {
 import { useT } from '@/hooks/use-i18n';
 import { getTrendMessageUnread } from '@/lib/trend-api';
 import { getNotificationUnreadCount } from '@/lib/api-client';
+import Logo from '@/components/brand/Logo';
 
 const navItems: { tab: TabType; icon: React.ReactNode }[] = [
   { tab: 'chats', icon: <MessageCircle className="w-5 h-5" /> },
@@ -290,6 +291,10 @@ export default function IMLayout() {
     <div className="h-full flex overflow-hidden" style={{ background: '#F5F7FA' }}>
       {/* ── Icon Sidebar: TG dark ── */}
       <aside className="im-sidebar flex flex-col items-center py-3 gap-1 shrink-0" style={{ width: 56 }}>
+        {/* Brand mark */}
+        <div className="mb-2" title="HiChat">
+          <Logo variant="mark" height={26} />
+        </div>
         {/* User Avatar */}
         <div className="mb-3">
           <Avatar className="w-8 h-8 cursor-pointer" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>

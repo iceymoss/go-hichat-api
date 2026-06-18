@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/hichat-green-lockup.svg" alt="HiChat" width="320" />
+</p>
+
 # go-hichat-api
 
 [English](README.md) | [简体中文](docs/README.zh-CN.md)

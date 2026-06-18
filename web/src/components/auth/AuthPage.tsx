@@ -5,6 +5,7 @@ import { useIMStore } from '@/lib/im-store';
 import { useSettingsStore } from '@/lib/settings-store';
 import { useT } from '@/hooks/use-i18n';
 import { Eye, EyeOff, Loader2, CheckCircle2, ChevronDown, AlertCircle } from 'lucide-react';
+import Logo from '@/components/brand/Logo';
 
 const C = {
   error: '#E53935',
@@ -138,6 +139,7 @@ function LoginBox() {
   return (
     <>
       <Mac />
+      <Logo variant="lockup-dark" height={34} className="auth-brand" />
       <h1 className="auth-h">{t('auth.login')}</h1>
       <div className="auth-fields">
         <Pill placeholder={t('auth.accountPh')} value={account} onChange={v => { setAccount(v); setError(''); }} error={!!error && !account} />
@@ -199,6 +201,7 @@ function RegisterBox() {
   return (
     <>
       <Mac />
+      <Logo variant="lockup" height={34} className="auth-brand" />
       <h1 className="auth-h">{t('auth.register')}</h1>
       <div className="auth-fields">
         <Pill placeholder={t('auth.phone')} value={phone} onChange={v => { setPhone(v); setError(''); }} error={!!error && !phone} prefix={<span>+86</span>}
@@ -281,6 +284,7 @@ function ResetBox() {
   return (
     <>
       <Mac />
+      <Logo variant="lockup" height={34} className="auth-brand" />
       <h1 className="auth-h">{t('auth.resetPwd')}</h1>
       <div className="auth-fields">
         <Pill placeholder={t('auth.accountPh')} value={account} onChange={v => { setAccount(v); setError(''); }} error={!!error && !account}
@@ -309,6 +313,7 @@ const ORDER = ['login', 'register', 'forgot-password'] as const;
 
 export default function AuthPage() {
   const { authView } = useIMStore();
+  const t = useT();
   const [mounted, setMounted] = useState(false);
   const [cardH, setCardH] = useState<number | undefined>(undefined);
   const boxRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -354,6 +359,10 @@ export default function AuthPage() {
           );
         })}
       </div>
+      <footer className="auth-footer">
+        <Logo variant="mark" height={16} />
+        <span>{t('auth.copyright')}</span>
+      </footer>
     </div>
   );
 }

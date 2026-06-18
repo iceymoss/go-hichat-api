@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -17,10 +17,13 @@ export const metadata: Metadata = {
   title: "HiChat - 即时通讯",
   description: "安全、快速、现代化的即时通讯平台。HiChat — 连接世界，即刻启程。",
   keywords: ["IM", "Chat", "Messaging", "Next.js", "TypeScript"],
-  authors: [{ name: "Z.ai Team" }],
-  icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
-  },
+  authors: [{ name: "HiChat" }],
+  // Favicon / apple-touch / manifest are auto-injected from the app-router
+  // file conventions: app/icon.svg, app/apple-icon.png, app/manifest.ts.
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1BB45B",
 };
 
 export default function RootLayout({
