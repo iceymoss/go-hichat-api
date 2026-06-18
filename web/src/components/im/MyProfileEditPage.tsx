@@ -72,7 +72,7 @@ function Pill({ active, children, onClick }: { active: boolean; children: React.
   return (
     <button onClick={onClick} style={{
       padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer',
-      background: active ? '#3390EC' : '#F0F2F5',
+      background: active ? '#1BB45B' : '#F0F2F5',
       color: active ? '#fff' : '#646A73',
       transition: 'all 0.2s',
     }}>{children}</button>
@@ -229,7 +229,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(51,144,236,0.08)', color: '#3390EC', flexShrink: 0,
+          background: 'rgba(27,180,91,0.08)', color: '#1BB45B', flexShrink: 0,
         }}>{icon}</div>
         <span style={{ fontSize: 14, color: '#646A73', width: 56, flexShrink: 0 }}>{label}</span>
         <span style={{
@@ -254,10 +254,10 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
       }}>
         <button onClick={onBack} style={{
           background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-          color: '#3390EC', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
+          color: '#1BB45B', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
           transition: 'background 0.15s',
         }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(51,144,236,0.06)'; }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(27,180,91,0.06)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         ><ArrowLeft size={18} /> 返回</button>
         <span style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: 600, color: '#1C2733', marginRight: 72 }}>个人信息</span>
@@ -290,7 +290,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
                 </div>
                 <div style={{
                   position: 'absolute', bottom: -2, right: -2,
-                  width: 26, height: 26, borderRadius: '50%', background: '#3390EC',
+                  width: 26, height: 26, borderRadius: '50%', background: '#1BB45B',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   border: '2.5px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
                 }}>
@@ -312,14 +312,14 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
                     background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 2, display: 'flex',
                     transition: 'color 0.15s',
                   }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#3390EC'; }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#1BB45B'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#A2ACB5'; }}
                   ><Copy size={13} /></button>
                   <button onClick={() => setShowQR(true)} style={{
                     background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 2, display: 'flex',
                     transition: 'color 0.15s',
                   }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#3390EC'; }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#1BB45B'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#A2ACB5'; }}
                     title="我的二维码"
                   ><QrCode size={14} /></button>
@@ -355,7 +355,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
                 {parsedTags.map((t, i) => (
                   <span key={i} style={{
                     padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 500,
-                    background: 'rgba(51,144,236,0.08)', color: '#3390EC',
+                    background: 'rgba(120,140,160,0.12)', color: '#5b6b7a',
                   }}>{t}</span>
                 ))}
               </div>
@@ -437,7 +437,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
               fontSize: 14, color: '#1C2733', background: '#FAFBFC', outline: 'none', resize: 'none',
               fontFamily: 'inherit', lineHeight: 1.6, transition: 'border-color 0.2s',
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+            onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
           />
         ) : (
@@ -450,7 +450,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
               fontSize: 14, color: '#1C2733', background: '#FAFBFC', outline: 'none',
               transition: 'border-color 0.2s',
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+            onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
             onKeyDown={e => { if (e.key === 'Enter' && editField) saveField(editField, editValue); }}
           />
@@ -486,11 +486,11 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
             <span key={i} style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '5px 12px', borderRadius: 16, fontSize: 13, fontWeight: 500,
-              background: 'rgba(51,144,236,0.08)', color: '#3390EC',
+              background: 'rgba(27,180,91,0.08)', color: '#1BB45B',
             }}>
               {t}
               <button onClick={() => setEditTags(editTags.filter((_, j) => j !== i))} style={{
-                background: 'none', border: 'none', cursor: 'pointer', color: '#3390EC', padding: 0,
+                background: 'none', border: 'none', cursor: 'pointer', color: '#1BB45B', padding: 0,
                 display: 'flex', opacity: 0.6, transition: 'opacity 0.15s',
               }}
                 onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
@@ -514,7 +514,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
               fontSize: 14, color: '#1C2733', background: '#FAFBFC', outline: 'none',
               transition: 'border-color 0.2s',
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+            onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
           />
           <button onClick={() => {
@@ -523,7 +523,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
             }
           }} style={{
             height: 40, padding: '0 16px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-            background: tagInput.trim() ? '#3390EC' : '#F0F2F5',
+            background: tagInput.trim() ? '#1BB45B' : '#F0F2F5',
             color: tagInput.trim() ? '#fff' : '#A2ACB5',
             border: 'none', cursor: 'pointer', transition: 'all 0.2s',
           }}>添加</button>
@@ -555,7 +555,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
                 fontSize: 14, color: '#1C2733', background: '#FAFBFC', outline: 'none',
                 transition: 'border-color 0.2s',
               }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
             />
             <button className="hc-btn-primary" disabled={emailSending || !bindEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bindEmail)}
@@ -567,7 +567,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
         ) : (
           <>
             <div style={{ fontSize: 13, color: '#646A73', marginBottom: 12 }}>
-              验证码已发送至 <span style={{ color: '#3390EC', fontWeight: 500 }}>{bindEmail}</span>
+              验证码已发送至 <span style={{ color: '#1C2733', fontWeight: 500 }}>{bindEmail}</span>
             </div>
             <input
               autoFocus value={emailCode} onChange={e => setEmailCode(e.target.value.replace(/\D/g, ''))}
@@ -578,17 +578,17 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
                 letterSpacing: 4, textAlign: 'center', fontWeight: 600,
                 transition: 'border-color 0.2s',
               }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
               onKeyDown={e => { if (e.key === 'Enter' && emailCode.length === 6) handleBindEmail(); }}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
               <button onClick={() => setEmailStep('input')} style={{
-                background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#3390EC',
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#1BB45B',
               }}>更换邮箱</button>
               <button disabled={emailCountdown > 0} onClick={handleSendEmailCode} style={{
                 background: 'none', border: 'none', cursor: emailCountdown > 0 ? 'default' : 'pointer',
-                fontSize: 13, color: emailCountdown > 0 ? '#A2ACB5' : '#3390EC',
+                fontSize: 13, color: emailCountdown > 0 ? '#A2ACB5' : '#1BB45B',
               }}>{emailCountdown > 0 ? `${emailCountdown}s 后重发` : '重新发送'}</button>
             </div>
             <button className="hc-btn-primary" disabled={saving || emailCode.length !== 6}

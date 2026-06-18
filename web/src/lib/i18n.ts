@@ -135,6 +135,7 @@ const dict: Record<string, Record<string, string>> = {
     'notify.type.group.owner.transferred': '把群主转让给了你',
     // 登录/注册/找回密码
     'auth.slogan': '连接世界，即刻启程',
+    'auth.copyright': '© 2026 HiChat · 连接世界，即刻启程',
     'auth.feature.e2e': '端到端加密',
     'auth.feature.fast': '极速传输',
     'auth.feature.global': '全球连接',
@@ -566,6 +567,7 @@ const dict: Record<string, Record<string, string>> = {
     'notify.type.group.owner.transferred': 'transferred group ownership to you',
     // login/register/reset
     'auth.slogan': 'Connect the world, start now',
+    'auth.copyright': '© 2026 HiChat · Connect the world, start now',
     'auth.feature.e2e': 'End-to-end encryption',
     'auth.feature.fast': 'Blazing fast',
     'auth.feature.global': 'Global reach',

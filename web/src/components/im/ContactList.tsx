@@ -248,11 +248,11 @@ export default function ContactList() {
                   height: '44px',
                   borderRadius: '12px',
                   backgroundColor: group.title === '新的朋友'
-                    ? 'rgba(51,144,236,0.1)'
-                    : 'rgba(51,144,236,0.1)',
+                    ? 'rgba(27,180,91,0.1)'
+                    : 'rgba(27,180,91,0.1)',
                 }}
               >
-                <span style={{ color: '#3390EC' }}>{iconMap[group.icon]}</span>
+                <span style={{ color: '#1BB45B' }}>{iconMap[group.icon]}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <span className="text-sm" style={{ color: '#1C2733' }}>{group.title}</span>
@@ -309,8 +309,8 @@ export default function ContactList() {
                 padding: '6px 16px',
                 fontSize: '13px',
                 fontWeight: 600,
-                color: '#3390EC',
-                backgroundColor: 'rgba(51,144,236,0.06)',
+                color: '#1BB45B',
+                backgroundColor: 'rgba(27,180,91,0.06)',
               }}
             >
               {letter}

@@ -145,7 +145,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                   padding: '0 12px',
                   border: 'none',
                   borderRadius: 10,
-                  background: (selectAll || allSelected) ? 'rgba(51,144,236,0.06)' : 'transparent',
+                  background: (selectAll || allSelected) ? 'rgba(27,180,91,0.06)' : 'transparent',
                   cursor: 'pointer',
                   transition: 'background 0.2s',
                   marginBottom: 4,
@@ -155,7 +155,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                 <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
                   <div style={{
                     width: 36, height: 36, borderRadius: '50%',
-                    background: '#3390EC',
+                    background: '#1BB45B',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     <Users size={16} color="#FFFFFF" />
@@ -164,7 +164,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                     <div style={{
                       position: 'absolute', bottom: -2, right: -2,
                       width: 18, height: 18, borderRadius: '50%',
-                      background: '#3390EC', border: '2px solid #FFFFFF',
+                      background: '#1BB45B', border: '2px solid #FFFFFF',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       <Check size={10} color="#FFFFFF" strokeWidth={3} />
@@ -181,8 +181,8 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                 </div>
                 {(selectAll || allSelected) && (
                   <span style={{
-                    fontSize: 11, color: '#3390EC', fontWeight: 600,
-                    background: 'rgba(51,144,236,0.08)',
+                    fontSize: 11, color: '#1BB45B', fontWeight: 600,
+                    background: 'rgba(27,180,91,0.08)',
                     padding: '2px 8px', borderRadius: 10,
                   }}>
                     已选 {effectiveMembers.length}
@@ -206,7 +206,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                       padding: '0 12px',
                       border: 'none',
                       borderRadius: 10,
-                      background: isSelected ? 'rgba(51,144,236,0.04)' : 'transparent',
+                      background: isSelected ? 'rgba(27,180,91,0.04)' : 'transparent',
                       cursor: 'pointer',
                       transition: 'background 0.15s',
                     }}
@@ -226,7 +226,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                         <div style={{
                           position: 'absolute', bottom: -2, right: -2,
                           width: 18, height: 18, borderRadius: '50%',
-                          background: '#3390EC', border: '2px solid #FFFFFF',
+                          background: '#1BB45B', border: '2px solid #FFFFFF',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
                           <Check size={10} color="#FFFFFF" strokeWidth={3} />
@@ -287,7 +287,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                 height: 44,
                 borderRadius: 12,
                 border: 'none',
-                backgroundColor: isGroup && selectedCount === 0 ? '#C8D1DA' : '#3390EC',
+                backgroundColor: isGroup && selectedCount === 0 ? '#C8D1DA' : '#1BB45B',
                 color: '#FFFFFF',
                 fontSize: 14,
                 fontWeight: 600,
@@ -297,12 +297,12 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
               }}
               onMouseEnter={(e) => {
                 if (!(isGroup && selectedCount === 0)) {
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2B7FD4';
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#149A4C';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!(isGroup && selectedCount === 0)) {
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3390EC';
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1BB45B';
                 }
               }}
             >

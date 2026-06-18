@@ -75,7 +75,7 @@ export default function GroupProfileCard({ group, onClose, onEnterGroup }: Group
       disabled={disabled}
       style={{
         width: '100%', height: 40, borderRadius: 8, border: 'none',
-        background: disabled ? '#B9C4CE' : '#3390EC', color: '#FFFFFF',
+        background: disabled ? '#B9C4CE' : '#1BB45B', color: '#FFFFFF',
         fontSize: 14, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
       }}

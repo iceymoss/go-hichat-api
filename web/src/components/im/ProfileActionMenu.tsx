@@ -221,12 +221,12 @@ export default function ProfileActionMenu(props: ProfileActionMenuProps) {
                     padding: '0 16px',
                     border: 'none',
                     background: item.highlighted
-                      ? 'rgba(51,144,236,0.06)'
+                      ? 'rgba(27,180,91,0.06)'
                       : 'transparent',
                     color: item.danger
                       ? '#FF5252'
                       : item.highlighted
-                        ? '#3390EC'
+                        ? '#1BB45B'
                         : '#1C2733',
                     fontSize: 14,
                     fontWeight: item.highlighted ? 600 : 400,
@@ -239,13 +239,13 @@ export default function ProfileActionMenu(props: ProfileActionMenuProps) {
                     el.style.background = item.danger
                       ? '#FFF0F0'
                       : item.highlighted
-                        ? 'rgba(51,144,236,0.1)'
+                        ? 'rgba(27,180,91,0.1)'
                         : '#F5F7FA';
                   }}
                   onMouseLeave={(e) => {
                     const el = e.currentTarget as HTMLButtonElement;
                     el.style.background = item.highlighted
-                      ? 'rgba(51,144,236,0.06)'
+                      ? 'rgba(27,180,91,0.06)'
                       : 'transparent';
                   }}
                 >

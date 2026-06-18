@@ -74,7 +74,7 @@ export default function ReadStatusDialog({
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 8, padding: '12px 18px 0' }}>
           <TabBtn active={tab === 'read'} onClick={() => setTab('read')} icon={<CheckCheck size={14} />}
-            label={`已读 ${reads.length}`} activeColor="#3390EC" />
+            label={`已读 ${reads.length}`} activeColor="#1BB45B" />
           <TabBtn active={tab === 'unread'} onClick={() => setTab('unread')} icon={<Clock size={14} />}
             label={`未读 ${unreads.length}`} activeColor="#A2ACB5" />
         </div>

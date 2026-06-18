@@ -43,8 +43,8 @@ export default function ConfirmDialog({
     onClose();
   };
 
-  const confirmBg = confirmVariant === 'danger' ? '#E53935' : '#3390EC';
-  const confirmHoverBg = confirmVariant === 'danger' ? '#C62828' : '#2A7BD6';
+  const confirmBg = confirmVariant === 'danger' ? '#E53935' : '#1BB45B';
+  const confirmHoverBg = confirmVariant === 'danger' ? '#C62828' : '#149A4C';
 
   return (
     <div

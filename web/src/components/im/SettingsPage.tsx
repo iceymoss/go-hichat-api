@@ -24,10 +24,10 @@ function PageHeader({ title, onBack }: { title: string; onBack: () => void }) {
     }}>
       <button onClick={onBack} style={{
         background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-        color: '#3390EC', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
+        color: '#1BB45B', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
         transition: 'background 0.15s',
       }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(51,144,236,0.06)'; }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(27,180,91,0.06)'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
       ><ArrowLeft size={18} /></button>
       <span style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: 600, color: '#1C2733', marginRight: 52 }}>{title}</span>
@@ -43,8 +43,8 @@ function MenuItem({ icon, label, value, onClick, danger }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: danger ? 'rgba(229,57,53,0.08)' : 'rgba(51,144,236,0.08)',
-          color: danger ? '#E53935' : '#3390EC', flexShrink: 0,
+          background: danger ? 'rgba(229,57,53,0.08)' : 'rgba(27,180,91,0.08)',
+          color: danger ? '#E53935' : '#1BB45B', flexShrink: 0,
         }}>{icon}</div>
         <span style={{ fontSize: 14, color: danger ? '#E53935' : '#1C2733' }}>{label}</span>
       </div>
@@ -63,7 +63,7 @@ function ToggleRow({ icon, label, desc, checked, onChange }: {
     <div style={{ padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
       <div style={{
         width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(51,144,236,0.08)', color: '#3390EC', flexShrink: 0,
+        background: 'rgba(27,180,91,0.08)', color: '#1BB45B', flexShrink: 0,
       }}>{icon}</div>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 14, color: '#1C2733' }}>{label}</div>
@@ -71,7 +71,7 @@ function ToggleRow({ icon, label, desc, checked, onChange }: {
       </div>
       <button onClick={() => onChange(!checked)} style={{
         width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
-        background: checked ? '#3390EC' : '#D0D5DD', position: 'relative',
+        background: checked ? '#1BB45B' : '#D0D5DD', position: 'relative',
         transition: 'background 0.2s',
       }}>
         <div style={{
@@ -94,12 +94,12 @@ function RadioRow({ label, icon, selected, onClick }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: selected ? 'rgba(51,144,236,0.12)' : 'rgba(0,0,0,0.03)',
-          color: selected ? '#3390EC' : '#A2ACB5', flexShrink: 0,
+          background: selected ? 'rgba(27,180,91,0.12)' : 'rgba(0,0,0,0.03)',
+          color: selected ? '#1BB45B' : '#A2ACB5', flexShrink: 0,
         }}>{icon}</div>
         <span style={{ fontSize: 14, color: '#1C2733' }}>{label}</span>
       </div>
-      {selected && <CheckCircle2 size={18} style={{ color: '#3390EC' }} />}
+      {selected && <CheckCircle2 size={18} style={{ color: '#1BB45B' }} />}
     </div>
   );
 }
@@ -340,13 +340,13 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
           <div style={{ position: 'relative' }}>
             <input type={showPwd ? 'text' : 'password'} value={newPwd} onChange={e => { setNewPwd(e.target.value); setError(''); }}
               placeholder="输入新密码（8位以上）" style={inputStyle}
-              onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
             />
           </div>
           <input type={showPwd ? 'text' : 'password'} value={newPwd2} onChange={e => { setNewPwd2(e.target.value); setError(''); }}
             placeholder="确认新密码" style={inputStyle}
-            onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+            onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -376,7 +376,7 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
             )}
             <input autoFocus value={email} onChange={e => setEmail(e.target.value)}
               placeholder="请输入邮箱地址" type="email" style={inputStyle}
-              onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
             />
             <button className="hc-btn-primary" disabled={emailSending || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)}
@@ -387,20 +387,20 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
         ) : (
           <>
             <div style={{ fontSize: 13, color: '#646A73', marginBottom: 12 }}>
-              验证码已发送至 <span style={{ color: '#3390EC', fontWeight: 500 }}>{email}</span>
+              验证码已发送至 <span style={{ color: '#1C2733', fontWeight: 500 }}>{email}</span>
             </div>
             <input autoFocus value={emailCode} onChange={e => setEmailCode(e.target.value.replace(/\D/g, ''))}
               placeholder="请输入6位验证码" maxLength={6}
               style={{ ...inputStyle, letterSpacing: 4, textAlign: 'center', fontWeight: 600 }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
               onKeyDown={e => { if (e.key === 'Enter' && emailCode.length === 6) handleBindEmail(); }}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-              <button onClick={() => setEmailStep('input')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#3390EC' }}>更换邮箱</button>
+              <button onClick={() => setEmailStep('input')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#1BB45B' }}>更换邮箱</button>
               <button disabled={countdown > 0} onClick={handleSendEmailCode} style={{
                 background: 'none', border: 'none', cursor: countdown > 0 ? 'default' : 'pointer',
-                fontSize: 13, color: countdown > 0 ? '#A2ACB5' : '#3390EC',
+                fontSize: 13, color: countdown > 0 ? '#A2ACB5' : '#1BB45B',
               }}>{countdown > 0 ? `${countdown}s` : '重新发送'}</button>
             </div>
             <button className="hc-btn-primary" disabled={saving || emailCode.length !== 6}
@@ -422,11 +422,11 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
             const active = i === current;
             return (
               <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {i > 0 && <div style={{ width: 20, height: 1, background: done || active ? '#3390EC' : '#E0E3E8' }} />}
+                {i > 0 && <div style={{ width: 20, height: 1, background: done || active ? '#1BB45B' : '#E0E3E8' }} />}
                 <div style={{
                   width: 22, height: 22, borderRadius: '50%', fontSize: 11, fontWeight: 600,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: done ? '#3390EC' : active ? '#3390EC' : '#F0F2F5',
+                  background: done ? '#1BB45B' : active ? '#1BB45B' : '#F0F2F5',
                   color: done || active ? '#fff' : '#A2ACB5',
                 }}>{done ? '✓' : i + 1}</div>
                 <span style={{ fontSize: 12, color: active ? '#1C2733' : '#A2ACB5', fontWeight: active ? 600 : 400 }}>{label}</span>
@@ -443,7 +443,7 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
             </div>
             <input type="password" value={deletePwd} onChange={e => { setDeletePwd(e.target.value); setDeleteError(''); }}
               placeholder="请输入密码" autoFocus style={inputStyle}
-              onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
               onKeyDown={e => { if (e.key === 'Enter') handleDeleteVerifyPassword(); }}
             />
@@ -466,12 +466,12 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
         {deleteStep === 'sms' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 13, color: '#646A73', lineHeight: 1.5 }}>
-              验证码已发送至 <span style={{ color: '#3390EC', fontWeight: 500 }}>{user.phone}</span>
+              验证码已发送至 <span style={{ color: '#1C2733', fontWeight: 500 }}>{user.phone}</span>
             </div>
             <input value={deleteSmsCode} onChange={e => { setDeleteSmsCode(e.target.value.replace(/\D/g, '')); setDeleteError(''); }}
               placeholder="请输入6位验证码" maxLength={6} autoFocus
               style={{ ...inputStyle, letterSpacing: 4, textAlign: 'center', fontWeight: 600 }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
               onKeyDown={e => { if (e.key === 'Enter' && deleteSmsCode.length === 6) handleDeleteVerifySms(); }}
             />
@@ -485,7 +485,7 @@ function AccountSecurityPage({ onBack }: { onBack: () => void }) {
                 if (d.success) { setDeleteCountdown(60); toast.success('已重新发送'); }
               }} style={{
                 background: 'none', border: 'none', fontSize: 13, cursor: deleteCountdown > 0 ? 'default' : 'pointer',
-                color: deleteCountdown > 0 ? '#A2ACB5' : '#3390EC',
+                color: deleteCountdown > 0 ? '#A2ACB5' : '#1BB45B',
               }}>{deleteCountdown > 0 ? `${deleteCountdown}s 后重发` : '重新发送'}</button>
             </div>
             {deleteError && <div style={{ fontSize: 13, color: '#E53935', display: 'flex', alignItems: 'center', gap: 4 }}><AlertCircle size={14} />{deleteError}</div>}

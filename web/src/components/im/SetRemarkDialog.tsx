@@ -201,7 +201,7 @@ export default function SetRemarkDialog({
                     borderRadius: 20,
                     border: 'none',
                     background: isSelected
-                      ? '#3390EC'
+                      ? '#1BB45B'
                       : '#F5F7FA',
                     color: isSelected
                       ? '#FFFFFF'
@@ -265,7 +265,7 @@ export default function SetRemarkDialog({
               padding: '8px 20px',
               borderRadius: 8,
               border: 'none',
-              background: '#3390EC',
+              background: '#1BB45B',
               color: '#FFFFFF',
               fontSize: 14,
               fontWeight: 600,
@@ -273,10 +273,10 @@ export default function SetRemarkDialog({
               transition: 'background 0.15s',
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
+              (e.currentTarget as HTMLButtonElement).style.background = '#149A4C';
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#3390EC';
+              (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
             }}
           >
             保存

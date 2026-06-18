@@ -124,7 +124,7 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
         download={meta.name}
         style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'inherit', minWidth: 180 }}
       >
-        <FileText size={32} style={{ flexShrink: 0, color: '#3390EC' }} />
+        <FileText size={32} style={{ flexShrink: 0, color: '#1BB45B' }} />
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14 }}>
             {meta.name || t('chat.fileFallback')}
@@ -148,7 +148,7 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
 /** 文本中的 @所有人 / @某人 高亮渲染。发送方气泡是蓝底，@ 用浅金色才看得清；接收方白底用蓝色。 */
 function renderTextWithMentions(text: string, isOwn?: boolean) {
   if (!text || text.indexOf('@') < 0) return text;
-  const color = isOwn ? '#FFD666' : '#3390EC';
+  const color = isOwn ? '#FFD666' : '#1BB45B';
   const parts = text.split(/(@所有人|@\S+)/g);
   return parts.map((part, i) =>
     part.startsWith('@')
@@ -166,7 +166,7 @@ function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['r
       onClick={onJump ? (e) => { e.stopPropagation(); onJump(); } : undefined}
       style={{
         display: 'flex', gap: 8, alignItems: 'center', padding: '4px 8px', marginBottom: 4,
-        borderLeft: '3px solid #3390EC', background: 'rgba(51,144,236,0.06)', borderRadius: '0 6px 6px 0',
+        borderLeft: '3px solid #1BB45B', background: 'rgba(27,180,91,0.06)', borderRadius: '0 6px 6px 0',
         fontSize: 12, lineHeight: 1.4, cursor: onJump ? 'pointer' : 'default', maxWidth: 240,
       }}
     >
@@ -179,7 +179,7 @@ function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['r
         </span>
       )}
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', fontWeight: 600, color: '#3390EC' }}>{reply.senderName}</span>
+        <span style={{ display: 'block', fontWeight: 600, color: '#576b95' }}>{reply.senderName}</span>
         <span style={{ display: 'block', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: recalled ? 'italic' : 'normal' }}>
           {recalled ? t('chat.recalledShort') : reply.content}
         </span>
@@ -1000,7 +1000,7 @@ export default function ChatDetail() {
             style={{
               width: 36, height: 36, borderRadius: 10,
               border: 'none', background: 'transparent',
-              color: '#3390EC', cursor: 'pointer',
+              color: '#1BB45B', cursor: 'pointer',
             }}
           >
             <ArrowLeft style={{ width: 20, height: 20 }} />
@@ -1043,7 +1043,7 @@ export default function ChatDetail() {
             onClick={() => handleOpenCall('voice')}
             className="hc-header-btn"
             style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#3390EC'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,144,236,0.08)'; }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#1BB45B'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(27,180,91,0.08)'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#708499'; (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
           >
             <Phone style={{ width: 20, height: 20 }} />
@@ -1052,7 +1052,7 @@ export default function ChatDetail() {
             onClick={() => handleOpenCall('video')}
             className="hc-header-btn"
             style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#3390EC'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,144,236,0.08)'; }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#1BB45B'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(27,180,91,0.08)'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#708499'; (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
           >
             <Video style={{ width: 20, height: 20 }} />
@@ -1067,7 +1067,7 @@ export default function ChatDetail() {
             <button
               className="hc-header-btn"
               style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#3390EC'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,144,236,0.08)'; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#1BB45B'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(27,180,91,0.08)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#708499'; (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
             >
               <MoreVertical style={{ width: 20, height: 20 }} />
@@ -1092,7 +1092,7 @@ export default function ChatDetail() {
           />
           <button
             onClick={() => { setSearchBarOpen(false); setSearchKeyword(''); }}
-            style={{ fontSize: 13, color: '#3390EC', fontWeight: 500, background: 'transparent', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', padding: '4px 8px' }}
+            style={{ fontSize: 13, color: '#1BB45B', fontWeight: 500, background: 'transparent', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', padding: '4px 8px' }}
           >
             {t('common.cancel')}
           </button>
@@ -1161,7 +1161,7 @@ export default function ChatDetail() {
         {anchored && (
           <button
             onClick={() => { if (currentUser?.token && selectedConversationId) backToLatest(currentUser.token, selectedConversationId); }}
-            style={{ position: 'absolute', right: 16, bottom: 16, padding: '8px 14px', borderRadius: 18, border: 'none', background: '#3390EC', color: '#fff', fontSize: 13, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', gap: 4, zIndex: 5 }}
+            style={{ position: 'absolute', right: 16, bottom: 16, padding: '8px 14px', borderRadius: 18, border: 'none', background: '#1BB45B', color: '#fff', fontSize: 13, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', gap: 4, zIndex: 5 }}
           >
             {t('chat.backToLatest')} ↓
           </button>
@@ -1193,7 +1193,7 @@ export default function ChatDetail() {
             display: 'flex', alignItems: 'center', gap: 8, padding: '8px 5%',
             background: '#FFFFFF', borderTop: '1px solid rgba(0,0,0,0.06)',
           }}>
-            <div style={{ width: 3, height: 32, borderRadius: 2, background: '#3390EC', flexShrink: 0 }} />
+            <div style={{ width: 3, height: 32, borderRadius: 2, background: '#1BB45B', flexShrink: 0 }} />
             {(() => {
               const meta = parseMediaContent(replyTo.message.content);
               const thumb = meta
@@ -1204,7 +1204,7 @@ export default function ChatDetail() {
               return thumb ? <img src={thumb} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} /> : null;
             })()}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#3390EC' }}>{replyTo.senderName}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#576b95' }}>{replyTo.senderName}</div>
               <div style={{ fontSize: 13, color: '#708499', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {mediaPreview(replyTo.message.type, replyTo.message.content)}
               </div>
@@ -1245,7 +1245,7 @@ export default function ChatDetail() {
                 onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.background = '#F0F2F5')}
                 onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.background = 'transparent')}
               >
-                <span style={{ width: 32, height: 32, borderRadius: '50%', background: '#3390EC', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>@</span>
+                <span style={{ width: 32, height: 32, borderRadius: '50%', background: '#1BB45B', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>@</span>
                 <span style={{ fontSize: 14, color: '#1C2733', fontWeight: 500 }}>{t('chat.everyone')}</span>
               </div>
             )}
@@ -1331,7 +1331,7 @@ export default function ChatDetail() {
             <button
               onClick={handleSend}
               className="flex items-center justify-center shrink-0"
-              style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: '#3390EC', color: '#FFFFFF', cursor: 'pointer' }}
+              style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: '#1BB45B', color: '#FFFFFF', cursor: 'pointer' }}
             >
               <Send style={{ width: 20, height: 20, marginLeft: 1 }} />
             </button>
@@ -1680,7 +1680,7 @@ function MessageList({
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* Group sender name (only for first message in group) */}
               {conversation.type === 'group' && !isSent && (
-                <div style={{ fontSize: 12, color: '#3390EC', fontWeight: 600, marginBottom: 2, textAlign: 'left' }}>
+                <div style={{ fontSize: 12, color: '#576b95', fontWeight: 600, marginBottom: 2, textAlign: 'left' }}>
                   {groupMemberNames[msgs[0].senderId] || msgs[0].senderId}
                 </div>
               )}
@@ -1759,7 +1759,7 @@ function MessageList({
                   && (isGroup ? (lastMsg.readCount || 0) > 0 : !!lastMsg.isRead);
 
                 // 未读用中性灰，已读用品牌蓝，两者肉眼可辨
-                const checkColor = showRead ? '#3390EC' : '#C8CCD0';
+                const checkColor = showRead ? '#1BB45B' : '#C8CCD0';
                 let footerText = formatBubbleTime(lastMsg.timestamp, t);
                 if (lastMsg.status === 'failed') {
                   footerText = t('chat.sendFail');
@@ -1784,7 +1784,7 @@ function MessageList({
                   onClick: () => onShowReadDetail(lastMsg.id),
                   style: {
                     fontSize: 11,
-                    color: lastMsg.status === 'failed' ? '#e74c3c' : (showRead ? '#3390EC' : '#A2ACB5'),
+                    color: lastMsg.status === 'failed' ? '#e74c3c' : (showRead ? '#1BB45B' : '#A2ACB5'),
                     lineHeight: 1,
                     cursor: 'pointer',
                     textDecoration: 'underline dotted',
@@ -1793,7 +1793,7 @@ function MessageList({
                 } : {
                   style: {
                     fontSize: 11,
-                    color: lastMsg.status === 'failed' ? '#e74c3c' : (showRead ? '#3390EC' : '#A2ACB5'),
+                    color: lastMsg.status === 'failed' ? '#e74c3c' : (showRead ? '#1BB45B' : '#A2ACB5'),
                     lineHeight: 1,
                   } as React.CSSProperties,
                 };

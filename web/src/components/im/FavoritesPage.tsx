@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 
 /* ── Type config ── */
 const TYPE_MAP: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  text:     { label: '文本', icon: <FileText size={16} />, color: '#3390EC' },
+  text:     { label: '文本', icon: <FileText size={16} />, color: '#1BB45B' },
   image:    { label: '图片', icon: <ImageIcon size={16} />, color: '#FF9500' },
   link:     { label: '链接', icon: <Link2 size={16} />, color: '#5856D6' },
   file:     { label: '文件', icon: <File size={16} />, color: '#34C759' },
@@ -193,7 +193,7 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
               border: '1.5px solid #E0E3E8', fontSize: 14, color: '#1C2733',
               background: '#FAFBFC', outline: 'none', marginBottom: 12,
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+            onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
           />
 
@@ -228,11 +228,11 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
                     background: '#FAFBFC', textAlign: 'center', cursor: 'pointer',
                     transition: 'all 0.2s',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#3390EC'; e.currentTarget.style.background = 'rgba(51,144,236,0.02)'; }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#1BB45B'; e.currentTarget.style.background = 'rgba(27,180,91,0.02)'; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = '#D0D5DD'; e.currentTarget.style.background = '#FAFBFC'; }}
                 >
                   {uploading ? (
-                    <Loader2 size={28} className="animate-spin" style={{ color: '#3390EC', margin: '0 auto 8px' }} />
+                    <Loader2 size={28} className="animate-spin" style={{ color: '#1BB45B', margin: '0 auto 8px' }} />
                   ) : (
                     <div style={{ color: '#A2ACB5', marginBottom: 8 }}>
                       {type === 'image' ? <ImageIcon size={28} style={{ margin: '0 auto' }} /> : type === 'video' ? <Video size={28} style={{ margin: '0 auto' }} /> : <File size={28} style={{ margin: '0 auto' }} />}
@@ -259,7 +259,7 @@ function AddFavoriteDialog({ open, onClose, onAdded, token }: {
                 background: '#FAFBFC', outline: 'none', resize: 'none',
                 fontFamily: 'inherit', lineHeight: 1.6,
               }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
             />
           )}
@@ -436,27 +436,27 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
       }}>
         <button onClick={onBack} style={{
           background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-          color: '#3390EC', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
+          color: '#1BB45B', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
           transition: 'background 0.15s',
         }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(51,144,236,0.06)'; }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(27,180,91,0.06)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         ><ArrowLeft size={18} /></button>
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Star size={18} style={{ color: '#3390EC' }} />
+          <Star size={18} style={{ color: '#1BB45B' }} />
           <span style={{ fontSize: 17, fontWeight: 600, color: '#1C2733' }}>我的收藏</span>
           <span style={{ fontSize: 12, color: '#A2ACB5', marginLeft: 4 }}>{total}</span>
         </div>
 
         <button onClick={() => setShowAdd(true)} style={{
           width: 32, height: 32, borderRadius: 8, border: 'none',
-          background: '#3390EC', color: '#fff', cursor: 'pointer',
+          background: '#1BB45B', color: '#fff', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'background 0.15s',
         }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#2A7BD6'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = '#3390EC'; }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#149A4C'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#1BB45B'; }}
         ><Plus size={16} /></button>
       </div>
 
@@ -475,7 +475,7 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
         <div style={{ position: 'relative' }}>
           <button onClick={() => setShowFilter(!showFilter)} style={{
             height: 36, padding: '0 12px', borderRadius: 22, border: 'none',
-            background: filterType ? '#3390EC' : '#F0F2F5',
+            background: filterType ? '#1BB45B' : '#F0F2F5',
             color: filterType ? '#fff' : '#646A73',
             fontSize: 12, fontWeight: 500, cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 4,
@@ -495,8 +495,8 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
               <button onClick={() => { setFilterType(''); setShowFilter(false); }}
                 style={{
                   width: '100%', padding: '8px 12px', borderRadius: 8, border: 'none',
-                  background: !filterType ? 'rgba(51,144,236,0.08)' : 'transparent',
-                  color: !filterType ? '#3390EC' : '#1C2733',
+                  background: !filterType ? 'rgba(27,180,91,0.08)' : 'transparent',
+                  color: !filterType ? '#1BB45B' : '#1C2733',
                   fontSize: 13, textAlign: 'left', cursor: 'pointer',
                 }}>全部</button>
               {Object.entries(TYPE_MAP).map(([k, v]) => (
@@ -518,7 +518,7 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
       <div style={{ flex: 1, overflowY: 'auto' }} className="im-scroll">
         {loading && items.length === 0 ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-            <Loader2 size={24} className="animate-spin" style={{ color: '#3390EC' }} />
+            <Loader2 size={24} className="animate-spin" style={{ color: '#1BB45B' }} />
           </div>
         ) : items.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -543,7 +543,7 @@ export default function FavoritesPage({ onBack }: { onBack: () => void }) {
                 <button onClick={() => fetchList(page + 1)} disabled={loading}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 13, color: '#3390EC', fontWeight: 500,
+                    fontSize: 13, color: '#1BB45B', fontWeight: 500,
                   }}>
                   {loading ? <Loader2 size={14} className="animate-spin" /> : '加载更多'}
                 </button>

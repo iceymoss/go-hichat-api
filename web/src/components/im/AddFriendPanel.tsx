@@ -181,8 +181,8 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
       style={{
         flex: 1, height: 36, border: 'none', background: 'transparent', cursor: 'pointer',
         fontSize: 14, fontWeight: tab === t ? 600 : 400,
-        color: tab === t ? '#3390EC' : '#646A73',
-        borderBottom: tab === t ? '2px solid #3390EC' : '2px solid transparent',
+        color: tab === t ? '#1BB45B' : '#646A73',
+        borderBottom: tab === t ? '2px solid #1BB45B' : '2px solid transparent',
       }}
     >
       {label}
@@ -228,7 +228,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
               autoFocus
               style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 14, color: '#1C2733' }}
             />
-            {loading && <Loader2 className="w-4 h-4" style={{ color: '#3390EC', animation: 'spin 1s linear infinite' }} />}
+            {loading && <Loader2 className="w-4 h-4" style={{ color: '#1BB45B', animation: 'spin 1s linear infinite' }} />}
           </div>
         </div>
 
@@ -328,7 +328,7 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
                   if (ok) { setFriendReqUser(null); setSelectedUser(null); }
                 }}
                 disabled={friendSending}
-                style={{ flex: 1, height: 38, borderRadius: 8, border: 'none', background: friendSending ? '#B9C4CE' : '#3390EC', color: '#FFF', fontSize: 14, fontWeight: 600, cursor: friendSending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                style={{ flex: 1, height: 38, borderRadius: 8, border: 'none', background: friendSending ? '#B9C4CE' : '#1BB45B', color: '#FFF', fontSize: 14, fontWeight: 600, cursor: friendSending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
               >
                 {friendSending ? <Loader2 className="w-4 h-4" style={{ animation: 'spin 1s linear infinite' }} /> : <UserPlus size={15} />}
                 发送申请
@@ -395,7 +395,7 @@ function ListFooter({ loading, hasMore, error, onRetry, sentinelRef, count, tota
   return (
     <div ref={sentinelRef} className="flex items-center justify-center" style={{ padding: '12px 0', fontSize: 12, color: '#A2ACB5' }}>
       {error ? (
-        <button onClick={onRetry} style={{ color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer' }}>加载失败，点击重试</button>
+        <button onClick={onRetry} style={{ color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer' }}>加载失败，点击重试</button>
       ) : loading ? (
         <Loader2 className="w-4 h-4" style={{ animation: 'spin 1s linear infinite' }} />
       ) : hasMore ? (
@@ -421,7 +421,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
     <div className="flex flex-col items-center" style={{ padding: '40px 0' }}>
       <Clock className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: 8 }} />
       <div style={{ fontSize: 13, color: '#A2ACB5', marginBottom: 8 }}>加载失败</div>
-      <button onClick={onRetry} style={{ color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>重试</button>
+      <button onClick={onRetry} style={{ color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>重试</button>
     </div>
   );
 }
