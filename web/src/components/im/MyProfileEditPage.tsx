@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useIMStore } from '@/lib/im-store';
 import { useT } from '@/hooks/use-i18n';
-import { getAvatarColor } from '@/lib/utils';
+import { getAvatarColor, tagColor } from '@/lib/utils';
 import {
   ArrowLeft, Camera, Loader2, Copy, ChevronRight, MapPin,
   Briefcase, Mail, Phone, Tag, User, Pen, X, Check,
@@ -233,9 +233,9 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
           width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'rgba(27,180,91,0.08)', color: '#1BB45B', flexShrink: 0,
         }}>{icon}</div>
-        <span style={{ fontSize: 14, color: '#646A73', width: 56, flexShrink: 0 }}>{label}</span>
+        <span style={{ fontSize: 14, color: '#646A73', minWidth: 56, flexShrink: 0, whiteSpace: 'nowrap', marginRight: 8 }}>{label}</span>
         <span style={{
-          flex: 1, fontSize: 14, fontWeight: 500,
+          flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500,
           color: value ? '#1C2733' : '#A2ACB5',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{value || placeholder || t('pe.notSet')}</span>
@@ -488,11 +488,11 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
             <span key={i} style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '5px 12px', borderRadius: 16, fontSize: 13, fontWeight: 500,
-              background: 'rgba(27,180,91,0.08)', color: '#1BB45B',
+              background: tagColor(t).b, color: tagColor(t).c,
             }}>
               {t}
               <button onClick={() => setEditTags(editTags.filter((_, j) => j !== i))} style={{
-                background: 'none', border: 'none', cursor: 'pointer', color: '#1BB45B', padding: 0,
+                background: 'none', border: 'none', cursor: 'pointer', color: tagColor(t).c, padding: 0,
                 display: 'flex', opacity: 0.6, transition: 'opacity 0.15s',
               }}
                 onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}

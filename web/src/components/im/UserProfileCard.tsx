@@ -725,7 +725,7 @@ export default function UserProfileCard({
               onClick={() => openUserTrends(contact.id, displayName)}
               style={{
                 fontSize: 13,
-                color: '#1BB45B',
+                color: '#646A73',
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
