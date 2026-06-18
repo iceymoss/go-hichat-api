@@ -819,6 +819,26 @@ const dict: Record<string, Record<string, string>> = {
     'friend.deleteFailRetry': '删除失败，请重试',
     'friend.recordDeleted': '已删除记录',
     'friend.opFailLater': '操作失败，请稍后重试',
+
+    // Chat settings menu / message context menu / emoji panel (会话)
+    'csmenu.viewProfile': '查看资料',
+    'csmenu.searchHistory': '查找聊天记录',
+    'csmenu.mute': '消息免打扰',
+    'csmenu.pin': '置顶会话',
+    'csmenu.setBg': '设置当前聊天背景',
+    'csmenu.sharedFiles': '共享文件/媒体',
+    'csmenu.clearHistory': '清空聊天记录',
+    'csmenu.block': '拉黑该用户',
+    'csmenu.report': '举报...',
+    'msgmenu.copy': '复制',
+    'msgmenu.forward': '转发',
+    'msgmenu.reply': '引用',
+    'msgmenu.sticker': '添加到表情',
+    'msgmenu.recall': '撤回',
+    'msgmenu.delete': '删除',
+    'emojiPanel.title': '表情',
+    'emojiPanel.empty': '暂无收藏表情，去「我的表情」添加',
+    'emojiPanel.loading': '加载中…',
   },
 
   en: {
@@ -1629,6 +1649,26 @@ const dict: Record<string, Record<string, string>> = {
     'friend.deleteFailRetry': 'Delete failed, please retry',
     'friend.recordDeleted': 'Record deleted',
     'friend.opFailLater': 'Operation failed, please try again later',
+
+    // Chat settings menu / message context menu / emoji panel
+    'csmenu.viewProfile': 'View Profile',
+    'csmenu.searchHistory': 'Search History',
+    'csmenu.mute': 'Mute',
+    'csmenu.pin': 'Pin Chat',
+    'csmenu.setBg': 'Set Chat Background',
+    'csmenu.sharedFiles': 'Shared Files / Media',
+    'csmenu.clearHistory': 'Clear History',
+    'csmenu.block': 'Block User',
+    'csmenu.report': 'Report...',
+    'msgmenu.copy': 'Copy',
+    'msgmenu.forward': 'Forward',
+    'msgmenu.reply': 'Quote',
+    'msgmenu.sticker': 'Add to Stickers',
+    'msgmenu.recall': 'Recall',
+    'msgmenu.delete': 'Delete',
+    'emojiPanel.title': 'Stickers',
+    'emojiPanel.empty': 'No stickers yet — add some in "Stickers"',
+    'emojiPanel.loading': 'Loading…',
   },
 };
 

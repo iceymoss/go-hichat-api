@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Forward, Reply, RotateCcw, Trash2, Star } from 'lucide-react';
 import type { Message } from '@/lib/mock-data';
+import { useT } from '@/hooks/use-i18n';
 
 interface MessageContextMenuProps {
   message: Message;
@@ -41,6 +42,7 @@ export default function MessageContextMenu({
   onSaveSticker,
 }: MessageContextMenuProps) {
   const [visible, setVisible] = useState(false);
+  const t = useT();
 
   const canSaveSticker = (message.type === 'image' || message.type === 'memes') && !!onSaveSticker;
   // 撤回入口：优先用显式 canRecall（含管理员撤回他人消息），未传时回退到本人消息
@@ -48,17 +50,17 @@ export default function MessageContextMenu({
 
   // Build menu items based on ownership
   const items = useMemo(() => [
-    { key: 'copy', icon: <Copy size={20} />, label: '复制', color: '#FFFFFF', onClick: () => onCopy(message) },
-    { key: 'forward', icon: <Forward size={20} />, label: '转发', color: '#FFFFFF', onClick: () => onForward(message) },
-    { key: 'reply', icon: <Reply size={20} />, label: '引用', color: '#FFFFFF', onClick: () => onReply(message, senderName) },
+    { key: 'copy', icon: <Copy size={20} />, label: t('msgmenu.copy'), color: '#FFFFFF', onClick: () => onCopy(message) },
+    { key: 'forward', icon: <Forward size={20} />, label: t('msgmenu.forward'), color: '#FFFFFF', onClick: () => onForward(message) },
+    { key: 'reply', icon: <Reply size={20} />, label: t('msgmenu.reply'), color: '#FFFFFF', onClick: () => onReply(message, senderName) },
     ...(canSaveSticker
-      ? [{ key: 'sticker', icon: <Star size={20} />, label: '添加到表情', color: '#FFFFFF', onClick: () => onSaveSticker!(message) }]
+      ? [{ key: 'sticker', icon: <Star size={20} />, label: t('msgmenu.sticker'), color: '#FFFFFF', onClick: () => onSaveSticker!(message) }]
       : []),
     ...(showRecall
-      ? [{ key: 'recall', icon: <RotateCcw size={20} />, label: '撤回', color: '#FFFFFF', onClick: () => onRecall(message.id) }]
+      ? [{ key: 'recall', icon: <RotateCcw size={20} />, label: t('msgmenu.recall'), color: '#FFFFFF', onClick: () => onRecall(message.id) }]
       : []),
-    { key: 'delete', icon: <Trash2 size={20} />, label: '删除', color: '#E53935', onClick: () => onDelete(message.id) },
-  ], [showRecall, canSaveSticker, message, onCopy, onForward, onReply, onRecall, onDelete, onSaveSticker, senderName]);
+    { key: 'delete', icon: <Trash2 size={20} />, label: t('msgmenu.delete'), color: '#E53935', onClick: () => onDelete(message.id) },
+  ], [t, showRecall, canSaveSticker, message, onCopy, onForward, onReply, onRecall, onDelete, onSaveSticker, senderName]);
 
   // Calculate total menu width
   const totalItemsWidth = items.length * MENU_ITEM_SIZE + (items.length - 1) * MENU_GAP;

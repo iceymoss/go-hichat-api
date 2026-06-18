@@ -20,6 +20,7 @@ import {
   Flag,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useT } from '@/hooks/use-i18n';
 
 interface ChatSettingsMenuProps {
   conversation: {
@@ -48,6 +49,7 @@ export default function ChatSettingsMenu({
   onSearchHistory,
   children,
 }: ChatSettingsMenuProps) {
+  const t = useT();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
@@ -65,11 +67,11 @@ export default function ChatSettingsMenu({
         }}
       >
         {/* Group 1 — 会话信息与搜索 */}
-        <MenuItem icon={<User />} label="查看资料" />
+        <MenuItem icon={<User />} label={t('csmenu.viewProfile')} />
 
         <MenuItem
           icon={<Search />}
-          label="查找聊天记录"
+          label={t('csmenu.searchHistory')}
           onSelect={onSearchHistory}
         />
 
@@ -84,19 +86,19 @@ export default function ChatSettingsMenu({
 
         <SwitchMenuItem
           icon={<BellOff />}
-          label="消息免打扰"
+          label={t('csmenu.mute')}
           checked={conversation.muted}
           onCheckedChange={onMutedChange}
         />
 
         <SwitchMenuItem
           icon={<Pin />}
-          label="置顶会话"
+          label={t('csmenu.pin')}
           checked={conversation.pinned}
           onCheckedChange={onPinnedChange}
         />
 
-        <MenuItem icon={<ImageIcon />} label="设置当前聊天背景" />
+        <MenuItem icon={<ImageIcon />} label={t('csmenu.setBg')} />
 
         {/* Group 3 — 媒体与文件 */}
         <DropdownMenuSeparator
@@ -107,7 +109,7 @@ export default function ChatSettingsMenu({
           }}
         />
 
-        <MenuItem icon={<FolderOpen />} label="共享文件/媒体" />
+        <MenuItem icon={<FolderOpen />} label={t('csmenu.sharedFiles')} />
 
         {/* Red divider before danger zone */}
         <DropdownMenuSeparator
@@ -121,12 +123,12 @@ export default function ChatSettingsMenu({
         {/* Group 4 — 危险操作 */}
         <MenuItem
           icon={<Trash2 />}
-          label="清空聊天记录"
+          label={t('csmenu.clearHistory')}
           danger
           onSelect={onClearChat}
         />
-        <MenuItem icon={<Ban />} label="拉黑该用户" danger />
-        <MenuItem icon={<Flag />} label="举报..." danger />
+        <MenuItem icon={<Ban />} label={t('csmenu.block')} danger />
+        <MenuItem icon={<Flag />} label={t('csmenu.report')} danger />
       </DropdownMenuContent>
     </DropdownMenu>
   );
