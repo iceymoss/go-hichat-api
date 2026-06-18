@@ -129,7 +129,7 @@ export default function IMLayout() {
         style={{
           width: 36, height: 36, borderRadius: '50%',
           border: 'none', background: 'transparent',
-          color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+          color: '#646A73', cursor: 'pointer',
         }}
       >
         <Search className="w-5 h-5" />
@@ -140,7 +140,7 @@ export default function IMLayout() {
           style={{
             width: 36, height: 36, borderRadius: '50%',
             border: 'none', background: 'transparent',
-            color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+            color: '#646A73', cursor: 'pointer',
           }}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -153,7 +153,7 @@ export default function IMLayout() {
           style={{
             width: 36, height: 36, borderRadius: '50%',
             border: 'none', background: 'transparent',
-            color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+            color: '#646A73', cursor: 'pointer',
           }}
         >
           <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -203,12 +203,12 @@ export default function IMLayout() {
               className="flex items-center px-4 shrink-0"
               style={{
                 height: headerHeight,
-                background: '#2C3E50',
+                background: '#FFFFFF',
                 border: 'none',
                 gap: 12,
               }}
             >
-              <h1 style={{ fontSize: 17, fontWeight: 600, color: '#FFFFFF', flexShrink: 0 }}>
+              <h1 style={{ fontSize: 17, fontWeight: 600, color: '#1C2733', flexShrink: 0 }}>
                 {tabLabels.chats}
               </h1>
               <ChatListToolbar />
@@ -227,11 +227,11 @@ export default function IMLayout() {
               className="flex items-center justify-between px-4 shrink-0"
               style={{
                 height: headerHeight,
-                background: '#2C3E50',
+                background: '#FFFFFF',
                 border: 'none',
               }}
             >
-              <h1 style={{ fontSize: 17, fontWeight: 600, color: '#FFFFFF' }}>
+              <h1 style={{ fontSize: 17, fontWeight: 600, color: '#1C2733' }}>
                 {tabLabels[activeTab]}
               </h1>
               {renderNonChatHeaderButtons()}
@@ -339,7 +339,7 @@ export default function IMLayout() {
       <div
         className="w-[420px] flex flex-col shrink-0"
         style={{
-          background: activeTab === 'chats' ? '#2C3E50' : '#FFFFFF',
+          background: activeTab === 'chats' ? '#FFFFFF' : '#FFFFFF',
           borderRight: (showChatDetail && activeTab === 'chats') || showContactDetail || showFriendRequestPanel || showGroupPanelView || showTrendDetail || (activeTab === 'me' && meSubPage)
             ? '1px solid rgba(0,0,0,0.08)'
             : 'none',
@@ -352,8 +352,8 @@ export default function IMLayout() {
               className="flex items-center px-4 shrink-0"
               style={{
                 height: desktopHeaderHeight,
-                background: '#2C3E50',
-                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                background: '#FFFFFF',
+                borderBottom: '1px solid rgba(0,0,0,0.06)',
                 borderLeft: 'none',
                 borderRight: 'none',
                 borderTop: 'none',
@@ -363,7 +363,7 @@ export default function IMLayout() {
               <h1 style={{
                 fontSize: 17,
                 fontWeight: 600,
-                color: '#FFFFFF',
+                color: '#1C2733',
                 letterSpacing: '-0.01em',
                 flexShrink: 0,
               }}>
