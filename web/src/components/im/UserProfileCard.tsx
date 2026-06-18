@@ -12,6 +12,25 @@ import ProfileActionMenu from './ProfileActionMenu';
 import SetRemarkDialog from './SetRemarkDialog';
 import ConfirmDialog from './ConfirmDialog';
 
+// Colorful tag chips — each tag gets a stable color from its hash so the same
+// tag always renders the same hue, while a tag list looks varied.
+const TAG_COLORS: { c: string; b: string }[] = [
+  { c: '#2D7FF9', b: 'rgba(45,127,249,0.10)' },   // blue
+  { c: '#1BB45B', b: 'rgba(27,180,91,0.10)' },    // green
+  { c: '#F59E0B', b: 'rgba(245,158,11,0.12)' },   // amber
+  { c: '#9B59B6', b: 'rgba(155,89,182,0.10)' },   // purple
+  { c: '#E84393', b: 'rgba(232,67,147,0.10)' },   // pink
+  { c: '#14B8A6', b: 'rgba(20,184,166,0.12)' },   // teal
+  { c: '#FA5151', b: 'rgba(250,81,81,0.10)' },    // red
+  { c: '#EC6F1A', b: 'rgba(236,111,26,0.10)' },   // orange
+];
+function tagColor(tag: string): { c: string; b: string } {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+}
+
+
 interface UserProfileCardProps {
   contact: Contact;
   /** If true, hide phone/region/moments, show "添加好友" button */
@@ -62,7 +81,7 @@ function StrangerInfo({ contact }: { contact: Contact }) {
       {tagList.length > 0 && (
         <div className="flex flex-wrap" style={{ gap: 6, marginTop: 6 }}>
           {tagList.map((t, i) => (
-            <span key={i} style={{ fontSize: 12, color: '#5b6b7a', background: 'rgba(120,140,160,0.12)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+            <span key={i} style={{ fontSize: 12, color: tagColor(t).c, background: tagColor(t).b, borderRadius: 6, padding: '2px 8px' }}>{t}</span>
           ))}
         </div>
       )}
@@ -675,7 +694,7 @@ export default function UserProfileCard({
           {parsedTags.length > 0 && (
             <div className="flex flex-wrap" style={{ gap: 6, marginTop: 2 }}>
               {parsedTags.map((t, i) => (
-                <span key={i} style={{ fontSize: 12, color: '#5b6b7a', background: 'rgba(120,140,160,0.12)', borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+                <span key={i} style={{ fontSize: 12, color: tagColor(t).c, background: tagColor(t).b, borderRadius: 6, padding: '2px 8px' }}>{t}</span>
               ))}
             </div>
           )}

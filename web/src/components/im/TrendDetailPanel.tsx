@@ -101,10 +101,10 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#1BB45B', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{userName}</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#576b95', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{userName}</span>
             {replyToName && (
               <span style={{ fontSize: '12px', color: '#A2ACB5' }}>
-                回复 <span style={{ color: '#1BB45B', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); comment.user && showUserCard(comment.user.id); }}>{replyToName}</span>
+                回复 <span style={{ color: '#576b95', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); comment.user && showUserCard(comment.user.id); }}>{replyToName}</span>
               </span>
             )}
             <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', flexShrink: 0 }}>{fmtTime(comment.createTime)}</span>
@@ -358,7 +358,7 @@ export default function TrendDetailPanel() {
     return parts.map((part, i) => {
       if (part.startsWith('@')) {
         const atUser = trend.atUsers.find(u => `@${u.name}` === part);
-        return <span key={i} style={{ color: '#1BB45B', cursor: 'pointer' }}>{atUser ? atUser.name : part}</span>;
+        return <span key={i} style={{ color: '#576b95', cursor: 'pointer' }}>{atUser ? atUser.name : part}</span>;
       }
       return <span key={i}>{part}</span>;
     });
@@ -421,7 +421,7 @@ export default function TrendDetailPanel() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span style={{ fontSize: '15px', fontWeight: 600, color: '#1BB45B', cursor: 'pointer' }} onClick={() => showUserCard(trend.userId)}>{userName}</span>
+                  <span style={{ fontSize: '15px', fontWeight: 600, color: '#576b95', cursor: 'pointer' }} onClick={() => showUserCard(trend.userId)}>{userName}</span>
                   {trend.isTop && (
                     <span style={{ fontSize: '10px', fontWeight: 500, color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 6px', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                       <Pin className="w-3 h-3" />置顶
