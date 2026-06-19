@@ -7,9 +7,11 @@ declare -a PIDS=()
 cleanup() {
   echo -e "\n正在停止所有服务..."
   for pid in "${PIDS[@]}"; do
-    # 负号表示杀掉整个进程组（setsid 使每个服务成为组长），
-    # 这样 go run 派生的实际服务二进制也会被一起终止
-    kill -TERM -- "-$pid" 2>/dev/null
+    # 优先杀掉整个进程组；macOS 无 setsid 时回退到杀子进程和父进程。
+    kill -TERM -- "-$pid" 2>/dev/null || {
+      pkill -TERM -P "$pid" 2>/dev/null
+      kill -TERM "$pid" 2>/dev/null
+    }
   done
   wait 2>/dev/null
   echo "所有服务已终止"
@@ -35,8 +37,12 @@ start_service() {
   esac
 
   echo go run "$go_file" -f "$cfg"
-  # setsid 让服务在独立进程组中运行，$! 即为组长 PID（= PGID）
-  setsid go run "$go_file" -f "$cfg" >> "$LOG_DIR/$name/$name.log" 2>&1 &
+  if command -v setsid >/dev/null 2>&1; then
+    # setsid 让服务在独立进程组中运行，$! 即为组长 PID（= PGID）
+    setsid go run "$go_file" -f "$cfg" >> "$LOG_DIR/$name/$name.log" 2>&1 &
+  else
+    go run "$go_file" -f "$cfg" >> "$LOG_DIR/$name/$name.log" 2>&1 &
+  fi
 
   PIDS+=($!)
   echo "$name: 运行中... PID: $!"
