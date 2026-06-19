@@ -86,6 +86,10 @@ interface IMState {
   groupAppNavTab: 'received' | 'sent' | null;
   clearFriendReqNavTab: () => void;
   clearGroupAppNavTab: () => void;
+  // 从群聊深链到通讯录群详情：携带 groupId，GroupList 读取后自动打开该群详情
+  groupDetailNavId: string | null;
+  openGroupDetail: (groupId: string) => void;
+  clearGroupDetailNav: () => void;
   // 按 notifyType 跳到来源（好友→新的朋友；群→群申请），并定位子 tab。通知中心点击 + toast 共用。
   navigateToNotificationSource: (notifyType: string) => void;
 
@@ -159,7 +163,7 @@ export const useIMStore = create<IMState>()(persist((set) => ({
 
   // IM
   activeTab: 'chats',
-  setActiveTab: (tab) => set({ activeTab: tab, selectedConversationId: null, selectedContactId: null, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null, meSubPage: null, systemPanel: null }),
+  setActiveTab: (tab) => set({ activeTab: tab, selectedConversationId: null, selectedContactId: null, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null, meSubPage: null, systemPanel: null, groupDetailNavId: null }),
   selectedConversationId: null,
   setSelectedConversationId: (id) => set({ selectedConversationId: id, showChatDetail: true }),
   selectedContactId: null,
@@ -271,6 +275,13 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   groupAppNavTab: null,
   clearFriendReqNavTab: () => set({ friendReqNavTab: null }),
   clearGroupAppNavTab: () => set({ groupAppNavTab: null }),
+  groupDetailNavId: null,
+  openGroupDetail: (groupId) => set({
+    activeTab: 'contacts', showGroupPanel: true, showFriendRequests: false,
+    selectedContactId: null, showChatDetail: false, selectedTrendId: null, meSubPage: null,
+    groupDetailNavId: groupId,
+  }),
+  clearGroupDetailNav: () => set({ groupDetailNavId: null }),
   navigateToNotificationSource: (notifyType) => {
     // 公共导航字段，避免被 setActiveTab/setShowXxx 互相重置：一次 set 落定目标视图 + 子 tab 意图
     const base = { selectedContactId: null, showChatDetail: false, selectedTrendId: null, meSubPage: null };

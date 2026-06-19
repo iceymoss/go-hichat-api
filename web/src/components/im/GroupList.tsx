@@ -316,7 +316,7 @@ type AppStatusFilter = 'all' | GroupAppResult;
 
 export default function GroupList() {
   const t = useT();
-  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupAppNavTab, clearGroupAppNavTab } = useIMStore();
+  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupAppNavTab, clearGroupAppNavTab, groupDetailNavId, clearGroupDetailNav } = useIMStore();
   const token = currentUser?.token || '';
   const myUserId = currentUser?.id || '';
 
@@ -656,6 +656,13 @@ export default function GroupList() {
   }, [view, setShowGroupPanel]);
 
   const openGroup = useCallback((gid: string) => { setSelectedGroupId(gid); setView('detail'); setDetailTab('members'); setMemberSearch(''); }, []);
+
+  // 从群聊深链进来：自动打开指定群的详情
+  useEffect(() => {
+    if (!groupDetailNavId) return;
+    openGroup(groupDetailNavId);
+    clearGroupDetailNav();
+  }, [groupDetailNavId, clearGroupDetailNav, openGroup]);
 
   // Confirm helper (async-aware)
   const doConfirm = useCallback((title: string, desc: string, confirmLabel: string, confirmColor: string, action: () => Promise<void> | void) => {
