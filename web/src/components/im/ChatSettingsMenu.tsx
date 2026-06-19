@@ -18,6 +18,8 @@ import {
   Trash2,
   Ban,
   Flag,
+  Info,
+  LogOut,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useT } from '@/hooks/use-i18n';
@@ -37,6 +39,10 @@ interface ChatSettingsMenuProps {
   onViewProfile?: () => void;
   onBlock?: () => void;
   onReport?: () => void;
+  /** 群聊：渲染「群信息 / 退出群聊」取代私聊的「查看资料 / 拉黑 / 举报」 */
+  isGroup?: boolean;
+  onGroupInfo?: () => void;
+  onQuitGroup?: () => void;
   children: ReactNode;
 }
 
@@ -54,6 +60,9 @@ export default function ChatSettingsMenu({
   onViewProfile,
   onBlock,
   onReport,
+  isGroup,
+  onGroupInfo,
+  onQuitGroup,
   children,
 }: ChatSettingsMenuProps) {
   const t = useT();
@@ -75,7 +84,11 @@ export default function ChatSettingsMenu({
         }}
       >
         {/* Group 1 — 会话信息与搜索 */}
-        <MenuItem icon={<User />} label={t('csmenu.viewProfile')} onSelect={onViewProfile || wip} />
+        {isGroup ? (
+          <MenuItem icon={<Info />} label={t('csmenu.groupInfo')} onSelect={onGroupInfo || wip} />
+        ) : (
+          <MenuItem icon={<User />} label={t('csmenu.viewProfile')} onSelect={onViewProfile || wip} />
+        )}
 
         <MenuItem
           icon={<Search />}
@@ -135,8 +148,14 @@ export default function ChatSettingsMenu({
           danger
           onSelect={onClearChat}
         />
-        <MenuItem icon={<Ban />} label={t('csmenu.block')} danger onSelect={onBlock || wip} />
-        <MenuItem icon={<Flag />} label={t('csmenu.report')} danger onSelect={onReport || wip} />
+        {isGroup ? (
+          <MenuItem icon={<LogOut />} label={t('csmenu.quitGroup')} danger onSelect={onQuitGroup || wip} />
+        ) : (
+          <>
+            <MenuItem icon={<Ban />} label={t('csmenu.block')} danger onSelect={onBlock || wip} />
+            <MenuItem icon={<Flag />} label={t('csmenu.report')} danger onSelect={onReport || wip} />
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

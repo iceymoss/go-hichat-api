@@ -55,6 +55,7 @@ import MessageContextMenu from './MessageContextMenu';
 import ConfirmDialog from './ConfirmDialog';
 import ForwardDialog from './ForwardDialog';
 import FloatingProfileCard from './FloatingProfileCard';
+import GroupInfoCard from './GroupInfoCard';
 import ReadStatusDialog from './ReadStatusDialog';
 
 /** 稳定的空数组引用，避免 zustand selector 每次返回新数组导致无限重渲染 */
@@ -189,7 +190,7 @@ function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['r
 }
 
 export default function ChatDetail() {
-  const { selectedConversationId, setSelectedConversationId, setShowChatDetail, openUserProfile, invalidateFriends } = useIMStore();
+  const { selectedConversationId, setSelectedConversationId, setShowChatDetail, openUserProfile, invalidateFriends, openGroupDetail } = useIMStore();
   const t = useT();
   const [input, setInput] = useState('');
   // Track sent messages per conversation so they persist when switching back
@@ -236,6 +237,10 @@ export default function ChatDetail() {
 
   // Floating profile card state
   const [showProfileCard, setShowProfileCard] = useState(false);
+
+  // 群信息卡片 + 退出群聊二次确认
+  const [showGroupCard, setShowGroupCard] = useState(false);
+  const [quitConfirmOpen, setQuitConfirmOpen] = useState(false);
 
   // Recalled messages tracking
   const [recalledIds, setRecalledIds] = useState<Set<string>>(new Set());
@@ -849,6 +854,32 @@ export default function ChatDetail() {
       .catch(() => toast.error(t('group.reportFailed')));
   };
 
+  // ── 群聊：打开群信息卡片 / 退出群聊 ──
+  const handleOpenGroupInfo = () => setShowGroupCard(true);
+
+  // 退出群聊：群会话的 conversationId 即后端 group_id
+  const doQuitGroup = () => {
+    if (!currentUser?.token || !selectedConversationId) return;
+    const gid = selectedConversationId;
+    fetch('/api/social/group/quit', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ group_id: gid }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          toast.success(t('group.quitToast'));
+          setShowGroupCard(false);
+          // 复用被移出群的禁用态：输入框禁用 + "你已不在该群"横幅
+          markGroupRemoved(gid, 'group.member.removed');
+        } else {
+          toast.error(d.message || t('group.opFailed'));
+        }
+      })
+      .catch(() => toast.error(t('group.networkError')));
+  };
+
   // Close context menu when clicking elsewhere
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
@@ -1044,15 +1075,15 @@ export default function ChatDetail() {
             <ArrowLeft style={{ width: 20, height: 20 }} />
           </button>
           <div
-            onClick={contactMatch ? () => {
-              setShowProfileCard(true);
-            } : undefined}
+            onClick={conv.type === 'group'
+              ? () => setShowGroupCard(true)
+              : (contactMatch ? () => setShowProfileCard(true) : undefined)}
             style={{
               width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
               background: peerAvatar ? 'transparent' : getAvatarColor(peerName),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#FFFFFF', fontSize: 16, fontWeight: 600,
-              cursor: contactMatch ? 'pointer' : 'default',
+              cursor: (conv.type === 'group' || contactMatch) ? 'pointer' : 'default',
               overflow: 'hidden',
             }}
           >
@@ -1104,6 +1135,9 @@ export default function ChatDetail() {
             onViewProfile={conv.type === 'private' ? handleViewProfile : undefined}
             onBlock={conv.type === 'private' ? handleBlockPeer : undefined}
             onReport={conv.type === 'private' ? handleReportPeer : undefined}
+            isGroup={conv.type === 'group'}
+            onGroupInfo={conv.type === 'group' ? handleOpenGroupInfo : undefined}
+            onQuitGroup={conv.type === 'group' ? () => setQuitConfirmOpen(true) : undefined}
           >
             <button
               className="hc-header-btn"
@@ -1452,6 +1486,30 @@ export default function ChatDetail() {
           onVideoCall={() => handleOpenCall('video')}
         />
       )}
+
+      {/* ── Group Info Card ── */}
+      {showGroupCard && conv.type === 'group' && (
+        <GroupInfoCard
+          groupId={selectedConversationId!}
+          name={peerName}
+          avatar={peerAvatar}
+          memberCount={(storeGroupMembers[selectedConversationId!] || []).length || conv.members || 0}
+          onClose={() => setShowGroupCard(false)}
+          onOpenManage={() => { openGroupDetail(selectedConversationId!); setShowGroupCard(false); }}
+          onQuit={() => setQuitConfirmOpen(true)}
+        />
+      )}
+
+      {/* ── 退出群聊二次确认 ── */}
+      <ConfirmDialog
+        open={quitConfirmOpen}
+        onClose={() => setQuitConfirmOpen(false)}
+        title={t('group.confirmQuitTitle')}
+        description={t('group.confirmQuitDesc').replace('{name}', peerName)}
+        confirmText={t('group.quit')}
+        confirmVariant="danger"
+        onConfirm={doQuitGroup}
+      />
 
       {/* ── Forward Dialog ── */}
       {forwardMsg && (
