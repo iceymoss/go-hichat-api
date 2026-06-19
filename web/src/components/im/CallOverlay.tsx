@@ -38,6 +38,7 @@ export function CallOverlay() {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const [elapsed, setElapsed] = useState(0);
 
   // 绑定媒体流到 video 元素
@@ -49,6 +50,12 @@ export function CallOverlay() {
   useEffect(() => {
     if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream, phase]);
+  // 远端音频始终由隐藏的 <audio> 播放（语音通话没有 <video> 元素，否则收到音轨也没声音）
+  useEffect(() => {
+    if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remoteStream) {
+      remoteAudioRef.current.srcObject = remoteStream;
     }
   }, [remoteStream, phase]);
 
@@ -91,12 +98,16 @@ export function CallOverlay() {
         color: '#FFFFFF',
       }}
     >
+      {/* 远端音频：始终隐藏播放（语音通话靠它出声；视频通话的 <video> 设为 muted 避免双声） */}
+      <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: 'none' }} />
+
       {/* 远端视频铺满 */}
       {showRemoteVideo && (
         <video
           ref={remoteVideoRef}
           autoPlay
           playsInline
+          muted
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
         />
       )}
