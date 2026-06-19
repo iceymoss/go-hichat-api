@@ -65,11 +65,11 @@ func (svcCtx *ServiceContext) GetToken() (string, error) {
 
 // Start 启动服务
 func (svcCtx *ServiceContext) Start() error {
-	// 启动HTTP服务器
+	// 启动HTTP服务器：绑定失败（如端口被占）直接 panic，避免静默失败导致难排查
 	go func() {
 		fmt.Printf("Starting streaming service on %s\n", svcCtx.Config.ListenOn)
 		if err := http.ListenAndServe(svcCtx.Config.ListenOn, nil); err != nil {
-			fmt.Printf("Failed to start HTTP server: %v\n", err)
+			panic(fmt.Sprintf("streaming HTTP server failed on %s: %v", svcCtx.Config.ListenOn, err))
 		}
 	}()
 

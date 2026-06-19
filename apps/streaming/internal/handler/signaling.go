@@ -88,8 +88,8 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 
 	// 振铃超时：通知双方“未接听”
 	s.calls.SetTimeoutHandler(func(sess *logic.CallSession) {
-		s.pushSignal(&wsframe.CallSignal{ReceiverId: sess.CallerID, Event: "timeout", CallId: sess.ID, Reason: string(sess.EndReason)})
-		s.pushSignal(&wsframe.CallSignal{ReceiverId: sess.CalleeID, Event: "timeout", CallId: sess.ID, Reason: string(sess.EndReason)})
+		s.notifyUser(sess.CallerID, &wsframe.CallSignal{Event: "timeout", CallId: sess.ID, Reason: string(sess.EndReason)})
+		s.notifyUser(sess.CalleeID, &wsframe.CallSignal{Event: "timeout", CallId: sess.ID, Reason: string(sess.EndReason)})
 	})
 
 	return s
@@ -265,7 +265,7 @@ func (s *SignalingServer) handleAccept(c *clientConn, msg *types.SignalingMessag
 		return
 	}
 	zLog.Info("call accepted", zap.String("call_id", sess.ID), zap.String("by", c.uid), zap.String("notify_caller", sess.CallerID))
-	s.pushSignal(&wsframe.CallSignal{ReceiverId: sess.CallerID, Event: "accept", CallId: sess.ID, FromUid: c.uid})
+	s.notifyUser(sess.CallerID, &wsframe.CallSignal{Event: "accept", CallId: sess.ID, FromUid: c.uid})
 }
 
 func (s *SignalingServer) handleReject(c *clientConn, msg *types.SignalingMessage) {
@@ -275,7 +275,7 @@ func (s *SignalingServer) handleReject(c *clientConn, msg *types.SignalingMessag
 		s.sendError(c, err.Error())
 		return
 	}
-	s.pushSignal(&wsframe.CallSignal{ReceiverId: sess.CallerID, Event: "reject", CallId: sess.ID})
+	s.notifyUser(sess.CallerID, &wsframe.CallSignal{Event: "reject", CallId: sess.ID})
 }
 
 func (s *SignalingServer) handleCancel(c *clientConn, msg *types.SignalingMessage) {
@@ -285,7 +285,7 @@ func (s *SignalingServer) handleCancel(c *clientConn, msg *types.SignalingMessag
 		s.sendError(c, err.Error())
 		return
 	}
-	s.pushSignal(&wsframe.CallSignal{ReceiverId: sess.CalleeID, Event: "cancel", CallId: sess.ID})
+	s.notifyUser(sess.CalleeID, &wsframe.CallSignal{Event: "cancel", CallId: sess.ID})
 }
 
 func (s *SignalingServer) handleEnd(c *clientConn, msg *types.SignalingMessage) {
@@ -296,7 +296,7 @@ func (s *SignalingServer) handleEnd(c *clientConn, msg *types.SignalingMessage) 
 		return
 	}
 	peer := sess.Peer(c.uid)
-	s.pushSignal(&wsframe.CallSignal{ReceiverId: peer, Event: "end", CallId: sess.ID, Reason: string(sess.EndReason), Duration: sess.Duration()})
+	s.notifyUser(peer, &wsframe.CallSignal{Event: "end", CallId: sess.ID, Reason: string(sess.EndReason), Duration: sess.Duration()})
 }
 
 // relayToPeer 1:1 媒体协商 relay：把 offer/answer/ice/media_state 透传给对端（不经手媒体字节）。
@@ -340,7 +340,20 @@ func (s *SignalingServer) cleanupCall(uid string) {
 		return
 	}
 	peer := sess.Peer(uid)
-	s.pushSignal(&wsframe.CallSignal{ReceiverId: peer, Event: "end", CallId: sess.ID, Reason: string(sess.EndReason), Duration: sess.Duration()})
+	s.notifyUser(peer, &wsframe.CallSignal{Event: "end", CallId: sess.ID, Reason: string(sess.EndReason), Duration: sess.Duration()})
+}
+
+// notifyUser 下发通话控制信令给某用户：
+// 优先走该用户的 streaming ws 直连（稳定、低延迟、不受 im ws 顶号churn 影响）；
+// 不在 streaming ws（如初始振铃时被叫还没连）则回退 im ws 的 push.call。
+func (s *SignalingServer) notifyUser(uid string, sig *wsframe.CallSignal) {
+	sig.ReceiverId = uid
+	sig.Timestamp = time.Now().Unix()
+	if c, ok := s.getConn(uid); ok {
+		s.send(c, &types.SignalingMessage{Type: types.MessageTypeCallSignal, Data: sig})
+		return
+	}
+	s.pushSignal(sig)
 }
 
 // pushSignal 通过 im ws（push.call）把通话控制信令单推给接收者；离线即丢。

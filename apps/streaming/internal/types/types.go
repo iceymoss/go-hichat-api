@@ -32,6 +32,7 @@ const (
 	MessageTypeCallEnd     SignalingMessageType = "call_end"
 	MessageTypeCallCreated SignalingMessageType = "call_created" // 服务端回执主叫：携带 callId
 	MessageTypeMediaState  SignalingMessageType = "media_state"  // 静音/开关摄像头
+	MessageTypeCallSignal  SignalingMessageType = "call_signal"  // 服务端经 streaming ws 直推的通话控制信令
 
 	// 群组通话
 	MessageTypeGroupInvite SignalingMessageType = "group_invite"

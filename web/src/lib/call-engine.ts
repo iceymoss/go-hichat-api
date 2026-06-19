@@ -323,6 +323,11 @@ export class CallEngine {
     const data = msg.data || {};
     this.log('ws recv:', msg.type);
     switch (msg.type) {
+      case 'call_signal':
+        // 服务端经 streaming ws 直推的通话控制信令（accept/reject/cancel/end/timeout），
+        // 稳定通道，不受 im ws 顶号影响；与 im ws call.signal 走同一处理。
+        this.onControlSignal(data as unknown as CallSignal);
+        break;
       case 'call_created':
         this.callId = (data.call_id as string) || msg.room_id || this.callId;
         break;
