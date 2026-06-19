@@ -212,9 +212,11 @@ A(主叫)                im ws / commonNotify           streaming ws(:10093)    
 
 ### 8.1 信令协议
 
-#### A. 呼叫控制（im ws，复用 `commonNotifyTransfer`，前端 `ws.on('notify')` 按 `notifyType` 分支）
+#### A. 呼叫控制（瞬时 ws 推送，**不落通知中心**）
 
-| notifyType | 方向 | payload 要点 |
+> ⚠️ 修正：呼叫控制信令是**瞬时态**，不能走 `commonNotifyTransfer`——该通道会把每条消息**落库到 im notifications 表并显示在铃铛通知中心**，`accept/cancel/end` 这种过程信令落库会污染。改为 **`relation.changed` 同款的瞬时 ws 直推**：streaming logic 持有一个 `websocket.NewClient(imWsHost)`（与 `task/mq` 一致），把信令帧 `method=call.signal` 直接推给目标 uid 的 im ws 连接；离线即丢（被叫离线由超时转“未接来电”，作为 im 聊天消息补偿，而非通知）。前端 `ws.on('call.signal')` 按 `event` 分支。单 ws 节点假设与全局一致。
+
+| event | 方向 | data 要点 |
 |---|---|---|
 | `call.invite` | 主叫→被叫 | callId, callType(voice/video), mediaMode(p2p/sfu), caller{uid,name,avatar}, groupId? |
 | `call.cancel` | 主叫→被叫 | callId |
@@ -224,7 +226,7 @@ A(主叫)                im ws / commonNotify           streaming ws(:10093)    
 | `call.timeout`| 系统→双方 | callId |
 | `call.end`   | 任一方→对端 | callId, reason, duration |
 
-> accept/reject 等也可经 streaming-rpc 触发再投通知；invite/busy/timeout 由 streaming 服务投递。
+> 所有呼叫控制由 streaming 服务统一投递（streaming-rpc 或 streaming ws 内触发后用 WsClient 推送）。“未接来电”落库走 [§6.3](#63-通话记录落库--聊天展示) 的 `MType:call` 消息，不进通知中心。
 
 #### B. 媒体协商（streaming ws `:10093/ws?token=<jwt>`，帧沿用现有 `SignalingMessage{type,callId,userID,data,timestamp}` 但收敛类型）
 
