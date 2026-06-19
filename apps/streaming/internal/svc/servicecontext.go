@@ -48,6 +48,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	if err != nil {
 		fmt.Printf("streaming sign system token err: %v\n", err)
 	}
+	fmt.Printf("[streaming] im ws auth as system uid=%s tokenLen=%d accessExpire=%d\n",
+		constants.SYSTEM_ROOT_UID, len(token), c.JwtAuth.AccessExpire)
 	header := http.Header{}
 	header.Set("Authorization", token)
 	svcCtx.ImWsClient = websocket.NewClient(c.Ws.Host, websocket.WithClientHeader(header))
