@@ -151,6 +151,7 @@ export class CallEngine {
 
   /** im ws call.signal -> 引擎 */
   onControlSignal(sig: CallSignal) {
+    this.log('control signal:', sig.event, 'isCaller=', this.isCaller, 'phase=', this.phase);
     switch (sig.event) {
       case 'invite':
         // 来电：仅置 incoming，展示振铃界面；接听才连 ws/取媒体
@@ -215,6 +216,7 @@ export class CallEngine {
 
   private createPeerConnection() {
     if (this.pc) return;
+    this.log('createPeerConnection iceServers=', JSON.stringify(this.iceServers));
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     this.remoteStream = new MediaStream();
     this.cb.onRemoteStream(this.remoteStream);
@@ -223,21 +225,28 @@ export class CallEngine {
 
     pc.onicecandidate = (ev) => {
       if (ev.candidate) {
+        this.log('local ICE candidate:', ev.candidate.type, ev.candidate.protocol, ev.candidate.address);
         this.sendWs('ice_candidate', {
           call_id: this.callId,
           candidate: ev.candidate.candidate,
           sdpMid: ev.candidate.sdpMid,
           sdpMLineIndex: ev.candidate.sdpMLineIndex,
         });
+      } else {
+        this.log('local ICE gathering complete');
       }
     };
 
     pc.ontrack = (ev) => {
+      this.log('ontrack: got remote track', ev.track.kind);
       ev.streams[0]?.getTracks().forEach(t => this.remoteStream?.addTrack(t));
       this.cb.onRemoteStream(this.remoteStream);
     };
 
+    pc.oniceconnectionstatechange = () => this.log('iceConnectionState=', pc.iceConnectionState);
+
     pc.onconnectionstatechange = () => {
+      this.log('connectionState=', pc.connectionState);
       if (pc.connectionState === 'connected') {
         this.setPhase('connected');
       } else if (pc.connectionState === 'failed') {
@@ -312,6 +321,7 @@ export class CallEngine {
     let msg: StreamingMsg;
     try { msg = JSON.parse(e.data); } catch { return; }
     const data = msg.data || {};
+    this.log('ws recv:', msg.type);
     switch (msg.type) {
       case 'call_created':
         this.callId = (data.call_id as string) || msg.room_id || this.callId;
@@ -343,7 +353,10 @@ export class CallEngine {
 
   private sendWs(type: string, data: Record<string, unknown>) {
     if (this.ws?.readyState === WebSocket.OPEN) {
+      this.log('ws send:', type);
       this.ws.send(JSON.stringify({ type, room_id: this.callId, data, timestamp: new Date().toISOString() }));
+    } else {
+      this.log('ws send SKIPPED (not open):', type, 'state=', this.ws?.readyState);
     }
   }
 
@@ -401,8 +414,14 @@ export class CallEngine {
   // ==================== 内部：状态 / 清理 ====================
 
   private setPhase(p: CallPhase, info?: { reason?: string; duration?: number }) {
+    this.log('phase ->', p, info?.reason ? `(${info.reason})` : '');
     this.phase = p;
     this.cb.onPhase(p, info);
+  }
+
+  private log(...args: unknown[]) {
+    // 通话诊断日志，前缀便于在控制台过滤
+    console.log('[call]', ...args);
   }
 
   private cleanup(reason?: string, duration?: number) {

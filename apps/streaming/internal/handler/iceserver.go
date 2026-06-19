@@ -20,6 +20,13 @@ type ICEServersResp struct {
 	IceServers []ICEServer `json:"iceServers"`
 }
 
+// defaultSTUN 兜底 STUN：go-zero 配置加载对 yaml tag 不稳，且同机跨浏览器需要 srflx
+// 候选绕开 mDNS（.local）host 候选解析失败的问题。配置为空时至少给公共 STUN。
+var defaultSTUN = []ICEServer{
+	{URLs: []string{"stun:stun.l.google.com:19302"}},
+	{URLs: []string{"stun:stun1.l.google.com:19302"}},
+}
+
 // ICEServersHandler 下发 ICE（STUN/TURN）配置给前端。
 // 本期返回静态 STUN；接入 TURN 后此处下发短期 TURN 凭证（HMAC time-limited）。
 func ICEServersHandler(svcCtx *svc.ServiceContext, auth *JwtAuth) http.HandlerFunc {
@@ -47,7 +54,11 @@ func ICEServersHandler(svcCtx *svc.ServiceContext, auth *JwtAuth) http.HandlerFu
 				Credential: s.Credential,
 			})
 		}
+		if len(resp.IceServers) == 0 {
+			resp.IceServers = defaultSTUN
+		}
 
 		httpx.OkJson(w, resp)
 	}
 }
+

@@ -264,6 +264,7 @@ func (s *SignalingServer) handleAccept(c *clientConn, msg *types.SignalingMessag
 		s.sendError(c, err.Error())
 		return
 	}
+	zLog.Info("call accepted", zap.String("call_id", sess.ID), zap.String("by", c.uid), zap.String("notify_caller", sess.CallerID))
 	s.pushSignal(&wsframe.CallSignal{ReceiverId: sess.CallerID, Event: "accept", CallId: sess.ID, FromUid: c.uid})
 }
 
@@ -303,6 +304,7 @@ func (s *SignalingServer) relayToPeer(c *clientConn, msg *types.SignalingMessage
 	callID := msgCallID(msg)
 	sess, ok := s.calls.Get(callID)
 	if !ok {
+		zLog.Warn("relay: call not found", zap.String("from", c.uid), zap.String("type", string(msg.Type)), zap.String("call_id", callID))
 		s.sendError(c, "call not found")
 		return
 	}
@@ -314,13 +316,17 @@ func (s *SignalingServer) relayToPeer(c *clientConn, msg *types.SignalingMessage
 	pc, ok := s.getConn(peer)
 	if !ok {
 		// 对端不在线/未连 streaming ws，媒体帧丢弃（控制层会处理掉线）
+		zLog.Warn("relay: peer not connected to streaming ws",
+			zap.String("type", string(msg.Type)), zap.String("from", c.uid), zap.String("peer", peer))
 		return
 	}
 	// 透传原帧，标记来源 uid（覆盖客户端自报值）
 	msg.UserID = c.uid
 	if err := pc.sendJSON(msg); err != nil {
 		zLog.Error("relay to peer failed", zap.String("peer", peer), zap.Error(err))
+		return
 	}
+	zLog.Info("relay ok", zap.String("type", string(msg.Type)), zap.String("from", c.uid), zap.String("to", peer))
 }
 
 // cleanupCall 断线清理：若用户仍在通话中，结束并通知对端。
