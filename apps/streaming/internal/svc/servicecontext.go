@@ -10,23 +10,29 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/userclient"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
+
+	"github.com/zeromicro/go-zero/zrpc"
 )
 
 type ServiceContext struct {
 	// Config 服务配置
 	Config config.Config
 
-	// 导入各个微服务模块
+	// 跨服务 RPC client：好友/群成员校验、用户资料
 	Social socialclient.Social
 	User   userclient.User
+
+	// 关系缓存：通话发起的好友/群成员校验（O(1)，miss 回源 RPC）
+	RelationCache *relationcache.Cache
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	svcCtx := &ServiceContext{
-		Config: c,
-		// 暂时注释掉RPC客户端，避免依赖其他服务
-		// Social: socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
-		// User:   userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),
+		Config:        c,
+		Social:        socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
+		User:          userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),
+		RelationCache: relationcache.New(db.GetRedisConn()),
 	}
 
 	return svcCtx

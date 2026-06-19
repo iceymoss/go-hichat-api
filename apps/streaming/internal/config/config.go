@@ -11,6 +11,12 @@ type Config struct {
 
 	ListenOn string
 
+	// JwtAuth 与 im/user 共用同一 AccessSecret，校验 ws 升级与 HTTP 接口的 JWT
+	JwtAuth struct {
+		AccessSecret string
+		AccessExpire int64
+	}
+
 	Mysql struct {
 		DataSource string
 	}

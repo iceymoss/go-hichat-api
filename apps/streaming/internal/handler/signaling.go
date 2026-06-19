@@ -39,6 +39,8 @@ type SignalingServer struct {
 	meetingManager     *logic.MeetingManager     // 会议管理器，处理会议相关功能
 	screenShareManager *logic.ScreenShareManager // 录屏管理器，处理屏幕共享功能
 	liveStreamManager  *logic.LiveStreamManager  // 直播管理器，处理直播相关功能
+
+	auth *JwtAuth // JWT 鉴权：ws 升级前校验 token
 }
 
 // SignalingMessage 信令消息包装器
@@ -75,6 +77,8 @@ func NewSignalingServer(svc *svc.ServiceContext) *SignalingServer {
 		meetingManager:     logic.NewMeetingManager(),
 		screenShareManager: logic.NewScreenShareManager(),
 		liveStreamManager:  logic.NewLiveStreamManager(),
+
+		auth: NewJwtAuth(svc),
 	}
 
 	// 启动消息处理工作协程
@@ -87,6 +91,14 @@ func NewSignalingServer(svc *svc.ServiceContext) *SignalingServer {
 
 // HandleWebSocket 处理WebSocket连接
 func (s *SignalingServer) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// JWT 鉴权：升级前校验 token（?token= 或 Authorization），失败直接 401
+	uid := s.auth.ParseUID(r)
+	if uid == "" {
+		zLog.Warn("WebSocket auth failed", zap.String("remote_addr", r.RemoteAddr))
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		zLog.Error("Failed to upgrade websocket connection", zap.Error(err))
@@ -95,6 +107,7 @@ func (s *SignalingServer) HandleWebSocket(w http.ResponseWriter, r *http.Request
 	defer conn.Close()
 
 	zLog.Info("WebSocket connection established",
+		zap.String("user_id", uid),
 		zap.String("remote_addr", r.RemoteAddr))
 
 	// 处理WebSocket消息
