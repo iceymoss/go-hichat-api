@@ -55,6 +55,7 @@ import MessageContextMenu from './MessageContextMenu';
 import ConfirmDialog from './ConfirmDialog';
 import ForwardDialog from './ForwardDialog';
 import FloatingProfileCard from './FloatingProfileCard';
+import GroupInfoCard from './GroupInfoCard';
 import ReadStatusDialog from './ReadStatusDialog';
 
 /** 稳定的空数组引用，避免 zustand selector 每次返回新数组导致无限重渲染 */
@@ -189,7 +190,7 @@ function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['r
 }
 
 export default function ChatDetail() {
-  const { selectedConversationId, setSelectedConversationId, setShowChatDetail, openUserProfile, invalidateFriends } = useIMStore();
+  const { selectedConversationId, setSelectedConversationId, setShowChatDetail, openUserProfile, invalidateFriends, openGroupDetail } = useIMStore();
   const t = useT();
   const [input, setInput] = useState('');
   // Track sent messages per conversation so they persist when switching back
@@ -239,6 +240,10 @@ export default function ChatDetail() {
 
   // Floating profile card state
   const [showProfileCard, setShowProfileCard] = useState(false);
+
+  // 群信息卡片 + 退出群聊二次确认
+  const [showGroupCard, setShowGroupCard] = useState(false);
+  const [quitConfirmOpen, setQuitConfirmOpen] = useState(false);
 
   // Recalled messages tracking
   const [recalledIds, setRecalledIds] = useState<Set<string>>(new Set());
@@ -472,16 +477,32 @@ export default function ChatDetail() {
   }, [currentUser?.token, selectedConversationId, atMeIds, jumpToContext, consumeAtMe]);
 
   // Scroll to bottom when messages change (new message sent/loaded)
-  const prevMsgCount = useRef(0);
+  // 用首/尾消息 id 区分「向上分页（头部变化、尾部不变）」与「新消息追加 / 切换会话」：
+  // 分页加载更早消息时不能自动滚到底（否则会把用户从历史位置拽回底部）。
+  const prevFirstId = useRef<string | null>(null);
+  const prevLastId = useRef<string | null>(null);
+  const prevScrollConvId = useRef<string | null>(null);
   useEffect(() => {
     if (messages.length === 0) return;
+    const firstId = messages[0].id;
+    const lastId = messages[messages.length - 1].id;
+    const convChanged = prevScrollConvId.current !== selectedConversationId;
     // 浏览历史（跳转到非最新窗口）时不要自动滚到底，保持在目标位置
-    if (anchored) { prevMsgCount.current = messages.length; return; }
-    // If switching conversation (count changed drastically) → instant, otherwise smooth
-    const isNewConv = Math.abs(messages.length - prevMsgCount.current) > 1;
-    scrollToBottom(isNewConv);
-    prevMsgCount.current = messages.length;
-  }, [messages, scrollToBottom, anchored]);
+    if (anchored) {
+      prevFirstId.current = firstId;
+      prevLastId.current = lastId;
+      prevScrollConvId.current = selectedConversationId;
+      return;
+    }
+    // 向上分页：尾部消息不变、头部消息变了 → 是 prepend，保持当前阅读位置，不滚动
+    const prepended = !convChanged && prevLastId.current === lastId && prevFirstId.current !== firstId;
+    if (!prepended) {
+      scrollToBottom(convChanged);
+    }
+    prevFirstId.current = firstId;
+    prevLastId.current = lastId;
+    prevScrollConvId.current = selectedConversationId;
+  }, [messages, scrollToBottom, anchored, selectedConversationId]);
 
   // Also scroll when conversation switches (even if messages haven't changed yet)
   useEffect(() => {
@@ -515,6 +536,7 @@ export default function ChatDetail() {
       setLoadingMore(true);
       const prevCount = msgs.length;
       const prevHeight = el.scrollHeight;
+      const prevScrollTop = el.scrollTop;
       fetchMessages(currentUser!.token, selectedConversationId!, oldestId).then(() => {
         requestAnimationFrame(() => {
           const newMsgs = useChatStore.getState().messagesMap[selectedConversationId!] || [];
@@ -522,7 +544,7 @@ export default function ChatDetail() {
           if (newMsgs.length <= prevCount) {
             setNoMoreHistory(true);
           }
-          el.scrollTop = el.scrollHeight - prevHeight;
+          el.scrollTop = el.scrollHeight - prevHeight + prevScrollTop;
           setLoadingMore(false);
         });
       }).catch(() => setLoadingMore(false));
@@ -862,6 +884,32 @@ export default function ChatDetail() {
       .catch(() => toast.error(t('group.reportFailed')));
   };
 
+  // ── 群聊：打开群信息卡片 / 退出群聊 ──
+  const handleOpenGroupInfo = () => setShowGroupCard(true);
+
+  // 退出群聊：群会话的 conversationId 即后端 group_id
+  const doQuitGroup = () => {
+    if (!currentUser?.token || !selectedConversationId) return;
+    const gid = selectedConversationId;
+    fetch('/api/social/group/quit', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ group_id: gid }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          toast.success(t('group.quitToast'));
+          setShowGroupCard(false);
+          // 复用被移出群的禁用态：输入框禁用 + "你已不在该群"横幅
+          markGroupRemoved(gid, 'group.member.removed');
+        } else {
+          toast.error(d.message || t('group.opFailed'));
+        }
+      })
+      .catch(() => toast.error(t('group.networkError')));
+  };
+
   // Close context menu when clicking elsewhere
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
@@ -1057,15 +1105,15 @@ export default function ChatDetail() {
             <ArrowLeft style={{ width: 20, height: 20 }} />
           </button>
           <div
-            onClick={contactMatch ? () => {
-              setShowProfileCard(true);
-            } : undefined}
+            onClick={conv.type === 'group'
+              ? () => setShowGroupCard(true)
+              : (contactMatch ? () => setShowProfileCard(true) : undefined)}
             style={{
               width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
               background: peerAvatar ? 'transparent' : getAvatarColor(peerName),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#FFFFFF', fontSize: 16, fontWeight: 600,
-              cursor: contactMatch ? 'pointer' : 'default',
+              cursor: (conv.type === 'group' || contactMatch) ? 'pointer' : 'default',
               overflow: 'hidden',
             }}
           >
@@ -1117,6 +1165,9 @@ export default function ChatDetail() {
             onViewProfile={conv.type === 'private' ? handleViewProfile : undefined}
             onBlock={conv.type === 'private' ? handleBlockPeer : undefined}
             onReport={conv.type === 'private' ? handleReportPeer : undefined}
+            isGroup={conv.type === 'group'}
+            onGroupInfo={conv.type === 'group' ? handleOpenGroupInfo : undefined}
+            onQuitGroup={conv.type === 'group' ? () => setQuitConfirmOpen(true) : undefined}
           >
             <button
               className="hc-header-btn"
@@ -1409,6 +1460,7 @@ export default function ChatDetail() {
           onOpenChange={setCallDialogOpen}
           type={callType}
           contactName={peerName}
+          contactAvatar={conv.type === 'private' ? peerAvatar : undefined}
           isGroup={conv.type === 'group'}
           members={conv.type === 'group' ? (groupMembersMap[conv.id] || []) : []}
         />
@@ -1465,6 +1517,30 @@ export default function ChatDetail() {
           onVideoCall={() => handleOpenCall('video')}
         />
       )}
+
+      {/* ── Group Info Card ── */}
+      {showGroupCard && conv.type === 'group' && (
+        <GroupInfoCard
+          groupId={selectedConversationId!}
+          name={peerName}
+          avatar={peerAvatar}
+          memberCount={(storeGroupMembers[selectedConversationId!] || []).length || conv.members || 0}
+          onClose={() => setShowGroupCard(false)}
+          onOpenManage={() => { openGroupDetail(selectedConversationId!); setShowGroupCard(false); }}
+          onQuit={() => setQuitConfirmOpen(true)}
+        />
+      )}
+
+      {/* ── 退出群聊二次确认 ── */}
+      <ConfirmDialog
+        open={quitConfirmOpen}
+        onClose={() => setQuitConfirmOpen(false)}
+        title={t('group.confirmQuitTitle')}
+        description={t('group.confirmQuitDesc').replace('{name}', peerName)}
+        confirmText={t('group.quit')}
+        confirmVariant="danger"
+        onConfirm={doQuitGroup}
+      />
 
       {/* ── Forward Dialog ── */}
       {forwardMsg && (
@@ -1563,6 +1639,17 @@ function MessageList({
     const map: Record<string, string> = {};
     for (const m of members) {
       map[m.user_id] = m.group_nickname || m.nickname || m.user_id;
+    }
+    return map;
+  }, [selectedConversationId, conversation?.type, storeGroupMembers]);
+
+  // 群成员头像映射（后端 user_avatar_url 是群内权威头像，优先于 userProfiles）
+  const groupMemberAvatars = useMemo<Record<string, string>>(() => {
+    if (!selectedConversationId || conversation?.type !== 'group') return {};
+    const members = storeGroupMembers[selectedConversationId] || [];
+    const map: Record<string, string> = {};
+    for (const m of members) {
+      if (m.user_avatar_url) map[m.user_id] = m.user_avatar_url;
     }
     return map;
   }, [selectedConversationId, conversation?.type, storeGroupMembers]);
@@ -1711,7 +1798,7 @@ function MessageList({
                 ? (groupMemberNames[msgs[0].senderId] || msgs[0].senderId)
                 : peerName;
               const senderAvatar = conversation.type === 'group'
-                ? (userProfiles[msgs[0].senderId]?.avatar || '')
+                ? (groupMemberAvatars[msgs[0].senderId] || userProfiles[msgs[0].senderId]?.avatar || '')
                 : peerAvatar;
               return (
                 <div style={{ width: 36, flexShrink: 0, marginRight: 8 }}>

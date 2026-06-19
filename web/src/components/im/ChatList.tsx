@@ -35,6 +35,7 @@ import { toast } from 'sonner';
 interface SearchResultMessage {
   conversationId: string;
   conversationName: string;
+  conversationAvatar?: string;
   message: Message;
 }
 
@@ -568,7 +569,7 @@ function SearchContactItem({
             width: 44,
             height: 44,
             borderRadius: '50%',
-            background: getAvatarColor(contact.name),
+            background: contact.avatar ? 'transparent' : getAvatarColor(contact.name),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -579,7 +580,9 @@ function SearchContactItem({
             overflow: 'hidden',
           }}
         >
-          {contact.name[0]}
+          {contact.avatar
+            ? <img src={contact.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : contact.name[0]}
         </div>
         {contact.online && (
           <span
@@ -625,7 +628,7 @@ function SearchMessageItem({
             width: 44,
             height: 44,
             borderRadius: '50%',
-            background: getAvatarColor(result.conversationName),
+            background: result.conversationAvatar ? 'transparent' : getAvatarColor(result.conversationName),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -636,7 +639,9 @@ function SearchMessageItem({
             overflow: 'hidden',
           }}
         >
-          {result.conversationName[0]}
+          {result.conversationAvatar
+            ? <img src={result.conversationAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : result.conversationName[0]}
         </div>
       </div>
       <div className="flex-1 min-w-0">
@@ -984,6 +989,7 @@ export function ChatListContent() {
             mm.push({
               conversationId: convId,
               conversationName: conv.name,
+              conversationAvatar: conv.avatar,
               message: msg,
             });
           }

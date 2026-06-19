@@ -316,7 +316,7 @@ type AppStatusFilter = 'all' | GroupAppResult;
 
 export default function GroupList() {
   const t = useT();
-  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupAppNavTab, clearGroupAppNavTab } = useIMStore();
+  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupAppNavTab, clearGroupAppNavTab, groupDetailNavId, clearGroupDetailNav } = useIMStore();
   const token = currentUser?.token || '';
   const myUserId = currentUser?.id || '';
 
@@ -656,6 +656,13 @@ export default function GroupList() {
   }, [view, setShowGroupPanel]);
 
   const openGroup = useCallback((gid: string) => { setSelectedGroupId(gid); setView('detail'); setDetailTab('members'); setMemberSearch(''); }, []);
+
+  // 从群聊深链进来：自动打开指定群的详情
+  useEffect(() => {
+    if (!groupDetailNavId) return;
+    openGroup(groupDetailNavId);
+    clearGroupDetailNav();
+  }, [groupDetailNavId, clearGroupDetailNav, openGroup]);
 
   // Confirm helper (async-aware)
   const doConfirm = useCallback((title: string, desc: string, confirmLabel: string, confirmColor: string, action: () => Promise<void> | void) => {
@@ -1182,9 +1189,11 @@ export default function GroupList() {
     <button key={key} onClick={onClick} style={{ padding: '4px 14px', borderRadius: '14px', border: 'none', background: active ? 'rgba(27,180,91,0.1)' : 'rgba(0,0,0,0.04)', color: active ? '#1BB45B' : '#646A73', fontSize: '12px', fontWeight: active ? 500 : 400, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>{label}</button>
   );
 
-  const avatarCircle = (name: string, size: number, extra?: React.ReactNode) => (
-    <div className="relative shrink-0" style={{ width: size, height: size, borderRadius: '50%', backgroundColor: getAvatarColor(name || '?'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: 600, color: '#FFF' }}>
-      {(name || '?')[0]}
+  const avatarCircle = (name: string, size: number, extra?: React.ReactNode, avatar?: string) => (
+    <div className="relative shrink-0" style={{ width: size, height: size, borderRadius: '50%', backgroundColor: avatar ? 'transparent' : getAvatarColor(name || '?'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: 600, color: '#FFF', overflow: 'hidden' }}>
+      {avatar
+        ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : (name || '?')[0]}
       {extra}
     </div>
   );
@@ -1311,7 +1320,7 @@ export default function GroupList() {
                     <input type="checkbox" checked={createInviteSelected.has(c.id)} onChange={() => {
                       setCreateInviteSelected(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; });
                     }} style={{ width: 16, height: 16, accentColor: '#1BB45B' }} />
-                    {avatarCircle(c.name, 32)}
+                    {avatarCircle(c.name, 32, undefined, c.avatar)}
                     <span style={{ fontSize: '14px', color: '#1C2733' }}>{c.name}</span>
                   </label>
                 ))}
@@ -1368,7 +1377,7 @@ export default function GroupList() {
                     <div className="flex gap-3">
                       {/* Avatar */}
                       {isReceived ? (
-                        avatarCircle(app.userName, 44, <div className="absolute" style={{ bottom: -2, left: '50%', transform: 'translateX(-50%)', width: 20, height: 3, borderRadius: 2, backgroundColor: rc.color }} />)
+                        avatarCircle(app.userName, 44, <div className="absolute" style={{ bottom: -2, left: '50%', transform: 'translateX(-50%)', width: 20, height: 3, borderRadius: 2, backgroundColor: rc.color }} />, app.userAvatar)
                       ) : (
                         app.groupIcon ? (
                           <img src={app.groupIcon} alt="" className="shrink-0" style={{ width: 44, height: 44, borderRadius: '50%' }} />
@@ -1770,7 +1779,7 @@ export default function GroupList() {
                 <input type="checkbox" checked={inviteSelected.has(c.id)} onChange={() => {
                   setInviteSelected(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; });
                 }} style={{ width: 16, height: 16, accentColor: '#1BB45B' }} />
-                {avatarCircle(c.name, 32)}
+                {avatarCircle(c.name, 32, undefined, c.avatar)}
                 <span style={{ fontSize: '14px', color: '#1C2733' }}>{c.name}</span>
               </label>
             ))}
@@ -1832,7 +1841,7 @@ export default function GroupList() {
               </button>
               <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733', marginBottom: '16px' }}>{t('group.addFriendTitle')}</h3>
               <div className="flex items-center gap-3" style={{ marginBottom: '16px', padding: '12px', background: '#F5F7FA', borderRadius: '12px' }}>
-                {avatarCircle(getContactName(addFriendTarget.userId), 48)}
+                {avatarCircle(getContactName(addFriendTarget.userId), 48, undefined, addFriendTarget.avatar)}
                 <div>
                   <div style={{ fontSize: '15px', fontWeight: 600, color: '#1C2733' }}>{getContactName(addFriendTarget.userId)}</div>
                   <div style={{ fontSize: '12px', color: '#A2ACB5' }}>ID: {addFriendTarget.userId}</div>
@@ -1878,7 +1887,7 @@ export default function GroupList() {
               </button>
               <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#E53935', marginBottom: '16px' }}>{t('group.reportUser')}</h3>
               <div className="flex items-center gap-3" style={{ marginBottom: '16px', padding: '12px', background: '#FFF5F5', borderRadius: '12px' }}>
-                {avatarCircle(getContactName(reportTarget.userId), 48)}
+                {avatarCircle(getContactName(reportTarget.userId), 48, undefined, reportTarget.avatar)}
                 <div>
                   <div style={{ fontSize: '15px', fontWeight: 600, color: '#1C2733' }}>{getContactName(reportTarget.userId)}</div>
                   <div style={{ fontSize: '12px', color: '#A2ACB5' }}>ID: {reportTarget.userId}</div>
