@@ -59,11 +59,19 @@ Signaling:
     ReadBufferSize: 4096
     WriteBufferSize: 4096
     CheckOrigin: true
-  
+
   # 消息队列配置
   MessageQueue:
     BufferSize: 1000
     WorkerCount: 10
+
+# im ws 地址：streaming 以系统 root 身份连入，推送通话控制信令（push.call）
+Ws:
+  Host: 127.0.0.1:10090
+
+# 通话参数
+Call:
+  RingTimeoutSeconds: 30   # 振铃超时，超时未接转“未接听”
 
 # 各个微服务的RPC配置
 SocialRpc:

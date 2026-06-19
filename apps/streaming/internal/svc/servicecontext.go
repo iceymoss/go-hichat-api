@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/userclient"
@@ -25,6 +26,9 @@ type ServiceContext struct {
 
 	// 关系缓存：通话发起的好友/群成员校验（O(1)，miss 回源 RPC）
 	RelationCache *relationcache.Cache
+
+	// ImWsClient 以系统 root 身份连入 im ws，推送通话控制信令（push.call -> 客户端 call.signal）
+	ImWsClient websocket.Client
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -34,6 +38,15 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		User:          userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),
 		RelationCache: relationcache.New(db.GetRedisConn()),
 	}
+
+	// 连接 im ws（同 task/mq 范式：取系统 root token 作鉴权头）
+	token, err := svcCtx.GetToken()
+	if err != nil {
+		fmt.Printf("streaming get system token err: %v\n", err)
+	}
+	header := http.Header{}
+	header.Set("Authorization", token)
+	svcCtx.ImWsClient = websocket.NewClient(c.Ws.Host, websocket.WithClientHeader(header))
 
 	return svcCtx
 }

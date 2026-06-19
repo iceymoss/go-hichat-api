@@ -83,4 +83,15 @@ type Config struct {
 	SocialRpc zrpc.RpcClientConf
 	UserRpc   zrpc.RpcClientConf
 	ImRpc     zrpc.RpcClientConf
+
+	// Ws im ws 地址：streaming 以系统 root 身份连入，推送通话控制信令（push.call）
+	Ws struct {
+		Host string
+	}
+
+	// Call 通话相关参数
+	Call struct {
+		// RingTimeoutSeconds 振铃超时（秒），超时未接转“未接听”。默认 30。
+		RingTimeoutSeconds int
+	}
 }
