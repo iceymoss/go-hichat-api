@@ -1399,17 +1399,16 @@ export default function MomentsFeed() {
     loadNotifications();
   }, [trendNotifyVersion, token, loadNotifications]);
 
-  // 进入消息中心：保留未读标记可见，5 秒后再自动「全部已读」+ 清零全局红点。
-  // 这样用户进来能看到哪些是新消息（橙色高亮/圆点），停留 5 秒后自动清掉；
-  // 若 5 秒内离开则取消（不自动已读，下次再来仍能看到）。
+  // 进入消息中心：保留未读标记可见，不自动倒计时已读。
+  // 由用户自己点单条（handleNotifClick）/「全部已读」按钮标记；
+  // 离开消息列表（切走视图 / 卸载）时再自动「全部已读」+ 清零全局红点。
   useEffect(() => {
     if (view !== 'notifications' || !token) return;
-    const timer = setTimeout(() => {
+    return () => {
       markTrendMessagesRead(token).catch(() => { /* silent */ });
       setMomentsUnreadCount(0);
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    }, 5000);
-    return () => clearTimeout(timer);
+    };
   }, [view, token, setMomentsUnreadCount]);
 
   // Re-sync a single trend (meta + comments + like users) into local state.
