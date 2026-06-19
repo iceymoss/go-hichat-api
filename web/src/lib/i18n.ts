@@ -21,6 +21,16 @@ const dict: Record<string, Record<string, string>> = {
     'profile.switchAccount': '切换账号',
     'profile.logout': '退出登录',
 
+    // About page
+    'about.title': '关于 HiChat',
+    'about.slogan': '连接每一次对话',
+    'about.version': '版本',
+    'about.checkUpdate': '检查更新',
+    'about.upToDate': '已是最新版本',
+    'about.terms': '用户协议',
+    'about.privacy': '隐私政策',
+    'about.copyright': '© 2026 HiChat. 保留所有权利。',
+
     // Settings
     'settings.title': '设置',
     'settings.accountSecurity': '账号与安全',
@@ -862,6 +872,16 @@ const dict: Record<string, Record<string, string>> = {
     'profile.plugins': 'Plugins',
     'profile.switchAccount': 'Switch Account',
     'profile.logout': 'Log Out',
+
+    // About page
+    'about.title': 'About HiChat',
+    'about.slogan': 'Connect every conversation',
+    'about.version': 'Version',
+    'about.checkUpdate': 'Check for Updates',
+    'about.upToDate': 'You are on the latest version',
+    'about.terms': 'Terms of Service',
+    'about.privacy': 'Privacy Policy',
+    'about.copyright': '© 2026 HiChat. All rights reserved.',
 
     'settings.title': 'Settings',
     'settings.accountSecurity': 'Account & Security',

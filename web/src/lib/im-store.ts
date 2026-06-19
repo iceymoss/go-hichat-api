@@ -106,8 +106,12 @@ interface IMState {
   bumpTrendVersion: (trendId: number) => void;
 
   // Me tab sub-page (shown in right panel)
-  meSubPage: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null;
-  setMeSubPage: (page: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null) => void;
+  meSubPage: 'profile' | 'favorites' | 'album' | 'emojis' | null;
+  setMeSubPage: (page: 'profile' | 'favorites' | 'album' | 'emojis' | null) => void;
+
+  // System panel opened from the sidebar settings gear (independent of activeTab)
+  systemPanel: 'settings' | 'about' | null;
+  setSystemPanel: (panel: 'settings' | 'about' | null) => void;
 
   // Friends list (fetched from API)
   friends: Contact[];
@@ -155,7 +159,7 @@ export const useIMStore = create<IMState>()(persist((set) => ({
 
   // IM
   activeTab: 'chats',
-  setActiveTab: (tab) => set({ activeTab: tab, selectedConversationId: null, selectedContactId: null, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null, meSubPage: null }),
+  setActiveTab: (tab) => set({ activeTab: tab, selectedConversationId: null, selectedContactId: null, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null, meSubPage: null, systemPanel: null }),
   selectedConversationId: null,
   setSelectedConversationId: (id) => set({ selectedConversationId: id, showChatDetail: true }),
   selectedContactId: null,
@@ -298,6 +302,10 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   // Me tab sub-page
   meSubPage: null,
   setMeSubPage: (page) => set({ meSubPage: page }),
+
+  // System panel (settings / about) opened from the sidebar gear
+  systemPanel: null,
+  setSystemPanel: (panel) => set({ systemPanel: panel }),
 
   // Friends list
   friends: [],

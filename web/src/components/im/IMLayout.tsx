@@ -19,6 +19,8 @@ import FavoritesPage from './FavoritesPage';
 import AlbumPage from './AlbumPage';
 import EmojisPage from './EmojisPage';
 import SettingsPage from './SettingsPage';
+import AboutPage from './AboutPage';
+import SettingsMenuPopover from './SettingsMenuPopover';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
@@ -42,7 +44,7 @@ const navItems: { tab: TabType; icon: React.ReactNode }[] = [
 ];
 
 export default function IMLayout() {
-  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, showUserCard, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, setNotificationUnreadCount, setGroupAppUnreadCount, friendRequestUnreadCount, groupAppUnreadCount } = useIMStore();
+  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, systemPanel, setSystemPanel, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, showUserCard, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, setNotificationUnreadCount, setGroupAppUnreadCount, friendRequestUnreadCount, groupAppUnreadCount } = useIMStore();
   // 「联系人」tab 角标 = 好友申请未读 + 群申请未读：看了对应申请列表即各自清零（与铃铛/通知中心解耦）
   const contactsUnread = friendRequestUnreadCount + groupAppUnreadCount;
   const chatConversations = useChatStore(s => s.conversations);
@@ -198,7 +200,7 @@ export default function IMLayout() {
   if (isMobile) {
     const headerHeight = 52;
     return (
-      <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
+      <div className="h-full flex flex-col relative" style={{ background: '#F5F7FA' }}>
         {activeTab === 'chats' ? (
           /* ── Mobile Chats Tab: provider wraps header + content ── */
           <ChatListProvider>
@@ -280,6 +282,17 @@ export default function IMLayout() {
             );
           })}
         </nav>
+        {/* System panel (settings / about) — full overlay on mobile */}
+        {systemPanel && (
+          <div
+            className="animate-fade-in"
+            style={{ position: 'absolute', inset: 0, zIndex: 30, background: '#F0F2F5' }}
+          >
+            {systemPanel === 'settings'
+              ? <SettingsPage onBack={() => setSystemPanel(null)} />
+              : <AboutPage onBack={() => setSystemPanel(null)} />}
+          </div>
+        )}
         {floatingCard}
       </div>
     );
@@ -291,7 +304,7 @@ export default function IMLayout() {
   const desktopHeaderHeight = 56;
 
   return (
-    <div className="h-full flex overflow-hidden" style={{ background: '#F5F7FA' }}>
+    <div className="h-full flex overflow-hidden relative" style={{ background: '#F5F7FA' }}>
       {/* ── Icon Sidebar: TG dark ── */}
       <aside className="im-sidebar flex flex-col items-center py-3 gap-1 shrink-0" style={{ width: 56 }}>
         {/* Brand mark */}
@@ -334,12 +347,14 @@ export default function IMLayout() {
 
         {/* Settings */}
         <div className="flex flex-col gap-1 mt-auto">
-          <button className="im-sidebar-icon" title="设置" style={{ width: 38, height: 38, borderRadius: 12 }}>
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
+          <SettingsMenuPopover>
+            <button className={`im-sidebar-icon ${systemPanel ? 'active' : ''}`} title={t('profile.settings')} style={{ width: 38, height: 38, borderRadius: 12 }}>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+          </SettingsMenuPopover>
         </div>
       </aside>
 
@@ -485,9 +500,15 @@ export default function IMLayout() {
           <EmojisPage onBack={() => setMeSubPage(null)} />
         </div>
       )}
-      {activeTab === 'me' && meSubPage === 'settings' && (
-        <div className="flex-1 min-w-0 animate-fade-in">
-          <SettingsPage onBack={() => setMeSubPage(null)} />
+      {/* System panel (settings / about) — overlay covering everything right of the icon sidebar */}
+      {systemPanel && (
+        <div
+          className="animate-fade-in"
+          style={{ position: 'absolute', top: 0, bottom: 0, left: 56, right: 0, zIndex: 30, background: '#F0F2F5' }}
+        >
+          {systemPanel === 'settings'
+            ? <SettingsPage onBack={() => setSystemPanel(null)} />
+            : <AboutPage onBack={() => setSystemPanel(null)} />}
         </div>
       )}
       {floatingCard}
