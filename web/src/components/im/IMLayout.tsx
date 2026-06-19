@@ -282,6 +282,18 @@ export default function IMLayout() {
             );
           })}
         </nav>
+        {/* Me-tab sub-pages — full overlay on mobile (each page has its own back button) */}
+        {activeTab === 'me' && meSubPage && (
+          <div
+            className="animate-fade-in"
+            style={{ position: 'absolute', inset: 0, zIndex: 30, background: '#F0F2F5' }}
+          >
+            {meSubPage === 'profile' && <MyProfileEditPage onBack={() => setMeSubPage(null)} />}
+            {meSubPage === 'favorites' && <FavoritesPage onBack={() => setMeSubPage(null)} />}
+            {meSubPage === 'album' && <AlbumPage onBack={() => setMeSubPage(null)} />}
+            {meSubPage === 'emojis' && <EmojisPage onBack={() => setMeSubPage(null)} />}
+          </div>
+        )}
         {/* System panel (settings / about) — full overlay on mobile */}
         {systemPanel && (
           <div
