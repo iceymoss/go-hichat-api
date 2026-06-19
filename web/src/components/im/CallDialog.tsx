@@ -7,16 +7,21 @@ import { Phone, Video, Check, Users } from 'lucide-react';
 import { getAvatarColor } from '@/lib/utils';
 import type { GroupMember } from '@/lib/mock-data';
 
+interface CallMember extends GroupMember {
+  avatar?: string;
+}
+
 interface CallDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   type: 'voice' | 'video';
   contactName: string;
+  contactAvatar?: string;
   isGroup?: boolean;
-  members?: GroupMember[];
+  members?: CallMember[];
 }
 
-export function CallDialog({ open, onOpenChange, type, contactName, isGroup = false, members = [] }: CallDialogProps) {
+export function CallDialog({ open, onOpenChange, type, contactName, contactAvatar, isGroup = false, members = [] }: CallDialogProps) {
   const isVoice = type === 'voice';
   const [selectAll, setSelectAll] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(members.map(m => m.id)));
@@ -103,10 +108,13 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 16,
+                overflow: 'hidden',
               }}
             >
               {isGroup ? (
                 <Users size={30} color="#FFFFFF" />
+              ) : contactAvatar ? (
+                <img src={contactAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : isVoice ? (
                 <Phone size={30} color="#FFFFFF" />
               ) : (
@@ -214,13 +222,16 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                     <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
                       <div style={{
                         width: 36, height: 36, borderRadius: '50%',
-                        background: getAvatarColor(member.name),
+                        background: member.avatar ? 'transparent' : getAvatarColor(member.name),
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: '#FFFFFF', fontSize: 14, fontWeight: 600,
                         opacity: isSelected ? 1 : 0.5,
                         transition: 'opacity 0.15s',
+                        overflow: 'hidden',
                       }}>
-                        {member.name[0]}
+                        {member.avatar
+                          ? <img src={member.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : member.name[0]}
                       </div>
                       {isSelected && (
                         <div style={{

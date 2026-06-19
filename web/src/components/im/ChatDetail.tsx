@@ -1430,6 +1430,7 @@ export default function ChatDetail() {
           onOpenChange={setCallDialogOpen}
           type={callType}
           contactName={peerName}
+          contactAvatar={conv.type === 'private' ? peerAvatar : undefined}
           isGroup={conv.type === 'group'}
           members={conv.type === 'group' ? (groupMembersMap[conv.id] || []) : []}
         />
@@ -1612,6 +1613,17 @@ function MessageList({
     return map;
   }, [selectedConversationId, conversation?.type, storeGroupMembers]);
 
+  // 群成员头像映射（后端 user_avatar_url 是群内权威头像，优先于 userProfiles）
+  const groupMemberAvatars = useMemo<Record<string, string>>(() => {
+    if (!selectedConversationId || conversation?.type !== 'group') return {};
+    const members = storeGroupMembers[selectedConversationId] || [];
+    const map: Record<string, string> = {};
+    for (const m of members) {
+      if (m.user_avatar_url) map[m.user_id] = m.user_avatar_url;
+    }
+    return map;
+  }, [selectedConversationId, conversation?.type, storeGroupMembers]);
+
   const GROUP_INTERVAL = 3 * 60 * 1000;
 
   type TimeGroup = { type: 'time'; time: string; key: string };
@@ -1756,7 +1768,7 @@ function MessageList({
                 ? (groupMemberNames[msgs[0].senderId] || msgs[0].senderId)
                 : peerName;
               const senderAvatar = conversation.type === 'group'
-                ? (userProfiles[msgs[0].senderId]?.avatar || '')
+                ? (groupMemberAvatars[msgs[0].senderId] || userProfiles[msgs[0].senderId]?.avatar || '')
                 : peerAvatar;
               return (
                 <div style={{ width: 36, flexShrink: 0, marginRight: 8 }}>

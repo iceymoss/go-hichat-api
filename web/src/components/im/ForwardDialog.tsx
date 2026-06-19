@@ -109,11 +109,13 @@ export default function ForwardDialog({ message, onClose, onForward }: ForwardDi
             >
               <div style={{
                 width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                background: getAvatarColor(conv.name),
+                background: conv.avatar ? 'transparent' : getAvatarColor(conv.name),
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#FFFFFF', fontSize: 14, fontWeight: 600,
+                color: '#FFFFFF', fontSize: 14, fontWeight: 600, overflow: 'hidden',
               }}>
-                {conv.name[0]}
+                {conv.avatar
+                  ? <img src={conv.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : conv.name[0]}
               </div>
               <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
                 <div style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 500 }}>

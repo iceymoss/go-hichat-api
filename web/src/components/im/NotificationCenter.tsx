@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 
 import { useIMStore } from '@/lib/im-store';
+import { useChatStore } from '@/lib/chat-store';
 import { useT } from '@/hooks/use-i18n';
 import {
   listNotifications,
@@ -23,6 +24,9 @@ export default function NotificationCenter() {
   const unread = useIMStore(s => s.notificationUnreadCount);
   const setUnread = useIMStore(s => s.setNotificationUnreadCount);
   const navigateToNotificationSource = useIMStore(s => s.navigateToNotificationSource);
+  // 通知发起人头像/昵称：好友优先，非好友回退到 chat-store 拉取的用户资料
+  const userProfiles = useChatStore(s => s.userProfiles);
+  const ensureUserProfiles = useChatStore(s => s.ensureUserProfiles);
 
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -53,6 +57,16 @@ export default function NotificationCenter() {
   // 面板打开时拉取历史列表；打开期间来新通知也刷新
   useEffect(() => { if (open) fetchList(); }, [open, fetchList, notificationVersion]);
 
+  // 拉取非好友发起人的资料，保证头像/昵称能显示后端真实数据
+  useEffect(() => {
+    if (!token || items.length === 0) return;
+    const ids = Array.from(new Set(
+      items.map(n => n.actorId).filter((id): id is string =>
+        !!id && !friends.some(f => f.id === id) && !userProfiles[id]),
+    ));
+    if (ids.length > 0) ensureUserProfiles(token, ids);
+  }, [token, items, friends, userProfiles, ensureUserProfiles]);
+
   // 点击外部关闭
   useEffect(() => {
     if (!open) return;
@@ -66,9 +80,12 @@ export default function NotificationCenter() {
   const actorName = (id?: string) => {
     if (!id) return '';
     const f = friends.find(x => x.id === id);
-    return f?.name || id;
+    return f?.name || userProfiles[id]?.nickname || id;
   };
-  const actorAvatar = (id?: string) => friends.find(x => x.id === id)?.avatar || '';
+  const actorAvatar = (id?: string) => {
+    if (!id) return '';
+    return friends.find(x => x.id === id)?.avatar || userProfiles[id]?.avatar || '';
+  };
 
   const handleMarkAllRead = () => {
     if (!token) return;
