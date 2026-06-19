@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { type Contact } from '@/lib/mock-data';
+import { type Contact } from '@/lib/types';
 import { useIMStore } from '@/lib/im-store';
 import { getUserTrends } from '@/lib/trend-api';
 import { useT } from '@/hooks/use-i18n';

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { X } from 'lucide-react';
-import { type Message } from '@/lib/mock-data';
+import { type Message } from '@/lib/types';
 import { mediaPreview } from '@/lib/media-message';
 import { useChatStore } from '@/lib/chat-store';
 import { getAvatarColor } from '@/lib/utils';

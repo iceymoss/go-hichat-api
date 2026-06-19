@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Phone, Video, Check, Users } from 'lucide-react';
 import { getAvatarColor } from '@/lib/utils';
-import type { GroupMember } from '@/lib/mock-data';
+import type { GroupMember } from '@/lib/types';
 
 interface CallMember extends GroupMember {
   avatar?: string;

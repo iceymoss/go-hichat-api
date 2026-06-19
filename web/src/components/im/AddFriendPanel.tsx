@@ -7,7 +7,7 @@ import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
 import { useT } from '@/hooks/use-i18n';
 import { getAvatarColor } from '@/lib/utils';
-import type { Contact } from '@/lib/mock-data';
+import type { Contact } from '@/lib/types';
 import {
   searchUsers,
   searchGroups,

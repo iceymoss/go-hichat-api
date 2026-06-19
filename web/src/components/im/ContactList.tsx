@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { contactGroups, type Contact } from '@/lib/mock-data';
+import { contactGroups, type Contact } from '@/lib/types';
 import { useIMStore } from '@/lib/im-store';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -29,7 +29,7 @@ const iconMap: Record<string, React.ReactNode> = {
   Megaphone: <Megaphone className="w-[22px] h-[22px]" />,
 };
 
-// Quick-access group titles come from mock-data as Chinese literals; map them to i18n keys for display.
+// Quick-access group titles come from types.ts as Chinese literals; map them to i18n keys for display.
 // (Comparisons against the data value below stay in Chinese — they match the data source, not the UI.)
 const groupTitleKeys: Record<string, string> = {
   '新的朋友': 'contact.newFriends',

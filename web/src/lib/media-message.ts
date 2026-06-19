@@ -6,7 +6,7 @@
  * 前后端共用同一份字段命名（见 docs/specs/rich-media-message.md）。
  */
 
-import type { Message } from './mock-data';
+import type { Message } from './types';
 
 /** 媒体消息类型（与 Message['type'] 中的富媒体子集对应） */
 export type MediaKind = 'image' | 'video' | 'file' | 'voice' | 'memes';

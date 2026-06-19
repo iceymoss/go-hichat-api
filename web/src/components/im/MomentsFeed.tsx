@@ -43,7 +43,7 @@ import {
   type Trend,
   type TrendComment,
   type MomentsNotification,
-} from '@/lib/mock-data';
+} from '@/lib/types';
 import {
   createTrend,
   deleteTrend as apiDeleteTrend,

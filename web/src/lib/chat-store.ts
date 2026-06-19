@@ -30,7 +30,7 @@ import { useIMStore } from './im-store';
 import { playMessageSound, vibrate } from './notification';
 import { useSettingsStore } from './settings-store';
 import { mediaPreview } from './media-message';
-import type { Message, Conversation } from './mock-data';
+import type { Message, Conversation } from './types';
 import { toast } from 'sonner';
 import { sendFriendRequest } from './friend-group-api';
 

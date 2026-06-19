@@ -51,7 +51,7 @@ import {
   type GroupAppResult,
   type GroupAppClass,
   type GroupJoinSource,
-} from '@/lib/mock-data';
+} from '@/lib/types';
 
 /* ═══════════════════════════════════════
    Helpers

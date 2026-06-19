@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useCallback } from 'react';
-import { type Contact } from '@/lib/mock-data';
+import { type Contact } from '@/lib/types';
 import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
 import { toast } from 'sonner';

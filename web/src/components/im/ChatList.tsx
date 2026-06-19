@@ -4,11 +4,10 @@ import React, { useState, useEffect, useMemo, useCallback, createContext, useCon
 import {
   contacts,
   conversationMessagesMap,
-  formatTime,
   type Conversation,
   type Contact,
   type Message,
-} from '@/lib/mock-data';
+} from '@/lib/types';
 import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -22,7 +21,7 @@ import {
   Trash2,
   BellOff,
 } from 'lucide-react';
-import { getAvatarColor } from '@/lib/utils';
+import { formatTime, getAvatarColor } from '@/lib/utils';
 import { useT } from '@/hooks/use-i18n';
 import AddFriendPanel from './AddFriendPanel';
 import NotificationCenter from './NotificationCenter';
