@@ -1,0 +1,422 @@
+/**
+ * WebRTC 通话引擎 —— 对接 streaming 服务
+ *
+ * 信令双通道（见 docs/specs/streaming-audio-video-call.md）：
+ *   - 收呼叫控制（来电/接听/拒接/挂断/超时）：im ws 的 method=call.signal，由 call-store 喂进 onControlSignal()
+ *   - 发动作 + 媒体协商：本引擎自建的 streaming ws（:10093/ws?token=）
+ *
+ * 1:1 为 P2P：streaming 仅转发 offer/answer/ice，媒体在两端浏览器之间直连。
+ */
+
+export type CallMediaType = 'voice' | 'video';
+export type CallPhase = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'connected' | 'ended';
+
+export interface CallPeer {
+  id: string;
+  name: string;
+  avatar?: string;
+}
+
+/** im ws call.signal 帧（与后端 ws.CallSignal 对应） */
+export interface CallSignal {
+  event: 'invite' | 'cancel' | 'accept' | 'reject' | 'busy' | 'timeout' | 'end';
+  callId: string;
+  callType?: CallMediaType;
+  mediaMode?: string;
+  scope?: string;
+  fromUid?: string;
+  fromName?: string;
+  fromAvatar?: string;
+  reason?: string;
+  duration?: number;
+}
+
+export interface CallEngineCallbacks {
+  onPhase: (phase: CallPhase, info?: { reason?: string; duration?: number }) => void;
+  onLocalStream: (s: MediaStream | null) => void;
+  onRemoteStream: (s: MediaStream | null) => void;
+  onRemoteMedia: (state: { audio: boolean; video: boolean }) => void;
+  onError: (msg: string) => void;
+}
+
+interface StreamingMsg {
+  type: string;
+  room_id?: string;
+  user_id?: string;
+  data?: Record<string, unknown>;
+}
+
+const DEFAULT_ICE: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+export class CallEngine {
+  private ws: WebSocket | null = null;
+  private pc: RTCPeerConnection | null = null;
+  private localStream: MediaStream | null = null;
+  private remoteStream: MediaStream | null = null;
+
+  private callId = '';
+  private peer: CallPeer | null = null;
+  private mediaType: CallMediaType = 'voice';
+  private isCaller = false;
+  private phase: CallPhase = 'idle';
+
+  private iceServers: RTCIceServer[] = DEFAULT_ICE;
+  private pendingIce: RTCIceCandidateInit[] = [];
+  private remoteDescSet = false;
+
+  constructor(
+    private opts: { wsUrl: string; httpBase: string; token: string; selfId: string },
+    private cb: CallEngineCallbacks,
+  ) {}
+
+  // ==================== 公开状态 ====================
+
+  get currentPhase() { return this.phase; }
+  get currentPeer() { return this.peer; }
+  get currentMediaType() { return this.mediaType; }
+  get currentCallId() { return this.callId; }
+
+  // ==================== 主叫 ====================
+
+  /** 发起呼叫 */
+  async startCall(peer: CallPeer, type: CallMediaType) {
+    if (this.phase !== 'idle') return;
+    this.isCaller = true;
+    this.peer = peer;
+    this.mediaType = type;
+    this.setPhase('outgoing');
+
+    try {
+      await this.getLocalMedia(type);
+      await this.connectWs();
+      this.sendWs('call_invite', { callee_id: peer.id, call_type: type });
+    } catch (e) {
+      this.cb.onError(this.mediaErr(e));
+      this.cleanup('failed');
+    }
+  }
+
+  // ==================== 被叫 ====================
+
+  /** 接听来电 */
+  async accept() {
+    if (this.phase !== 'incoming' || !this.callId) return;
+    this.setPhase('connecting');
+    try {
+      await this.getLocalMedia(this.mediaType);
+      await this.connectWs();
+      this.createPeerConnection(); // 被叫先备好 PC，等主叫 offer
+      this.sendWs('call_accept', { call_id: this.callId });
+    } catch (e) {
+      this.cb.onError(this.mediaErr(e));
+      this.sendWsBestEffort('call_reject', { call_id: this.callId });
+      this.cleanup('failed');
+    }
+  }
+
+  /** 拒接来电 */
+  async reject() {
+    if (this.phase !== 'incoming' || !this.callId) {
+      this.cleanup();
+      return;
+    }
+    try {
+      await this.connectWs();
+      this.sendWs('call_reject', { call_id: this.callId });
+    } catch {
+      /* ignore */
+    }
+    this.cleanup();
+  }
+
+  // ==================== 通用 ====================
+
+  /** 挂断 / 取消 */
+  hangup() {
+    if (this.callId && this.ws?.readyState === WebSocket.OPEN) {
+      this.sendWs('call_end', { call_id: this.callId });
+    }
+    this.cleanup();
+  }
+
+  toggleMute(muted: boolean) {
+    this.localStream?.getAudioTracks().forEach(t => (t.enabled = !muted));
+    this.sendWsBestEffort('media_state', { call_id: this.callId, audio: !muted, video: this.isVideoOn() });
+  }
+
+  toggleCamera(on: boolean) {
+    this.localStream?.getVideoTracks().forEach(t => (t.enabled = on));
+    this.sendWsBestEffort('media_state', { call_id: this.callId, audio: this.isAudioOn(), video: on });
+  }
+
+  /** im ws call.signal -> 引擎 */
+  onControlSignal(sig: CallSignal) {
+    switch (sig.event) {
+      case 'invite':
+        // 来电：仅置 incoming，展示振铃界面；接听才连 ws/取媒体
+        if (this.phase !== 'idle') {
+          // 已在通话中，理论上后端 busy 已挡；前端兜底忽略
+          return;
+        }
+        this.isCaller = false;
+        this.callId = sig.callId;
+        this.mediaType = sig.callType || 'voice';
+        this.peer = { id: sig.fromUid || '', name: sig.fromName || '', avatar: sig.fromAvatar };
+        this.setPhase('incoming');
+        break;
+
+      case 'accept':
+        // 主叫收到被叫接听 -> 开始媒体协商（主叫造 offer）
+        if (this.isCaller && this.phase === 'outgoing') {
+          this.setPhase('connecting');
+          this.startNegotiationAsCaller();
+        }
+        break;
+
+      case 'reject':
+        this.cb.onError('对方已拒接');
+        this.cleanup(sig.reason);
+        break;
+
+      case 'busy':
+        this.cb.onError('对方忙线中');
+        this.cleanup('busy');
+        break;
+
+      case 'timeout':
+        this.cb.onError('对方未接听');
+        this.cleanup('no_answer');
+        break;
+
+      case 'cancel':
+        // 主叫响铃中取消
+        this.cleanup('canceled');
+        break;
+
+      case 'end':
+        this.cleanup(sig.reason, sig.duration);
+        break;
+    }
+  }
+
+  // ==================== 内部：媒体协商 ====================
+
+  private async startNegotiationAsCaller() {
+    try {
+      this.createPeerConnection();
+      const offer = await this.pc!.createOffer();
+      await this.pc!.setLocalDescription(offer);
+      this.sendWs('offer', { call_id: this.callId, sdp: offer.sdp });
+    } catch (e) {
+      this.cb.onError('建立连接失败');
+      this.hangup();
+    }
+  }
+
+  private createPeerConnection() {
+    if (this.pc) return;
+    const pc = new RTCPeerConnection({ iceServers: this.iceServers });
+    this.remoteStream = new MediaStream();
+    this.cb.onRemoteStream(this.remoteStream);
+
+    this.localStream?.getTracks().forEach(t => pc.addTrack(t, this.localStream!));
+
+    pc.onicecandidate = (ev) => {
+      if (ev.candidate) {
+        this.sendWs('ice_candidate', {
+          call_id: this.callId,
+          candidate: ev.candidate.candidate,
+          sdpMid: ev.candidate.sdpMid,
+          sdpMLineIndex: ev.candidate.sdpMLineIndex,
+        });
+      }
+    };
+
+    pc.ontrack = (ev) => {
+      ev.streams[0]?.getTracks().forEach(t => this.remoteStream?.addTrack(t));
+      this.cb.onRemoteStream(this.remoteStream);
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        this.setPhase('connected');
+      } else if (pc.connectionState === 'failed') {
+        this.cb.onError('媒体连接失败');
+        this.hangup();
+      }
+    };
+
+    this.pc = pc;
+  }
+
+  private async handleOffer(sdp: string) {
+    if (!this.pc) this.createPeerConnection();
+    await this.pc!.setRemoteDescription({ type: 'offer', sdp });
+    this.remoteDescSet = true;
+    await this.flushPendingIce();
+    const answer = await this.pc!.createAnswer();
+    await this.pc!.setLocalDescription(answer);
+    this.sendWs('answer', { call_id: this.callId, sdp: answer.sdp });
+  }
+
+  private async handleAnswer(sdp: string) {
+    if (!this.pc) return;
+    await this.pc.setRemoteDescription({ type: 'answer', sdp });
+    this.remoteDescSet = true;
+    await this.flushPendingIce();
+  }
+
+  private async handleRemoteIce(data: Record<string, unknown>) {
+    const cand: RTCIceCandidateInit = {
+      candidate: String(data.candidate ?? ''),
+      sdpMid: (data.sdpMid as string) ?? null,
+      sdpMLineIndex: (data.sdpMLineIndex as number) ?? null,
+    };
+    if (!this.pc || !this.remoteDescSet) {
+      this.pendingIce.push(cand);
+      return;
+    }
+    try {
+      await this.pc.addIceCandidate(cand);
+    } catch {
+      /* 忽略个别失败的候选 */
+    }
+  }
+
+  private async flushPendingIce() {
+    if (!this.pc) return;
+    const pending = this.pendingIce;
+    this.pendingIce = [];
+    for (const c of pending) {
+      try { await this.pc.addIceCandidate(c); } catch { /* ignore */ }
+    }
+  }
+
+  // ==================== 内部：streaming ws ====================
+
+  private async connectWs(): Promise<void> {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) return;
+    await this.loadIceServers();
+    return new Promise((resolve, reject) => {
+      const url = `${this.opts.wsUrl}?token=${encodeURIComponent(this.opts.token)}`;
+      const ws = new WebSocket(url);
+      this.ws = ws;
+      ws.onopen = () => resolve();
+      ws.onerror = () => reject(new Error('信令连接失败'));
+      ws.onclose = () => { if (this.phase !== 'idle' && this.phase !== 'ended') { /* 由控制信令收尾 */ } };
+      ws.onmessage = (e) => this.handleStreamingMsg(e);
+    });
+  }
+
+  private handleStreamingMsg(e: MessageEvent) {
+    let msg: StreamingMsg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+    const data = msg.data || {};
+    switch (msg.type) {
+      case 'call_created':
+        this.callId = (data.call_id as string) || msg.room_id || this.callId;
+        break;
+      case 'offer':
+        this.handleOffer(String(data.sdp ?? ''));
+        break;
+      case 'answer':
+        this.handleAnswer(String(data.sdp ?? ''));
+        break;
+      case 'ice_candidate':
+        this.handleRemoteIce(data);
+        break;
+      case 'media_state':
+        this.cb.onRemoteMedia({ audio: Boolean(data.audio), video: Boolean(data.video) });
+        break;
+      case 'call_reject':
+        // 主叫忙线回执（后端 invite 时 callee 忙线）
+        if ((data.reason as string) === 'busy') {
+          this.cb.onError('对方忙线中');
+          this.cleanup('busy');
+        }
+        break;
+      case 'error':
+        this.cb.onError(String(data.error ?? '通话出错'));
+        break;
+    }
+  }
+
+  private sendWs(type: string, data: Record<string, unknown>) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type, room_id: this.callId, data, timestamp: new Date().toISOString() }));
+    }
+  }
+
+  private sendWsBestEffort(type: string, data: Record<string, unknown>) {
+    try { this.sendWs(type, data); } catch { /* ignore */ }
+  }
+
+  private async loadIceServers() {
+    try {
+      const res = await fetch(`${this.opts.httpBase}/v1/streaming/ice-servers?token=${encodeURIComponent(this.opts.token)}`);
+      if (res.ok) {
+        const body = await res.json();
+        if (Array.isArray(body?.iceServers) && body.iceServers.length) {
+          this.iceServers = body.iceServers as RTCIceServer[];
+        }
+      }
+    } catch {
+      // 拉取失败用默认 STUN
+      this.iceServers = DEFAULT_ICE;
+    }
+  }
+
+  // ==================== 内部：媒体设备 ====================
+
+  private async getLocalMedia(type: CallMediaType) {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: type === 'video' ? { width: 1280, height: 720 } : false,
+    });
+    this.localStream = stream;
+    this.cb.onLocalStream(stream);
+  }
+
+  private isAudioOn() {
+    return this.localStream?.getAudioTracks().some(t => t.enabled) ?? false;
+  }
+
+  private isVideoOn() {
+    return this.localStream?.getVideoTracks().some(t => t.enabled) ?? false;
+  }
+
+  private mediaErr(e: unknown) {
+    const name = (e as { name?: string })?.name;
+    if (name === 'NotAllowedError' || name === 'NotFoundError') return '无法访问摄像头/麦克风';
+    return '通话初始化失败';
+  }
+
+  // ==================== 内部：状态 / 清理 ====================
+
+  private setPhase(p: CallPhase, info?: { reason?: string; duration?: number }) {
+    this.phase = p;
+    this.cb.onPhase(p, info);
+  }
+
+  private cleanup(reason?: string, duration?: number) {
+    this.pc?.getSenders().forEach(s => s.track?.stop());
+    this.localStream?.getTracks().forEach(t => t.stop());
+    try { this.pc?.close(); } catch { /* ignore */ }
+    try { this.ws?.close(); } catch { /* ignore */ }
+    this.pc = null;
+    this.ws = null;
+    this.localStream = null;
+    this.remoteStream = null;
+    this.pendingIce = [];
+    this.remoteDescSet = false;
+    this.cb.onLocalStream(null);
+    this.cb.onRemoteStream(null);
+
+    this.setPhase('ended', { reason, duration });
+    // 复位
+    this.callId = '';
+    this.peer = null;
+    this.isCaller = false;
+    this.phase = 'idle';
+  }
+}

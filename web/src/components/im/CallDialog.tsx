@@ -19,9 +19,11 @@ interface CallDialogProps {
   contactAvatar?: string;
   isGroup?: boolean;
   members?: CallMember[];
+  /** 点“呼叫”后发起通话（1:1 忽略 selectedIds；群组传选中成员）。 */
+  onConfirm?: (selectedIds: string[]) => void;
 }
 
-export function CallDialog({ open, onOpenChange, type, contactName, contactAvatar, isGroup = false, members = [] }: CallDialogProps) {
+export function CallDialog({ open, onOpenChange, type, contactName, contactAvatar, isGroup = false, members = [], onConfirm }: CallDialogProps) {
   const isVoice = type === 'voice';
   const [selectAll, setSelectAll] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(members.map(m => m.id)));
@@ -57,7 +59,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, contactAvata
   const avatarColor = getAvatarColor(contactName);
 
   const handleCall = () => {
-    // TODO: implement actual call logic
+    onConfirm?.(isGroup ? Array.from(selectedIds) : []);
     onOpenChange(false);
   };
 

@@ -30,6 +30,8 @@ import { useIMStore } from './im-store';
 import { playMessageSound, vibrate } from './notification';
 import { useSettingsStore } from './settings-store';
 import { mediaPreview } from './media-message';
+import { useCallStore } from './call-store';
+import type { CallSignal } from './call-engine';
 import type { Message, Conversation } from './types';
 import { toast } from 'sonner';
 import { sendFriendRequest } from './friend-group-api';
@@ -257,6 +259,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       if (!evt?.conversationId) return;
       if (evt.eventType !== 'group.member.removed' && evt.eventType !== 'group.disbanded') return;
       get().markGroupRemoved(evt.conversationId, evt.eventType);
+    });
+
+    // 音视频通话控制信令：来电/接听/拒接/挂断/超时 -> 通话 store 驱动来电与通话界面
+    ws.on('call.signal', (data) => {
+      const sig = data as CallSignal | null;
+      if (!sig?.event) return;
+      useCallStore.getState().onSignal(sig);
     });
 
     // 公共通知（好友/群申请等）：按 notifyType 分发 —— 实时红点 + 气泡提示（点击跳到对应入口）。

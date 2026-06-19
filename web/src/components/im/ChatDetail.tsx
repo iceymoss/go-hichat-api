@@ -50,6 +50,7 @@ import VoiceBubble from './VoiceBubble';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useT } from '@/hooks/use-i18n';
 import { CallDialog } from './CallDialog';
+import { useCallStore } from '@/lib/call-store';
 import ChatSettingsMenu from './ChatSettingsMenu';
 import MessageContextMenu from './MessageContextMenu';
 import ConfirmDialog from './ConfirmDialog';
@@ -1463,6 +1464,16 @@ export default function ChatDetail() {
           contactAvatar={conv.type === 'private' ? peerAvatar : undefined}
           isGroup={conv.type === 'group'}
           members={conv.type === 'group' ? (groupMembersMap[conv.id] || []) : []}
+          onConfirm={() => {
+            // 群组通话留待 Phase 3；当前仅支持 1:1
+            if (conv.type !== 'private') {
+              toast(t('chat.groupCallComingSoon'));
+              return;
+            }
+            const peerId = contactMatch?.id || conv.id.split('_').find(p => p !== currentUser?.id);
+            if (!peerId) return;
+            useCallStore.getState().startCall({ id: peerId, name: peerName, avatar: peerAvatar || undefined }, callType);
+          }}
         />
       )}
 
