@@ -65,6 +65,7 @@ const backMsgTypeMap: Record<number, Message['type']> = {
   [MsgType.Image]: 'image',
   [MsgType.Memes]: 'memes',
   [MsgType.Video]: 'video',
+  [MsgType.Call]: 'call',
 };
 
 const frontMsgTypeMap: Record<string, number> = {
@@ -74,6 +75,7 @@ const frontMsgTypeMap: Record<string, number> = {
   file: MsgType.File,
   video: MsgType.Video,
   memes: MsgType.Memes,
+  call: MsgType.Call,
 };
 
 /** 解析引用消息 JSON（{id,uid,name,preview,mType,thumb}）为 Message.replyTo */
@@ -138,6 +140,8 @@ interface ChatState {
   fetchNewer: (token: string, conversationId: string) => Promise<boolean>;
   /** 回到最新页（退出浏览历史态） */
   backToLatest: (token: string, conversationId: string) => Promise<void>;  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string, quote?: string, mentions?: { atUsers?: string[]; atAll?: boolean }) => void;
+  /** 通话结束后由主叫端投递一条通话记录消息（mType=call），双方会话内展示，可点击回拨 */
+  sendCallRecord: (peerId: string, callType: 'voice' | 'video', status: string, duration: number) => void;
   resendMessage: (token: string, userId: string, conversationId: string, msgId: string) => void;
   markRead: (userId: string, conversationId: string, msgIds: string[]) => void;
   /** 撤回消息：调后端校验，成功后原位置为撤回态（ws 事件会同步其它端） */
@@ -586,6 +590,20 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         console.warn('[ChatStore] send failed:', err);
         updateMsgStatus('failed');
       });
+  },
+
+  // ==================== 通话记录 ====================
+
+  sendCallRecord: (peerId, callType, status, duration) => {
+    const me = useIMStore.getState().currentUser;
+    if (!me?.token || !me.id) return;
+    // 私聊会话 id：优先用已存在的会话，否则按 uid 排序拼（与后端一致的稳定顺序）
+    const existing = get().conversations.find(
+      c => c.type === 'private' && c.id.split('_').includes(peerId) && c.id.split('_').includes(me.id),
+    );
+    const conversationId = existing?.id || [me.id, peerId].sort().join('_');
+    const content = JSON.stringify({ callType, status, duration });
+    get().sendMessage(me.token, me.id, conversationId, content, 'call');
   },
 
   // ==================== 重发失败消息 ====================

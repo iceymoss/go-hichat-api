@@ -20,7 +20,7 @@ export interface Message {
   content: string;
   senderId: string;
   timestamp: Date;
-  type: 'text' | 'image' | 'video' | 'file' | 'voice' | 'memes' | 'system';
+  type: 'text' | 'image' | 'video' | 'file' | 'voice' | 'memes' | 'system' | 'call';
   imageUrl?: string;
   replyTo?: { senderName: string; content: string; msgId?: string; senderId?: string; mType?: Message['type']; thumbUrl?: string };
   /** 发送状态: sending=发送中, sent=已发送, failed=发送失败 */

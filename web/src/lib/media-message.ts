@@ -58,6 +58,14 @@ export function mediaPreview(type: Message['type'], content: string): string {
       const meta = parseMediaContent(content);
       return meta?.name ? `[文件] ${meta.name}` : '[文件]';
     }
+    case 'call': {
+      try {
+        const c = JSON.parse(content) as { callType?: string };
+        return c.callType === 'video' ? '[视频通话]' : '[语音通话]';
+      } catch {
+        return '[通话]';
+      }
+    }
     default:
       return content;
   }

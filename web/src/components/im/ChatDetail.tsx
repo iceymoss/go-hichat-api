@@ -69,16 +69,34 @@ function formatBytes(n?: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-/** 按消息类型渲染气泡内容（文本 / 图片 / 视频 / 文件 / 语音 / 表情包） */
-function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePlayed }: {
+/** 按消息类型渲染气泡内容（文本 / 图片 / 视频 / 文件 / 语音 / 表情包 / 通话记录） */
+function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePlayed, onCallBack }: {
   message: Message;
   onOpenMedia?: (m: Message) => void;
   isOwn?: boolean;
   voiceUnplayed?: boolean;
   onVoicePlayed?: () => void;
+  onCallBack?: (callType: 'voice' | 'video') => void;
 }) {
   const { type, content } = message;
   const t = useT();
+
+  if (type === 'call') {
+    let info: { callType?: 'voice' | 'video'; status?: string; duration?: number } = {};
+    try { info = JSON.parse(content); } catch { /* ignore */ }
+    const isVideo = info.callType === 'video';
+    const Icon = isVideo ? Video : Phone;
+    return (
+      <span
+        onClick={() => onCallBack?.(isVideo ? 'video' : 'voice')}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        title={t('chat.callBack')}
+      >
+        <Icon size={17} style={{ opacity: 0.85, flexShrink: 0 }} />
+        <span>{callRecordLabel(info.status, info.duration, isOwn)}</span>
+      </span>
+    );
+  }
 
   if (type === 'image' || type === 'memes') {
     const meta = parseMediaContent(content);
@@ -145,6 +163,26 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
   }
 
   return <span>{renderTextWithMentions(content, isOwn)}</span>;
+}
+
+/** 通话记录气泡文案（主叫端投递，故按 isOwn 区分双方视角） */
+function fmtCallDuration(sec?: number): string {
+  const s = Math.max(0, Math.floor(sec || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+function callRecordLabel(status?: string, duration?: number, isOwn?: boolean): string {
+  switch (status) {
+    case 'completed':
+      return `通话时长 ${fmtCallDuration(duration)}`;
+    case 'canceled':
+      return isOwn ? '已取消' : '对方已取消';
+    case 'rejected':
+      return isOwn ? '对方已拒绝' : '已拒绝';
+    case 'no_answer':
+      return isOwn ? '对方无应答' : '未接来电';
+    default:
+      return '通话';
+  }
 }
 
 /** 文本中的 @所有人 / @某人 高亮渲染。发送方气泡是蓝底，@ 用浅金色才看得清；接收方白底用蓝色。 */
@@ -1237,6 +1275,7 @@ export default function ChatDetail() {
             readReceiptEnabled={readReceiptEnabled}
             onShowReadDetail={(mid) => setReadDetailMsgId(mid)}
             onOpenMedia={openMedia}
+            onCallBack={handleOpenCall}
           />
           {searchBarOpen && searchKeyword && displayMessages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '24px 0', color: '#A2ACB5', fontSize: 13 }}>
@@ -1602,6 +1641,7 @@ function MessageList({
   readReceiptEnabled,
   onShowReadDetail,
   onOpenMedia,
+  onCallBack,
 }: {
   messages: Message[];
   conversation: any;
@@ -1612,6 +1652,7 @@ function MessageList({
   readReceiptEnabled: boolean;
   onShowReadDetail: (msgId: string) => void;
   onOpenMedia: (m: Message) => void;
+  onCallBack?: (callType: 'voice' | 'video') => void;
 }) {
   const { currentUser } = useIMStore();
   const { selectedConversationId } = useIMStore();
@@ -1885,6 +1926,7 @@ function MessageList({
                           isOwn={msgIsSent}
                           voiceUnplayed={m.type === 'voice' && !playedVoices[m.id]}
                           onVoicePlayed={() => markVoicePlayed(m.id)}
+                          onCallBack={onCallBack}
                         />
                       </>
                     )}

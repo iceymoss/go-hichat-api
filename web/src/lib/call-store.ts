@@ -8,6 +8,23 @@
 import { create } from 'zustand';
 import { CallEngine, type CallMediaType, type CallPhase, type CallPeer, type CallSignal } from './call-engine';
 import { useIMStore } from './im-store';
+import { useChatStore } from './chat-store';
+
+/** 通话结束原因 -> 聊天记录状态；返回 null 表示不记录（忙线/失败/异常） */
+function mapCallStatus(reason?: string): string | null {
+  switch (reason) {
+    case 'completed':
+      return 'completed';
+    case 'canceled':
+      return 'canceled';
+    case 'rejected':
+      return 'rejected';
+    case 'no_answer':
+      return 'no_answer';
+    default:
+      return null;
+  }
+}
 
 /** 计算 streaming 服务地址：开发直连 :10093，生产经反代 /streaming */
 function streamingEndpoints(): { wsUrl: string; httpBase: string } {
@@ -34,6 +51,7 @@ interface CallState {
   cameraOff: boolean;
   remoteMedia: { audio: boolean; video: boolean };
   startedAt: number | null; // 接通时间戳（毫秒），用于计时
+  isCaller: boolean;        // 本端是否主叫（决定由谁投递通话记录）
   errorMsg: string | null;
 
   // actions
@@ -52,9 +70,22 @@ let engine: CallEngine | null = null;
 export const useCallStore = create<CallState>((set, get) => {
   // 用 store 自身的 set 接 engine 回调
   const callbacks = {
-    onPhase: (phase: CallPhase) => {
+    onPhase: (phase: CallPhase, info?: { reason?: string; duration?: number }) => {
+      const prev = get();
+      if (phase === 'connected' && !prev.startedAt) set({ startedAt: Date.now() });
+
+      // 通话结束：由主叫端投递一条通话记录到聊天（双方会话内展示，可回拨）
+      if (phase === 'ended' && prev.isCaller && prev.peer?.id) {
+        const status = mapCallStatus(info?.reason);
+        if (status) {
+          const duration = prev.startedAt ? Math.max(0, Math.floor((Date.now() - prev.startedAt) / 1000)) : 0;
+          try {
+            useChatStore.getState().sendCallRecord(prev.peer.id, prev.mediaType, status, duration);
+          } catch { /* ignore */ }
+        }
+      }
+
       set({ phase });
-      if (phase === 'connected' && !get().startedAt) set({ startedAt: Date.now() });
       if (phase === 'idle' || phase === 'ended') {
         set({
           startedAt: null,
@@ -90,12 +121,13 @@ export const useCallStore = create<CallState>((set, get) => {
     cameraOff: false,
     remoteMedia: { audio: true, video: true },
     startedAt: null,
+    isCaller: false,
     errorMsg: null,
 
     startCall: (peer, type) => {
       const eng = ensureEngine();
       if (!eng) return;
-      set({ peer, mediaType: type, errorMsg: null });
+      set({ peer, mediaType: type, isCaller: true, errorMsg: null });
       eng.startCall(peer, type);
     },
 
@@ -136,6 +168,7 @@ export const useCallStore = create<CallState>((set, get) => {
         set({
           peer: { id: fromUid, name, avatar },
           mediaType: sig.callType || 'voice',
+          isCaller: false,
           errorMsg: null,
         });
       }
