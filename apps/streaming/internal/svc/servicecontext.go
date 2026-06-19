@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/userclient"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 
@@ -39,10 +41,12 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		RelationCache: relationcache.New(db.GetRedisConn()),
 	}
 
-	// 连接 im ws（同 task/mq 范式：取系统 root token 作鉴权头）
-	token, err := svcCtx.GetToken()
+	// 连接 im ws：必须以系统账号 uid=101 登入，绝不能复用 Redis 里某个真实用户的 token，
+	// 否则会和该用户在 im ws 上抢同一 uid 槽位互相顶号（addConn 同 uid 顶旧连接）。
+	// 用 JWT 密钥现签一个 uid=SYSTEM_ROOT_UID 的 token。
+	token, err := ctxdata.GetJwtToken(c.JwtAuth.AccessSecret, time.Now().Unix(), c.JwtAuth.AccessExpire, constants.SYSTEM_ROOT_UID)
 	if err != nil {
-		fmt.Printf("streaming get system token err: %v\n", err)
+		fmt.Printf("streaming sign system token err: %v\n", err)
 	}
 	header := http.Header{}
 	header.Set("Authorization", token)

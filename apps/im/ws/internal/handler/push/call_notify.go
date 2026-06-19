@@ -26,6 +26,8 @@ func CallNotify(svcCtx *svc.ServiceContext) websocket.HandlerFunc {
 		rconn := srv.GetConn([]string{data.ReceiverId})
 		if len(rconn) == 0 {
 			// 接收者离线：瞬时信令直接丢弃（来电场景由 streaming 侧超时落“未接来电”消息补偿）
+			zLog.Info("CallNotify: receiver offline, drop",
+				zap.String("receiver", data.ReceiverId), zap.String("event", data.Event), zap.String("callId", data.CallId))
 			return
 		}
 
@@ -33,7 +35,10 @@ func CallNotify(svcCtx *svc.ServiceContext) websocket.HandlerFunc {
 		// 显式设置 method，前端用 ws.on('call.signal') 接收（不污染聊天 push 路由）
 		sendMsg.Method = "call.signal"
 		if err := srv.Send(sendMsg, rconn[0]); err != nil {
-			zLog.Error("CallNotify.Send: send failed", zap.String("receiver", data.ReceiverId), zap.Error(err))
+			zLog.Error("CallNotify.Send: send failed", zap.String("receiver", data.ReceiverId), zap.String("event", data.Event), zap.Error(err))
+			return
 		}
+		zLog.Info("CallNotify: forwarded",
+			zap.String("receiver", data.ReceiverId), zap.String("event", data.Event), zap.String("callId", data.CallId))
 	}
 }
