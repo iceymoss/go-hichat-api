@@ -70,7 +70,6 @@
         "tailwindcss-animate": "^1.0.7",
         "uuid": "^11.1.0",
         "vaul": "^1.1.2",
-        "z-ai-web-dev-sdk": "^0.0.17",
         "zod": "^4.0.2",
         "zustand": "^5.0.6",
       },
@@ -1809,8 +1808,6 @@
     "yjs": ["yjs@13.6.29", "https://registry.npmjs.com/yjs/-/yjs-13.6.29.tgz", { "dependencies": { "lib0": "^0.2.99" } }, "sha512-kHqDPdltoXH+X4w1lVmMtddE3Oeqq48nM40FD5ojTd8xYhQpzIDcfE2keMSU5bAgRPJBe225WTUdyUgj1DtbiQ=="],
 
     "yocto-queue": ["yocto-queue@0.1.0", "https://registry.npmjs.com/yocto-queue/-/yocto-queue-0.1.0.tgz", {}, "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="],
-
-    "z-ai-web-dev-sdk": ["z-ai-web-dev-sdk@0.0.17", "", { "bin": { "z-ai": "dist/cli.js", "z-ai-generate": "dist/cli.js" } }, "sha512-K86s7ixHpqIM5D3wmxlGKR9Kp6QnBYn0K9TcE7YGr84kejR7utpBixJlQlkwAdqML5pfhOCNixTb2trhHIeUbg=="],
 
     "zod": ["zod@4.3.5", "https://registry.npmjs.com/zod/-/zod-4.3.5.tgz", {}, "sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g=="],
 
