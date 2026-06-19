@@ -1137,7 +1137,15 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
       }, ...convs];
     }
 
-    return { messagesMap: { ...s.messagesMap, [convId]: msgs }, conversations: convs };
+    // 实时被 @：把这条 @我消息追加进 atMeMap，让顶部"有人@我"横幅即时出现/累计。
+    // 仅收真实 mongoID（pusher 已把 MsgId 写入 WS 顶层 Id），临时 id 无法跳转故跳过；去重。
+    let atMeMap = s.atMeMap;
+    if (atMe && msg.id && !msg.id.startsWith('push_') && !msg.id.startsWith('local_')) {
+      const cur = atMeMap[convId] || [];
+      if (!cur.includes(msg.id)) atMeMap = { ...atMeMap, [convId]: [...cur, msg.id] };
+    }
+
+    return { messagesMap: { ...s.messagesMap, [convId]: msgs }, conversations: convs, atMeMap };
   });
 
   // 收到别人的消息 → 播放提示音 + 振动（免打扰会话不提示）
