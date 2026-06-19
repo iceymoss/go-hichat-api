@@ -1411,6 +1411,18 @@ export default function MomentsFeed() {
     };
   }, [view, token, setMomentsUnreadCount]);
 
+  // 切到「评论」或「赞」子 tab：视为已查看该类，本地清掉对应类型的未读标记。
+  // （服务端的「全部已读」仍在离开消息列表时统一发起。）
+  useEffect(() => {
+    if (view !== 'notifications') return;
+    if (notifTab !== 'reply' && notifTab !== 'like') return;
+    setNotifications(prev => prev.map(n => {
+      const isLike = n.type === 'like';
+      const inThisTab = notifTab === 'like' ? isLike : !isLike;
+      return inThisTab && !n.read ? { ...n, read: true } : n;
+    }));
+  }, [notifTab, view]);
+
   // Re-sync a single trend (meta + comments + like users) into local state.
   // Called when an external panel (e.g. TrendDetailPanel) bumps the trend version.
   const refreshTrend = useCallback(async (trendId: number) => {
