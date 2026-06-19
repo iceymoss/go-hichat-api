@@ -82,7 +82,10 @@ export default function Home() {
 
   return (
     <SettingsProvider>
-      <main className="h-dvh overflow-hidden">
+      {/* h-full so the app follows the zoom-compensated height of .hc-app
+          (SettingsProvider). Using h-dvh here would ignore that compensation and
+          leave a blank strip at the bottom when the font-size zoom is not 1. */}
+      <main className="h-full overflow-hidden">
         <IMLayout />
       </main>
     </SettingsProvider>
