@@ -4,6 +4,7 @@ import React from 'react';
 import { currentUser } from '@/lib/mock-data';
 import { useIMStore } from '@/lib/im-store';
 import { useT } from '@/hooks/use-i18n';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Star,
@@ -32,8 +33,9 @@ const iconMap: Record<string, React.ReactNode> = {
 };
 
 export default function ProfilePage() {
-  const { currentUser: authUser, logout, setMeSubPage, meSubPage, openUserTrends } = useIMStore();
+  const { currentUser: authUser, logout, setMeSubPage, meSubPage, openUserTrends, setSystemPanel } = useIMStore();
   const t = useT();
+  const isMobile = useIsMobile();
 
   const displayName = authUser?.name || currentUser.name;
   const displayAvatar = authUser?.avatar || currentUser.avatar;
@@ -174,12 +176,13 @@ export default function ProfilePage() {
         {/* Spacer */}
         <div className="h-3" />
 
-        {/* Settings — single entry */}
+        {/* Settings — single entry (mobile only; desktop uses the sidebar gear) */}
+        {isMobile && (
         <div
           className="mx-4 rounded-xl overflow-hidden"
           style={{ background: '#FFFFFF', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
         >
-          <div className="im-profile-menu-item" onClick={() => setMeSubPage('settings')}>
+          <div className="im-profile-menu-item" onClick={() => setSystemPanel('settings')}>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center"
                 style={{ background: 'rgba(27,180,91,0.1)', color: '#1BB45B' }}>
@@ -190,11 +193,13 @@ export default function ProfilePage() {
             <ChevronRight className="w-4 h-4" style={{ color: '#A2ACB5' }} />
           </div>
         </div>
+        )}
 
         {/* Spacer */}
-        <div className="h-3" />
+        {isMobile && <div className="h-3" />}
 
-        {/* Tools Section */}
+        {/* Tools Section (mobile only; desktop uses the sidebar gear) */}
+        {isMobile && (
         <div
           className="mx-4 rounded-xl overflow-hidden"
           style={{
@@ -203,10 +208,10 @@ export default function ProfilePage() {
           }}
         >
           {[
-            { icon: <FileText className="w-4 h-4" />, label: t('profile.backup') },
-            { icon: <HelpCircle className="w-4 h-4" />, label: t('profile.help') },
-            { icon: <MessageSquare className="w-4 h-4" />, label: t('profile.about') },
-            { icon: <Info className="w-4 h-4" />, label: t('profile.plugins') },
+            { icon: <FileText className="w-4 h-4" />, label: t('profile.backup'), onClick: undefined },
+            { icon: <HelpCircle className="w-4 h-4" />, label: t('profile.help'), onClick: undefined },
+            { icon: <MessageSquare className="w-4 h-4" />, label: t('profile.about'), onClick: () => setSystemPanel('about') },
+            { icon: <Info className="w-4 h-4" />, label: t('profile.plugins'), onClick: undefined },
           ].map((item, idx) => (
             <React.Fragment key={item.label}>
               {idx > 0 && (
@@ -218,7 +223,7 @@ export default function ProfilePage() {
                   }}
                 />
               )}
-              <div className="im-profile-menu-item">
+              <div className="im-profile-menu-item" onClick={item.onClick}>
                 <div className="flex items-center gap-3">
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -233,11 +238,13 @@ export default function ProfilePage() {
             </React.Fragment>
           ))}
         </div>
+        )}
 
         {/* Spacer */}
-        <div className="h-3" />
+        {isMobile && <div className="h-3" />}
 
-        {/* Switch Account / Logout Buttons */}
+        {/* Switch Account / Logout Buttons (mobile only; desktop uses the sidebar gear) */}
+        {isMobile && (
         <div className="mx-4 mb-6 space-y-2">
           <button
             className="w-full py-3 rounded-xl text-sm text-center flex items-center justify-center gap-2 transition-colors cursor-pointer"
@@ -262,6 +269,7 @@ export default function ProfilePage() {
             {t('profile.logout')}
           </button>
         </div>
+        )}
       </div>
     </div>
   );
