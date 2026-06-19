@@ -464,16 +464,32 @@ export default function ChatDetail() {
   }, [currentUser?.token, selectedConversationId, atMeIds, jumpToContext, consumeAtMe]);
 
   // Scroll to bottom when messages change (new message sent/loaded)
-  const prevMsgCount = useRef(0);
+  // 用首/尾消息 id 区分「向上分页（头部变化、尾部不变）」与「新消息追加 / 切换会话」：
+  // 分页加载更早消息时不能自动滚到底（否则会把用户从历史位置拽回底部）。
+  const prevFirstId = useRef<string | null>(null);
+  const prevLastId = useRef<string | null>(null);
+  const prevScrollConvId = useRef<string | null>(null);
   useEffect(() => {
     if (messages.length === 0) return;
+    const firstId = messages[0].id;
+    const lastId = messages[messages.length - 1].id;
+    const convChanged = prevScrollConvId.current !== selectedConversationId;
     // 浏览历史（跳转到非最新窗口）时不要自动滚到底，保持在目标位置
-    if (anchored) { prevMsgCount.current = messages.length; return; }
-    // If switching conversation (count changed drastically) → instant, otherwise smooth
-    const isNewConv = Math.abs(messages.length - prevMsgCount.current) > 1;
-    scrollToBottom(isNewConv);
-    prevMsgCount.current = messages.length;
-  }, [messages, scrollToBottom, anchored]);
+    if (anchored) {
+      prevFirstId.current = firstId;
+      prevLastId.current = lastId;
+      prevScrollConvId.current = selectedConversationId;
+      return;
+    }
+    // 向上分页：尾部消息不变、头部消息变了 → 是 prepend，保持当前阅读位置，不滚动
+    const prepended = !convChanged && prevLastId.current === lastId && prevFirstId.current !== firstId;
+    if (!prepended) {
+      scrollToBottom(convChanged);
+    }
+    prevFirstId.current = firstId;
+    prevLastId.current = lastId;
+    prevScrollConvId.current = selectedConversationId;
+  }, [messages, scrollToBottom, anchored, selectedConversationId]);
 
   // Also scroll when conversation switches (even if messages haven't changed yet)
   useEffect(() => {
@@ -507,6 +523,7 @@ export default function ChatDetail() {
       setLoadingMore(true);
       const prevCount = msgs.length;
       const prevHeight = el.scrollHeight;
+      const prevScrollTop = el.scrollTop;
       fetchMessages(currentUser!.token, selectedConversationId!, oldestId).then(() => {
         requestAnimationFrame(() => {
           const newMsgs = useChatStore.getState().messagesMap[selectedConversationId!] || [];
@@ -514,7 +531,7 @@ export default function ChatDetail() {
           if (newMsgs.length <= prevCount) {
             setNoMoreHistory(true);
           }
-          el.scrollTop = el.scrollHeight - prevHeight;
+          el.scrollTop = el.scrollHeight - prevHeight + prevScrollTop;
           setLoadingMore(false);
         });
       }).catch(() => setLoadingMore(false));
