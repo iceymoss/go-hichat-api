@@ -24,6 +24,16 @@ type ICEServersResp struct {
 // 本期返回静态 STUN；接入 TURN 后此处下发短期 TURN 凭证（HMAC time-limited）。
 func ICEServersHandler(svcCtx *svc.ServiceContext, auth *JwtAuth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// 跨端口（web :3001 -> streaming :10093）需要 CORS。token 走 query，属简单请求；
+		// 仍处理 OPTIONS 预检以兼容带头部的情况。
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
 		if uid := auth.ParseUID(r); uid == "" {
 			httpx.WriteJson(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return

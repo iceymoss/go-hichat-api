@@ -353,7 +353,14 @@ export class CallEngine {
 
   private async loadIceServers() {
     try {
-      const res = await fetch(`${this.opts.httpBase}/v1/streaming/ice-servers?token=${encodeURIComponent(this.opts.token)}`);
+      // 加超时：ICE 配置拉取绝不能卡住建连主流程，失败/超时一律用默认 STUN
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 2500);
+      const res = await fetch(
+        `${this.opts.httpBase}/v1/streaming/ice-servers?token=${encodeURIComponent(this.opts.token)}`,
+        { signal: ctrl.signal },
+      );
+      clearTimeout(timer);
       if (res.ok) {
         const body = await res.json();
         if (Array.isArray(body?.iceServers) && body.iceServers.length) {
@@ -361,7 +368,7 @@ export class CallEngine {
         }
       }
     } catch {
-      // 拉取失败用默认 STUN
+      // 拉取失败/超时用默认 STUN（同机/同局域网靠 host 候选也能连）
       this.iceServers = DEFAULT_ICE;
     }
   }
