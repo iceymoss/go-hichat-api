@@ -93,7 +93,7 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
         title={t('chat.callBack')}
       >
         <Icon size={17} style={{ opacity: 0.85, flexShrink: 0 }} />
-        <span>{callRecordLabel(info.status, info.duration, isOwn)}</span>
+        <span>{callRecordLabel(info.status, info.duration, isOwn, t)}</span>
       </span>
     );
   }
@@ -170,18 +170,18 @@ function fmtCallDuration(sec?: number): string {
   const s = Math.max(0, Math.floor(sec || 0));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
-function callRecordLabel(status?: string, duration?: number, isOwn?: boolean): string {
+function callRecordLabel(status: string | undefined, duration: number | undefined, isOwn: boolean | undefined, t: (k: string) => string): string {
   switch (status) {
     case 'completed':
-      return `通话时长 ${fmtCallDuration(duration)}`;
+      return t('call.record.duration').replace('{d}', fmtCallDuration(duration));
     case 'canceled':
-      return isOwn ? '已取消' : '对方已取消';
+      return t(isOwn ? 'call.record.canceledOwn' : 'call.record.canceledOther');
     case 'rejected':
-      return isOwn ? '对方已拒绝' : '已拒绝';
+      return t(isOwn ? 'call.record.rejectedOwn' : 'call.record.rejectedOther');
     case 'no_answer':
-      return isOwn ? '对方无应答' : '未接来电';
+      return t(isOwn ? 'call.record.noAnswerOwn' : 'call.record.noAnswerOther');
     default:
-      return '通话';
+      return t('call.record.fallback');
   }
 }
 

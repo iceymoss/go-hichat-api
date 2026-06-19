@@ -10,6 +10,7 @@ import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, User } from 'lucide-reac
 import { toast } from 'sonner';
 import { useCallStore } from '@/lib/call-store';
 import { getAvatarColor } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
 
 function fmtDuration(sec: number): string {
   const m = Math.floor(sec / 60);
@@ -18,6 +19,7 @@ function fmtDuration(sec: number): string {
 }
 
 export function CallOverlay() {
+  const t = useT();
   const phase = useCallStore(s => s.phase);
   const peer = useCallStore(s => s.peer);
   const mediaType = useCallStore(s => s.mediaType);
@@ -71,22 +73,22 @@ export function CallOverlay() {
   // 错误提示
   useEffect(() => {
     if (errorMsg) {
-      toast(errorMsg);
+      toast(t(errorMsg));
       clearError();
     }
-  }, [errorMsg, clearError]);
+  }, [errorMsg, clearError, t]);
 
   if (phase === 'idle' || phase === 'ended') return null;
 
   const isVideo = mediaType === 'video';
-  const name = peer?.name || '对方';
+  const name = peer?.name || t('call.peerFallback');
   const avatarColor = getAvatarColor(name);
   const showRemoteVideo = isVideo && phase === 'connected' && remoteMedia.video;
 
   const statusText =
-    phase === 'incoming' ? `邀请你${isVideo ? '视频' : '语音'}通话`
-    : phase === 'outgoing' ? '正在呼叫…'
-    : phase === 'connecting' ? '连接中…'
+    phase === 'incoming' ? (isVideo ? t('call.status.incomingVideo') : t('call.status.incomingVoice'))
+    : phase === 'outgoing' ? t('call.status.calling')
+    : phase === 'connecting' ? t('call.status.connecting')
     : fmtDuration(elapsed);
 
   return (
@@ -158,20 +160,20 @@ export function CallOverlay() {
       <div style={{ position: 'absolute', bottom: 48, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 28, zIndex: 3 }}>
         {phase === 'incoming' ? (
           <>
-            <CircleBtn color="#F5483B" onClick={reject} label="拒绝"><PhoneOff size={26} color="#FFF" /></CircleBtn>
-            <CircleBtn color="#1BB45B" onClick={accept} label="接听"><Phone size={26} color="#FFF" /></CircleBtn>
+            <CircleBtn color="#F5483B" onClick={reject} label={t('call.action.reject')}><PhoneOff size={26} color="#FFF" /></CircleBtn>
+            <CircleBtn color="#1BB45B" onClick={accept} label={t('call.action.accept')}><Phone size={26} color="#FFF" /></CircleBtn>
           </>
         ) : (
           <>
-            <CircleBtn color="rgba(255,255,255,0.15)" onClick={toggleMute} label={muted ? '取消静音' : '静音'}>
+            <CircleBtn color="rgba(255,255,255,0.15)" onClick={toggleMute} label={muted ? t('call.action.unmute') : t('call.action.mute')}>
               {muted ? <MicOff size={24} color="#FFF" /> : <Mic size={24} color="#FFF" />}
             </CircleBtn>
             {isVideo && (
-              <CircleBtn color="rgba(255,255,255,0.15)" onClick={toggleCamera} label={cameraOff ? '开摄像头' : '关摄像头'}>
+              <CircleBtn color="rgba(255,255,255,0.15)" onClick={toggleCamera} label={cameraOff ? t('call.action.cameraOn') : t('call.action.cameraOff')}>
                 {cameraOff ? <VideoOff size={24} color="#FFF" /> : <Video size={24} color="#FFF" />}
               </CircleBtn>
             )}
-            <CircleBtn color="#F5483B" onClick={hangup} label="挂断"><PhoneOff size={26} color="#FFF" /></CircleBtn>
+            <CircleBtn color="#F5483B" onClick={hangup} label={t('call.action.hangup')}><PhoneOff size={26} color="#FFF" /></CircleBtn>
           </>
         )}
       </div>

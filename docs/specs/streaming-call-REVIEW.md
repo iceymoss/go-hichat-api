@@ -70,7 +70,7 @@ cd web && bun dev
 
 1. **前端 im ws (user 11) 每 2~3s 重连刷屏**：im 日志大量 `关闭旧连接 uid 11` + `use of closed network connection`。疑似 user 11 在多个标签页/上下文登录，或 dev 模式 React StrictMode 重复挂载 ws。**不影响通话**（通话信令已改走 streaming ws），但影响普通聊天可靠性 + 刷日志。待单独排查 `src/app/page.tsx:66` 的 initWs effect / 是否多端登录。
 2. **同机跨浏览器(Chrome↔Safari) ICE 偶发**：本质是 mDNS（Chrome 把局域网 host 候选藏成 `.local`）。同机/同局域网目前靠 STUN 的 srflx 候选能通；彻底稳定要 TURN（本期留接口未部署）。
-3. **i18n**：通话相关文案（CallOverlay、通话气泡）暂为硬编码中文（与现有 CallDialog 一致），仅 `chat.callBack`/`chat.groupCallComingSoon` 进了词典。后续统一接 `t()`。
+3. **i18n**：通话相关文案（CallOverlay 来电/通话界面、CallDialog、通话气泡、引擎错误提示）**已接入 `t()`**（中英词典在 `web/src/lib/i18n.ts` 的 `call.*` 段）。仅会话列表预览 `[语音通话]/[视频通话]`（`media-message.ts`）沿用该模块既有的硬编码风格（那一族 `[图片]/[视频]` 都没 i18n），保持一致。
 4. **streaming `streaming_call` 统计表未建**：Phase 2 选了「仅聊天消息(MongoDB)」零 schema 变更方案。如需通话历史/统计独立表，待你确认字段后补（spec §8.2）。
 
 ## Phase 3（群组通话 SFU）— 下一步计划（未实现）

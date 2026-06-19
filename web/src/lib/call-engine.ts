@@ -175,17 +175,17 @@ export class CallEngine {
         break;
 
       case 'reject':
-        this.cb.onError('对方已拒接');
+        this.cb.onError('call.err.rejected');
         this.cleanup(sig.reason);
         break;
 
       case 'busy':
-        this.cb.onError('对方忙线中');
+        this.cb.onError('call.err.busy');
         this.cleanup('busy');
         break;
 
       case 'timeout':
-        this.cb.onError('对方未接听');
+        this.cb.onError('call.err.noAnswer');
         this.cleanup('no_answer');
         break;
 
@@ -209,7 +209,7 @@ export class CallEngine {
       await this.pc!.setLocalDescription(offer);
       this.sendWs('offer', { call_id: this.callId, sdp: offer.sdp });
     } catch (e) {
-      this.cb.onError('建立连接失败');
+      this.cb.onError('call.err.connect');
       this.hangup();
     }
   }
@@ -250,7 +250,7 @@ export class CallEngine {
       if (pc.connectionState === 'connected') {
         this.setPhase('connected');
       } else if (pc.connectionState === 'failed') {
-        this.cb.onError('媒体连接失败');
+        this.cb.onError('call.err.mediaFailed');
         this.hangup();
       }
     };
@@ -311,7 +311,7 @@ export class CallEngine {
       const ws = new WebSocket(url);
       this.ws = ws;
       ws.onopen = () => resolve();
-      ws.onerror = () => reject(new Error('信令连接失败'));
+      ws.onerror = () => reject(new Error('signaling ws connect failed'));
       ws.onclose = () => { if (this.phase !== 'idle' && this.phase !== 'ended') { /* 由控制信令收尾 */ } };
       ws.onmessage = (e) => this.handleStreamingMsg(e);
     });
@@ -346,12 +346,12 @@ export class CallEngine {
       case 'call_reject':
         // 主叫忙线回执（后端 invite 时 callee 忙线）
         if ((data.reason as string) === 'busy') {
-          this.cb.onError('对方忙线中');
+          this.cb.onError('call.err.busy');
           this.cleanup('busy');
         }
         break;
       case 'error':
-        this.cb.onError(String(data.error ?? '通话出错'));
+        this.cb.onError('call.err.generic');
         break;
     }
   }
@@ -412,8 +412,8 @@ export class CallEngine {
 
   private mediaErr(e: unknown) {
     const name = (e as { name?: string })?.name;
-    if (name === 'NotAllowedError' || name === 'NotFoundError') return '无法访问摄像头/麦克风';
-    return '通话初始化失败';
+    if (name === 'NotAllowedError' || name === 'NotFoundError') return 'call.err.media';
+    return 'call.err.init';
   }
 
   // ==================== 内部：状态 / 清理 ====================
