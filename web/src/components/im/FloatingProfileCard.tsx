@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useCallback } from 'react';
-import { type Contact } from '@/lib/mock-data';
+import { type Contact } from '@/lib/types';
 import { toast } from 'sonner';
 import UserProfileCard from './UserProfileCard';
 import { X, User } from 'lucide-react';

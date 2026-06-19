@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { type Contact } from '@/lib/mock-data';
+import { type Contact } from '@/lib/types';
 
 export type TabType = 'chats' | 'contacts' | 'moments' | 'me';
 export type AuthView = 'login' | 'register' | 'forgot-password';

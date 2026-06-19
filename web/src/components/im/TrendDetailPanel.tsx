@@ -15,7 +15,7 @@ import ImageViewer from './ImageViewer';
 import {
   type Trend,
   type TrendComment,
-} from '@/lib/mock-data';
+} from '@/lib/types';
 import {
   getTrendDetail,
   getCommentTree,

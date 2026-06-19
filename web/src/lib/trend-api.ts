@@ -1,7 +1,7 @@
 // Trend service client (calls the Next.js /api/trend proxy).
 // All functions return a { success, data, message } envelope.
 
-import type { Trend, TrendComment, MomentsNotification, TrendType, TrendScope } from './mock-data';
+import type { Trend, TrendComment, MomentsNotification, TrendType, TrendScope } from './types';
 
 /* ──────────────────────────────────────────────────────────────
    Backend shapes (mirrors apps/trend/api/internal/types/types.go)

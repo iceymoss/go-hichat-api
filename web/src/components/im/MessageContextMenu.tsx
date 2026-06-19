@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Forward, Reply, RotateCcw, Trash2, Star } from 'lucide-react';
-import type { Message } from '@/lib/mock-data';
+import type { Message } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 
 interface MessageContextMenuProps {

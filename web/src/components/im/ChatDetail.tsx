@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { formatTime, currentUser as mockCurrentUser, contacts, type Message, type Contact, type Conversation } from '@/lib/mock-data';
+import { currentUser as mockCurrentUser, contacts, type Message, type Contact, type Conversation } from '@/lib/types';
 
 // 本人撤回的时间窗（秒），需与后端 im-rpc 配置 RecallWindowSeconds 保持一致（0=不限）。
 // 仅用于普通用户撤回自己消息时的前端预校验；管理员/群主撤回不受此限。
@@ -24,7 +24,7 @@ function formatBubbleTime(date: Date, t: (k: string) => string): string {
 import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
 import { useSettingsStore } from '@/lib/settings-store';
-import { getAvatarColor } from '@/lib/utils';
+import { formatTime, getAvatarColor } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
   ArrowLeft,

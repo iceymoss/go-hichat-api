@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useIMStore, TabType } from '@/lib/im-store';
-import { type Contact } from '@/lib/mock-data';
+import { type Contact } from '@/lib/types';
 import { useChatStore } from '@/lib/chat-store';
 import { ChatListProvider, ChatListToolbar, ChatListContent } from './ChatList';
 import ChatDetail from './ChatDetail';

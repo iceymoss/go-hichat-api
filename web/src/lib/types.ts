@@ -1,7 +1,7 @@
 // Shared domain types for the IM/social/moments UI, plus a few seed constants
-// still used as fallbacks (currentUser, conversationMessagesMap, contacts,
-// contactGroups) and the formatTime helper. The bulk of the old demo mock data
-// has been removed for production.
+// still used as fallbacks: currentUser, conversationMessagesMap, contacts,
+// contactGroups. The bulk of the old demo mock data has been removed for
+// production.
 
 export interface User {
   id: string;
@@ -245,36 +245,6 @@ export const contacts: Contact[] = [
   { id: 'ct28', name: '赵六', avatar: 'https://api.dicebear.com/9.x/adventurer/svg?seed=Zhao', pinyin: 'zhaoliu', letter: 'Z', gender: 'male', age: 34, phone: '185****1123', region: '浙江杭州', account: 'hichat_zhaoliu' },
   { id: 'ct29', name: '周芷若', avatar: 'https://api.dicebear.com/9.x/adventurer/svg?seed=ZZR', pinyin: 'zhouzhiruo', letter: 'Z', online: true, gender: 'female', age: 25, phone: '158****6678', region: '湖南长沙', signature: '经典中的经典 🎵', account: 'hichat_zzr', remark: '若若' },
 ];
-
-// Helper function to format time
-export function formatTime(date: Date): string {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hm = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-
-  // 判断是否同一天（基于日期而非小时差）
-  const isToday = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday = date.getFullYear() === yesterday.getFullYear() && date.getMonth() === yesterday.getMonth() && date.getDate() === yesterday.getDate();
-
-  if (isToday) {
-    if (minutes < 1) return '刚刚';
-    if (minutes < 60) return `${minutes}分钟前`;
-    return hm;
-  }
-  if (isYesterday) return `昨天 ${hm}`;
-
-  const days = Math.floor(diff / 86400000);
-  if (days < 7) {
-    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    return `${weekdays[date.getDay()]} ${hm}`;
-  }
-  const md = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
-  if (date.getFullYear() !== now.getFullYear()) return `${date.getFullYear()}/${md} ${hm}`;
-  return `${md} ${hm}`;
-}
 
 /* ═══════════════════════════════════════
    Group Management

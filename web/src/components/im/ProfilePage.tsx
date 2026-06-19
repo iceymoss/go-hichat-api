@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { currentUser } from '@/lib/mock-data';
+import { currentUser } from '@/lib/types';
 import { useIMStore } from '@/lib/im-store';
 import { useT } from '@/hooks/use-i18n';
 import { useIsMobile } from '@/hooks/use-mobile';
