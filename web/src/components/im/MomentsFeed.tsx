@@ -1411,18 +1411,6 @@ export default function MomentsFeed() {
     };
   }, [view, token, setMomentsUnreadCount]);
 
-  // 切到「评论」或「赞」子 tab：视为已查看该类，本地清掉对应类型的未读标记。
-  // （服务端的「全部已读」仍在离开消息列表时统一发起。）
-  useEffect(() => {
-    if (view !== 'notifications') return;
-    if (notifTab !== 'reply' && notifTab !== 'like') return;
-    setNotifications(prev => prev.map(n => {
-      const isLike = n.type === 'like';
-      const inThisTab = notifTab === 'like' ? isLike : !isLike;
-      return inThisTab && !n.read ? { ...n, read: true } : n;
-    }));
-  }, [notifTab, view]);
-
   // Re-sync a single trend (meta + comments + like users) into local state.
   // Called when an external panel (e.g. TrendDetailPanel) bumps the trend version.
   const refreshTrend = useCallback(async (trendId: number) => {
@@ -1707,6 +1695,16 @@ export default function MomentsFeed() {
       setView('feed');
     }
   }, [isMobile, setSelectedTrendId]);
+
+  // 切换消息子 tab：切到「评论」/「赞」时视为已查看该类，本地清掉该类未读标记，
+  // 并把侧边栏全局动态角标同步成「清掉本类后仍未读」的数量。
+  const selectNotifTab = useCallback((tab: NotifTab) => {
+    setNotifTab(tab);
+    if (tab !== 'reply' && tab !== 'like') return;
+    const inTab = (n: MomentsNotification) => tab === 'like' ? n.type === 'like' : n.type !== 'like';
+    setNotifications(prev => prev.map(n => inTab(n) && !n.read ? { ...n, read: true } : n));
+    setMomentsUnreadCount(notifications.filter(n => !n.read && !inTab(n)).length);
+  }, [notifications, setMomentsUnreadCount]);
 
   // ── Trend management ──
   // The ActionMenu items are constructed inline in the render; this handler just opens the menu.
@@ -2131,9 +2129,9 @@ export default function MomentsFeed() {
         {/* Tabs */}
         <div className="flex items-center shrink-0" style={{ padding: '12px 16px 8px', background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
           <div className="flex items-center" style={{ borderRadius: '20px', background: 'rgba(0,0,0,0.04)', padding: '3px' }}>
-            {pillTab(notifTab === 'all', () => setNotifTab('all'), t('trend.notify.tab.all'), unreadNotifCount)}
-            {pillTab(notifTab === 'reply', () => setNotifTab('reply'), t('trend.notify.tab.comment'), unreadReplyCount)}
-            {pillTab(notifTab === 'like', () => setNotifTab('like'), t('trend.notify.tab.like'), unreadLikeCount)}
+            {pillTab(notifTab === 'all', () => selectNotifTab('all'), t('trend.notify.tab.all'), unreadNotifCount)}
+            {pillTab(notifTab === 'reply', () => selectNotifTab('reply'), t('trend.notify.tab.comment'), unreadReplyCount)}
+            {pillTab(notifTab === 'like', () => selectNotifTab('like'), t('trend.notify.tab.like'), unreadLikeCount)}
           </div>
         </div>
 
