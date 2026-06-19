@@ -224,6 +224,9 @@ export default function ChatDetail() {
   // 已选 @ 成员（uid→展示名）；发送时按 input 里是否仍含 @名字 过滤
   const [mentions, setMentions] = useState<{ uid: string; name: string }[]>([]);
   const [atAll, setAtAll] = useState(false);
+  // 已捕获"@我未读"快照（fetchAtMe 完成）的会话 id；auto-markRead 须等此门闩放行，
+  // 避免抢在 /atme 之前把刚进窗口可见的 @ 消息标已读而漏掉。
+  const [atMeReadyConv, setAtMeReadyConv] = useState<string | null>(null);
 
   // Forward dialog state
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
@@ -365,23 +368,31 @@ export default function ChatDetail() {
 
   useEffect(() => {
     if (selectedConversationId && currentUser?.token) {
+      const cid = selectedConversationId;
+      const token = currentUser.token;
+      let active = true;
       resetNoMoreHistory();
       markedReadRef.current = new Set();
-      // 先拉取"@我未读"列表：必须早于 markRead（markRead 走 Kafka 异步会清未读位），
-      // 仅群聊有 @；拉到的 id 用于顶部"有人@我"横幅逐条跳转
+      // 关闭已读门闩：本次进入会话，待"@我未读"快照捕获后再放行 auto-markRead。
+      setAtMeReadyConv(null);
+      // 先拉取"@我未读"列表：必须早于 markRead（/atme 过滤已读，否则刚进窗口可见的 @
+      // 会被秒标已读而漏掉）。仅群聊有 @；快照完成后放行门闩。私聊无 @，立即放行。
       if (conversation?.type === 'group') {
-        fetchAtMe(currentUser.token, selectedConversationId);
+        fetchAtMe(token, cid).finally(() => { if (active) setAtMeReadyConv(cid); });
+      } else {
+        setAtMeReadyConv(cid);
       }
-      fetchMessages(currentUser.token, selectedConversationId);
-      clearUnread(selectedConversationId);
+      fetchMessages(token, cid);
+      clearUnread(cid);
       // 群聊自动加载群成员
       if (conversation?.type === 'group') {
-        fetchGroupMembers(currentUser.token, selectedConversationId);
+        fetchGroupMembers(token, cid);
       } else {
         // 私聊预加载对方资料，保证标题/引用归属/回复名稳定可解析
-        const peerId = selectedConversationId.split('_').find(p => p !== currentUser.id);
-        if (peerId) ensureUserProfiles(currentUser.token, [peerId]);
+        const peerId = cid.split('_').find(p => p !== currentUser.id);
+        if (peerId) ensureUserProfiles(token, [peerId]);
       }
+      return () => { active = false; };
     }
   }, [selectedConversationId, currentUser?.token, currentUser?.id, resetNoMoreHistory, fetchMessages, clearUnread, conversation?.type, fetchGroupMembers, ensureUserProfiles, fetchAtMe]);
 
@@ -391,6 +402,8 @@ export default function ChatDetail() {
   // - readReceiptEnabled=false 时本地仍上报，便于服务端统计未读数；仅显示层根据开关决定是否渲染
   useEffect(() => {
     if (!selectedConversationId || !currentUser?.id) return;
+    // 等"@我未读"快照捕获后再上报已读，避免抢先清掉 /atme 依赖的未读位（漏掉刚进窗口的 @）。
+    if (atMeReadyConv !== selectedConversationId) return;
     const msgs = chatMessages[selectedConversationId] || [];
     if (msgs.length === 0) return;
     const unreadIds: string[] = [];
@@ -404,7 +417,7 @@ export default function ChatDetail() {
     if (unreadIds.length > 0) {
       storeMarkRead(currentUser.id, selectedConversationId, unreadIds);
     }
-  }, [selectedConversationId, currentUser?.id, chatMessages, storeMarkRead]);
+  }, [selectedConversationId, currentUser?.id, chatMessages, storeMarkRead, atMeReadyConv]);
 
   // Derive the current message list: chat-store 真实消息 + 本地 sentMap (兼容 mock)
   const messages = useMemo<Message[]>(() => {
