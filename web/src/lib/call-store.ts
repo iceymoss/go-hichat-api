@@ -128,9 +128,13 @@ export const useCallStore = create<CallState>((set, get) => {
       const eng = ensureEngine();
       if (!eng) return;
       if (sig.event === 'invite') {
-        // 来电：同步 store 的 peer/mediaType，供来电界面展示
+        // 来电：昵称/头像优先用本地好友资料解析（后端不再发 RPC 取资料）
+        const fromUid = sig.fromUid || '';
+        const friend = useIMStore.getState().friends?.find(f => f.friend_uid === fromUid || f.id === fromUid);
+        const name = sig.fromName || friend?.remark || friend?.name || friend?.nickname || fromUid || '对方';
+        const avatar = sig.fromAvatar || friend?.avatar;
         set({
-          peer: { id: sig.fromUid || '', name: sig.fromName || '', avatar: sig.fromAvatar },
+          peer: { id: fromUid, name, avatar },
           mediaType: sig.callType || 'voice',
           errorMsg: null,
         });

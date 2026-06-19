@@ -1470,7 +1470,9 @@ export default function ChatDetail() {
               toast(t('chat.groupCallComingSoon'));
               return;
             }
-            const peerId = contactMatch?.id || conv.id.split('_').find(p => p !== currentUser?.id);
+            // 必须用真实 uid（im ws 按 uid 路由）：私聊会话 id 形如 uidA_uidB
+            const peerId = conv.id.split('_').find(p => p !== currentUser?.id)
+              || contactMatch?.friend_uid || contactMatch?.id;
             if (!peerId) return;
             useCallStore.getState().startCall({ id: peerId, name: peerName, avatar: peerAvatar || undefined }, callType);
           }}

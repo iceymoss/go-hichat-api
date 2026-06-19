@@ -10,7 +10,6 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/logic"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/types"
-	"github.com/iceymoss/go-hichat-api/apps/user/rpc/userclient"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
@@ -245,8 +244,8 @@ func (s *SignalingServer) handleInvite(c *clientConn, msg *types.SignalingMessag
 		Data:   map[string]any{"call_id": sess.ID, "call_type": string(callType), "callee_id": calleeID, "media_mode": "p2p"},
 	})
 
-	// 振铃被叫（im ws -> call.signal）
-	name, avatar := s.userInfo(c.uid)
+	// 振铃被叫（im ws -> call.signal）。昵称/头像由前端用本地好友资料解析，
+	// 不在此发 RPC，避免取资料阻塞关键的振铃路径。
 	s.pushSignal(&wsframe.CallSignal{
 		ReceiverId: calleeID,
 		Event:      "invite",
@@ -255,8 +254,6 @@ func (s *SignalingServer) handleInvite(c *clientConn, msg *types.SignalingMessag
 		MediaMode:  "p2p",
 		Scope:      "single",
 		FromUid:    c.uid,
-		FromName:   name,
-		FromAvatar: avatar,
 	})
 }
 
@@ -379,13 +376,7 @@ func (s *SignalingServer) areFriends(uid, peer string) bool {
 }
 
 // userInfo 取用户昵称/头像（来电界面展示），失败返回空串。
-func (s *SignalingServer) userInfo(uid string) (name, avatar string) {
-	resp, err := s.svc.User.GetUserById(s.ctx, &userclient.GetUserByIdRequest{Id: uid})
-	if err != nil || resp == nil || resp.User == nil {
-		return "", ""
-	}
-	return resp.User.Nickname, resp.User.Avatar
-}
+// 已从振铃路径移除调用（前端用本地资料解析）；保留供后续按需使用。
 
 func (s *SignalingServer) send(c *clientConn, msg *types.SignalingMessage) {
 	msg.Timestamp = time.Now()
