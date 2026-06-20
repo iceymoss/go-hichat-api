@@ -31,6 +31,8 @@ export class GroupCallEngine {
   private ws: WebSocket | null = null;
   private localStream: MediaStream | null = null;
   private peers = new Map<string, PeerConn>();
+  private hadPeer = false; // 是否曾有其他参与者（用于「只剩自己时结束」判断）
+  private joinTimer: ReturnType<typeof setTimeout> | null = null;
   private callId = '';
   private mediaType: CallMediaType = 'voice';
   private phase: CallPhase = 'idle';
@@ -54,6 +56,13 @@ export class GroupCallEngine {
       await this.getLocalMedia(type);
       await this.connectWs();
       this.sendWs('group_invite', { group_id: groupId, members, call_type: type });
+      // 兜底：45s 内无人加入则结束（发起人空等）
+      this.joinTimer = setTimeout(() => {
+        if (!this.hadPeer) {
+          this.cb.onError('call.err.noAnswer');
+          this.hangup();
+        }
+      }, 45000);
     } catch (e) {
       this.cb.onError(this.mediaErr(e));
       this.cleanup();
@@ -175,6 +184,8 @@ export class GroupCallEngine {
         (id, state) => { if (state === 'failed') this.removePeer(id); },
       );
       this.peers.set(uid, pc);
+      this.hadPeer = true;
+      if (this.joinTimer) { clearTimeout(this.joinTimer); this.joinTimer = null; }
     }
     return pc;
   }
@@ -183,6 +194,10 @@ export class GroupCallEngine {
     const pc = this.peers.get(uid);
     if (pc) { pc.close(); this.peers.delete(uid); }
     this.cb.onParticipantLeft(uid);
+    // 群通话只剩自己（曾有人、现已 0 人）→ 直接结束
+    if (this.hadPeer && this.peers.size === 0 && (this.phase === 'connected' || this.phase === 'connecting')) {
+      this.hangup();
+    }
   }
 
   private sendWs(type: string, data: Record<string, unknown>) {
@@ -233,8 +248,10 @@ export class GroupCallEngine {
   }
 
   private cleanup() {
+    if (this.joinTimer) { clearTimeout(this.joinTimer); this.joinTimer = null; }
     this.peers.forEach(p => p.close());
     this.peers.clear();
+    this.hadPeer = false;
     this.localStream?.getTracks().forEach(tr => tr.stop());
     try { this.ws?.close(); } catch { /* ignore */ }
     this.ws = null;
