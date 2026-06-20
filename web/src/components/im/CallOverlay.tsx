@@ -108,30 +108,41 @@ export function CallOverlay() {
       <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: 'none' }} />
 
       {minimized ? (
-        /* ── 悬浮球（右上角），点击放大 ── */
+        /* ── 悬浮球（右上角），点击放大；来电时带接听/拒绝 ── */
         <div
-          onClick={() => setMinimized(false)}
           title={name}
           style={{
-            position: 'fixed', top: 12, right: 12, zIndex: 3000, cursor: 'pointer',
+            position: 'fixed', top: 12, right: 12, zIndex: 3000,
             borderRadius: 14, overflow: 'hidden', background: '#1C2733', color: '#FFF',
             boxShadow: '0 6px 24px rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)',
           }}
         >
-          {showRemoteVideo ? (
-            <div style={{ position: 'relative' }}>
-              <video ref={remoteVideoRef} autoPlay playsInline muted style={{ width: 120, height: 170, objectFit: 'cover', background: '#000', display: 'block' }} />
-              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', fontSize: 12, textAlign: 'center', background: 'linear-gradient(transparent,rgba(0,0,0,0.6))' }}>{statusText}</div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', maxWidth: 200 }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: peer?.avatar ? 'transparent' : avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {peer?.avatar ? <img src={peer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (isVideo ? <Video size={18} color="#FFF" /> : <Phone size={18} color="#FFF" />)}
+          <div onClick={() => setMinimized(false)} style={{ cursor: 'pointer' }}>
+            {showRemoteVideo ? (
+              <div style={{ position: 'relative' }}>
+                <video ref={remoteVideoRef} autoPlay playsInline muted style={{ width: 120, height: 170, objectFit: 'cover', background: '#000', display: 'block' }} />
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', fontSize: 12, textAlign: 'center', background: 'linear-gradient(transparent,rgba(0,0,0,0.6))' }}>{statusText}</div>
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{statusText}</div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', maxWidth: 200 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: peer?.avatar ? 'transparent' : avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {peer?.avatar ? <img src={peer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (isVideo ? <Video size={18} color="#FFF" /> : <Phone size={18} color="#FFF" />)}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{statusText}</div>
+                </div>
               </div>
+            )}
+          </div>
+          {phase === 'incoming' && (
+            <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <button onClick={reject} aria-label={t('call.action.reject')} style={{ flex: 1, height: 40, border: 'none', background: '#F5483B', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <PhoneOff size={18} />
+              </button>
+              <button onClick={accept} aria-label={t('call.action.accept')} style={{ flex: 1, height: 40, border: 'none', background: '#1BB45B', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Phone size={18} />
+              </button>
             </div>
           )}
         </div>
@@ -145,21 +156,19 @@ export function CallOverlay() {
             color: '#FFFFFF',
           }}
         >
-          {/* 最小化按钮（响铃接听界面不显示） */}
-          {phase !== 'incoming' && (
-            <button
-              onClick={() => setMinimized(true)}
-              aria-label="minimize"
-              style={{
-                position: 'absolute', top: 16, left: 16, zIndex: 4,
-                width: 40, height: 40, borderRadius: '50%', border: 'none',
-                background: 'rgba(255,255,255,0.15)', color: '#FFF', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <Minimize2 size={20} />
-            </button>
-          )}
+          {/* 最小化按钮（含来电响铃页；缩小后悬浮球带接听/拒绝） */}
+          <button
+            onClick={() => setMinimized(true)}
+            aria-label="minimize"
+            style={{
+              position: 'absolute', top: 16, left: 16, zIndex: 4,
+              width: 40, height: 40, borderRadius: '50%', border: 'none',
+              background: 'rgba(255,255,255,0.15)', color: '#FFF', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Minimize2 size={20} />
+          </button>
 
           {/* 远端视频铺满 */}
           {showRemoteVideo && (
