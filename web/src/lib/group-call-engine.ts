@@ -14,6 +14,7 @@ export interface GroupCallEngineCallbacks {
   onPhase: (phase: CallPhase, info?: { reason?: string }) => void;
   onLocalStream: (s: MediaStream | null) => void;
   onParticipantStream: (uid: string, stream: MediaStream | null) => void;
+  onParticipantMedia: (uid: string, media: { audio: boolean; video: boolean }) => void;
   onParticipantLeft: (uid: string) => void;
   onError: (key: string) => void;
 }
@@ -106,9 +107,27 @@ export class GroupCallEngine {
 
   toggleMute(muted: boolean) {
     this.localStream?.getAudioTracks().forEach(tr => (tr.enabled = !muted));
+    this.broadcastMediaState();
   }
   toggleCamera(on: boolean) {
     this.localStream?.getVideoTracks().forEach(tr => (tr.enabled = on));
+    this.broadcastMediaState();
+  }
+
+  /** 本端当前媒体开关状态（默认音开、视频按通话类型） */
+  private mediaStatePayload() {
+    const audio = this.localStream?.getAudioTracks().some(t => t.enabled) ?? true;
+    const video = this.localStream?.getVideoTracks().some(t => t.enabled) ?? false;
+    return { audio, video };
+  }
+  /** 向全部对端广播本端开关麦/摄像头状态 */
+  private broadcastMediaState() {
+    const st = this.mediaStatePayload();
+    this.peers.forEach((_, uid) => this.sendWs('media_state', { to: uid, ...st }));
+  }
+  /** 向单个对端发送本端状态（新人加入时让其立即看到我已静音/关摄像头） */
+  private sendMediaStateTo(uid: string) {
+    this.sendWs('media_state', { to: uid, ...this.mediaStatePayload() });
   }
 
   // ==================== streaming ws ====================
@@ -166,6 +185,9 @@ export class GroupCallEngine {
       case 'ice_candidate':
         if (from) this.peers.get(from)?.addRemoteIce(data);
         break;
+      case 'media_state':
+        if (from) this.cb.onParticipantMedia(from, { audio: data.audio !== false, video: data.video === true });
+        break;
       case 'error':
         this.cb.onError('call.err.generic');
         break;
@@ -186,6 +208,7 @@ export class GroupCallEngine {
       this.peers.set(uid, pc);
       this.hadPeer = true;
       if (this.joinTimer) { clearTimeout(this.joinTimer); this.joinTimer = null; }
+      this.sendMediaStateTo(uid); // 让新对端立即看到我当前的开关麦/摄像头状态
     }
     return pc;
   }

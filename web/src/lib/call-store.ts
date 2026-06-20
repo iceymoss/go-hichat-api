@@ -17,6 +17,7 @@ export interface GroupParticipant {
   name: string;
   avatar?: string;
   stream: MediaStream | null;
+  media: { audio: boolean; video: boolean }; // 对端开关麦/摄像头状态（实时同步）
 }
 
 /** 按 uid 解析展示名/头像：群通话参与者可能不是好友，故优先查群成员资料，再查好友，最后回退 uid */
@@ -172,7 +173,15 @@ export const useCallStore = create<CallState>((set, get) => {
     onParticipantStream: (uid: string, stream: MediaStream | null) => {
       set(state => {
         const c = resolveContact(uid);
-        return { participants: { ...state.participants, [uid]: { id: uid, name: c.name, avatar: c.avatar, stream } } };
+        const prev = state.participants[uid];
+        return { participants: { ...state.participants, [uid]: { id: uid, name: c.name, avatar: c.avatar, stream, media: prev?.media ?? { audio: true, video: true } } } };
+      });
+    },
+    onParticipantMedia: (uid: string, media: { audio: boolean; video: boolean }) => {
+      set(state => {
+        const c = resolveContact(uid);
+        const prev = state.participants[uid];
+        return { participants: { ...state.participants, [uid]: { id: uid, name: prev?.name ?? c.name, avatar: prev?.avatar ?? c.avatar, stream: prev?.stream ?? null, media } } };
       });
     },
     onParticipantLeft: (uid: string) => {

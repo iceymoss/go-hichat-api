@@ -144,8 +144,8 @@ export function CallOverlay() {
   // 群组网格：群通话且非来电响铃态时，用网格展示本地 + 各参与者
   const isGroupGrid = isGroup && phase !== 'incoming';
   const groupTiles = [
-    { key: 'local', stream: localStream, name: t('call.self'), avatar: undefined as string | undefined, isLocal: true, video: isVideo && !cameraOff },
-    ...Object.values(participants).map(p => ({ key: p.id, stream: p.stream, name: p.name, avatar: p.avatar, isLocal: false, video: isVideo })),
+    { key: 'local', stream: localStream, name: t('call.self'), avatar: undefined as string | undefined, isLocal: true, video: isVideo && !cameraOff, micOff: muted },
+    ...Object.values(participants).map(p => ({ key: p.id, stream: p.stream, name: p.name, avatar: p.avatar, isLocal: false, video: isVideo && p.media.video, micOff: !p.media.audio })),
   ];
 
   const statusText =
@@ -329,13 +329,14 @@ export function CallOverlay() {
   );
 }
 
-/** 群组网格的单个视频/头像格子。始终渲染 video（播放音频），无视频流时盖头像。 */
-function VideoTile({ stream, name, avatar, isLocal, video }: { stream: MediaStream | null; name: string; avatar?: string; isLocal?: boolean; video?: boolean }) {
+/** 群组网格的单个视频/头像格子。始终渲染 video（播放音频），无视频流时盖头像；右下角静音角标。 */
+function VideoTile({ stream, name, avatar, isLocal, video, micOff }: { stream: MediaStream | null; name: string; avatar?: string; isLocal?: boolean; video?: boolean; micOff?: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     if (ref.current && ref.current.srcObject !== stream) ref.current.srcObject = stream;
   }, [stream]);
-  const hasVideo = !!video && !!stream && stream.getVideoTracks().some(tr => tr.enabled);
+  // 远端关摄像头时其 track 仍 enabled，故是否出图以 video 标志（含对端 media_state）为准
+  const hasVideo = !!video && !!stream && stream.getVideoTracks().length > 0;
   return (
     <div style={{ position: 'relative', background: '#000', borderRadius: 10, overflow: 'hidden', minHeight: 0, minWidth: 0 }}>
       <video ref={ref} autoPlay playsInline muted={isLocal} style={{ width: '100%', height: '100%', objectFit: 'cover', display: hasVideo ? 'block' : 'none' }} />
@@ -346,13 +347,20 @@ function VideoTile({ stream, name, avatar, isLocal, video }: { stream: MediaStre
             : <User size={36} color="#FFF" />}
         </div>
       )}
-      <div style={{ position: 'absolute', bottom: 4, left: 6, fontSize: 12, color: '#FFF', textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>{name}</div>
+      <div style={{ position: 'absolute', bottom: 4, left: 6, right: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+        {micOff && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', background: 'rgba(245,72,59,0.9)', flexShrink: 0 }}>
+            <MicOff size={11} color="#FFF" />
+          </span>
+        )}
+        <span style={{ fontSize: 12, color: '#FFF', textShadow: '0 1px 3px rgba(0,0,0,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+      </div>
     </div>
   );
 }
 
 /** 群组通话网格（≤4 人，2 列） */
-function GroupGrid({ tiles }: { tiles: Array<{ key: string; stream: MediaStream | null; name: string; avatar?: string; isLocal?: boolean; video?: boolean }> }) {
+function GroupGrid({ tiles }: { tiles: Array<{ key: string; stream: MediaStream | null; name: string; avatar?: string; isLocal?: boolean; video?: boolean; micOff?: boolean }> }) {
   const cols = tiles.length <= 1 ? 1 : 2;
   return (
     <div style={{
@@ -360,7 +368,7 @@ function GroupGrid({ tiles }: { tiles: Array<{ key: string; stream: MediaStream 
       display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: '1fr', gap: 8,
     }}>
       {tiles.map(tl => (
-        <VideoTile key={tl.key} stream={tl.stream} name={tl.name} avatar={tl.avatar} isLocal={tl.isLocal} video={tl.video} />
+        <VideoTile key={tl.key} stream={tl.stream} name={tl.name} avatar={tl.avatar} isLocal={tl.isLocal} video={tl.video} micOff={tl.micOff} />
       ))}
     </div>
   );
