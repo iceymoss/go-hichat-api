@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useCallStore } from '@/lib/call-store';
 import { getAvatarColor } from '@/lib/utils';
 import { useT } from '@/hooks/use-i18n';
+import { playRingback, playRingtone, stopRing } from '@/lib/ringtone';
 
 function fmtDuration(sec: number): string {
   const m = Math.floor(sec / 60);
@@ -77,6 +78,14 @@ export function CallOverlay() {
       clearError();
     }
   }, [errorMsg, clearError, t]);
+
+  // 铃声：呼出=回铃音，来电=来电铃声+振动，接通/结束即停
+  useEffect(() => {
+    if (phase === 'outgoing') playRingback();
+    else if (phase === 'incoming') playRingtone();
+    else stopRing();
+    return () => stopRing();
+  }, [phase]);
 
   if (phase === 'idle' || phase === 'ended') return null;
 
