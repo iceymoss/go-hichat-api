@@ -231,6 +231,66 @@ function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['r
   );
 }
 
+/** 群聊顶部「通话中」横幅：非参与者显示「X 正在通话中 + 加入通话」，参与者显示「返回通话」。 */
+function GroupCallBanner({ conversationId, conversationName, memberNames }: {
+  conversationId: string;
+  conversationName: string;
+  memberNames: Record<string, string>;
+}) {
+  const t = useT();
+  const active = useCallStore(s => s.activeGroupCalls[conversationId]);
+  const phase = useCallStore(s => s.phase);
+  const callPeer = useCallStore(s => s.peer);
+  const joinGroupCall = useCallStore(s => s.joinGroupCall);
+  const setMinimized = useCallStore(s => s.setMinimized);
+  const fetchGroupCallState = useCallStore(s => s.fetchGroupCallState);
+  const myId = useIMStore(s => s.currentUser?.id);
+
+  // 进入/切换群聊时补拉一次当前通话状态（错过广播时）
+  useEffect(() => {
+    if (conversationId) fetchGroupCallState(conversationId);
+  }, [conversationId, fetchGroupCallState]);
+
+  if (!active || active.participants.length === 0) return null;
+
+  const inThisCall = (phase !== 'idle' && phase !== 'ended') && callPeer?.id === conversationId;
+  const amParticipant = !!myId && active.participants.includes(myId);
+  const isVideo = active.callType === 'video';
+
+  // 参与者名字（排除自己），最多展示 3 个
+  const others = active.participants.filter(u => u !== myId);
+  const names = others.map(u => memberNames[u] || u);
+  const shown = names.slice(0, 3).join('、');
+  const nameText = names.length > 3 ? t('call.banner.andMore').replace('{names}', shown).replace('{n}', String(names.length)) : shown;
+  const label = (inThisCall || amParticipant)
+    ? t('call.banner.ongoing')
+    : t(isVideo ? 'call.banner.video' : 'call.banner.voice').replace('{names}', nameText || conversationName);
+
+  const onClick = () => {
+    if (inThisCall || amParticipant) { setMinimized(false); return; }
+    joinGroupCall(conversationId, active.callId, active.callType, conversationName);
+  };
+
+  return (
+    <div
+      className="flex items-center justify-between shrink-0"
+      style={{ padding: '8px 5%', background: '#E8F7EE', borderBottom: '1px solid #D4ECDC', gap: 8 }}
+    >
+      <div className="flex items-center min-w-0" style={{ gap: 8, color: '#1BB45B' }}>
+        {isVideo ? <Video size={16} /> : <Phone size={16} />}
+        <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      </div>
+      <button
+        onClick={onClick}
+        className="shrink-0"
+        style={{ background: '#1BB45B', color: '#FFF', border: 'none', borderRadius: 16, padding: '5px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+      >
+        {(inThisCall || amParticipant) ? t('call.action.return') : t('call.action.join')}
+      </button>
+    </div>
+  );
+}
+
 export default function ChatDetail() {
   const { selectedConversationId, setSelectedConversationId, setShowChatDetail, openUserProfile, invalidateFriends, openGroupDetail } = useIMStore();
   const t = useT();
@@ -1244,6 +1304,11 @@ export default function ChatDetail() {
             {t('common.cancel')}
           </button>
         </div>
+      )}
+
+      {/* ── 群通话进行中横幅（加入 / 返回） ── */}
+      {conv.type === 'group' && (
+        <GroupCallBanner conversationId={conv.id} conversationName={conv.name} memberNames={groupMemberNames} />
       )}
 
       {/* ── Messages Area: light gray background ── */}

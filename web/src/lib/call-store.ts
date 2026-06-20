@@ -6,10 +6,16 @@
  */
 
 import { create } from 'zustand';
+import { toast } from 'sonner';
 import { CallEngine, type CallMediaType, type CallPhase, type CallPeer, type CallSignal } from './call-engine';
 import { GroupCallEngine } from './group-call-engine';
 import { useIMStore } from './im-store';
 import { useChatStore } from './chat-store';
+import { t as translate } from './i18n';
+import { useSettingsStore } from './settings-store';
+
+/** 非组件上下文下的翻译（toast 等用） */
+const tt = (key: string) => translate(key, useSettingsStore.getState().language);
 
 /** 群通话参与者（每人一路远端流） */
 export interface GroupParticipant {
@@ -18,6 +24,13 @@ export interface GroupParticipant {
   avatar?: string;
   stream: MediaStream | null;
   media: { audio: boolean; video: boolean }; // 对端开关麦/摄像头状态（实时同步）
+}
+
+/** 某群当前活跃通话（用于群聊顶部「通话中」横幅 + 会话列表标识 + 加入通话） */
+export interface ActiveGroupCall {
+  callId: string;
+  callType: CallMediaType;
+  participants: string[];
 }
 
 /** 按 uid 解析展示名/头像：群通话参与者可能不是好友，故优先查群成员资料，再查好友，最后回退 uid */
@@ -80,11 +93,14 @@ interface CallState {
   minimized: boolean;       // 通话窗口是否最小化为悬浮球
   isGroup: boolean;         // 是否群组通话（mesh）
   participants: Record<string, GroupParticipant>; // 群组：每个对端一路流
+  activeGroupCalls: Record<string, ActiveGroupCall>; // groupId -> 该群当前活跃通话（横幅/列表标识）
   errorMsg: string | null;
 
   // actions
   startCall: (peer: CallPeer, type: CallMediaType) => void;
   startGroupCall: (groupId: string, members: string[], type: CallMediaType, groupName?: string) => void;
+  joinGroupCall: (groupId: string, callId: string, type: CallMediaType, groupName?: string) => void;
+  fetchGroupCallState: (groupId: string) => void;
   accept: () => void;
   reject: () => void;
   hangup: () => void;
@@ -191,6 +207,10 @@ export const useCallStore = create<CallState>((set, get) => {
         return { participants: next };
       });
     },
+    onPeerEvent: (uid: string, kind: 'joined' | 'left') => {
+      const c = resolveContact(uid);
+      toast(`${c.name} ${kind === 'joined' ? tt('call.toast.joined') : tt('call.toast.left')}`);
+    },
     onError: (key: string) => set({ errorMsg: key }),
   };
 
@@ -218,6 +238,7 @@ export const useCallStore = create<CallState>((set, get) => {
     minimized: false,
     isGroup: false,
     participants: {},
+    activeGroupCalls: {},
     errorMsg: null,
 
     startCall: (peer, type) => {
@@ -235,6 +256,40 @@ export const useCallStore = create<CallState>((set, get) => {
         participants: {}, peer: { id: groupId, name: groupName || '群通话' },
       });
       eng.startGroupCall(groupId, members, type);
+    },
+
+    // 主动加入一通正在进行的群通话（点「加入通话」）。非发起人，不投通话记录。
+    joinGroupCall: (groupId, callId, type, groupName) => {
+      if (get().phase !== 'idle' && get().phase !== 'ended') return; // 已在通话中
+      const eng = ensureGroupEngine();
+      if (!eng) return;
+      set({
+        isGroup: true, isCaller: false, mediaType: type, minimized: false, errorMsg: null,
+        participants: {}, peer: { id: groupId, name: groupName || '群通话' },
+      });
+      eng.joinExisting(callId, type);
+    },
+
+    // 进群聊时补拉该群当前通话状态（错过 group.state 广播时）。
+    fetchGroupCallState: (groupId) => {
+      const me = useIMStore.getState().currentUser;
+      if (!me?.token || !groupId) return;
+      const { httpBase } = streamingEndpoints();
+      fetch(`${httpBase}/v1/streaming/group-call?group_id=${encodeURIComponent(groupId)}&token=${encodeURIComponent(me.token)}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then((body: { active?: boolean; callId?: string; callType?: string; participants?: string[] } | null) => {
+          if (!body) return;
+          set(state => {
+            const next = { ...state.activeGroupCalls };
+            if (body.active && body.callId) {
+              next[groupId] = { callId: body.callId, callType: (body.callType as CallMediaType) || 'voice', participants: body.participants || [] };
+            } else {
+              delete next[groupId];
+            }
+            return { activeGroupCalls: next };
+          });
+        })
+        .catch(() => { /* ignore */ });
     },
 
     accept: () => {
@@ -270,6 +325,23 @@ export const useCallStore = create<CallState>((set, get) => {
     setMinimized: (v) => set({ minimized: v }),
 
     onSignal: (sig) => {
+      // 群通话活跃状态广播（全体群成员收）：更新横幅/列表标识，不弹通话 UI
+      if (sig.event === 'group.state') {
+        const gid = sig.groupId || '';
+        if (!gid) return;
+        set(state => {
+          const next = { ...state.activeGroupCalls };
+          const parts = sig.members || [];
+          if (parts.length > 0 && sig.callId) {
+            next[gid] = { callId: sig.callId, callType: sig.callType || 'voice', participants: parts };
+          } else {
+            delete next[gid];
+          }
+          return { activeGroupCalls: next };
+        });
+        return;
+      }
+
       // 群通话来电
       if (sig.event === 'group.invite') {
         const eng = ensureGroupEngine();

@@ -16,6 +16,7 @@ export interface GroupCallEngineCallbacks {
   onParticipantStream: (uid: string, stream: MediaStream | null) => void;
   onParticipantMedia: (uid: string, media: { audio: boolean; video: boolean }) => void;
   onParticipantLeft: (uid: string) => void;
+  onPeerEvent: (uid: string, kind: 'joined' | 'left') => void;
   onError: (key: string) => void;
 }
 
@@ -78,6 +79,22 @@ export class GroupCallEngine {
       await this.getLocalMedia(this.mediaType);
       await this.connectWs();
       this.sendWs('group_join', { call_id: this.callId });
+    } catch (e) {
+      this.cb.onError(this.mediaErr(e));
+      this.cleanup();
+    }
+  }
+
+  /** 主动加入一通正在进行的群通话（点「加入通话」，非被邀振铃）。 */
+  async joinExisting(callId: string, type: CallMediaType) {
+    if (this.phase !== 'idle') return;
+    this.callId = callId;
+    this.mediaType = type;
+    this.setPhase('connecting');
+    try {
+      await this.getLocalMedia(type);
+      await this.connectWs();
+      this.sendWs('group_join', { call_id: callId });
     } catch (e) {
       this.cb.onError(this.mediaErr(e));
       this.cleanup();
@@ -166,6 +183,7 @@ export class GroupCallEngine {
         // 我是老人 → 向新人发 offer
         const uid = data.uid as string;
         if (uid && uid !== this.opts.selfId) {
+          this.cb.onPeerEvent(uid, 'joined');
           const pc = this.ensurePeer(uid);
           pc.makeOffer().catch(() => this.cb.onError('call.err.connect'));
         }
@@ -173,6 +191,7 @@ export class GroupCallEngine {
       }
       case 'peer_left': {
         const uid = data.uid as string;
+        if (uid) this.cb.onPeerEvent(uid, 'left');
         this.removePeer(uid);
         break;
       }
