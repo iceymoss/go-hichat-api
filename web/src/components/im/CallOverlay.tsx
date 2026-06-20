@@ -46,6 +46,49 @@ export function CallOverlay() {
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const [elapsed, setElapsed] = useState(0);
 
+  // 悬浮球拖拽
+  const widgetRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+
+  // 恢复全屏后复位悬浮球位置（下次最小化回到右上角默认位）
+  useEffect(() => {
+    if (!minimized) setPos(null);
+  }, [minimized]);
+
+  const beginDrag = (clientX: number, clientY: number) => {
+    const rect = widgetRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    dragRef.current = { sx: clientX, sy: clientY, ox: rect.left, oy: rect.top, moved: false };
+  };
+  const moveDrag = (clientX: number, clientY: number) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = clientX - d.sx, dy = clientY - d.sy;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) d.moved = true;
+    const w = widgetRef.current?.offsetWidth ?? 0, h = widgetRef.current?.offsetHeight ?? 0;
+    const x = Math.min(Math.max(0, d.ox + dx), window.innerWidth - w);
+    const y = Math.min(Math.max(0, d.oy + dy), window.innerHeight - h);
+    setPos({ x, y });
+  };
+  const onWidgetMouseDown = (e: React.MouseEvent) => {
+    beginDrag(e.clientX, e.clientY);
+    const mm = (ev: MouseEvent) => moveDrag(ev.clientX, ev.clientY);
+    const mu = () => { window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', mu); };
+    window.addEventListener('mousemove', mm);
+    window.addEventListener('mouseup', mu);
+  };
+  const onWidgetTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    beginDrag(t.clientX, t.clientY);
+    const tm = (ev: TouchEvent) => { const tt = ev.touches[0]; if (tt) moveDrag(tt.clientX, tt.clientY); };
+    const te = () => { window.removeEventListener('touchmove', tm); window.removeEventListener('touchend', te); };
+    window.addEventListener('touchmove', tm, { passive: true });
+    window.addEventListener('touchend', te);
+  };
+  // 拖动过则不触发「点击放大」
+  const onWidgetClickRestore = () => { if (!dragRef.current?.moved) setMinimized(false); };
+
   // 绑定媒体流到 video 元素（minimized 切换会换 video 元素，需重绑）
   useEffect(() => {
     if (localVideoRef.current && localVideoRef.current.srcObject !== localStream) {
@@ -108,16 +151,21 @@ export function CallOverlay() {
       <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: 'none' }} />
 
       {minimized ? (
-        /* ── 悬浮球（右上角），点击放大；来电时带接听/拒绝 ── */
+        /* ── 悬浮球（可拖拽），点击放大；来电时带接听/拒绝 ── */
         <div
+          ref={widgetRef}
+          onMouseDown={onWidgetMouseDown}
+          onTouchStart={onWidgetTouchStart}
           title={name}
           style={{
-            position: 'fixed', top: 12, right: 12, zIndex: 3000,
+            position: 'fixed', zIndex: 3000,
+            ...(pos ? { left: pos.x, top: pos.y } : { top: 12, right: 12 }),
             borderRadius: 14, overflow: 'hidden', background: '#1C2733', color: '#FFF',
             boxShadow: '0 6px 24px rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)',
+            cursor: 'move', userSelect: 'none', touchAction: 'none',
           }}
         >
-          <div onClick={() => setMinimized(false)} style={{ cursor: 'pointer' }}>
+          <div onClick={onWidgetClickRestore} style={{ cursor: 'pointer' }}>
             {showRemoteVideo ? (
               <div style={{ position: 'relative' }}>
                 <video ref={remoteVideoRef} autoPlay playsInline muted style={{ width: 120, height: 170, objectFit: 'cover', background: '#000', display: 'block' }} />

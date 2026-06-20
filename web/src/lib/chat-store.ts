@@ -1197,6 +1197,9 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
 
   // 收到别人的消息 → 播放提示音 + 振动（免打扰会话不提示）。
   // 通话记录（mType=call）不当普通新消息提示：用户刚通完话，未接另有红标/专属提示，避免重复打扰。
+  if (chat.sendId !== currentUserId && msg.type === 'call') {
+    console.log('[call] record message received, no notify sound. mType=', chat.msg?.mType);
+  }
   if (chat.sendId !== currentUserId && msg.type !== 'call' && typeof window !== 'undefined') {
     const convMuted = useChatStore.getState().conversations.find(c => c.id === convId)?.muted;
     if (!convMuted) notifyNewMessage();
