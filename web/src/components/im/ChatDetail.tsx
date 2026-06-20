@@ -86,13 +86,16 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
     try { info = JSON.parse(content); } catch { /* ignore */ }
     const isVideo = info.callType === 'video';
     const Icon = isVideo ? Video : Phone;
+    // 未接来电（被叫视角：超时/被取消）标红醒目
+    const missed = !isOwn && (info.status === 'no_answer' || info.status === 'canceled');
+    const color = missed ? '#FA5151' : undefined;
     return (
       <span
         onClick={() => onCallBack?.(isVideo ? 'video' : 'voice')}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', whiteSpace: 'nowrap', color }}
         title={t('chat.callBack')}
       >
-        <Icon size={17} style={{ opacity: 0.85, flexShrink: 0 }} />
+        <Icon size={17} style={{ opacity: 0.85, flexShrink: 0, color }} />
         <span>{callRecordLabel(info.status, info.duration, isOwn, t)}</span>
       </span>
     );

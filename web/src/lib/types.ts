@@ -55,6 +55,8 @@ export interface Conversation {
   online?: boolean;
   /** 是否有未读的 @我（群聊），进会话后清除 */
   hasAtMe?: boolean;
+  /** 是否有未接来电（被叫超时/被取消），进会话后清除 */
+  hasMissedCall?: boolean;
 }
 
 export interface ContactGroup {

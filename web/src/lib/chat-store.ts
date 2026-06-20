@@ -752,10 +752,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     const conv = get().conversations.find(c => c.id === conversationId);
     const unreadCount = conv?.unreadCount || 0;
 
-    // 1. 清除前端未读计数（含 @我 角标）
+    // 1. 清除前端未读计数（含 @我 / 未接来电 角标）
     set(s => ({
       conversations: s.conversations.map(c =>
-        c.id === conversationId ? { ...c, unreadCount: 0, hasAtMe: false } : c,
+        c.id === conversationId ? { ...c, unreadCount: 0, hasAtMe: false, hasMissedCall: false } : c,
       ),
     }));
 
@@ -1121,6 +1121,14 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
   const atMe = chat.sendId !== currentUserId && chat.chatType === ChatType.Group &&
     (!!chat.msg?.atAll || (chat.msg?.atUsers || []).includes(currentUserId));
 
+  // 这条是否为「未接来电」：对方发来的通话记录 + 状态为超时/取消（被叫没接到）→ 像被@一样醒目提示
+  const missedCall = chat.sendId !== currentUserId && msg.type === 'call' && (() => {
+    try {
+      const c = JSON.parse(msg.content) as { status?: string };
+      return c.status === 'no_answer' || c.status === 'canceled';
+    } catch { return false; }
+  })();
+
   useChatStore.setState(s => {
     // 添加消息（若正在浏览历史窗口，则不追加到该窗口，避免新消息与旧上下文错误相邻；
     // 回到最新页时会从服务端重新拉取）
@@ -1136,6 +1144,7 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
         lastMessage: mediaPreview(msg.type, msg.content),
         lastMessageTime: msg.timestamp,
         hasAtMe: convs[idx].hasAtMe || atMe,
+        hasMissedCall: convs[idx].hasMissedCall || missedCall,
         unreadCount: convs[idx].unreadCount + (chat.sendId !== currentUserId ? 1 : 0),
       };
     } else {
@@ -1161,6 +1170,7 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
         pinned: false,
         muted: false,
         hasAtMe: atMe,
+        hasMissedCall: missedCall,
       }, ...convs];
     }
 

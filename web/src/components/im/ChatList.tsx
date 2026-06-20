@@ -440,6 +440,9 @@ function ConversationItem({
             {conversation.hasAtMe && (
               <span style={{ color: '#FA5151', fontWeight: 600, marginRight: 4 }}>{t('chatlist.atMe')}</span>
             )}
+            {conversation.hasMissedCall && (
+              <span style={{ color: '#FA5151', fontWeight: 600, marginRight: 4 }}>{t('chatlist.missedCall')}</span>
+            )}
             {conversation.lastMessage}
           </span>
           {conversation.unreadCount > 0 && (
