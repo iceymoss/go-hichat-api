@@ -188,12 +188,14 @@ export class CallEngine {
         break;
 
       case 'timeout':
-        this.cb.onError('call.err.noAnswer');
+        // 主叫：对方未接听；被叫：你有一个未接来电
+        this.cb.onError(this.isCaller ? 'call.err.noAnswer' : this.missedKey());
         this.cleanup('no_answer');
         break;
 
       case 'cancel':
-        // 主叫响铃中取消
+        // 被叫收到主叫响铃中取消 -> 未接来电提示
+        this.cb.onError(this.missedKey());
         this.cleanup('canceled');
         break;
 
@@ -425,6 +427,10 @@ export class CallEngine {
     this.log('phase ->', p, info?.reason ? `(${info.reason})` : '');
     this.phase = p;
     this.cb.onPhase(p, info);
+  }
+
+  private missedKey(): string {
+    return this.mediaType === 'video' ? 'call.missed.video' : 'call.missed.voice';
   }
 
   private log(...args: unknown[]) {

@@ -858,6 +858,15 @@ function parseTimestamp(ts: number): Date {
 
 function mapConversation(raw: ConversationItem): Conversation {
   const msg = raw.message;
+  const unread = calcUnread(raw.seq, raw.read);
+  // 历史未接来电：最后一条是对方发来的通话记录、状态为超时/取消、且未读 → 红标
+  const me = useIMStore.getState().currentUser?.id;
+  const missedCall = !!msg && msg.msgType === MsgType.Call && msg.sendId !== me && unread > 0 && (() => {
+    try {
+      const c = JSON.parse(msg.msgContent) as { status?: string };
+      return c.status === 'no_answer' || c.status === 'canceled';
+    } catch { return false; }
+  })();
   return {
     id: raw.conversationId,
     type: raw.chatType === ChatType.Group ? 'group' : 'private',
@@ -865,11 +874,12 @@ function mapConversation(raw: ConversationItem): Conversation {
     avatar: (raw as any).targetAvatar || '',
     lastMessage: msg ? mediaPreview(backMsgTypeMap[msg.msgType] || 'text', msg.msgContent) : '',
     lastMessageTime: msg?.sendTime ? parseTimestamp(msg.sendTime) : new Date(),
-    unreadCount: calcUnread(raw.seq, raw.read),
+    unreadCount: unread,
     pinned: !!raw.isTop,
     muted: !!raw.isMute,
     members: (raw as any).memberCount || undefined,
     hasAtMe: !!(raw as any).hasAtMe,
+    hasMissedCall: missedCall,
   };
 }
 
