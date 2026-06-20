@@ -179,7 +179,7 @@ export class CallEngine {
 
       case 'reject':
         this.cb.onError('call.err.rejected');
-        this.cleanup(sig.reason);
+        this.cleanup('rejected');
         break;
 
       case 'busy':
