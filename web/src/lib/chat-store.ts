@@ -1131,13 +1131,15 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
   const atMe = chat.sendId !== currentUserId && chat.chatType === ChatType.Group &&
     (!!chat.msg?.atAll || (chat.msg?.atUsers || []).includes(currentUserId));
 
-  // 这条是否为「未接来电」：对方发来的通话记录 + 状态为超时/取消（被叫没接到）→ 像被@一样醒目提示
-  const missedCall = chat.sendId !== currentUserId && msg.type === 'call' && (() => {
-    try {
-      const c = JSON.parse(msg.content) as { status?: string };
-      return c.status === 'no_answer' || c.status === 'canceled';
-    } catch { return false; }
-  })();
+  // 通话记录分类：对方发来的通话记录，按状态区分会话列表未读表现
+  const fromPeer = chat.sendId !== currentUserId;
+  const callStatus = msg.type === 'call' ? (() => {
+    try { return (JSON.parse(msg.content) as { status?: string }).status; } catch { return undefined; }
+  })() : undefined;
+  // 未接来电（超时/被取消）：你没接到 → 计未读 + 像被@一样红标提示
+  const missedCall = fromPeer && (callStatus === 'no_answer' || callStatus === 'canceled');
+  // 已参与的通话（已接通/已拒接）：不该在会话列表当成未读新消息冒红点（结束后标记已读）
+  const seenCall = fromPeer && msg.type === 'call' && (callStatus === 'completed' || callStatus === 'rejected');
 
   useChatStore.setState(s => {
     // 添加消息（若正在浏览历史窗口，则不追加到该窗口，避免新消息与旧上下文错误相邻；
@@ -1195,11 +1197,14 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     return { messagesMap: { ...s.messagesMap, [convId]: msgs }, conversations: convs, atMeMap };
   });
 
+  // 已参与的通话（已接通/已拒接）：用户已在通话里，不该在会话列表显示未读红点。
+  // 结束后标记该会话已读（同步后端，刷新后也不再有未读）。
+  if (seenCall) {
+    useChatStore.getState().clearUnread(convId);
+  }
+
   // 收到别人的消息 → 播放提示音 + 振动（免打扰会话不提示）。
   // 通话记录（mType=call）不当普通新消息提示：用户刚通完话，未接另有红标/专属提示，避免重复打扰。
-  if (chat.sendId !== currentUserId && msg.type === 'call') {
-    console.log('[call] record message received, no notify sound. mType=', chat.msg?.mType);
-  }
   if (chat.sendId !== currentUserId && msg.type !== 'call' && typeof window !== 'undefined') {
     const convMuted = useChatStore.getState().conversations.find(c => c.id === convId)?.muted;
     if (!convMuted) notifyNewMessage();
