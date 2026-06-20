@@ -52,6 +52,7 @@ interface CallState {
   remoteMedia: { audio: boolean; video: boolean };
   startedAt: number | null; // 接通时间戳（毫秒），用于计时
   isCaller: boolean;        // 本端是否主叫（决定由谁投递通话记录）
+  minimized: boolean;       // 通话窗口是否最小化为悬浮球
   errorMsg: string | null;
 
   // actions
@@ -61,6 +62,7 @@ interface CallState {
   hangup: () => void;
   toggleMute: () => void;
   toggleCamera: () => void;
+  setMinimized: (v: boolean) => void;
   onSignal: (sig: CallSignal) => void;
   clearError: () => void;
 }
@@ -93,6 +95,7 @@ export const useCallStore = create<CallState>((set, get) => {
           startedAt: null,
           muted: false,
           cameraOff: false,
+          minimized: false,
           remoteMedia: { audio: true, video: true },
         });
       }
@@ -124,12 +127,13 @@ export const useCallStore = create<CallState>((set, get) => {
     remoteMedia: { audio: true, video: true },
     startedAt: null,
     isCaller: false,
+    minimized: false,
     errorMsg: null,
 
     startCall: (peer, type) => {
       const eng = ensureEngine();
       if (!eng) return;
-      set({ peer, mediaType: type, isCaller: true, errorMsg: null });
+      set({ peer, mediaType: type, isCaller: true, minimized: false, errorMsg: null });
       eng.startCall(peer, type);
     },
 
@@ -158,6 +162,8 @@ export const useCallStore = create<CallState>((set, get) => {
       engine?.toggleCamera(!next);
     },
 
+    setMinimized: (v) => set({ minimized: v }),
+
     onSignal: (sig) => {
       const eng = ensureEngine();
       if (!eng) return;
@@ -171,6 +177,7 @@ export const useCallStore = create<CallState>((set, get) => {
           peer: { id: fromUid, name, avatar },
           mediaType: sig.callType || 'voice',
           isCaller: false,
+          minimized: false,
           errorMsg: null,
         });
       }

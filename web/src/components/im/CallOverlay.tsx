@@ -6,7 +6,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, User } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, User, Minimize2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCallStore } from '@/lib/call-store';
 import { getAvatarColor } from '@/lib/utils';
@@ -31,12 +31,14 @@ export function CallOverlay() {
   const startedAt = useCallStore(s => s.startedAt);
   const errorMsg = useCallStore(s => s.errorMsg);
   const remoteMedia = useCallStore(s => s.remoteMedia);
+  const minimized = useCallStore(s => s.minimized);
 
   const accept = useCallStore(s => s.accept);
   const reject = useCallStore(s => s.reject);
   const hangup = useCallStore(s => s.hangup);
   const toggleMute = useCallStore(s => s.toggleMute);
   const toggleCamera = useCallStore(s => s.toggleCamera);
+  const setMinimized = useCallStore(s => s.setMinimized);
   const clearError = useCallStore(s => s.clearError);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -44,17 +46,17 @@ export function CallOverlay() {
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const [elapsed, setElapsed] = useState(0);
 
-  // 绑定媒体流到 video 元素
+  // 绑定媒体流到 video 元素（minimized 切换会换 video 元素，需重绑）
   useEffect(() => {
     if (localVideoRef.current && localVideoRef.current.srcObject !== localStream) {
       localVideoRef.current.srcObject = localStream;
     }
-  }, [localStream, phase]);
+  }, [localStream, phase, minimized]);
   useEffect(() => {
     if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
-  }, [remoteStream, phase]);
+  }, [remoteStream, phase, minimized]);
   // 远端音频始终由隐藏的 <audio> 播放（语音通话没有 <video> 元素，否则收到音轨也没声音）
   useEffect(() => {
     if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remoteStream) {
@@ -101,92 +103,141 @@ export function CallOverlay() {
     : fmtDuration(elapsed);
 
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 3000,
-        background: '#1C2733',
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        color: '#FFFFFF',
-      }}
-    >
-      {/* 远端音频：始终隐藏播放（语音通话靠它出声；视频通话的 <video> 设为 muted 避免双声） */}
+    <>
+      {/* 远端音频：始终隐藏播放，最小化也不中断 */}
       <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: 'none' }} />
 
-      {/* 远端视频铺满 */}
-      {showRemoteVideo && (
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          muted
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
-        />
-      )}
-
-      {/* 本地视频小窗（视频通话且已开摄像头） */}
-      {isVideo && !cameraOff && (phase === 'connected' || phase === 'connecting' || phase === 'outgoing') && (
-        <video
-          ref={localVideoRef}
-          autoPlay
-          playsInline
-          muted
+      {minimized ? (
+        /* ── 悬浮球（右上角），点击放大 ── */
+        <div
+          onClick={() => setMinimized(false)}
+          title={name}
           style={{
-            position: 'absolute', top: 20, right: 16, width: 110, height: 160,
-            objectFit: 'cover', borderRadius: 12, background: '#000',
-            border: '1px solid rgba(255,255,255,0.2)', zIndex: 2,
+            position: 'fixed', top: 12, right: 12, zIndex: 3000, cursor: 'pointer',
+            borderRadius: 14, overflow: 'hidden', background: '#1C2733', color: '#FFF',
+            boxShadow: '0 6px 24px rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)',
           }}
-        />
-      )}
-
-      {/* 头像 + 名称 + 状态（语音通话 或 视频未出图时） */}
-      {!showRemoteVideo && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '22vh', zIndex: 1 }}>
-          <div
-            style={{
-              width: 96, height: 96, borderRadius: '50%', overflow: 'hidden',
-              background: peer?.avatar ? 'transparent' : avatarColor,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18,
-            }}
-          >
-            {peer?.avatar
-              ? <img src={peer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <User size={40} color="#FFFFFF" />}
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 8 }}>{name}</div>
-          <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{statusText}</div>
+        >
+          {showRemoteVideo ? (
+            <div style={{ position: 'relative' }}>
+              <video ref={remoteVideoRef} autoPlay playsInline muted style={{ width: 120, height: 170, objectFit: 'cover', background: '#000', display: 'block' }} />
+              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', fontSize: 12, textAlign: 'center', background: 'linear-gradient(transparent,rgba(0,0,0,0.6))' }}>{statusText}</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', maxWidth: 200 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: peer?.avatar ? 'transparent' : avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {peer?.avatar ? <img src={peer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (isVideo ? <Video size={18} color="#FFF" /> : <Phone size={18} color="#FFF" />)}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{statusText}</div>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      ) : (
+        /* ── 全屏通话界面 ── */
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 3000,
+            background: '#1C2733',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            color: '#FFFFFF',
+          }}
+        >
+          {/* 最小化按钮（响铃接听界面不显示） */}
+          {phase !== 'incoming' && (
+            <button
+              onClick={() => setMinimized(true)}
+              aria-label="minimize"
+              style={{
+                position: 'absolute', top: 16, left: 16, zIndex: 4,
+                width: 40, height: 40, borderRadius: '50%', border: 'none',
+                background: 'rgba(255,255,255,0.15)', color: '#FFF', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Minimize2 size={20} />
+            </button>
+          )}
 
-      {/* 视频出图时，状态/计时浮在顶部 */}
-      {showRemoteVideo && (
-        <div style={{ position: 'absolute', top: 24, left: 0, right: 0, textAlign: 'center', zIndex: 2, textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
-          <div style={{ fontSize: 17, fontWeight: 600 }}>{name}</div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>{statusText}</div>
-        </div>
-      )}
+          {/* 远端视频铺满 */}
+          {showRemoteVideo && (
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              muted
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
+            />
+          )}
 
-      {/* 底部控制区 */}
-      <div style={{ position: 'absolute', bottom: 48, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 28, zIndex: 3 }}>
-        {phase === 'incoming' ? (
-          <>
-            <CircleBtn color="#F5483B" onClick={reject} label={t('call.action.reject')}><PhoneOff size={26} color="#FFF" /></CircleBtn>
-            <CircleBtn color="#1BB45B" onClick={accept} label={t('call.action.accept')}><Phone size={26} color="#FFF" /></CircleBtn>
-          </>
-        ) : (
-          <>
-            <CircleBtn color="rgba(255,255,255,0.15)" onClick={toggleMute} label={muted ? t('call.action.unmute') : t('call.action.mute')}>
-              {muted ? <MicOff size={24} color="#FFF" /> : <Mic size={24} color="#FFF" />}
-            </CircleBtn>
-            {isVideo && (
-              <CircleBtn color="rgba(255,255,255,0.15)" onClick={toggleCamera} label={cameraOff ? t('call.action.cameraOn') : t('call.action.cameraOff')}>
-                {cameraOff ? <VideoOff size={24} color="#FFF" /> : <Video size={24} color="#FFF" />}
-              </CircleBtn>
+          {/* 本地视频小窗（视频通话且已开摄像头） */}
+          {isVideo && !cameraOff && (phase === 'connected' || phase === 'connecting' || phase === 'outgoing') && (
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              style={{
+                position: 'absolute', top: 20, right: 16, width: 110, height: 160,
+                objectFit: 'cover', borderRadius: 12, background: '#000',
+                border: '1px solid rgba(255,255,255,0.2)', zIndex: 2,
+              }}
+            />
+          )}
+
+          {/* 头像 + 名称 + 状态（语音通话 或 视频未出图时） */}
+          {!showRemoteVideo && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '22vh', zIndex: 1 }}>
+              <div
+                style={{
+                  width: 96, height: 96, borderRadius: '50%', overflow: 'hidden',
+                  background: peer?.avatar ? 'transparent' : avatarColor,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18,
+                }}
+              >
+                {peer?.avatar
+                  ? <img src={peer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <User size={40} color="#FFFFFF" />}
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 8 }}>{name}</div>
+              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{statusText}</div>
+            </div>
+          )}
+
+          {/* 视频出图时，状态/计时浮在顶部 */}
+          {showRemoteVideo && (
+            <div style={{ position: 'absolute', top: 24, left: 0, right: 0, textAlign: 'center', zIndex: 2, textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
+              <div style={{ fontSize: 17, fontWeight: 600 }}>{name}</div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>{statusText}</div>
+            </div>
+          )}
+
+          {/* 底部控制区 */}
+          <div style={{ position: 'absolute', bottom: 48, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 28, zIndex: 3 }}>
+            {phase === 'incoming' ? (
+              <>
+                <CircleBtn color="#F5483B" onClick={reject} label={t('call.action.reject')}><PhoneOff size={26} color="#FFF" /></CircleBtn>
+                <CircleBtn color="#1BB45B" onClick={accept} label={t('call.action.accept')}><Phone size={26} color="#FFF" /></CircleBtn>
+              </>
+            ) : (
+              <>
+                <CircleBtn color="rgba(255,255,255,0.15)" onClick={toggleMute} label={muted ? t('call.action.unmute') : t('call.action.mute')}>
+                  {muted ? <MicOff size={24} color="#FFF" /> : <Mic size={24} color="#FFF" />}
+                </CircleBtn>
+                {isVideo && (
+                  <CircleBtn color="rgba(255,255,255,0.15)" onClick={toggleCamera} label={cameraOff ? t('call.action.cameraOn') : t('call.action.cameraOff')}>
+                    {cameraOff ? <VideoOff size={24} color="#FFF" /> : <Video size={24} color="#FFF" />}
+                  </CircleBtn>
+                )}
+                <CircleBtn color="#F5483B" onClick={hangup} label={t('call.action.hangup')}><PhoneOff size={26} color="#FFF" /></CircleBtn>
+              </>
             )}
-            <CircleBtn color="#F5483B" onClick={hangup} label={t('call.action.hangup')}><PhoneOff size={26} color="#FFF" /></CircleBtn>
-          </>
-        )}
-      </div>
-    </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
