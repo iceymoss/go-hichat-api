@@ -45,6 +45,8 @@ func main() {
 	http.HandleFunc("/ws", signalingServer.HandleWebSocket)
 	// ICE（STUN/TURN）配置下发，前端发起通话前拉取
 	http.HandleFunc("/v1/streaming/ice-servers", handler.ICEServersHandler(svcCtx, auth))
+	// 群通话活跃状态查询（进群聊补拉「通话中」横幅 / 加入通话）
+	http.HandleFunc("/v1/streaming/group-call", signalingServer.GroupCallStateHandler(auth))
 
 	// 启动服务
 	if err := svcCtx.Start(); err != nil {

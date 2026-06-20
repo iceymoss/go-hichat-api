@@ -365,6 +365,9 @@ func (s *SignalingServer) handleGroupInvite(c *clientConn, msg *types.SignalingM
 			Members:    roster,
 		})
 	}
+
+	// 广播群通话已开始（全体群成员看到横幅/列表标识）
+	s.broadcastGroupState(groupID)
 }
 
 // handleGroupJoin 加入群通话：回执新人当前名单 -> 通知已有参与者「有人加入」（他们作 offerer 建连）。
@@ -391,16 +394,23 @@ func (s *SignalingServer) handleGroupJoin(c *clientConn, msg *types.SignalingMes
 			})
 		}
 	}
+
+	// 广播更新后的参与者名单（全体群成员，含未在通话中的）
+	if groupID, _, _, ok := s.groups.Info(callID); ok {
+		s.broadcastGroupState(groupID)
+	}
 }
 
 // handleGroupLeave 离开群通话：广播 peer_left 给剩余参与者。
 func (s *SignalingServer) handleGroupLeave(c *clientConn, msg *types.SignalingMessage) {
 	callID := msgCallID(msg)
+	groupID, _, _, _ := s.groups.Info(callID) // 结束前捕获 groupID（结束后会话被删）
 	remaining, _, err := s.groups.Leave(callID, c.uid)
 	if err != nil {
 		return
 	}
 	s.broadcastPeerLeft(callID, c.uid, remaining)
+	s.broadcastGroupState(groupID)
 }
 
 // broadcastPeerLeft 通知剩余参与者某人离开。
@@ -482,8 +492,10 @@ func (s *SignalingServer) cleanupCall(uid string) {
 	}
 	// 群组：离开并通知剩余参与者
 	if callID, ok := s.groups.ActiveCallID(uid); ok {
+		groupID, _, _, _ := s.groups.Info(callID) // 结束前捕获 groupID
 		if remaining, _, err := s.groups.Leave(callID, uid); err == nil {
 			s.broadcastPeerLeft(callID, uid, remaining)
+			s.broadcastGroupState(groupID)
 		}
 	}
 }
@@ -512,6 +524,45 @@ func (s *SignalingServer) pushSignal(sig *wsframe.CallSignal) {
 	}); err != nil {
 		zLog.Error("push call signal failed",
 			zap.String("receiver", sig.ReceiverId), zap.String("event", sig.Event), zap.Error(err))
+	}
+}
+
+// groupMemberUids 取群全体成员 uid（用于群通话状态广播）。RPC 失败返回空（不广播）。
+func (s *SignalingServer) groupMemberUids(groupID string) []string {
+	resp, err := s.svc.Social.GroupUsers(s.ctx, &socialclient.GroupUsersReq{GroupId: groupID})
+	if err != nil || resp == nil {
+		zLog.Error("group call state: GroupUsers failed", zap.String("group", groupID), zap.Error(err))
+		return nil
+	}
+	uids := make([]string, 0, len(resp.List))
+	for _, m := range resp.List {
+		uids = append(uids, m.UserId)
+	}
+	return uids
+}
+
+// broadcastGroupState 向群全体成员广播某群当前通话状态（event=group.state）。
+// 用于「进群聊看到通话中横幅 / 会话列表通话标识 / 加入通话」。participants 为空表示通话已结束（前端清除）。
+// callType 仅在仍活跃时有意义；已结束时取查询快照（可能为空，前端凭 participants 判空即可）。
+func (s *SignalingServer) broadcastGroupState(groupID string) {
+	if groupID == "" {
+		return
+	}
+	callID, t, participants, ok := s.groups.ActiveByGroup(groupID)
+	if !ok {
+		participants = []string{} // 已结束：广播空名单让前端清除横幅/标识
+	}
+	members := s.groupMemberUids(groupID)
+	for _, m := range members {
+		s.pushSignal(&wsframe.CallSignal{
+			ReceiverId: m,
+			Event:      "group.state",
+			Scope:      "group",
+			GroupId:    groupID,
+			CallId:     callID,
+			CallType:   string(t),
+			Members:    participants,
+		})
 	}
 }
 

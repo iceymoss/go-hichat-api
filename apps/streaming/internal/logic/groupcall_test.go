@@ -75,6 +75,36 @@ func TestGroupCallService_CreateJoinLeave(t *testing.T) {
 	}
 }
 
+func TestGroupCallService_ActiveByGroup(t *testing.T) {
+	s := NewGroupCallService(4)
+	// 无通话
+	if _, _, _, ok := s.ActiveByGroup("g1"); ok {
+		t.Fatal("no active call expected")
+	}
+	callID, _ := s.Create("a", "g1", CallVideo, []string{"b"})
+	if _, _, err := s.Join(callID, "b"); err != nil {
+		t.Fatal(err)
+	}
+	id, typ, ps, ok := s.ActiveByGroup("g1")
+	if !ok || id != callID || typ != CallVideo {
+		t.Errorf("active = %v %v %v, want %v video true", id, typ, ok, callID)
+	}
+	sort.Strings(ps)
+	if len(ps) != 2 || ps[0] != "a" || ps[1] != "b" {
+		t.Errorf("participants = %v, want [a b]", ps)
+	}
+	// 其他群无通话
+	if _, _, _, ok := s.ActiveByGroup("g2"); ok {
+		t.Error("g2 should have no active call")
+	}
+	// 结束后不再活跃
+	s.Leave(callID, "b")
+	s.Leave(callID, "a")
+	if _, _, _, ok := s.ActiveByGroup("g1"); ok {
+		t.Error("call ended, should be inactive")
+	}
+}
+
 func TestGroupCallService_Full(t *testing.T) {
 	s := NewGroupCallService(2) // 上限 2 便于测试
 	callID, _ := s.Create("a", "g1", CallVoice, []string{"b", "c"})

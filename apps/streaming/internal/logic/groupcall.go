@@ -166,6 +166,19 @@ func (s *GroupCallService) ActiveCallID(uid string) (string, bool) {
 	return id, ok
 }
 
+// ActiveByGroup 返回某群当前活跃通话快照（供进群聊补拉/会话列表标识）。
+// 群内同一时刻只取第一通活跃通话（MVP：一群一通）。
+func (s *GroupCallService) ActiveByGroup(groupID string) (callID string, t CallType, participants []string, ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, g := range s.calls {
+		if g.GroupID == groupID && len(g.participants) > 0 {
+			return id, g.Type, participantsLocked(g), true
+		}
+	}
+	return "", "", nil, false
+}
+
 // IsBusy 判断用户是否在群通话中。
 func (s *GroupCallService) IsBusy(uid string) bool {
 	s.mu.Lock()
