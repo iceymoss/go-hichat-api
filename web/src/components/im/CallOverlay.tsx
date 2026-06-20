@@ -32,6 +32,8 @@ export function CallOverlay() {
   const errorMsg = useCallStore(s => s.errorMsg);
   const remoteMedia = useCallStore(s => s.remoteMedia);
   const minimized = useCallStore(s => s.minimized);
+  const isGroup = useCallStore(s => s.isGroup);
+  const participants = useCallStore(s => s.participants);
 
   const accept = useCallStore(s => s.accept);
   const reject = useCallStore(s => s.reject);
@@ -139,10 +141,18 @@ export function CallOverlay() {
   const avatarColor = getAvatarColor(name);
   const showRemoteVideo = isVideo && phase === 'connected' && remoteMedia.video;
 
+  // 群组网格：群通话且非来电响铃态时，用网格展示本地 + 各参与者
+  const isGroupGrid = isGroup && phase !== 'incoming';
+  const groupTiles = [
+    { key: 'local', stream: localStream, name: t('call.self'), avatar: undefined as string | undefined, isLocal: true, video: isVideo && !cameraOff },
+    ...Object.values(participants).map(p => ({ key: p.id, stream: p.stream, name: p.name, avatar: p.avatar, isLocal: false, video: isVideo })),
+  ];
+
   const statusText =
-    phase === 'incoming' ? (isVideo ? t('call.status.incomingVideo') : t('call.status.incomingVoice'))
+    phase === 'incoming' ? (isGroup ? t('call.status.incomingGroup') : (isVideo ? t('call.status.incomingVideo') : t('call.status.incomingVoice')))
     : phase === 'outgoing' ? t('call.status.calling')
     : phase === 'connecting' ? t('call.status.connecting')
+    : isGroupGrid ? `${t('call.group')} · ${fmtDuration(elapsed)}`
     : fmtDuration(elapsed);
 
   return (
@@ -230,8 +240,17 @@ export function CallOverlay() {
             <Minimize2 size={20} />
           </button>
 
+          {/* 群组：网格展示本地 + 各参与者 */}
+          {isGroupGrid && <GroupGrid tiles={groupTiles} />}
+          {isGroupGrid && (
+            <div style={{ position: 'absolute', top: 22, left: 0, right: 0, textAlign: 'center', zIndex: 2, textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{name}</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>{statusText}</div>
+            </div>
+          )}
+
           {/* 远端视频铺满 */}
-          {showRemoteVideo && (
+          {!isGroupGrid && showRemoteVideo && (
             <video
               ref={remoteVideoRef}
               autoPlay
@@ -242,7 +261,7 @@ export function CallOverlay() {
           )}
 
           {/* 本地视频小窗（视频通话且已开摄像头） */}
-          {isVideo && !cameraOff && (phase === 'connected' || phase === 'connecting' || phase === 'outgoing') && (
+          {!isGroupGrid && isVideo && !cameraOff && (phase === 'connected' || phase === 'connecting' || phase === 'outgoing') && (
             <video
               ref={localVideoRef}
               autoPlay
@@ -257,7 +276,7 @@ export function CallOverlay() {
           )}
 
           {/* 头像 + 名称 + 状态（语音通话 或 视频未出图时） */}
-          {!showRemoteVideo && (
+          {!isGroupGrid && !showRemoteVideo && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '22vh', zIndex: 1 }}>
               <div
                 style={{
@@ -276,7 +295,7 @@ export function CallOverlay() {
           )}
 
           {/* 视频出图时，状态/计时浮在顶部 */}
-          {showRemoteVideo && (
+          {!isGroupGrid && showRemoteVideo && (
             <div style={{ position: 'absolute', top: 24, left: 0, right: 0, textAlign: 'center', zIndex: 2, textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
               <div style={{ fontSize: 17, fontWeight: 600 }}>{name}</div>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>{statusText}</div>
@@ -307,6 +326,43 @@ export function CallOverlay() {
         </div>
       )}
     </>
+  );
+}
+
+/** 群组网格的单个视频/头像格子。始终渲染 video（播放音频），无视频流时盖头像。 */
+function VideoTile({ stream, name, avatar, isLocal, video }: { stream: MediaStream | null; name: string; avatar?: string; isLocal?: boolean; video?: boolean }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (ref.current && ref.current.srcObject !== stream) ref.current.srcObject = stream;
+  }, [stream]);
+  const hasVideo = !!video && !!stream && stream.getVideoTracks().some(tr => tr.enabled);
+  return (
+    <div style={{ position: 'relative', background: '#000', borderRadius: 10, overflow: 'hidden', minHeight: 0, minWidth: 0 }}>
+      <video ref={ref} autoPlay playsInline muted={isLocal} style={{ width: '100%', height: '100%', objectFit: 'cover', display: hasVideo ? 'block' : 'none' }} />
+      {!hasVideo && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: getAvatarColor(name) }}>
+          {avatar
+            ? <img src={avatar} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }} />
+            : <User size={36} color="#FFF" />}
+        </div>
+      )}
+      <div style={{ position: 'absolute', bottom: 4, left: 6, fontSize: 12, color: '#FFF', textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>{name}</div>
+    </div>
+  );
+}
+
+/** 群组通话网格（≤4 人，2 列） */
+function GroupGrid({ tiles }: { tiles: Array<{ key: string; stream: MediaStream | null; name: string; avatar?: string; isLocal?: boolean; video?: boolean }> }) {
+  const cols = tiles.length <= 1 ? 1 : 2;
+  return (
+    <div style={{
+      position: 'absolute', top: 56, left: 0, right: 0, bottom: 120, padding: 8,
+      display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: '1fr', gap: 8,
+    }}>
+      {tiles.map(tl => (
+        <VideoTile key={tl.key} stream={tl.stream} name={tl.name} avatar={tl.avatar} isLocal={tl.isLocal} video={tl.video} />
+      ))}
+    </div>
   );
 }
 

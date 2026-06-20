@@ -19,7 +19,7 @@ export interface CallPeer {
 
 /** im ws call.signal 帧（与后端 ws.CallSignal 对应） */
 export interface CallSignal {
-  event: 'invite' | 'cancel' | 'accept' | 'reject' | 'busy' | 'timeout' | 'end';
+  event: 'invite' | 'cancel' | 'accept' | 'reject' | 'busy' | 'timeout' | 'end' | 'group.invite';
   callId: string;
   callType?: CallMediaType;
   mediaMode?: string;
@@ -27,6 +27,8 @@ export interface CallSignal {
   fromUid?: string;
   fromName?: string;
   fromAvatar?: string;
+  groupId?: string;
+  members?: string[];
   reason?: string;
   duration?: number;
 }

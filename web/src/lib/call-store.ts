@@ -7,8 +7,23 @@
 
 import { create } from 'zustand';
 import { CallEngine, type CallMediaType, type CallPhase, type CallPeer, type CallSignal } from './call-engine';
+import { GroupCallEngine } from './group-call-engine';
 import { useIMStore } from './im-store';
 import { useChatStore } from './chat-store';
+
+/** 群通话参与者（每人一路远端流） */
+export interface GroupParticipant {
+  id: string;
+  name: string;
+  avatar?: string;
+  stream: MediaStream | null;
+}
+
+/** 按 uid 从本地好友资料解析展示名/头像 */
+function resolveContact(uid: string): { name: string; avatar?: string } {
+  const friend = useIMStore.getState().friends?.find(f => f.friend_uid === uid || f.id === uid);
+  return { name: friend?.remark || friend?.name || friend?.nickname || uid, avatar: friend?.avatar };
+}
 
 /** 通话结束原因 -> 聊天记录状态；返回 null 表示不记录（忙线/失败/异常） */
 function mapCallStatus(reason?: string): string | null {
@@ -53,10 +68,13 @@ interface CallState {
   startedAt: number | null; // 接通时间戳（毫秒），用于计时
   isCaller: boolean;        // 本端是否主叫（决定由谁投递通话记录）
   minimized: boolean;       // 通话窗口是否最小化为悬浮球
+  isGroup: boolean;         // 是否群组通话（mesh）
+  participants: Record<string, GroupParticipant>; // 群组：每个对端一路流
   errorMsg: string | null;
 
   // actions
   startCall: (peer: CallPeer, type: CallMediaType) => void;
+  startGroupCall: (groupId: string, members: string[], type: CallMediaType, groupName?: string) => void;
   accept: () => void;
   reject: () => void;
   hangup: () => void;
@@ -68,6 +86,7 @@ interface CallState {
 }
 
 let engine: CallEngine | null = null;
+let groupEngine: GroupCallEngine | null = null;
 
 export const useCallStore = create<CallState>((set, get) => {
   // 用 store 自身的 set 接 engine 回调
@@ -116,6 +135,45 @@ export const useCallStore = create<CallState>((set, get) => {
     return engine;
   };
 
+  // 群组（mesh）引擎回调
+  const groupCallbacks = {
+    onPhase: (phase: CallPhase) => {
+      if (phase === 'connected' && !get().startedAt) set({ startedAt: Date.now() });
+      set({ phase, isGroup: true });
+      if (phase === 'idle' || phase === 'ended') {
+        set({
+          startedAt: null, muted: false, cameraOff: false, minimized: false,
+          isGroup: false, participants: {},
+        });
+      }
+    },
+    onLocalStream: (s: MediaStream | null) => set({ localStream: s }),
+    onParticipantStream: (uid: string, stream: MediaStream | null) => {
+      set(state => {
+        const c = resolveContact(uid);
+        return { participants: { ...state.participants, [uid]: { id: uid, name: c.name, avatar: c.avatar, stream } } };
+      });
+    },
+    onParticipantLeft: (uid: string) => {
+      set(state => {
+        const next = { ...state.participants };
+        delete next[uid];
+        return { participants: next };
+      });
+    },
+    onError: (key: string) => set({ errorMsg: key }),
+  };
+
+  const ensureGroupEngine = (): GroupCallEngine | null => {
+    const me = useIMStore.getState().currentUser;
+    if (!me?.token || !me.id) return null;
+    if (!groupEngine) {
+      const { wsUrl, httpBase } = streamingEndpoints();
+      groupEngine = new GroupCallEngine({ wsUrl, httpBase, token: me.token, selfId: me.id }, groupCallbacks);
+    }
+    return groupEngine;
+  };
+
   return {
     phase: 'idle',
     peer: null,
@@ -128,43 +186,75 @@ export const useCallStore = create<CallState>((set, get) => {
     startedAt: null,
     isCaller: false,
     minimized: false,
+    isGroup: false,
+    participants: {},
     errorMsg: null,
 
     startCall: (peer, type) => {
       const eng = ensureEngine();
       if (!eng) return;
-      set({ peer, mediaType: type, isCaller: true, minimized: false, errorMsg: null });
+      set({ peer, mediaType: type, isCaller: true, isGroup: false, minimized: false, errorMsg: null });
       eng.startCall(peer, type);
+    },
+
+    startGroupCall: (groupId, members, type, groupName) => {
+      const eng = ensureGroupEngine();
+      if (!eng) return;
+      set({
+        isGroup: true, isCaller: true, mediaType: type, minimized: false, errorMsg: null,
+        participants: {}, peer: { id: groupId, name: groupName || '群通话' },
+      });
+      eng.startGroupCall(groupId, members, type);
     },
 
     accept: () => {
       get().clearError();
-      engine?.accept();
+      if (get().isGroup) groupEngine?.acceptGroup();
+      else engine?.accept();
     },
 
     reject: () => {
-      engine?.reject();
+      if (get().isGroup) groupEngine?.reject();
+      else engine?.reject();
     },
 
     hangup: () => {
-      engine?.hangup();
+      if (get().isGroup) groupEngine?.hangup();
+      else engine?.hangup();
     },
 
     toggleMute: () => {
       const next = !get().muted;
       set({ muted: next });
-      engine?.toggleMute(next);
+      if (get().isGroup) groupEngine?.toggleMute(next);
+      else engine?.toggleMute(next);
     },
 
     toggleCamera: () => {
       const next = !get().cameraOff;
       set({ cameraOff: next });
-      engine?.toggleCamera(!next);
+      if (get().isGroup) groupEngine?.toggleCamera(!next);
+      else engine?.toggleCamera(!next);
     },
 
     setMinimized: (v) => set({ minimized: v }),
 
     onSignal: (sig) => {
+      // 群通话来电
+      if (sig.event === 'group.invite') {
+        const eng = ensureGroupEngine();
+        if (!eng) return;
+        const initiator = resolveContact(sig.fromUid || '');
+        set({
+          isGroup: true, isCaller: false, mediaType: sig.callType || 'voice',
+          minimized: false, errorMsg: null, participants: {},
+          peer: { id: sig.groupId || '', name: initiator.name, avatar: initiator.avatar },
+        });
+        eng.setIncoming(sig.callId, sig.callType || 'voice');
+        return;
+      }
+
+      // 1:1
       const eng = ensureEngine();
       if (!eng) return;
       if (sig.event === 'invite') {
@@ -177,6 +267,7 @@ export const useCallStore = create<CallState>((set, get) => {
           peer: { id: fromUid, name, avatar },
           mediaType: sig.callType || 'voice',
           isCaller: false,
+          isGroup: false,
           minimized: false,
           errorMsg: null,
         });

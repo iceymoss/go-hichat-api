@@ -1506,10 +1506,12 @@ export default function ChatDetail() {
           contactAvatar={conv.type === 'private' ? peerAvatar : undefined}
           isGroup={conv.type === 'group'}
           members={conv.type === 'group' ? (groupMembersMap[conv.id] || []) : []}
-          onConfirm={() => {
-            // 群组通话留待 Phase 3；当前仅支持 1:1
-            if (conv.type !== 'private') {
-              toast(t('chat.groupCallComingSoon'));
+          onConfirm={(selectedIds) => {
+            // 群组通话：mesh，振铃选中成员
+            if (conv.type === 'group') {
+              const members = (selectedIds || []).filter(id => id !== currentUser?.id);
+              if (!members.length) return;
+              useCallStore.getState().startGroupCall(conv.id, members, callType, peerName);
               return;
             }
             // 必须用真实 uid（im ws 按 uid 路由）：私聊会话 id 形如 uidA_uidB
