@@ -156,6 +156,54 @@ sequenceDiagram
   IMWS->>ReceiverClient: WebSocket trend.notify if online
 ```
 
+## Voice / Video Calls
+
+The independent `streaming` service delivers WebRTC real-time audio/video. Call **control** signaling reuses the im ws channel (`push.call` → client `call.signal`); **media negotiation** (offer/answer/ICE) runs over the streaming service's own WebSocket relay, while the media itself flows **peer-to-peer and never touches the server**. One-to-one is direct P2P; group calls use a **full-mesh** topology (each pair connects directly, up to 4 participants). SFU and TURN are reserved extension points for meetings, live streaming, and stricter NAT traversal.
+
+### One-to-one Call
+
+```mermaid
+sequenceDiagram
+  Caller->>StreamingWS: call_invite (callee, type)
+  StreamingWS->>SocialRPC: Verify friendship
+  StreamingWS-->>Caller: Call created (callId)
+  StreamingWS->>IMWS: push.call invite
+  IMWS->>Callee: call.signal invite (ring)
+  Callee->>StreamingWS: call_accept
+  StreamingWS->>Caller: call.signal accept
+  Caller->>StreamingWS: offer / ICE candidate
+  StreamingWS->>Callee: Relay offer / ICE
+  Callee->>StreamingWS: answer / ICE candidate
+  StreamingWS->>Caller: Relay answer / ICE
+  Note over Caller,Callee: P2P media flows directly, not via server
+  Caller->>StreamingWS: call_end
+  StreamingWS->>Callee: call.signal end
+  Note over Caller,Callee: A call record is posted to the chat
+```
+
+### Group Call (Mesh)
+
+```mermaid
+sequenceDiagram
+  Initiator->>StreamingWS: group_invite (group, members, type)
+  StreamingWS->>SocialRPC: Verify group members
+  StreamingWS-->>Initiator: group_created (callId)
+  StreamingWS->>IMWS: push.call group.invite (per invited member)
+  IMWS->>Member: call.signal group.invite (ring)
+  StreamingWS->>GroupMembers: group.state broadcast (banner / list badge)
+  Member->>StreamingWS: group_join (callId)
+  StreamingWS->>Initiator: peer_joined (new uid)
+  Note over Initiator,Member: Existing peer offers to the newcomer (avoids glare)
+  Initiator->>StreamingWS: offer (to = Member)
+  StreamingWS->>Member: Relay offer
+  Member->>StreamingWS: answer (to = Initiator)
+  StreamingWS->>Initiator: Relay answer
+  Note over Initiator,Member: Every pair connects P2P (full mesh)
+  Member->>StreamingWS: group_leave
+  StreamingWS->>Initiator: peer_left
+  StreamingWS->>GroupMembers: group.state broadcast (update / clear)
+```
+
 ## Services
 
 | Service | Layers | Responsibility |
