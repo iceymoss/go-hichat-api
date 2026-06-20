@@ -234,7 +234,6 @@ sequenceDiagram
 ├── LICENSE
 ├── README.md
 ├── apps
-│   ├── demo
 │   ├── im
 │   ├── social
 │   ├── streaming
