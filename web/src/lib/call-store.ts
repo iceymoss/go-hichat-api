@@ -139,6 +139,18 @@ export const useCallStore = create<CallState>((set, get) => {
   const groupCallbacks = {
     onPhase: (phase: CallPhase) => {
       if (phase === 'connected' && !get().startedAt) set({ startedAt: Date.now() });
+
+      // 群通话结束：由发起人往群聊投一条通话记录（接通过才记）
+      if (phase === 'ended') {
+        const prev = get();
+        if (prev.isCaller && prev.peer?.id && prev.startedAt) {
+          const duration = Math.max(0, Math.floor((Date.now() - prev.startedAt) / 1000));
+          try {
+            useChatStore.getState().sendGroupCallRecord(prev.peer.id, prev.mediaType, 'completed', duration);
+          } catch { /* ignore */ }
+        }
+      }
+
       set({ phase, isGroup: true });
       if (phase === 'idle' || phase === 'ended') {
         set({

@@ -142,6 +142,8 @@ interface ChatState {
   backToLatest: (token: string, conversationId: string) => Promise<void>;  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string, quote?: string, mentions?: { atUsers?: string[]; atAll?: boolean }) => void;
   /** 通话结束后由主叫端投递一条通话记录消息（mType=call），双方会话内展示，可点击回拨 */
   sendCallRecord: (peerId: string, callType: 'voice' | 'video', status: string, duration: number) => void;
+  /** 群通话结束由发起人投递一条群聊通话记录 */
+  sendGroupCallRecord: (groupId: string, callType: 'voice' | 'video', status: string, duration: number) => void;
   resendMessage: (token: string, userId: string, conversationId: string, msgId: string) => void;
   markRead: (userId: string, conversationId: string, msgIds: string[]) => void;
   /** 撤回消息：调后端校验，成功后原位置为撤回态（ws 事件会同步其它端） */
@@ -604,6 +606,14 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     const conversationId = existing?.id || [me.id, peerId].sort().join('_');
     const content = JSON.stringify({ callType, status, duration });
     get().sendMessage(me.token, me.id, conversationId, content, 'call');
+  },
+
+  sendGroupCallRecord: (groupId, callType, status, duration) => {
+    const me = useIMStore.getState().currentUser;
+    if (!me?.token || !me.id) return;
+    const content = JSON.stringify({ callType, status, duration, scope: 'group' });
+    // 群聊会话 id 即 groupId
+    get().sendMessage(me.token, me.id, groupId, content, 'call');
   },
 
   // ==================== 重发失败消息 ====================
