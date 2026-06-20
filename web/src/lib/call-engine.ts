@@ -133,10 +133,13 @@ export class CallEngine {
 
   /** 挂断 / 取消 */
   hangup() {
+    // 本端主动挂断也要带结束原因，否则主叫端无法据此投递通话记录：
+    // 已接通=completed；响铃/连接中挂断=canceled（主叫放弃）
+    const reason = this.phase === 'connected' ? 'completed' : 'canceled';
     if (this.callId && this.ws?.readyState === WebSocket.OPEN) {
       this.sendWs('call_end', { call_id: this.callId });
     }
-    this.cleanup();
+    this.cleanup(reason);
   }
 
   toggleMute(muted: boolean) {
@@ -430,6 +433,8 @@ export class CallEngine {
   }
 
   private cleanup(reason?: string, duration?: number) {
+    // 幂等：已是 idle（无活跃通话）则不重复收尾，避免重复投递通话记录
+    if (this.phase === 'idle' && !this.callId) return;
     this.pc?.getSenders().forEach(s => s.track?.stop());
     this.localStream?.getTracks().forEach(t => t.stop());
     try { this.pc?.close(); } catch { /* ignore */ }

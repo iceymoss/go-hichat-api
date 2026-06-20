@@ -77,11 +77,13 @@ export const useCallStore = create<CallState>((set, get) => {
       // 通话结束：由主叫端投递一条通话记录到聊天（双方会话内展示，可回拨）
       if (phase === 'ended' && prev.isCaller && prev.peer?.id) {
         const status = mapCallStatus(info?.reason);
+        console.log('[call] record check: reason=', info?.reason, 'status=', status, 'peer=', prev.peer?.id);
         if (status) {
           const duration = prev.startedAt ? Math.max(0, Math.floor((Date.now() - prev.startedAt) / 1000)) : 0;
           try {
             useChatStore.getState().sendCallRecord(prev.peer.id, prev.mediaType, status, duration);
-          } catch { /* ignore */ }
+            console.log('[call] record sent:', status, duration);
+          } catch (e) { console.warn('[call] record failed', e); }
         }
       }
 
