@@ -19,10 +19,19 @@ export interface GroupParticipant {
   stream: MediaStream | null;
 }
 
-/** 按 uid 从本地好友资料解析展示名/头像 */
+/** 按 uid 解析展示名/头像：群通话参与者可能不是好友，故优先查群成员资料，再查好友，最后回退 uid */
 function resolveContact(uid: string): { name: string; avatar?: string } {
+  // 1) 群成员资料（不要求互为好友）
+  const groups = useChatStore.getState().groupMembers as Record<string, Array<{ user_id?: string; nickname?: string; group_nickname?: string; user_avatar_url?: string }>>;
+  for (const gid in groups) {
+    const m = groups[gid]?.find(x => x.user_id === uid);
+    if (m) return { name: m.group_nickname || m.nickname || uid, avatar: m.user_avatar_url || undefined };
+  }
+  // 2) 好友资料
   const friend = useIMStore.getState().friends?.find(f => f.friend_uid === uid || f.id === uid);
-  return { name: friend?.remark || friend?.name || friend?.nickname || uid, avatar: friend?.avatar };
+  if (friend) return { name: friend.remark || friend.name || friend.nickname || uid, avatar: friend.avatar };
+  // 3) 回退 uid
+  return { name: uid };
 }
 
 /** 通话结束原因 -> 聊天记录状态；返回 null 表示不记录（忙线/失败/异常） */
