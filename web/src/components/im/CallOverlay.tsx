@@ -165,32 +165,44 @@ export function CallOverlay() {
             cursor: 'move', userSelect: 'none', touchAction: 'none',
           }}
         >
-          <div onClick={onWidgetClickRestore} style={{ cursor: 'pointer' }}>
-            {showRemoteVideo ? (
-              <div style={{ position: 'relative' }}>
-                <video ref={remoteVideoRef} autoPlay playsInline muted style={{ width: 120, height: 170, objectFit: 'cover', background: '#000', display: 'block' }} />
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', fontSize: 12, textAlign: 'center', background: 'linear-gradient(transparent,rgba(0,0,0,0.6))' }}>{statusText}</div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', maxWidth: 200 }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: peer?.avatar ? 'transparent' : avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {peer?.avatar ? <img src={peer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (isVideo ? <Video size={18} color="#FFF" /> : <Phone size={18} color="#FFF" />)}
+          {phase === 'incoming' ? (
+            /* ── 来电卡片：头像呼吸光环 + 圆形接听/拒绝 ── */
+            <div style={{ width: 196, padding: '18px 16px 16px' }}>
+              <style>{'@keyframes callRing{0%{transform:scale(1);opacity:.55}70%{opacity:0}100%{transform:scale(1.75);opacity:0}}'}</style>
+              <div onClick={onWidgetClickRestore} style={{ cursor: 'pointer', textAlign: 'center' }}>
+                <div style={{ position: 'relative', width: 60, height: 60, margin: '0 auto 12px' }}>
+                  <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: isVideo ? 'rgba(64,128,255,0.45)' : 'rgba(27,180,91,0.45)', animation: 'callRing 1.6s ease-out infinite' }} />
+                  <div style={{ position: 'relative', width: 60, height: 60, borderRadius: '50%', overflow: 'hidden', background: peer?.avatar ? 'transparent' : avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {peer?.avatar ? <img src={peer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (isVideo ? <Video size={26} color="#FFF" /> : <Phone size={26} color="#FFF" />)}
+                  </div>
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{statusText}</div>
-                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 3 }}>{statusText}</div>
               </div>
-            )}
-          </div>
-          {phase === 'incoming' && (
-            <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              <button onClick={reject} aria-label={t('call.action.reject')} style={{ flex: 1, height: 40, border: 'none', background: '#F5483B', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <PhoneOff size={18} />
-              </button>
-              <button onClick={accept} aria-label={t('call.action.accept')} style={{ flex: 1, height: 40, border: 'none', background: '#1BB45B', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Phone size={18} />
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginTop: 16 }}>
+                <MiniAction color="#F5483B" label={t('call.action.reject')} onClick={reject}><PhoneOff size={20} color="#FFF" /></MiniAction>
+                <MiniAction color="#1BB45B" label={t('call.action.accept')} onClick={accept}><Phone size={20} color="#FFF" /></MiniAction>
+              </div>
+            </div>
+          ) : (
+            /* ── 通话中 / 呼出：紧凑悬浮，点击放大 ── */
+            <div onClick={onWidgetClickRestore} style={{ cursor: 'pointer' }}>
+              {showRemoteVideo ? (
+                <div style={{ position: 'relative' }}>
+                  <video ref={remoteVideoRef} autoPlay playsInline muted style={{ width: 120, height: 170, objectFit: 'cover', background: '#000', display: 'block' }} />
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', fontSize: 12, textAlign: 'center', background: 'linear-gradient(transparent,rgba(0,0,0,0.6))' }}>{statusText}</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', maxWidth: 200 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: peer?.avatar ? 'transparent' : avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {peer?.avatar ? <img src={peer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (isVideo ? <Video size={18} color="#FFF" /> : <Phone size={18} color="#FFF" />)}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{statusText}</div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -316,6 +328,28 @@ function CircleBtn({ color, onClick, label, children }: { color: string; onClick
         {children}
       </button>
       <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>{label}</span>
+    </div>
+  );
+}
+
+/** 悬浮来电卡片的小圆形动作按钮（接听/拒绝），带标签 + 悬停放大 */
+function MiniAction({ color, onClick, label, children }: { color: string; onClick: () => void; label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+      <button
+        onClick={onClick}
+        aria-label={label}
+        style={{
+          width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer',
+          background: color, color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 3px 10px rgba(0,0,0,0.3)', transition: 'transform 0.12s',
+        }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.1)'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
+      >
+        {children}
+      </button>
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>{label}</span>
     </div>
   );
 }
