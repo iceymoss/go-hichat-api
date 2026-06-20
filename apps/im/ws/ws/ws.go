@@ -141,3 +141,23 @@ type Notify struct {
 	Payload    string `json:"payload,omitempty" mapstructure:"payload"` // 扩展字段 JSON
 	CreateTime int64  `json:"createTime" mapstructure:"createTime"`
 }
+
+// CallSignal 音视频通话控制信令推送帧（streaming 服务投递 -> im ws push.call 路由单推给 ReceiverId）。
+// 前端用 method=call.signal 接收，按 event 分发（来电/被接听/被拒/挂断/忙线/超时）。
+// 媒体协商（offer/answer/ice）不走这里，走 streaming 自己的 ws。
+type CallSignal struct {
+	ReceiverId string `json:"receiverId" mapstructure:"receiverId"`         // 接收者 uid（im ws 路由用）
+	Event      string `json:"event" mapstructure:"event"`                   // invite/cancel/accept/reject/busy/timeout/end
+	CallId     string `json:"callId" mapstructure:"callId"`                 // 通话 ID
+	CallType   string `json:"callType,omitempty" mapstructure:"callType"`   // voice/video
+	MediaMode  string `json:"mediaMode,omitempty" mapstructure:"mediaMode"` // p2p/sfu
+	Scope      string `json:"scope,omitempty" mapstructure:"scope"`         // single/group
+	FromUid    string `json:"fromUid,omitempty" mapstructure:"fromUid"`     // 主叫 uid
+	FromName   string `json:"fromName,omitempty" mapstructure:"fromName"`   // 主叫昵称（来电展示）
+	FromAvatar string `json:"fromAvatar,omitempty" mapstructure:"fromAvatar"`
+	GroupId    string `json:"groupId,omitempty" mapstructure:"groupId"`
+	Members    []string `json:"members,omitempty" mapstructure:"members"` // 群通话参与者名单（群振铃用）
+	Reason     string `json:"reason,omitempty" mapstructure:"reason"`     // 结束原因
+	Duration   int64  `json:"duration,omitempty" mapstructure:"duration"` // 通话时长(秒)
+	Timestamp  int64  `json:"timestamp" mapstructure:"timestamp"`
+}

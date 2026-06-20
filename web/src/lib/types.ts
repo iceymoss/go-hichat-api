@@ -20,7 +20,7 @@ export interface Message {
   content: string;
   senderId: string;
   timestamp: Date;
-  type: 'text' | 'image' | 'video' | 'file' | 'voice' | 'memes' | 'system';
+  type: 'text' | 'image' | 'video' | 'file' | 'voice' | 'memes' | 'system' | 'call';
   imageUrl?: string;
   replyTo?: { senderName: string; content: string; msgId?: string; senderId?: string; mType?: Message['type']; thumbUrl?: string };
   /** 发送状态: sending=发送中, sent=已发送, failed=发送失败 */
@@ -55,6 +55,8 @@ export interface Conversation {
   online?: boolean;
   /** 是否有未读的 @我（群聊），进会话后清除 */
   hasAtMe?: boolean;
+  /** 是否有未接来电（被叫超时/被取消），进会话后清除 */
+  hasMissedCall?: boolean;
 }
 
 export interface ContactGroup {

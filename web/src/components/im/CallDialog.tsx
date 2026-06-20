@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Phone, Video, Check, Users } from 'lucide-react';
+import { useT } from '@/hooks/use-i18n';
 import { getAvatarColor } from '@/lib/utils';
 import type { GroupMember } from '@/lib/types';
 
@@ -19,9 +20,12 @@ interface CallDialogProps {
   contactAvatar?: string;
   isGroup?: boolean;
   members?: CallMember[];
+  /** 点“呼叫”后发起通话（1:1 忽略 selectedIds；群组传选中成员）。 */
+  onConfirm?: (selectedIds: string[]) => void;
 }
 
-export function CallDialog({ open, onOpenChange, type, contactName, contactAvatar, isGroup = false, members = [] }: CallDialogProps) {
+export function CallDialog({ open, onOpenChange, type, contactName, contactAvatar, isGroup = false, members = [], onConfirm }: CallDialogProps) {
+  const t = useT();
   const isVoice = type === 'voice';
   const [selectAll, setSelectAll] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(members.map(m => m.id)));
@@ -57,7 +61,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, contactAvata
   const avatarColor = getAvatarColor(contactName);
 
   const handleCall = () => {
-    // TODO: implement actual call logic
+    onConfirm?.(isGroup ? Array.from(selectedIds) : []);
     onOpenChange(false);
   };
 
@@ -76,7 +80,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, contactAvata
         showCloseButton={false}
         className="!border-none !bg-transparent !p-0 !shadow-none !gap-0 data-[state=open]:!animate-none data-[state=closed]:!animate-none"
       >
-        <VisuallyHidden><DialogTitle>通话</DialogTitle></VisuallyHidden>
+        <VisuallyHidden><DialogTitle>{t(isVoice ? 'call.dialog.voice' : 'call.dialog.video')}</DialogTitle></VisuallyHidden>
         <div
           style={{
             display: 'flex',
@@ -123,17 +127,17 @@ export function CallDialog({ open, onOpenChange, type, contactName, contactAvata
             </div>
             <div style={{ fontSize: 18, fontWeight: 600, color: '#1C2733', marginBottom: 4 }}>
               {isGroup
-                ? `${isVoice ? '语音通话' : '视频通话'} - ${contactName}`
-                : `${isVoice ? '语音通话' : '视频通话'}`}
+                ? `${t(isVoice ? 'call.dialog.voice' : 'call.dialog.video')} - ${contactName}`
+                : t(isVoice ? 'call.dialog.voice' : 'call.dialog.video')}
             </div>
             {!isGroup && (
               <div style={{ fontSize: 13, color: '#708499' }}>
-                向 {contactName} 发起{isVoice ? '语音' : '视频'}通话？
+                {t(isVoice ? 'call.dialog.askVoice' : 'call.dialog.askVideo').replace('{name}', contactName)}
               </div>
             )}
             {isGroup && (
               <div style={{ fontSize: 13, color: '#708499' }}>
-                选择要邀请的成员
+                {t('call.dialog.selectMembers')}
               </div>
             )}
           </div>
@@ -181,10 +185,10 @@ export function CallDialog({ open, onOpenChange, type, contactName, contactAvata
                 </div>
                 <div style={{ flex: 1, textAlign: 'left' }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#1C2733' }}>
-                    所有成员
+                    {t('call.dialog.allMembers')}
                   </div>
                   <div style={{ fontSize: 11, color: '#A2ACB5', marginTop: 1 }}>
-                    共 {effectiveMembers.length} 人
+                    {t('call.dialog.memberTotal').replace('{n}', String(effectiveMembers.length))}
                   </div>
                 </div>
                 {(selectAll || allSelected) && (
@@ -193,7 +197,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, contactAvata
                     background: 'rgba(27,180,91,0.08)',
                     padding: '2px 8px', borderRadius: 10,
                   }}>
-                    已选 {effectiveMembers.length}
+                    {t('call.dialog.selected').replace('{n}', String(effectiveMembers.length))}
                   </span>
                 )}
               </button>
@@ -288,7 +292,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, contactAvata
                 transition: 'all 0.2s',
               }}
             >
-              取消
+              {t('call.dialog.cancel')}
             </button>
             <button
               onClick={handleCall}
@@ -318,8 +322,8 @@ export function CallDialog({ open, onOpenChange, type, contactName, contactAvata
               }}
             >
               {isGroup
-                ? selectedCount > 0 ? `呼叫 (${selectedCount}人)` : '请选择成员'
-                : '呼叫'}
+                ? selectedCount > 0 ? t('call.dialog.callN').replace('{n}', String(selectedCount)) : t('call.dialog.selectPrompt')
+                : t('call.dialog.call')}
             </button>
           </div>
         </div>

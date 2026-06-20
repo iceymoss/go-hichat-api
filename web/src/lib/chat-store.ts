@@ -30,6 +30,8 @@ import { useIMStore } from './im-store';
 import { playMessageSound, vibrate } from './notification';
 import { useSettingsStore } from './settings-store';
 import { mediaPreview } from './media-message';
+import { useCallStore } from './call-store';
+import type { CallSignal } from './call-engine';
 import type { Message, Conversation } from './types';
 import { toast } from 'sonner';
 import { sendFriendRequest } from './friend-group-api';
@@ -63,6 +65,7 @@ const backMsgTypeMap: Record<number, Message['type']> = {
   [MsgType.Image]: 'image',
   [MsgType.Memes]: 'memes',
   [MsgType.Video]: 'video',
+  [MsgType.Call]: 'call',
 };
 
 const frontMsgTypeMap: Record<string, number> = {
@@ -72,6 +75,7 @@ const frontMsgTypeMap: Record<string, number> = {
   file: MsgType.File,
   video: MsgType.Video,
   memes: MsgType.Memes,
+  call: MsgType.Call,
 };
 
 /** 解析引用消息 JSON（{id,uid,name,preview,mType,thumb}）为 Message.replyTo */
@@ -136,6 +140,10 @@ interface ChatState {
   fetchNewer: (token: string, conversationId: string) => Promise<boolean>;
   /** 回到最新页（退出浏览历史态） */
   backToLatest: (token: string, conversationId: string) => Promise<void>;  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string, quote?: string, mentions?: { atUsers?: string[]; atAll?: boolean }) => void;
+  /** 通话结束后由主叫端投递一条通话记录消息（mType=call），双方会话内展示，可点击回拨 */
+  sendCallRecord: (peerId: string, callType: 'voice' | 'video', status: string, duration: number) => void;
+  /** 群通话结束由发起人投递一条群聊通话记录 */
+  sendGroupCallRecord: (groupId: string, callType: 'voice' | 'video', status: string, duration: number) => void;
   resendMessage: (token: string, userId: string, conversationId: string, msgId: string) => void;
   markRead: (userId: string, conversationId: string, msgIds: string[]) => void;
   /** 撤回消息：调后端校验，成功后原位置为撤回态（ws 事件会同步其它端） */
@@ -257,6 +265,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       if (!evt?.conversationId) return;
       if (evt.eventType !== 'group.member.removed' && evt.eventType !== 'group.disbanded') return;
       get().markGroupRemoved(evt.conversationId, evt.eventType);
+    });
+
+    // 音视频通话控制信令：来电/接听/拒接/挂断/超时 -> 通话 store 驱动来电与通话界面
+    ws.on('call.signal', (data) => {
+      const sig = data as CallSignal | null;
+      if (!sig?.event) return;
+      useCallStore.getState().onSignal(sig);
     });
 
     // 公共通知（好友/群申请等）：按 notifyType 分发 —— 实时红点 + 气泡提示（点击跳到对应入口）。
@@ -579,6 +594,28 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       });
   },
 
+  // ==================== 通话记录 ====================
+
+  sendCallRecord: (peerId, callType, status, duration) => {
+    const me = useIMStore.getState().currentUser;
+    if (!me?.token || !me.id) return;
+    // 私聊会话 id：优先用已存在的会话，否则按 uid 排序拼（与后端一致的稳定顺序）
+    const existing = get().conversations.find(
+      c => c.type === 'private' && c.id.split('_').includes(peerId) && c.id.split('_').includes(me.id),
+    );
+    const conversationId = existing?.id || [me.id, peerId].sort().join('_');
+    const content = JSON.stringify({ callType, status, duration });
+    get().sendMessage(me.token, me.id, conversationId, content, 'call');
+  },
+
+  sendGroupCallRecord: (groupId, callType, status, duration) => {
+    const me = useIMStore.getState().currentUser;
+    if (!me?.token || !me.id) return;
+    const content = JSON.stringify({ callType, status, duration, scope: 'group' });
+    // 群聊会话 id 即 groupId
+    get().sendMessage(me.token, me.id, groupId, content, 'call');
+  },
+
   // ==================== 重发失败消息 ====================
 
   resendMessage: (token, userId, conversationId, msgId) => {
@@ -725,10 +762,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     const conv = get().conversations.find(c => c.id === conversationId);
     const unreadCount = conv?.unreadCount || 0;
 
-    // 1. 清除前端未读计数（含 @我 角标）
+    // 1. 清除前端未读计数（含 @我 / 未接来电 角标）
     set(s => ({
       conversations: s.conversations.map(c =>
-        c.id === conversationId ? { ...c, unreadCount: 0, hasAtMe: false } : c,
+        c.id === conversationId ? { ...c, unreadCount: 0, hasAtMe: false, hasMissedCall: false } : c,
       ),
     }));
 
@@ -831,6 +868,15 @@ function parseTimestamp(ts: number): Date {
 
 function mapConversation(raw: ConversationItem): Conversation {
   const msg = raw.message;
+  const unread = calcUnread(raw.seq, raw.read);
+  // 历史未接来电：最后一条是对方发来的通话记录、状态为超时/取消、且未读 → 红标
+  const me = useIMStore.getState().currentUser?.id;
+  const missedCall = !!msg && msg.msgType === MsgType.Call && msg.sendId !== me && unread > 0 && (() => {
+    try {
+      const c = JSON.parse(msg.msgContent) as { status?: string };
+      return c.status === 'no_answer' || c.status === 'canceled';
+    } catch { return false; }
+  })();
   return {
     id: raw.conversationId,
     type: raw.chatType === ChatType.Group ? 'group' : 'private',
@@ -838,11 +884,12 @@ function mapConversation(raw: ConversationItem): Conversation {
     avatar: (raw as any).targetAvatar || '',
     lastMessage: msg ? mediaPreview(backMsgTypeMap[msg.msgType] || 'text', msg.msgContent) : '',
     lastMessageTime: msg?.sendTime ? parseTimestamp(msg.sendTime) : new Date(),
-    unreadCount: calcUnread(raw.seq, raw.read),
+    unreadCount: unread,
     pinned: !!raw.isTop,
     muted: !!raw.isMute,
     members: (raw as any).memberCount || undefined,
     hasAtMe: !!(raw as any).hasAtMe,
+    hasMissedCall: missedCall,
   };
 }
 
@@ -1094,6 +1141,16 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
   const atMe = chat.sendId !== currentUserId && chat.chatType === ChatType.Group &&
     (!!chat.msg?.atAll || (chat.msg?.atUsers || []).includes(currentUserId));
 
+  // 通话记录分类：对方发来的通话记录，按状态区分会话列表未读表现
+  const fromPeer = chat.sendId !== currentUserId;
+  const callStatus = msg.type === 'call' ? (() => {
+    try { return (JSON.parse(msg.content) as { status?: string }).status; } catch { return undefined; }
+  })() : undefined;
+  // 未接来电（超时/被取消）：你没接到 → 计未读 + 像被@一样红标提示
+  const missedCall = fromPeer && (callStatus === 'no_answer' || callStatus === 'canceled');
+  // 已参与的通话（已接通/已拒接）：不该在会话列表当成未读新消息冒红点（结束后标记已读）
+  const seenCall = fromPeer && msg.type === 'call' && (callStatus === 'completed' || callStatus === 'rejected');
+
   useChatStore.setState(s => {
     // 添加消息（若正在浏览历史窗口，则不追加到该窗口，避免新消息与旧上下文错误相邻；
     // 回到最新页时会从服务端重新拉取）
@@ -1109,6 +1166,7 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
         lastMessage: mediaPreview(msg.type, msg.content),
         lastMessageTime: msg.timestamp,
         hasAtMe: convs[idx].hasAtMe || atMe,
+        hasMissedCall: convs[idx].hasMissedCall || missedCall,
         unreadCount: convs[idx].unreadCount + (chat.sendId !== currentUserId ? 1 : 0),
       };
     } else {
@@ -1134,6 +1192,7 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
         pinned: false,
         muted: false,
         hasAtMe: atMe,
+        hasMissedCall: missedCall,
       }, ...convs];
     }
 
@@ -1148,8 +1207,15 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     return { messagesMap: { ...s.messagesMap, [convId]: msgs }, conversations: convs, atMeMap };
   });
 
-  // 收到别人的消息 → 播放提示音 + 振动（免打扰会话不提示）
-  if (chat.sendId !== currentUserId && typeof window !== 'undefined') {
+  // 已参与的通话（已接通/已拒接）：用户已在通话里，不该在会话列表显示未读红点。
+  // 结束后标记该会话已读（同步后端，刷新后也不再有未读）。
+  if (seenCall) {
+    useChatStore.getState().clearUnread(convId);
+  }
+
+  // 收到别人的消息 → 播放提示音 + 振动（免打扰会话不提示）。
+  // 通话记录（mType=call）不当普通新消息提示：用户刚通完话，未接另有红标/专属提示，避免重复打扰。
+  if (chat.sendId !== currentUserId && msg.type !== 'call' && typeof window !== 'undefined') {
     const convMuted = useChatStore.getState().conversations.find(c => c.id === convId)?.muted;
     if (!convMuted) notifyNewMessage();
   }

@@ -25,15 +25,23 @@ const (
 	MessageTypeError        SignalingMessageType = "error"
 
 	// 一对一通话
-	MessageTypeCallInvite SignalingMessageType = "call_invite"
-	MessageTypeCallAccept SignalingMessageType = "call_accept"
-	MessageTypeCallReject SignalingMessageType = "call_reject"
-	MessageTypeCallEnd    SignalingMessageType = "call_end"
+	MessageTypeCallInvite  SignalingMessageType = "call_invite"
+	MessageTypeCallAccept  SignalingMessageType = "call_accept"
+	MessageTypeCallReject  SignalingMessageType = "call_reject"
+	MessageTypeCallCancel  SignalingMessageType = "call_cancel"
+	MessageTypeCallEnd     SignalingMessageType = "call_end"
+	MessageTypeCallCreated SignalingMessageType = "call_created" // 服务端回执主叫：携带 callId
+	MessageTypeMediaState  SignalingMessageType = "media_state"  // 静音/开关摄像头
+	MessageTypeCallSignal  SignalingMessageType = "call_signal"  // 服务端经 streaming ws 直推的通话控制信令
 
-	// 群组通话
-	MessageTypeGroupInvite SignalingMessageType = "group_invite"
-	MessageTypeGroupJoin   SignalingMessageType = "group_join"
-	MessageTypeGroupLeave  SignalingMessageType = "group_leave"
+	// 群组通话（Mesh）
+	MessageTypeGroupInvite  SignalingMessageType = "group_invite"
+	MessageTypeGroupJoin    SignalingMessageType = "group_join"
+	MessageTypeGroupLeave   SignalingMessageType = "group_leave"
+	MessageTypeGroupCreated SignalingMessageType = "group_created" // 回执发起人：callId
+	MessageTypeGroupRoster  SignalingMessageType = "group_roster"  // 回执新加入者：当前参与者名单
+	MessageTypePeerJoined   SignalingMessageType = "peer_joined"   // 通知房间内其他人：有人加入（去与其建连）
+	MessageTypePeerLeft     SignalingMessageType = "peer_left"     // 通知房间内其他人：有人离开（关连接）
 
 	// 会议功能
 	MessageTypeMeetingCreate  SignalingMessageType = "meeting_create"

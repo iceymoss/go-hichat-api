@@ -50,6 +50,7 @@ import VoiceBubble from './VoiceBubble';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useT } from '@/hooks/use-i18n';
 import { CallDialog } from './CallDialog';
+import { useCallStore } from '@/lib/call-store';
 import ChatSettingsMenu from './ChatSettingsMenu';
 import MessageContextMenu from './MessageContextMenu';
 import ConfirmDialog from './ConfirmDialog';
@@ -68,16 +69,37 @@ function formatBytes(n?: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-/** 按消息类型渲染气泡内容（文本 / 图片 / 视频 / 文件 / 语音 / 表情包） */
-function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePlayed }: {
+/** 按消息类型渲染气泡内容（文本 / 图片 / 视频 / 文件 / 语音 / 表情包 / 通话记录） */
+function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePlayed, onCallBack }: {
   message: Message;
   onOpenMedia?: (m: Message) => void;
   isOwn?: boolean;
   voiceUnplayed?: boolean;
   onVoicePlayed?: () => void;
+  onCallBack?: (callType: 'voice' | 'video') => void;
 }) {
   const { type, content } = message;
   const t = useT();
+
+  if (type === 'call') {
+    let info: { callType?: 'voice' | 'video'; status?: string; duration?: number } = {};
+    try { info = JSON.parse(content); } catch { /* ignore */ }
+    const isVideo = info.callType === 'video';
+    const Icon = isVideo ? Video : Phone;
+    // 未接来电（被叫视角：超时/被取消）标红醒目
+    const missed = !isOwn && (info.status === 'no_answer' || info.status === 'canceled');
+    const color = missed ? '#FA5151' : undefined;
+    return (
+      <span
+        onClick={() => onCallBack?.(isVideo ? 'video' : 'voice')}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', whiteSpace: 'nowrap', color }}
+        title={t('chat.callBack')}
+      >
+        <Icon size={17} style={{ opacity: 0.85, flexShrink: 0, color }} />
+        <span>{callRecordLabel(info.status, info.duration, isOwn, t)}</span>
+      </span>
+    );
+  }
 
   if (type === 'image' || type === 'memes') {
     const meta = parseMediaContent(content);
@@ -146,6 +168,26 @@ function MessageContent({ message, onOpenMedia, isOwn, voiceUnplayed, onVoicePla
   return <span>{renderTextWithMentions(content, isOwn)}</span>;
 }
 
+/** 通话记录气泡文案（主叫端投递，故按 isOwn 区分双方视角） */
+function fmtCallDuration(sec?: number): string {
+  const s = Math.max(0, Math.floor(sec || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+function callRecordLabel(status: string | undefined, duration: number | undefined, isOwn: boolean | undefined, t: (k: string) => string): string {
+  switch (status) {
+    case 'completed':
+      return t('call.record.duration').replace('{d}', fmtCallDuration(duration));
+    case 'canceled':
+      return t(isOwn ? 'call.record.canceledOwn' : 'call.record.canceledOther');
+    case 'rejected':
+      return t(isOwn ? 'call.record.rejectedOwn' : 'call.record.rejectedOther');
+    case 'no_answer':
+      return t(isOwn ? 'call.record.noAnswerOwn' : 'call.record.noAnswerOther');
+    default:
+      return t('call.record.fallback');
+  }
+}
+
 /** 文本中的 @所有人 / @某人 高亮渲染。发送方气泡是蓝底，@ 用浅金色才看得清；接收方白底用蓝色。 */
 function renderTextWithMentions(text: string, isOwn?: boolean) {
   if (!text || text.indexOf('@') < 0) return text;
@@ -185,6 +227,66 @@ function QuoteBlock({ reply, onJump, recalled }: { reply: NonNullable<Message['r
           {recalled ? t('chat.recalledShort') : reply.content}
         </span>
       </span>
+    </div>
+  );
+}
+
+/** 群聊顶部「通话中」横幅：非参与者显示「X 正在通话中 + 加入通话」，参与者显示「返回通话」。 */
+function GroupCallBanner({ conversationId, conversationName, memberNames }: {
+  conversationId: string;
+  conversationName: string;
+  memberNames: Record<string, string>;
+}) {
+  const t = useT();
+  const active = useCallStore(s => s.activeGroupCalls[conversationId]);
+  const phase = useCallStore(s => s.phase);
+  const callPeer = useCallStore(s => s.peer);
+  const joinGroupCall = useCallStore(s => s.joinGroupCall);
+  const setMinimized = useCallStore(s => s.setMinimized);
+  const fetchGroupCallState = useCallStore(s => s.fetchGroupCallState);
+  const myId = useIMStore(s => s.currentUser?.id);
+
+  // 进入/切换群聊时补拉一次当前通话状态（错过广播时）
+  useEffect(() => {
+    if (conversationId) fetchGroupCallState(conversationId);
+  }, [conversationId, fetchGroupCallState]);
+
+  if (!active || active.participants.length === 0) return null;
+
+  const inThisCall = (phase !== 'idle' && phase !== 'ended') && callPeer?.id === conversationId;
+  const amParticipant = !!myId && active.participants.includes(myId);
+  const isVideo = active.callType === 'video';
+
+  // 参与者名字（排除自己），最多展示 3 个
+  const others = active.participants.filter(u => u !== myId);
+  const names = others.map(u => memberNames[u] || u);
+  const shown = names.slice(0, 3).join('、');
+  const nameText = names.length > 3 ? t('call.banner.andMore').replace('{names}', shown).replace('{n}', String(names.length)) : shown;
+  const label = (inThisCall || amParticipant)
+    ? t('call.banner.ongoing')
+    : t(isVideo ? 'call.banner.video' : 'call.banner.voice').replace('{names}', nameText || conversationName);
+
+  const onClick = () => {
+    if (inThisCall || amParticipant) { setMinimized(false); return; }
+    joinGroupCall(conversationId, active.callId, active.callType, conversationName);
+  };
+
+  return (
+    <div
+      className="flex items-center justify-between shrink-0"
+      style={{ padding: '8px 5%', background: '#E8F7EE', borderBottom: '1px solid #D4ECDC', gap: 8 }}
+    >
+      <div className="flex items-center min-w-0" style={{ gap: 8, color: '#1BB45B' }}>
+        {isVideo ? <Video size={16} /> : <Phone size={16} />}
+        <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      </div>
+      <button
+        onClick={onClick}
+        className="shrink-0"
+        style={{ background: '#1BB45B', color: '#FFF', border: 'none', borderRadius: 16, padding: '5px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+      >
+        {(inThisCall || amParticipant) ? t('call.action.return') : t('call.action.join')}
+      </button>
     </div>
   );
 }
@@ -1204,6 +1306,11 @@ export default function ChatDetail() {
         </div>
       )}
 
+      {/* ── 群通话进行中横幅（加入 / 返回） ── */}
+      {conv.type === 'group' && (
+        <GroupCallBanner conversationId={conv.id} conversationName={conv.name} memberNames={groupMemberNames} />
+      )}
+
       {/* ── Messages Area: light gray background ── */}
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div
@@ -1236,6 +1343,7 @@ export default function ChatDetail() {
             readReceiptEnabled={readReceiptEnabled}
             onShowReadDetail={(mid) => setReadDetailMsgId(mid)}
             onOpenMedia={openMedia}
+            onCallBack={handleOpenCall}
           />
           {searchBarOpen && searchKeyword && displayMessages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '24px 0', color: '#A2ACB5', fontSize: 13 }}>
@@ -1463,6 +1571,20 @@ export default function ChatDetail() {
           contactAvatar={conv.type === 'private' ? peerAvatar : undefined}
           isGroup={conv.type === 'group'}
           members={conv.type === 'group' ? (groupMembersMap[conv.id] || []) : []}
+          onConfirm={(selectedIds) => {
+            // 群组通话：mesh，振铃选中成员
+            if (conv.type === 'group') {
+              const members = (selectedIds || []).filter(id => id !== currentUser?.id);
+              if (!members.length) return;
+              useCallStore.getState().startGroupCall(conv.id, members, callType, peerName);
+              return;
+            }
+            // 必须用真实 uid（im ws 按 uid 路由）：私聊会话 id 形如 uidA_uidB
+            const peerId = conv.id.split('_').find(p => p !== currentUser?.id)
+              || contactMatch?.friend_uid || contactMatch?.id;
+            if (!peerId) return;
+            useCallStore.getState().startCall({ id: peerId, name: peerName, avatar: peerAvatar || undefined }, callType);
+          }}
         />
       )}
 
@@ -1589,6 +1711,7 @@ function MessageList({
   readReceiptEnabled,
   onShowReadDetail,
   onOpenMedia,
+  onCallBack,
 }: {
   messages: Message[];
   conversation: any;
@@ -1599,6 +1722,7 @@ function MessageList({
   readReceiptEnabled: boolean;
   onShowReadDetail: (msgId: string) => void;
   onOpenMedia: (m: Message) => void;
+  onCallBack?: (callType: 'voice' | 'video') => void;
 }) {
   const { currentUser } = useIMStore();
   const { selectedConversationId } = useIMStore();
@@ -1872,6 +1996,7 @@ function MessageList({
                           isOwn={msgIsSent}
                           voiceUnplayed={m.type === 'voice' && !playedVoices[m.id]}
                           onVoicePlayed={() => markVoicePlayed(m.id)}
+                          onCallBack={onCallBack}
                         />
                       </>
                     )}

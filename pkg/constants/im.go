@@ -36,6 +36,10 @@ const VideoMType MType = 8
 // 前端按此类型把对应消息原位置为"已撤回"。编号续 8 之后，不复用。
 const ContentRecall MType = 9
 
+// CallMType 音视频通话记录消息：通话结束由主叫端经聊天链路投递，content 为 JSON
+// {callType, status, duration}，前端渲染为通话气泡（可点击回拨）。编号续 9 之后，不复用。
+const CallMType MType = 10
+
 // 消息状态（ChatLog.Status）
 const (
 	// MsgStatusNormal 正常

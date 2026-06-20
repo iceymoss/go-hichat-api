@@ -46,6 +46,11 @@ func RegisterHandlers(srv *websocket.Server, svc *svc.ServiceContext) {
 			Handler: push.Notify(svc),
 		},
 		{
+			// 音视频通话控制信令: streaming->ws->客户端（来电/接听/挂断等，前端 method=call.signal）
+			Method:  "push.call",
+			Handler: push.CallNotify(svc),
+		},
+		{
 			// 消息阅读处理: 客户端->ws->mq
 			Method:  "chat.markChat",
 			Handler: conversation.MarkRead(svc),

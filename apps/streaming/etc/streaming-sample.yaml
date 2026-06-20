@@ -1,6 +1,11 @@
 Name: streaming.service
 ListenOn: 0.0.0.0:10093
 
+# JWT 鉴权：与 im/user 共用同一 AccessSecret
+JwtAuth:
+  AccessSecret: iceymoss.hichat.hichat2.com
+  AccessExpire: 8640000
+
 Mysql:
   DataSource: root:123456789@tcp(127.0.0.1:3306)/hichat2?charset=utf8mb4&parseTime=true
 
@@ -54,11 +59,19 @@ Signaling:
     ReadBufferSize: 4096
     WriteBufferSize: 4096
     CheckOrigin: true
-  
+
   # 消息队列配置
   MessageQueue:
     BufferSize: 1000
     WorkerCount: 10
+
+# im ws 地址：streaming 以系统 root 身份连入，推送通话控制信令（push.call）
+Ws:
+  Host: 127.0.0.1:10090
+
+# 通话参数
+Call:
+  RingTimeoutSeconds: 30   # 振铃超时，超时未接转“未接听”
 
 # 各个微服务的RPC配置
 SocialRpc:
@@ -66,15 +79,21 @@ SocialRpc:
     Hosts:
       - 127.0.0.1:2379
     Key: social.rpc
+    Timeout: 2000
+    NonBlock: true
 
 UserRpc:
   Etcd:
     Hosts:
       - 127.0.0.1:2379
     Key: user.rpc
+    Timeout: 2000
+    NonBlock: true
 
 ImRpc:
   Etcd:
     Hosts:
       - 127.0.0.1:2379
     Key: im.rpc
+    Timeout: 2000
+    NonBlock: true

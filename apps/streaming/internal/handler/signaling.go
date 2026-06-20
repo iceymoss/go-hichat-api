@@ -2,1662 +2,652 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/logic"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/types"
-	"github.com/iceymoss/go-hichat-api/apps/streaming/room"
-	"github.com/iceymoss/go-hichat-api/apps/streaming/sfu"
-	"github.com/iceymoss/go-hichat-api/apps/streaming/webrtc"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"go.uber.org/zap"
 
+	imws "github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
+	wsframe "github.com/iceymoss/go-hichat-api/apps/im/ws/ws"
 	"github.com/gorilla/websocket"
-	libRTC "github.com/pion/webrtc/v3"
+	"go.uber.org/zap"
 )
 
-// SignalingServer 信令服务器结构体
-// 负责处理WebSocket连接、消息路由和业务逻辑协调
-type SignalingServer struct {
-	svc          *svc.ServiceContext                 // 服务上下文，包含配置和依赖
-	roomManager  *room.RoomManager                   // 房间管理器，负责房间的创建、删除和用户管理
-	sfu          *sfu.SFU                            // 选择性转发单元，负责媒体流的转发
-	connections  map[string]*webrtc.WebRTCConnection // WebRTC连接映射，key为用户ID
-	mu           sync.RWMutex                        // 读写锁，保护connections的并发访问
-	upgrader     websocket.Upgrader                  // WebSocket升级器
-	messageQueue chan *SignalingMessage              // 消息处理队列
-	workerCount  int                                 // 消息处理工作协程数量
-	ctx          context.Context                     // 上下文，用于优雅关闭
-	cancel       context.CancelFunc                  // 取消函数
+const (
+	pongWait   = 60 * time.Second
+	pingPeriod = 25 * time.Second
+)
 
-	// 业务管理器
-	callManager        *logic.CallManager        // 通话管理器，处理一对一和群组通话
-	meetingManager     *logic.MeetingManager     // 会议管理器，处理会议相关功能
-	screenShareManager *logic.ScreenShareManager // 录屏管理器，处理屏幕共享功能
-	liveStreamManager  *logic.LiveStreamManager  // 直播管理器，处理直播相关功能
+// clientConn 单个用户的 streaming ws 连接（按鉴权 uid 登记）。
+// gorilla 连接不允许并发写，所有写经 writeMu 串行化。
+type clientConn struct {
+	uid     string
+	conn    *websocket.Conn
+	writeMu sync.Mutex
 }
 
-// SignalingMessage 信令消息包装器
-// 将WebSocket连接和消息绑定，用于消息处理队列
-type SignalingMessage struct {
-	Conn    *websocket.Conn         // WebSocket连接
-	Message *types.SignalingMessage // 解析后的信令消息
+func (c *clientConn) sendJSON(v any) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	return c.conn.WriteJSON(v)
+}
+
+func (c *clientConn) ping() error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	return c.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(10*time.Second))
+}
+
+func (c *clientConn) close() {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	_ = c.conn.Close()
+}
+
+// SignalingServer 信令服务器：JWT 鉴权的 streaming ws，
+// 负责呼叫控制（创建/接听/拒接/取消/挂断）与 1:1 媒体协商 relay（offer/answer/ice）。
+// 控制结果通过 im ws（push.call -> 客户端 call.signal）下发；媒体帧在两端 streaming ws 之间转发。
+type SignalingServer struct {
+	svc      *svc.ServiceContext
+	auth     *JwtAuth
+	upgrader websocket.Upgrader
+	calls    *logic.CallService
+	groups   *logic.GroupCallService
+
+	mu    sync.RWMutex
+	conns map[string]*clientConn // uid -> conn（单会话，重复登录顶号）
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NewSignalingServer 创建信令服务器
-func NewSignalingServer(svc *svc.ServiceContext) *SignalingServer {
+func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	server := &SignalingServer{
-		svc:         svc,
-		roomManager: room.NewRoomManager(svc.Config.SFU.MaxRooms, time.Duration(svc.Config.SFU.RoomTimeout)*time.Second),
-		sfu:         sfu.NewSFU(svc.Config.SFU.MaxRooms, svc.Config.SFU.MaxUsersPerRoom),
-		connections: make(map[string]*webrtc.WebRTCConnection),
+	ring := time.Duration(svcCtx.Config.Call.RingTimeoutSeconds) * time.Second
+	s := &SignalingServer{
+		svc:   svcCtx,
+		auth:  NewJwtAuth(svcCtx),
+		calls: logic.NewCallService(ring),
+		groups: logic.NewGroupCallService(4), // Mesh 上限 4 人
 		upgrader: websocket.Upgrader{
-			ReadBufferSize:  svc.Config.Signaling.WebSocket.ReadBufferSize,
-			WriteBufferSize: svc.Config.Signaling.WebSocket.WriteBufferSize,
-			CheckOrigin: func(r *http.Request) bool {
-				// 允许所有来源，用于测试
-				return true
-			},
+			ReadBufferSize:  svcCtx.Config.Signaling.WebSocket.ReadBufferSize,
+			WriteBufferSize: svcCtx.Config.Signaling.WebSocket.WriteBufferSize,
+			CheckOrigin:     func(r *http.Request) bool { return true },
 		},
-		messageQueue: make(chan *SignalingMessage, svc.Config.Signaling.MessageQueue.BufferSize),
-		workerCount:  svc.Config.Signaling.MessageQueue.WorkerCount,
-		ctx:          ctx,
-		cancel:       cancel,
-
-		// 初始化管理器
-		callManager:        logic.NewCallManager(),
-		meetingManager:     logic.NewMeetingManager(),
-		screenShareManager: logic.NewScreenShareManager(),
-		liveStreamManager:  logic.NewLiveStreamManager(),
+		conns:  make(map[string]*clientConn),
+		ctx:    ctx,
+		cancel: cancel,
 	}
 
-	// 启动消息处理工作协程
-	for i := 0; i < server.workerCount; i++ {
-		go server.messageWorker(i)
-	}
+	// 振铃超时：通知双方“未接听”
+	s.calls.SetTimeoutHandler(func(sess *logic.CallSession) {
+		s.notifyUser(sess.CallerID, &wsframe.CallSignal{Event: "timeout", CallId: sess.ID, Reason: string(sess.EndReason)})
+		s.notifyUser(sess.CalleeID, &wsframe.CallSignal{Event: "timeout", CallId: sess.ID, Reason: string(sess.EndReason)})
+	})
 
-	return server
+	return s
 }
 
-// HandleWebSocket 处理WebSocket连接
+// HandleWebSocket 处理 WebSocket 连接：JWT 鉴权 -> 升级 -> 按 uid 登记 -> 读循环 -> 断线清理。
 func (s *SignalingServer) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	uid := s.auth.ParseUID(r)
+	if uid == "" {
+		zLog.Warn("streaming ws auth failed", zap.String("remote_addr", r.RemoteAddr))
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		zLog.Error("Failed to upgrade websocket connection", zap.Error(err))
 		return
 	}
-	defer conn.Close()
 
-	zLog.Info("WebSocket connection established",
-		zap.String("remote_addr", r.RemoteAddr))
+	c := &clientConn{uid: uid, conn: conn}
+	s.register(c)
+	zLog.Info("streaming ws connected", zap.String("user_id", uid))
 
-	// 处理WebSocket消息
+	stopPing := make(chan struct{})
+	go s.pingLoop(c, stopPing)
+
+	s.readLoop(c)
+
+	close(stopPing)
+	s.unregister(c)
+	s.cleanupCall(uid)
+	zLog.Info("streaming ws disconnected", zap.String("user_id", uid))
+}
+
+// register 登记连接；同一 uid 已有连接则顶号（关旧）。
+func (s *SignalingServer) register(c *clientConn) {
+	s.mu.Lock()
+	if old, ok := s.conns[c.uid]; ok {
+		old.close()
+	}
+	s.conns[c.uid] = c
+	s.mu.Unlock()
+}
+
+// unregister 仅当当前登记的就是本连接时才删除（避免顶号后误删新连接）。
+func (s *SignalingServer) unregister(c *clientConn) {
+	s.mu.Lock()
+	if cur, ok := s.conns[c.uid]; ok && cur == c {
+		delete(s.conns, c.uid)
+	}
+	s.mu.Unlock()
+}
+
+func (s *SignalingServer) getConn(uid string) (*clientConn, bool) {
+	s.mu.RLock()
+	c, ok := s.conns[uid]
+	s.mu.RUnlock()
+	return c, ok
+}
+
+// pingLoop 周期性发送 ws ping（浏览器自动回 pong），维持连接存活检测。
+func (s *SignalingServer) pingLoop(c *clientConn, stop <-chan struct{}) {
+	ticker := time.NewTicker(pingPeriod)
+	defer ticker.Stop()
 	for {
 		select {
+		case <-stop:
+			return
 		case <-s.ctx.Done():
 			return
-		default:
-			var msg types.SignalingMessage
-			err := conn.ReadJSON(&msg)
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					zLog.Error("WebSocket read error", zap.Error(err))
-				} else {
-					zLog.Info("WebSocket connection closed normally")
-				}
+		case <-ticker.C:
+			if err := c.ping(); err != nil {
 				return
 			}
-
-			// 记录接收到的消息
-			zLog.Info("Received WebSocket message",
-				zap.String("type", string(msg.Type)),
-				zap.String("user_id", msg.UserID))
-
-			// 将消息发送到处理队列
-			s.messageQueue <- &SignalingMessage{
-				Conn:    conn,
-				Message: &msg,
-			}
 		}
 	}
 }
 
-// messageWorker 消息处理工作协程
-func (s *SignalingServer) messageWorker(workerID int) {
-	zLog.Info("Signaling message worker started", zap.Int("worker_id", workerID))
+// readLoop 读循环：心跳超时关连接；逐帧路由。
+func (s *SignalingServer) readLoop(c *clientConn) {
+	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetPongHandler(func(string) error {
+		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
 
 	for {
-		select {
-		case <-s.ctx.Done():
-			zLog.Info("Signaling message worker stopped", zap.Int("worker_id", workerID))
+		var msg types.SignalingMessage
+		if err := c.conn.ReadJSON(&msg); err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				zLog.Info("streaming ws read closed", zap.String("user_id", c.uid), zap.Error(err))
+			}
 			return
-		case msg := <-s.messageQueue:
-			s.handleMessage(msg.Conn, msg.Message)
 		}
+		s.route(c, &msg)
 	}
 }
 
-// handleMessage 处理信令消息
-func (s *SignalingServer) handleMessage(conn *websocket.Conn, msg *types.SignalingMessage) {
-	zLog.Info("Handling signaling message",
-		zap.String("type", string(msg.Type)),
-		zap.String("user_id", msg.UserID),
-		zap.String("room_id", msg.RoomID))
-
+// route 按消息类型分发。以鉴权 uid 为准，忽略客户端自报的 UserID（防冒充）。
+func (s *SignalingServer) route(c *clientConn, msg *types.SignalingMessage) {
 	switch msg.Type {
-	// 基础通话
-	case types.MessageTypeJoinRoom:
-		s.handleJoinRoom(conn, msg)
-	case types.MessageTypeLeaveRoom:
-		s.handleLeaveRoom(conn, msg)
-	case types.MessageTypeOffer:
-		s.handleOffer(conn, msg)
-	case types.MessageTypeAnswer:
-		s.handleAnswer(conn, msg)
-	case types.MessageTypeIceCandidate:
-		s.handleIceCandidate(conn, msg)
-
-	// 一对一通话
 	case types.MessageTypeCallInvite:
-		s.handleCallInvite(conn, msg)
+		s.handleInvite(c, msg)
 	case types.MessageTypeCallAccept:
-		s.handleCallAccept(conn, msg)
+		s.handleAccept(c, msg)
 	case types.MessageTypeCallReject:
-		s.handleCallReject(conn, msg)
+		s.handleReject(c, msg)
+	case types.MessageTypeCallCancel:
+		s.handleCancel(c, msg)
 	case types.MessageTypeCallEnd:
-		s.handleCallEnd(conn, msg)
-
-	// 群组通话
+		s.handleEnd(c, msg)
 	case types.MessageTypeGroupInvite:
-		s.handleGroupInvite(conn, msg)
+		s.handleGroupInvite(c, msg)
 	case types.MessageTypeGroupJoin:
-		s.handleGroupJoin(conn, msg)
+		s.handleGroupJoin(c, msg)
 	case types.MessageTypeGroupLeave:
-		s.handleGroupLeave(conn, msg)
-
-	// 会议功能
-	case types.MessageTypeMeetingCreate:
-		s.handleMeetingCreate(conn, msg)
-	case types.MessageTypeMeetingJoin:
-		s.handleMeetingJoin(conn, msg)
-	case types.MessageTypeMeetingLeave:
-		s.handleMeetingLeave(conn, msg)
-	case types.MessageTypeMeetingControl:
-		s.handleMeetingControl(conn, msg)
-
-	// 录屏功能
-	case types.MessageTypeScreenShareStart:
-		s.handleScreenShareStart(conn, msg)
-	case types.MessageTypeScreenShareStop:
-		s.handleScreenShareStop(conn, msg)
-	case types.MessageTypeScreenShareRequest:
-		s.handleScreenShareRequest(conn, msg)
-
-	// 直播功能
-	case types.MessageTypeLiveStart:
-		s.handleLiveStart(conn, msg)
-	case types.MessageTypeLiveStop:
-		s.handleLiveStop(conn, msg)
-	case types.MessageTypeLiveJoin:
-		s.handleLiveJoin(conn, msg)
-	case types.MessageTypeLiveLeave:
-		s.handleLiveLeave(conn, msg)
-
-	// 媒体控制
-	case types.MessageTypeMute:
-		s.handleMute(conn, msg)
-	case types.MessageTypeUnmute:
-		s.handleUnmute(conn, msg)
-	case types.MessageTypeVideoOn:
-		s.handleVideoOn(conn, msg)
-	case types.MessageTypeVideoOff:
-		s.handleVideoOff(conn, msg)
-
+		s.handleGroupLeave(c, msg)
+	case types.MessageTypeOffer, types.MessageTypeAnswer, types.MessageTypeIceCandidate, types.MessageTypeMediaState:
+		s.relayToPeer(c, msg)
 	default:
-		s.sendError(conn, msg.UserID, fmt.Sprintf("unknown message type: %s", msg.Type))
+		s.sendError(c, "unknown message type: "+string(msg.Type))
 	}
 }
 
-// handleJoinRoom 处理加入房间
-// handleJoinRoom 处理用户加入房间的消息
-func (s *SignalingServer) handleJoinRoom(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-	roomID := msg.RoomID
+// handleInvite 主叫发起：好友校验 -> 创建会话 -> 回执主叫 callId -> 振铃被叫（im ws）。
+func (s *SignalingServer) handleInvite(c *clientConn, msg *types.SignalingMessage) {
+	calleeID := dataStr(msg.Data, "callee_id")
+	if calleeID == "" {
+		s.sendError(c, "callee_id required")
+		return
+	}
+	callType := logic.CallType(dataStr(msg.Data, "call_type"))
+	if callType != logic.CallVoice && callType != logic.CallVideo {
+		callType = logic.CallVoice
+	}
 
-	zLog.Info("处理加入房间请求",
-		zap.String("user_id", userID),
-		zap.String("room_id", roomID))
-
-	if userID == "" || roomID == "" {
-		zLog.Warn("加入房间请求参数不完整",
-			zap.String("user_id", userID),
-			zap.String("room_id", roomID))
-		s.sendError(conn, userID, "user_id and room_id are required")
+	if !s.areFriends(c.uid, calleeID) {
+		s.sendError(c, "not friends")
 		return
 	}
 
-	// 创建或获取房间
-	room, err := s.roomManager.GetRoom(roomID)
+	sess, err := s.calls.Create(c.uid, calleeID, callType)
 	if err != nil {
-		// 房间不存在，创建新房间
-		zLog.Info("房间不存在，创建新房间",
-			zap.String("room_id", roomID))
-		room, err = s.roomManager.CreateRoom(roomID, fmt.Sprintf("Room %s", roomID))
-		if err != nil {
-			zLog.Error("创建房间失败",
-				zap.String("room_id", roomID),
-				zap.Error(err))
-			s.sendError(conn, userID, fmt.Sprintf("failed to create room: %v", err))
-			return
-		}
-		zLog.Info("房间创建成功",
-			zap.String("room_id", roomID))
-	} else {
-		zLog.Info("获取到现有房间",
-			zap.String("room_id", roomID))
-	}
-
-	// 创建用户
-	user := &types.User{
-		UserID:    userID,
-		Username:  fmt.Sprintf("User %s", userID),
-		JoinedAt:  time.Now(),
-		IsMuted:   false,
-		IsVideoOn: true,
-	}
-
-	// 添加用户到房间
-	if err := room.AddUser(user); err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to join room: %v", err))
-		return
-	}
-
-	// 创建WebRTC连接
-	webrtcConfig := s.getWebRTCConfig()
-	webrtcConn, err := webrtc.NewWebRTCConnection(userID, &WebSocketConnection{conn: conn}, webrtcConfig)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to create WebRTC connection: %v", err))
-		return
-	}
-
-	// 保存连接
-	s.mu.Lock()
-	s.connections[userID] = webrtcConn
-	s.mu.Unlock()
-
-	// 添加用户到SFU
-	if err := s.sfu.AddUserToRoom(roomID, userID, webrtcConn.GetPeerConnection()); err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to add user to SFU: %v", err))
-		return
-	}
-
-	// 发送房间信息
-	roomInfo := room.GetRoomInfo()
-	s.sendMessage(conn, &types.SignalingMessage{
-		Type:      types.MessageTypeRoomInfo,
-		RoomID:    roomID,
-		UserID:    userID,
-		Data:      roomInfo,
-		Timestamp: time.Now(),
-	})
-
-	// 通知房间内其他用户
-	s.broadcastToRoom(roomID, userID, &types.SignalingMessage{
-		Type:      types.MessageTypeUserJoined,
-		RoomID:    roomID,
-		UserID:    userID,
-		Data:      user,
-		Timestamp: time.Now(),
-	})
-
-	zLog.Info("User joined room",
-		zap.String("user_id", userID),
-		zap.String("room_id", roomID),
-		zap.Int("room_user_count", room.GetUserCount()))
-}
-
-// handleLeaveRoom 处理离开房间
-func (s *SignalingServer) handleLeaveRoom(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-	roomID := msg.RoomID
-
-	// 从房间移除用户
-	if err := s.roomManager.LeaveRoom(roomID, userID); err != nil {
-		zLog.Error("Failed to leave room",
-			zap.String("user_id", userID),
-			zap.String("room_id", roomID),
-			zap.Error(err))
-	}
-
-	// 从SFU移除用户
-	if err := s.sfu.RemoveUserFromRoom(roomID, userID); err != nil {
-		zLog.Error("Failed to remove user from SFU",
-			zap.String("user_id", userID),
-			zap.String("room_id", roomID),
-			zap.Error(err))
-	}
-
-	// 关闭WebRTC连接
-	s.mu.Lock()
-	if webrtcConn, exists := s.connections[userID]; exists {
-		webrtcConn.Close()
-		delete(s.connections, userID)
-	}
-	s.mu.Unlock()
-
-	// 通知房间内其他用户
-	s.broadcastToRoom(roomID, userID, &types.SignalingMessage{
-		Type:      types.MessageTypeUserLeft,
-		RoomID:    roomID,
-		UserID:    userID,
-		Timestamp: time.Now(),
-	})
-
-	zLog.Info("User left room",
-		zap.String("user_id", userID),
-		zap.String("room_id", roomID))
-}
-
-// handleOffer 处理Offer
-func (s *SignalingServer) handleOffer(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-	roomID := msg.RoomID
-
-	// 获取WebRTC连接
-	s.mu.RLock()
-	webrtcConn, exists := s.connections[userID]
-	s.mu.RUnlock()
-
-	if !exists {
-		s.sendError(conn, userID, "WebRTC connection not found")
-		return
-	}
-
-	// 解析Offer数据
-	offerData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid offer data")
-		return
-	}
-
-	sdp, ok := offerData["sdp"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid SDP in offer")
-		return
-	}
-
-	// 设置远程描述
-	offer := libRTC.SessionDescription{
-		Type: libRTC.SDPTypeOffer,
-		SDP:  sdp,
-	}
-
-	if err := webrtcConn.SetRemoteDescription(offer); err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to set remote description: %v", err))
-		return
-	}
-
-	// 创建Answer
-	answer, err := webrtcConn.CreateAnswer()
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to create answer: %v", err))
-		return
-	}
-
-	// 发送Answer
-	s.sendMessage(conn, &types.SignalingMessage{
-		Type:   types.MessageTypeAnswer,
-		RoomID: roomID,
-		UserID: userID,
-		Data: types.WebRTCMessage{
-			SDP:  answer.SDP,
-			Type: "answer",
-		},
-		Timestamp: time.Now(),
-	})
-
-	zLog.Debug("Offer handled and answer sent",
-		zap.String("user_id", userID),
-		zap.String("room_id", roomID))
-}
-
-// handleAnswer 处理Answer
-func (s *SignalingServer) handleAnswer(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-	roomID := msg.RoomID
-
-	// 获取WebRTC连接
-	s.mu.RLock()
-	webrtcConn, exists := s.connections[userID]
-	s.mu.RUnlock()
-
-	if !exists {
-		s.sendError(conn, userID, "WebRTC connection not found")
-		return
-	}
-
-	// 解析Answer数据
-	answerData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid answer data")
-		return
-	}
-
-	sdp, ok := answerData["sdp"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid SDP in answer")
-		return
-	}
-
-	// 设置远程描述
-	answer := libRTC.SessionDescription{
-		Type: libRTC.SDPTypeAnswer,
-		SDP:  sdp,
-	}
-
-	if err := webrtcConn.SetRemoteDescription(answer); err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to set remote description: %v", err))
-		return
-	}
-
-	zLog.Debug("Answer handled",
-		zap.String("user_id", userID),
-		zap.String("room_id", roomID))
-}
-
-// handleIceCandidate 处理ICE候选
-func (s *SignalingServer) handleIceCandidate(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-	roomID := msg.RoomID
-
-	// 获取WebRTC连接
-	s.mu.RLock()
-	webrtcConn, exists := s.connections[userID]
-	s.mu.RUnlock()
-
-	if !exists {
-		s.sendError(conn, userID, "WebRTC connection not found")
-		return
-	}
-
-	// 解析ICE候选数据
-	candidateData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid ICE candidate data")
-		return
-	}
-
-	candidate, ok := candidateData["candidate"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid candidate in ICE candidate")
-		return
-	}
-
-	sdpMLineIndex, ok := candidateData["sdpMLineIndex"].(float64)
-	if !ok {
-		s.sendError(conn, userID, "invalid sdpMLineIndex in ICE candidate")
-		return
-	}
-
-	sdpMid, ok := candidateData["sdpMid"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid sdpMid in ICE candidate")
-		return
-	}
-
-	linde := uint16(sdpMLineIndex)
-
-	// 添加ICE候选
-	iceCandidate := libRTC.ICECandidateInit{
-		Candidate:     candidate,
-		SDPMLineIndex: &linde,
-		SDPMid:        &sdpMid,
-	}
-
-	if err := webrtcConn.AddICECandidate(iceCandidate); err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to add ICE candidate: %v", err))
-		return
-	}
-
-	zLog.Debug("ICE candidate handled",
-		zap.String("user_id", userID),
-		zap.String("room_id", roomID))
-}
-
-// sendMessage 发送消息
-func (s *SignalingServer) sendMessage(conn *websocket.Conn, msg *types.SignalingMessage) {
-	if err := conn.WriteJSON(msg); err != nil {
-		zLog.Error("Failed to send message",
-			zap.String("user_id", msg.UserID),
-			zap.String("type", string(msg.Type)),
-			zap.Error(err))
-	}
-}
-
-// sendError 发送错误消息
-func (s *SignalingServer) sendError(conn *websocket.Conn, userID, errorMsg string) {
-	s.sendMessage(conn, &types.SignalingMessage{
-		Type:      types.MessageTypeError,
-		UserID:    userID,
-		Data:      map[string]string{"error": errorMsg},
-		Timestamp: time.Now(),
-	})
-}
-
-// broadcastToRoom 向房间广播消息
-func (s *SignalingServer) broadcastToRoom(roomID, excludeUserID string, msg *types.SignalingMessage) {
-	room, err := s.roomManager.GetRoom(roomID)
-	if err != nil {
-		zLog.Error("Failed to get room for broadcast",
-			zap.String("room_id", roomID),
-			zap.Error(err))
-		return
-	}
-
-	users := room.GetUsers()
-	for _, user := range users {
-		if user.UserID != excludeUserID {
-			s.mu.RLock()
-			if webrtcConn, exists := s.connections[user.UserID]; exists {
-				webrtcConn.SendMessage(msg)
-			}
-			s.mu.RUnlock()
-		}
-	}
-}
-
-// getWebRTCConfig 获取WebRTC配置
-func (s *SignalingServer) getWebRTCConfig() *libRTC.Configuration {
-	config := &libRTC.Configuration{
-		ICEServers: []libRTC.ICEServer{},
-	}
-
-	// 添加ICE服务器
-	for _, iceServer := range s.svc.Config.WebRTC.IceServers {
-		server := libRTC.ICEServer{
-			URLs: iceServer.URLs,
-		}
-
-		if iceServer.Username != "" {
-			server.Username = iceServer.Username
-		}
-
-		if iceServer.Credential != "" {
-			server.Credential = iceServer.Credential
-		}
-
-		config.ICEServers = append(config.ICEServers, server)
-	}
-
-	return config
-}
-
-// Close 关闭信令服务器
-func (s *SignalingServer) Close() error {
-	s.cancel()
-
-	// 关闭所有WebRTC连接
-	s.mu.Lock()
-	for userID, conn := range s.connections {
-		conn.Close()
-		delete(s.connections, userID)
-	}
-	s.mu.Unlock()
-
-	// 关闭SFU
-	if err := s.sfu.Close(); err != nil {
-		zLog.Error("Failed to close SFU", zap.Error(err))
-	}
-
-	zLog.Info("Signaling server closed")
-	return nil
-}
-
-// WebSocketConnection WebSocket连接包装器
-type WebSocketConnection struct {
-	conn   *websocket.Conn
-	userID string
-}
-
-func (w *WebSocketConnection) SendMessage(message *types.SignalingMessage) error {
-	return w.conn.WriteJSON(message)
-}
-
-func (w *WebSocketConnection) ReceiveMessage() (*types.SignalingMessage, error) {
-	var msg types.SignalingMessage
-	err := w.conn.ReadJSON(&msg)
-	return &msg, err
-}
-
-func (w *WebSocketConnection) Close() error {
-	return w.conn.Close()
-}
-
-func (w *WebSocketConnection) GetUserID() string {
-	return w.userID
-}
-
-func (w *WebSocketConnection) SetUserID(userID string) {
-	w.userID = userID
-}
-
-func (w *WebSocketConnection) IsConnected() bool {
-	return w.conn != nil
-}
-
-// ========== 一对一通话处理 ==========
-
-// handleCallInvite 处理通话邀请
-// handleCallInvite 处理一对一通话邀请消息
-func (s *SignalingServer) handleCallInvite(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	zLog.Info("处理一对一通话邀请",
-		zap.String("caller_id", userID))
-
-	// 解析邀请数据
-	inviteData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		zLog.Warn("通话邀请数据格式错误",
-			zap.String("caller_id", userID),
-			zap.Any("data", msg.Data))
-		s.sendError(conn, userID, "invalid invite data")
-		return
-	}
-
-	calleeID, ok := inviteData["callee_id"].(string)
-	if !ok {
-		zLog.Warn("通话邀请缺少被叫用户ID",
-			zap.String("caller_id", userID),
-			zap.Any("invite_data", inviteData))
-		s.sendError(conn, userID, "invalid callee_id")
-		return
-	}
-
-	zLog.Info("解析通话邀请数据成功",
-		zap.String("caller_id", userID),
-		zap.String("callee_id", calleeID))
-
-	// 创建一对一通话
-	call, err := s.callManager.CreateOneToOneCall(userID, calleeID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to create call: %v", err))
-		return
-	}
-
-	// 发送邀请给被叫方
-	s.sendMessageToUser(calleeID, &types.SignalingMessage{
-		Type:      types.MessageTypeCallInvite,
-		UserID:    userID,
-		Data:      call,
-		Timestamp: time.Now(),
-	})
-
-	zLog.Info("Call invite sent",
-		zap.String("caller_id", userID),
-		zap.String("callee_id", calleeID),
-		zap.String("call_id", call.ID))
-}
-
-// handleCallAccept 处理通话接受
-func (s *SignalingServer) handleCallAccept(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析接受数据
-	acceptData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid accept data")
-		return
-	}
-
-	callID, ok := acceptData["call_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid call_id")
-		return
-	}
-
-	// 接受通话
-	err := s.callManager.AcceptCall(callID, userID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to accept call: %v", err))
-		return
-	}
-
-	// 获取通话信息
-	call, err := s.callManager.GetCall(callID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to get call: %v", err))
-		return
-	}
-
-	// 通知所有参与者
-	for _, participantID := range call.Participants {
-		s.sendMessageToUser(participantID, &types.SignalingMessage{
-			Type:      types.MessageTypeCallAccept,
-			UserID:    userID,
-			Data:      call,
-			Timestamp: time.Now(),
-		})
-	}
-
-	zLog.Info("Call accepted",
-		zap.String("user_id", userID),
-		zap.String("call_id", callID))
-}
-
-// handleCallReject 处理通话拒绝
-func (s *SignalingServer) handleCallReject(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析拒绝数据
-	rejectData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid reject data")
-		return
-	}
-
-	callID, ok := rejectData["call_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid call_id")
-		return
-	}
-
-	// 获取通话信息
-	call, err := s.callManager.GetCall(callID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to get call: %v", err))
-		return
-	}
-
-	// 更新通话状态
-	call.Status = types.CallStatusEnded
-	now := time.Now()
-	call.EndedAt = &now
-	if call.StartedAt != nil {
-		call.Duration = int64(now.Sub(*call.StartedAt).Seconds())
-	}
-
-	// 拒绝通话
-	err = s.callManager.RejectCall(callID, userID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to reject call: %v", err))
-		return
-	}
-
-	// 通知所有参与者
-	for _, participantID := range call.Participants {
-		s.sendMessageToUser(participantID, &types.SignalingMessage{
-			Type:      types.MessageTypeCallReject,
-			UserID:    userID,
-			Data:      call,
-			Timestamp: time.Now(),
-		})
-	}
-
-	zLog.Info("Call rejected",
-		zap.String("user_id", userID),
-		zap.String("call_id", callID))
-}
-
-// handleCallEnd 处理通话结束
-func (s *SignalingServer) handleCallEnd(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析结束数据
-	endData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid end data")
-		return
-	}
-
-	callID, ok := endData["call_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid call_id")
-		return
-	}
-
-	// 结束通话
-	err := s.callManager.EndCall(callID, userID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to end call: %v", err))
-		return
-	}
-
-	// 获取通话信息
-	call, err := s.callManager.GetCall(callID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to get call: %v", err))
-		return
-	}
-
-	// 通知所有参与者
-	for _, participantID := range call.Participants {
-		s.sendMessageToUser(participantID, &types.SignalingMessage{
-			Type:      types.MessageTypeCallEnd,
-			UserID:    userID,
-			Data:      call,
-			Timestamp: time.Now(),
-		})
-	}
-
-	zLog.Info("Call ended",
-		zap.String("user_id", userID),
-		zap.String("call_id", callID))
-}
-
-// ========== 群组通话处理 ==========
-
-// handleGroupInvite 处理群组邀请
-func (s *SignalingServer) handleGroupInvite(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析邀请数据
-	inviteData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid invite data")
-		return
-	}
-
-	participants, ok := inviteData["participants"].([]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid participants")
-		return
-	}
-
-	// 转换参与者列表
-	participantList := make([]string, len(participants))
-	for i, p := range participants {
-		if participantID, ok := p.(string); ok {
-			participantList[i] = participantID
+		if err == logic.ErrBusy {
+			// 被叫忙线：回执主叫 busy
+			s.send(c, &types.SignalingMessage{Type: types.MessageTypeCallReject, Data: map[string]any{"reason": "busy"}})
 		} else {
-			s.sendError(conn, userID, "invalid participant ID")
-			return
+			s.sendError(c, err.Error())
 		}
-	}
-
-	// 创建群组通话
-	call, err := s.callManager.CreateGroupCall(userID, participantList)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to create group call: %v", err))
 		return
 	}
 
-	// 发送邀请给所有参与者
-	for _, participantID := range participantList {
-		s.sendMessageToUser(participantID, &types.SignalingMessage{
-			Type:      types.MessageTypeGroupInvite,
-			UserID:    userID,
-			Data:      call,
-			Timestamp: time.Now(),
-		})
-	}
-
-	zLog.Info("Group call invite sent",
-		zap.String("caller_id", userID),
-		zap.Int("participant_count", len(participantList)),
-		zap.String("call_id", call.ID))
-}
-
-// handleGroupJoin 处理群组加入
-func (s *SignalingServer) handleGroupJoin(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析加入数据
-	joinData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid join data")
-		return
-	}
-
-	callID, ok := joinData["call_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid call_id")
-		return
-	}
-
-	// 接受通话
-	err := s.callManager.AcceptCall(callID, userID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to join group call: %v", err))
-		return
-	}
-
-	// 获取通话信息
-	call, err := s.callManager.GetCall(callID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to get call: %v", err))
-		return
-	}
-
-	// 通知所有参与者
-	for _, participantID := range call.Participants {
-		s.sendMessageToUser(participantID, &types.SignalingMessage{
-			Type:      types.MessageTypeGroupJoin,
-			UserID:    userID,
-			Data:      call,
-			Timestamp: time.Now(),
-		})
-	}
-
-	zLog.Info("User joined group call",
-		zap.String("user_id", userID),
-		zap.String("call_id", callID))
-}
-
-// handleGroupLeave 处理群组离开
-func (s *SignalingServer) handleGroupLeave(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析离开数据
-	leaveData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid leave data")
-		return
-	}
-
-	callID, ok := leaveData["call_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid call_id")
-		return
-	}
-
-	// 结束通话
-	err := s.callManager.EndCall(callID, userID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to leave group call: %v", err))
-		return
-	}
-
-	// 获取通话信息
-	call, err := s.callManager.GetCall(callID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to get call: %v", err))
-		return
-	}
-
-	// 通知所有参与者
-	for _, participantID := range call.Participants {
-		s.sendMessageToUser(participantID, &types.SignalingMessage{
-			Type:      types.MessageTypeGroupLeave,
-			UserID:    userID,
-			Data:      call,
-			Timestamp: time.Now(),
-		})
-	}
-
-	zLog.Info("User left group call",
-		zap.String("user_id", userID),
-		zap.String("call_id", callID))
-}
-
-// ========== 会议功能处理 ==========
-
-// handleMeetingCreate 处理会议创建
-func (s *SignalingServer) handleMeetingCreate(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析创建数据
-	createData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid create data")
-		return
-	}
-
-	title, ok := createData["title"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid title")
-		return
-	}
-
-	description, _ := createData["description"].(string)
-
-	// 解析会议设置
-	var settings *types.MeetingSettings
-	if settingsData, exists := createData["settings"]; exists {
-		if settingsMap, ok := settingsData.(map[string]interface{}); ok {
-			settings = &types.MeetingSettings{
-				MaxParticipants:  50,
-				AllowScreenShare: true,
-				AllowRecording:   true,
-				MuteOnJoin:       false,
-				VideoOnJoin:      true,
-				WaitingRoom:      false,
-			}
-
-			if maxParticipants, ok := settingsMap["max_participants"].(float64); ok {
-				settings.MaxParticipants = int(maxParticipants)
-			}
-			if allowScreenShare, ok := settingsMap["allow_screen_share"].(bool); ok {
-				settings.AllowScreenShare = allowScreenShare
-			}
-			if allowRecording, ok := settingsMap["allow_recording"].(bool); ok {
-				settings.AllowRecording = allowRecording
-			}
-			if muteOnJoin, ok := settingsMap["mute_on_join"].(bool); ok {
-				settings.MuteOnJoin = muteOnJoin
-			}
-			if videoOnJoin, ok := settingsMap["video_on_join"].(bool); ok {
-				settings.VideoOnJoin = videoOnJoin
-			}
-			if waitingRoom, ok := settingsMap["waiting_room"].(bool); ok {
-				settings.WaitingRoom = waitingRoom
-			}
-		}
-	}
-
-	// 创建会议
-	meeting, err := s.meetingManager.CreateMeeting(userID, title, description, settings)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to create meeting: %v", err))
-		return
-	}
-
-	// 发送会议信息
-	s.sendMessage(conn, &types.SignalingMessage{
-		Type:      types.MessageTypeMeetingCreate,
-		UserID:    userID,
-		Data:      meeting,
-		Timestamp: time.Now(),
+	// 回执主叫：携带 callId（后续 offer/ice 用）
+	s.send(c, &types.SignalingMessage{
+		Type:   types.MessageTypeCallCreated,
+		RoomID: sess.ID,
+		Data:   map[string]any{"call_id": sess.ID, "call_type": string(callType), "callee_id": calleeID, "media_mode": "p2p"},
 	})
 
-	zLog.Info("Meeting created",
-		zap.String("user_id", userID),
-		zap.String("meeting_id", meeting.ID),
-		zap.String("title", title))
+	// 振铃被叫（im ws -> call.signal）。昵称/头像由前端用本地好友资料解析，
+	// 不在此发 RPC，避免取资料阻塞关键的振铃路径。
+	s.pushSignal(&wsframe.CallSignal{
+		ReceiverId: calleeID,
+		Event:      "invite",
+		CallId:     sess.ID,
+		CallType:   string(callType),
+		MediaMode:  "p2p",
+		Scope:      "single",
+		FromUid:    c.uid,
+	})
 }
 
-// handleMeetingJoin 处理会议加入
-func (s *SignalingServer) handleMeetingJoin(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析加入数据
-	joinData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid join data")
-		return
-	}
-
-	meetingID, ok := joinData["meeting_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid meeting_id")
-		return
-	}
-
-	username, _ := joinData["username"].(string)
-	if username == "" {
-		username = fmt.Sprintf("User %s", userID)
-	}
-
-	// 加入会议
-	meeting, err := s.meetingManager.JoinMeeting(meetingID, userID, username)
+func (s *SignalingServer) handleAccept(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	sess, err := s.calls.Accept(callID, c.uid)
 	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to join meeting: %v", err))
+		s.sendError(c, err.Error())
+		return
+	}
+	zLog.Info("call accepted", zap.String("call_id", sess.ID), zap.String("by", c.uid), zap.String("notify_caller", sess.CallerID))
+	s.notifyUser(sess.CallerID, &wsframe.CallSignal{Event: "accept", CallId: sess.ID, FromUid: c.uid})
+}
+
+func (s *SignalingServer) handleReject(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	sess, err := s.calls.Reject(callID, c.uid)
+	if err != nil {
+		s.sendError(c, err.Error())
+		return
+	}
+	s.notifyUser(sess.CallerID, &wsframe.CallSignal{Event: "reject", CallId: sess.ID})
+}
+
+func (s *SignalingServer) handleCancel(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	sess, err := s.calls.Cancel(callID, c.uid)
+	if err != nil {
+		s.sendError(c, err.Error())
+		return
+	}
+	s.notifyUser(sess.CalleeID, &wsframe.CallSignal{Event: "cancel", CallId: sess.ID})
+}
+
+func (s *SignalingServer) handleEnd(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	sess, err := s.calls.End(callID, c.uid)
+	if err != nil {
+		s.sendError(c, err.Error())
+		return
+	}
+	peer := sess.Peer(c.uid)
+	s.notifyUser(peer, &wsframe.CallSignal{Event: "end", CallId: sess.ID, Reason: string(sess.EndReason), Duration: sess.Duration()})
+}
+
+// ==================== 群组通话（Mesh）====================
+
+// handleGroupInvite 发起群通话：校验群成员 -> 建群会话 -> 回执 callId -> 逐个被邀成员振铃（im ws）。
+func (s *SignalingServer) handleGroupInvite(c *clientConn, msg *types.SignalingMessage) {
+	groupID := dataStr(msg.Data, "group_id")
+	if groupID == "" {
+		s.sendError(c, "group_id required")
+		return
+	}
+	callType := logic.CallType(dataStr(msg.Data, "call_type"))
+	if callType != logic.CallVoice && callType != logic.CallVideo {
+		callType = logic.CallVoice
+	}
+	members := dataStrSlice(msg.Data, "members")
+	if len(members) == 0 {
+		s.sendError(c, "members required")
+		return
+	}
+	if !s.isGroupMember(c.uid, groupID) {
+		s.sendError(c, "not a group member")
+		return
+	}
+	// 过滤：仅保留群成员、去掉自己
+	invited := make([]string, 0, len(members))
+	for _, m := range members {
+		if m != c.uid && s.isGroupMember(m, groupID) {
+			invited = append(invited, m)
+		}
+	}
+
+	callID, err := s.groups.Create(c.uid, groupID, callType, invited)
+	if err != nil {
+		s.sendError(c, err.Error())
 		return
 	}
 
-	// 通知所有参与者
-	for _, participant := range meeting.Participants {
-		s.sendMessageToUser(participant.UserID, &types.SignalingMessage{
-			Type:      types.MessageTypeMeetingJoin,
-			UserID:    userID,
-			Data:      meeting,
-			Timestamp: time.Now(),
+	// 回执发起人 callId
+	s.send(c, &types.SignalingMessage{
+		Type:   types.MessageTypeGroupCreated,
+		RoomID: callID,
+		Data:   map[string]any{"call_id": callID, "call_type": string(callType), "group_id": groupID},
+	})
+
+	// 振铃被邀成员（im ws -> call.signal，event=group.invite，带参与者名单）
+	roster := append([]string{c.uid}, invited...)
+	for _, m := range invited {
+		s.pushSignal(&wsframe.CallSignal{
+			ReceiverId: m,
+			Event:      "group.invite",
+			CallId:     callID,
+			CallType:   string(callType),
+			MediaMode:  "mesh",
+			Scope:      "group",
+			GroupId:    groupID,
+			FromUid:    c.uid,
+			Members:    roster,
 		})
 	}
 
-	zLog.Info("User joined meeting",
-		zap.String("user_id", userID),
-		zap.String("meeting_id", meetingID),
-		zap.String("username", username))
+	// 广播群通话已开始（全体群成员看到横幅/列表标识）
+	s.broadcastGroupState(groupID)
 }
 
-// handleMeetingLeave 处理会议离开
-func (s *SignalingServer) handleMeetingLeave(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析离开数据
-	leaveData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid leave data")
-		return
-	}
-
-	meetingID, ok := leaveData["meeting_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid meeting_id")
-		return
-	}
-
-	// 离开会议
-	err := s.meetingManager.LeaveMeeting(meetingID, userID)
+// handleGroupJoin 加入群通话：回执新人当前名单 -> 通知已有参与者「有人加入」（他们作 offerer 建连）。
+func (s *SignalingServer) handleGroupJoin(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	others, callType, err := s.groups.Join(callID, c.uid)
 	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to leave meeting: %v", err))
+		s.sendError(c, err.Error())
 		return
 	}
-
-	// 获取会议信息
-	meeting, err := s.meetingManager.GetMeeting(meetingID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to get meeting: %v", err))
-		return
-	}
-
-	// 通知所有参与者
-	for _, participant := range meeting.Participants {
-		s.sendMessageToUser(participant.UserID, &types.SignalingMessage{
-			Type:      types.MessageTypeMeetingLeave,
-			UserID:    userID,
-			Data:      meeting,
-			Timestamp: time.Now(),
-		})
-	}
-
-	zLog.Info("User left meeting",
-		zap.String("user_id", userID),
-		zap.String("meeting_id", meetingID))
-}
-
-// handleMeetingControl 处理会议控制
-func (s *SignalingServer) handleMeetingControl(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析控制数据
-	controlData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid control data")
-		return
-	}
-
-	meetingID, ok := controlData["meeting_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid meeting_id")
-		return
-	}
-
-	action, ok := controlData["action"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid action")
-		return
-	}
-
-	// 处理不同的控制动作
-	switch action {
-	case "mute_participant":
-		participantID, ok := controlData["participant_id"].(string)
-		if !ok {
-			s.sendError(conn, userID, "invalid participant_id")
-			return
-		}
-
-		err := s.meetingManager.MuteParticipant(meetingID, userID, participantID)
-		if err != nil {
-			s.sendError(conn, userID, fmt.Sprintf("failed to mute participant: %v", err))
-			return
-		}
-
-	case "unmute_participant":
-		participantID, ok := controlData["participant_id"].(string)
-		if !ok {
-			s.sendError(conn, userID, "invalid participant_id")
-			return
-		}
-
-		err := s.meetingManager.UnmuteParticipant(meetingID, userID, participantID)
-		if err != nil {
-			s.sendError(conn, userID, fmt.Sprintf("failed to unmute participant: %v", err))
-			return
-		}
-
-	case "end_meeting":
-		err := s.meetingManager.EndMeeting(meetingID, userID)
-		if err != nil {
-			s.sendError(conn, userID, fmt.Sprintf("failed to end meeting: %v", err))
-			return
-		}
-
-	default:
-		s.sendError(conn, userID, fmt.Sprintf("unknown action: %s", action))
-		return
-	}
-
-	// 获取会议信息
-	meeting, err := s.meetingManager.GetMeeting(meetingID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to get meeting: %v", err))
-		return
-	}
-
-	// 通知所有参与者
-	for _, participant := range meeting.Participants {
-		s.sendMessageToUser(participant.UserID, &types.SignalingMessage{
-			Type:   types.MessageTypeMeetingControl,
-			UserID: userID,
-			Data: map[string]interface{}{
-				"meeting": meeting,
-				"action":  action,
-			},
-			Timestamp: time.Now(),
-		})
-	}
-
-	zLog.Info("Meeting control action executed",
-		zap.String("user_id", userID),
-		zap.String("meeting_id", meetingID),
-		zap.String("action", action))
-}
-
-// ========== 录屏功能处理 ==========
-
-// handleScreenShareStart 处理录屏开始
-func (s *SignalingServer) handleScreenShareStart(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析开始数据
-	startData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid start data")
-		return
-	}
-
-	roomID, ok := startData["room_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid room_id")
-		return
-	}
-
-	quality, _ := startData["quality"].(string)
-	if quality == "" {
-		quality = "medium"
-	}
-
-	// 开始录屏
-	screenShare, err := s.screenShareManager.StartScreenShare(userID, roomID, quality)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to start screen share: %v", err))
-		return
-	}
-
-	// 通知房间内其他用户
-	s.broadcastToRoom(roomID, userID, &types.SignalingMessage{
-		Type:      types.MessageTypeScreenShareStart,
-		RoomID:    roomID,
-		UserID:    userID,
-		Data:      screenShare,
-		Timestamp: time.Now(),
+	// 回执新加入者：当前其他参与者（建 tile，等待对方 offer）
+	s.send(c, &types.SignalingMessage{
+		Type:   types.MessageTypeGroupRoster,
+		RoomID: callID,
+		Data:   map[string]any{"call_id": callID, "call_type": string(callType), "participants": others},
 	})
-
-	zLog.Info("Screen share started",
-		zap.String("user_id", userID),
-		zap.String("room_id", roomID),
-		zap.String("quality", quality))
-}
-
-// handleScreenShareStop 处理录屏停止
-func (s *SignalingServer) handleScreenShareStop(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 停止录屏
-	err := s.screenShareManager.StopScreenShare(userID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to stop screen share: %v", err))
-		return
-	}
-
-	// 获取录屏信息
-	screenShare, err := s.screenShareManager.GetUserScreenShare(userID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to get screen share: %v", err))
-		return
-	}
-
-	// 通知房间内其他用户
-	s.broadcastToRoom(screenShare.RoomID, userID, &types.SignalingMessage{
-		Type:      types.MessageTypeScreenShareStop,
-		RoomID:    screenShare.RoomID,
-		UserID:    userID,
-		Data:      screenShare,
-		Timestamp: time.Now(),
-	})
-
-	zLog.Info("Screen share stopped",
-		zap.String("user_id", userID),
-		zap.String("room_id", screenShare.RoomID))
-}
-
-// handleScreenShareRequest 处理录屏请求
-func (s *SignalingServer) handleScreenShareRequest(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析请求数据
-	requestData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid request data")
-		return
-	}
-
-	targetUserID, ok := requestData["target_user_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid target_user_id")
-		return
-	}
-
-	roomID, ok := requestData["room_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid room_id")
-		return
-	}
-
-	// 请求录屏
-	err := s.screenShareManager.RequestScreenShare(userID, targetUserID, roomID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to request screen share: %v", err))
-		return
-	}
-
-	// 发送请求给目标用户
-	s.sendMessageToUser(targetUserID, &types.SignalingMessage{
-		Type:   types.MessageTypeScreenShareRequest,
-		UserID: userID,
-		RoomID: roomID,
-		Data: map[string]interface{}{
-			"requester_id": userID,
-			"room_id":      roomID,
-		},
-		Timestamp: time.Now(),
-	})
-
-	zLog.Info("Screen share requested",
-		zap.String("requester_id", userID),
-		zap.String("target_user_id", targetUserID),
-		zap.String("room_id", roomID))
-}
-
-// ========== 直播功能处理 ==========
-
-// handleLiveStart 处理直播开始
-func (s *SignalingServer) handleLiveStart(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析开始数据
-	startData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid start data")
-		return
-	}
-
-	title, ok := startData["title"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid title")
-		return
-	}
-
-	description, _ := startData["description"].(string)
-
-	// 开始直播
-	liveStream, err := s.liveStreamManager.StartLiveStream(userID, title, description)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to start live stream: %v", err))
-		return
-	}
-
-	// 发送直播信息
-	s.sendMessage(conn, &types.SignalingMessage{
-		Type:      types.MessageTypeLiveStart,
-		UserID:    userID,
-		Data:      liveStream,
-		Timestamp: time.Now(),
-	})
-
-	zLog.Info("Live stream started",
-		zap.String("user_id", userID),
-		zap.String("stream_id", liveStream.ID),
-		zap.String("title", title))
-}
-
-// handleLiveStop 处理直播停止
-func (s *SignalingServer) handleLiveStop(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 停止直播
-	err := s.liveStreamManager.StopLiveStream(userID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to stop live stream: %v", err))
-		return
-	}
-
-	// 获取直播信息
-	liveStream, err := s.liveStreamManager.GetUserLiveStream(userID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to get live stream: %v", err))
-		return
-	}
-
-	// 通知所有观众
-	viewers, err := s.liveStreamManager.GetStreamViewers(liveStream.ID)
-	if err == nil {
-		for _, viewerID := range viewers {
-			s.sendMessageToUser(viewerID, &types.SignalingMessage{
-				Type:      types.MessageTypeLiveStop,
-				UserID:    userID,
-				Data:      liveStream,
-				Timestamp: time.Now(),
+	// 通知已有参与者：有人加入（防 glare：由老人向新人发 offer）
+	for _, p := range others {
+		if pc, ok := s.getConn(p); ok {
+			s.send(pc, &types.SignalingMessage{
+				Type:   types.MessageTypePeerJoined,
+				RoomID: callID,
+				Data:   map[string]any{"call_id": callID, "uid": c.uid},
 			})
 		}
 	}
 
-	zLog.Info("Live stream stopped",
-		zap.String("user_id", userID),
-		zap.String("stream_id", liveStream.ID))
+	// 广播更新后的参与者名单（全体群成员，含未在通话中的）
+	if groupID, _, _, ok := s.groups.Info(callID); ok {
+		s.broadcastGroupState(groupID)
+	}
 }
 
-// handleLiveJoin 处理直播加入
-func (s *SignalingServer) handleLiveJoin(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析加入数据
-	joinData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid join data")
-		return
-	}
-
-	streamID, ok := joinData["stream_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid stream_id")
-		return
-	}
-
-	// 加入直播
-	liveStream, err := s.liveStreamManager.JoinLiveStream(streamID, userID)
+// handleGroupLeave 离开群通话：广播 peer_left 给剩余参与者。
+func (s *SignalingServer) handleGroupLeave(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	groupID, _, _, _ := s.groups.Info(callID) // 结束前捕获 groupID（结束后会话被删）
+	remaining, _, err := s.groups.Leave(callID, c.uid)
 	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to join live stream: %v", err))
 		return
 	}
-
-	// 发送直播信息
-	s.sendMessage(conn, &types.SignalingMessage{
-		Type:      types.MessageTypeLiveJoin,
-		UserID:    userID,
-		Data:      liveStream,
-		Timestamp: time.Now(),
-	})
-
-	zLog.Info("User joined live stream",
-		zap.String("user_id", userID),
-		zap.String("stream_id", streamID),
-		zap.Int("viewer_count", liveStream.ViewerCount))
+	s.broadcastPeerLeft(callID, c.uid, remaining)
+	s.broadcastGroupState(groupID)
 }
 
-// handleLiveLeave 处理直播离开
-func (s *SignalingServer) handleLiveLeave(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析离开数据
-	leaveData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid leave data")
-		return
+// broadcastPeerLeft 通知剩余参与者某人离开。
+func (s *SignalingServer) broadcastPeerLeft(callID, uid string, remaining []string) {
+	for _, p := range remaining {
+		if pc, ok := s.getConn(p); ok {
+			s.send(pc, &types.SignalingMessage{
+				Type:   types.MessageTypePeerLeft,
+				RoomID: callID,
+				Data:   map[string]any{"call_id": callID, "uid": uid},
+			})
+		}
 	}
-
-	streamID, ok := leaveData["stream_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid stream_id")
-		return
-	}
-
-	// 离开直播
-	err := s.liveStreamManager.LeaveLiveStream(streamID, userID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to leave live stream: %v", err))
-		return
-	}
-
-	// 获取直播信息
-	liveStream, err := s.liveStreamManager.GetLiveStream(streamID)
-	if err != nil {
-		s.sendError(conn, userID, fmt.Sprintf("failed to get live stream: %v", err))
-		return
-	}
-
-	zLog.Info("User left live stream",
-		zap.String("user_id", userID),
-		zap.String("stream_id", streamID),
-		zap.Int("remaining_viewer_count", liveStream.ViewerCount))
 }
 
-// ========== 媒体控制处理 ==========
-
-// handleMute 处理静音
-func (s *SignalingServer) handleMute(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析静音数据
-	muteData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid mute data")
-		return
+// isGroupMember 校验 uid 是否群成员：读关系缓存，Unknown 时 fail-open（与项目鉴权一致；前端已先按群成员过滤）。
+func (s *SignalingServer) isGroupMember(uid, groupID string) bool {
+	switch s.svc.RelationCache.IsGroupMember(s.ctx, groupID, uid) {
+	case relationcache.VerdictAllowed:
+		return true
+	case relationcache.VerdictDenied:
+		return false
+	default:
+		return true // Unknown / 冷缓存 → 放行（TODO: 回源 GroupUsers RPC 收紧）
 	}
-
-	roomID, ok := muteData["room_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid room_id")
-		return
-	}
-
-	// 通知房间内其他用户
-	s.broadcastToRoom(roomID, userID, &types.SignalingMessage{
-		Type:      types.MessageTypeMute,
-		RoomID:    roomID,
-		UserID:    userID,
-		Timestamp: time.Now(),
-	})
-
-	zLog.Info("User muted",
-		zap.String("user_id", userID),
-		zap.String("room_id", roomID))
 }
 
-// handleUnmute 处理取消静音
-func (s *SignalingServer) handleUnmute(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析取消静音数据
-	unmuteData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid unmute data")
-		return
+// relayToPeer 媒体协商 relay：把 offer/answer/ice/media_state 透传给对端（不经手媒体字节）。
+// 带 data.to=目标uid 时走群组 Mesh 定向；否则走 1:1 对端推导。
+func (s *SignalingServer) relayToPeer(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	to := dataStr(msg.Data, "to")
+	var target string
+	if to != "" {
+		// 群组 Mesh：校验 from/to 均为该群通话参与者
+		if !s.groups.HasParticipant(callID, c.uid) || !s.groups.HasParticipant(callID, to) {
+			s.sendError(c, "not a group participant")
+			return
+		}
+		target = to
+	} else {
+		// 1:1：按会话推导对端（保持原行为）
+		sess, ok := s.calls.Get(callID)
+		if !ok {
+			zLog.Warn("relay: call not found", zap.String("from", c.uid), zap.String("type", string(msg.Type)), zap.String("call_id", callID))
+			s.sendError(c, "call not found")
+			return
+		}
+		if sess.CallerID != c.uid && sess.CalleeID != c.uid {
+			s.sendError(c, "not a participant")
+			return
+		}
+		target = sess.Peer(c.uid)
 	}
 
-	roomID, ok := unmuteData["room_id"].(string)
+	pc, ok := s.getConn(target)
 	if !ok {
-		s.sendError(conn, userID, "invalid room_id")
+		zLog.Warn("relay: target not connected to streaming ws",
+			zap.String("type", string(msg.Type)), zap.String("from", c.uid), zap.String("to", target))
 		return
 	}
-
-	// 通知房间内其他用户
-	s.broadcastToRoom(roomID, userID, &types.SignalingMessage{
-		Type:      types.MessageTypeUnmute,
-		RoomID:    roomID,
-		UserID:    userID,
-		Timestamp: time.Now(),
-	})
-
-	zLog.Info("User unmuted",
-		zap.String("user_id", userID),
-		zap.String("room_id", roomID))
+	// 透传原帧，标记来源 uid（覆盖客户端自报值）
+	msg.UserID = c.uid
+	if err := pc.sendJSON(msg); err != nil {
+		zLog.Error("relay to peer failed", zap.String("to", target), zap.Error(err))
+		return
+	}
+	zLog.Info("relay ok", zap.String("type", string(msg.Type)), zap.String("from", c.uid), zap.String("to", target))
 }
 
-// handleVideoOn 处理开启视频
-func (s *SignalingServer) handleVideoOn(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析开启视频数据
-	videoOnData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid video_on data")
-		return
+// cleanupCall 断线清理：若用户仍在通话中，结束并通知对端。
+func (s *SignalingServer) cleanupCall(uid string) {
+	// 1:1
+	if callID, ok := s.calls.ActiveCallID(uid); ok {
+		if sess, err := s.calls.End(callID, uid); err == nil {
+			peer := sess.Peer(uid)
+			s.notifyUser(peer, &wsframe.CallSignal{Event: "end", CallId: sess.ID, Reason: string(sess.EndReason), Duration: sess.Duration()})
+		}
 	}
-
-	roomID, ok := videoOnData["room_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid room_id")
-		return
+	// 群组：离开并通知剩余参与者
+	if callID, ok := s.groups.ActiveCallID(uid); ok {
+		groupID, _, _, _ := s.groups.Info(callID) // 结束前捕获 groupID
+		if remaining, _, err := s.groups.Leave(callID, uid); err == nil {
+			s.broadcastPeerLeft(callID, uid, remaining)
+			s.broadcastGroupState(groupID)
+		}
 	}
-
-	// 通知房间内其他用户
-	s.broadcastToRoom(roomID, userID, &types.SignalingMessage{
-		Type:      types.MessageTypeVideoOn,
-		RoomID:    roomID,
-		UserID:    userID,
-		Timestamp: time.Now(),
-	})
-
-	zLog.Info("User video on",
-		zap.String("user_id", userID),
-		zap.String("room_id", roomID))
 }
 
-// handleVideoOff 处理关闭视频
-func (s *SignalingServer) handleVideoOff(conn *websocket.Conn, msg *types.SignalingMessage) {
-	userID := msg.UserID
-
-	// 解析关闭视频数据
-	videoOffData, ok := msg.Data.(map[string]interface{})
-	if !ok {
-		s.sendError(conn, userID, "invalid video_off data")
+// notifyUser 下发通话控制信令给某用户：
+// 优先走该用户的 streaming ws 直连（稳定、低延迟、不受 im ws 顶号churn 影响）；
+// 不在 streaming ws（如初始振铃时被叫还没连）则回退 im ws 的 push.call。
+func (s *SignalingServer) notifyUser(uid string, sig *wsframe.CallSignal) {
+	sig.ReceiverId = uid
+	sig.Timestamp = time.Now().Unix()
+	if c, ok := s.getConn(uid); ok {
+		s.send(c, &types.SignalingMessage{Type: types.MessageTypeCallSignal, Data: sig})
 		return
 	}
-
-	roomID, ok := videoOffData["room_id"].(string)
-	if !ok {
-		s.sendError(conn, userID, "invalid room_id")
-		return
-	}
-
-	// 通知房间内其他用户
-	s.broadcastToRoom(roomID, userID, &types.SignalingMessage{
-		Type:      types.MessageTypeVideoOff,
-		RoomID:    roomID,
-		UserID:    userID,
-		Timestamp: time.Now(),
-	})
-
-	zLog.Info("User video off",
-		zap.String("user_id", userID),
-		zap.String("room_id", roomID))
+	s.pushSignal(sig)
 }
 
-// sendMessageToUser 发送消息给特定用户
-func (s *SignalingServer) sendMessageToUser(userID string, msg *types.SignalingMessage) {
-	s.mu.RLock()
-	if webrtcConn, exists := s.connections[userID]; exists {
-		webrtcConn.SendMessage(msg)
+// pushSignal 通过 im ws（push.call）把通话控制信令单推给接收者；离线即丢。
+func (s *SignalingServer) pushSignal(sig *wsframe.CallSignal) {
+	sig.Timestamp = time.Now().Unix()
+	if err := s.svc.ImWsClient.Send(imws.Message{
+		FrameType: imws.FrameNoAck,
+		Method:    "push.call",
+		FormId:    constants.SYSTEM_ROOT_UID,
+		Data:      sig,
+	}); err != nil {
+		zLog.Error("push call signal failed",
+			zap.String("receiver", sig.ReceiverId), zap.String("event", sig.Event), zap.Error(err))
 	}
-	s.mu.RUnlock()
+}
+
+// groupMemberUids 取群全体成员 uid（用于群通话状态广播）。RPC 失败返回空（不广播）。
+func (s *SignalingServer) groupMemberUids(groupID string) []string {
+	resp, err := s.svc.Social.GroupUsers(s.ctx, &socialclient.GroupUsersReq{GroupId: groupID})
+	if err != nil || resp == nil {
+		zLog.Error("group call state: GroupUsers failed", zap.String("group", groupID), zap.Error(err))
+		return nil
+	}
+	uids := make([]string, 0, len(resp.List))
+	for _, m := range resp.List {
+		uids = append(uids, m.UserId)
+	}
+	return uids
+}
+
+// broadcastGroupState 向群全体成员广播某群当前通话状态（event=group.state）。
+// 用于「进群聊看到通话中横幅 / 会话列表通话标识 / 加入通话」。participants 为空表示通话已结束（前端清除）。
+// callType 仅在仍活跃时有意义；已结束时取查询快照（可能为空，前端凭 participants 判空即可）。
+func (s *SignalingServer) broadcastGroupState(groupID string) {
+	if groupID == "" {
+		return
+	}
+	callID, t, participants, ok := s.groups.ActiveByGroup(groupID)
+	if !ok {
+		participants = []string{} // 已结束：广播空名单让前端清除横幅/标识
+	}
+	members := s.groupMemberUids(groupID)
+	for _, m := range members {
+		s.pushSignal(&wsframe.CallSignal{
+			ReceiverId: m,
+			Event:      "group.state",
+			Scope:      "group",
+			GroupId:    groupID,
+			CallId:     callID,
+			CallType:   string(t),
+			Members:    participants,
+		})
+	}
+}
+
+// areFriends 校验两用户是否好友：先读关系缓存，Unknown 回源 FriendList 并回填，RPC 失败 fail-open。
+func (s *SignalingServer) areFriends(uid, peer string) bool {
+	switch s.svc.RelationCache.IsFriend(s.ctx, uid, peer) {
+	case relationcache.VerdictAllowed:
+		return true
+	case relationcache.VerdictDenied:
+		return false
+	}
+	resp, err := s.svc.Social.FriendList(s.ctx, &socialclient.FriendListReq{UserId: uid})
+	if err != nil || resp == nil {
+		return true // fail-open：不确定时放行（与 im 发送鉴权一致）
+	}
+	friends := make([]string, 0, len(resp.List))
+	found := false
+	for _, f := range resp.List {
+		friends = append(friends, f.FriendUid)
+		if f.FriendUid == peer {
+			found = true
+		}
+	}
+	_ = s.svc.RelationCache.LoadFriends(s.ctx, uid, friends, 0)
+	return found
+}
+
+// userInfo 取用户昵称/头像（来电界面展示），失败返回空串。
+// 已从振铃路径移除调用（前端用本地资料解析）；保留供后续按需使用。
+
+func (s *SignalingServer) send(c *clientConn, msg *types.SignalingMessage) {
+	msg.Timestamp = time.Now()
+	if err := c.sendJSON(msg); err != nil {
+		zLog.Error("send to client failed", zap.String("user_id", c.uid), zap.Error(err))
+	}
+}
+
+func (s *SignalingServer) sendError(c *clientConn, errMsg string) {
+	s.send(c, &types.SignalingMessage{Type: types.MessageTypeError, Data: map[string]string{"error": errMsg}})
+}
+
+// Close 关闭信令服务器：取消上下文并关闭所有连接。
+func (s *SignalingServer) Close() error {
+	s.cancel()
+	s.mu.Lock()
+	for uid, c := range s.conns {
+		c.close()
+		delete(s.conns, uid)
+	}
+	s.mu.Unlock()
+	zLog.Info("signaling server closed")
+	return nil
+}
+
+// msgCallID 取 callId：优先 data.call_id，回退顶层 RoomID。
+func msgCallID(msg *types.SignalingMessage) string {
+	if id := dataStr(msg.Data, "call_id"); id != "" {
+		return id
+	}
+	return msg.RoomID
+}
+
+func dataStr(data any, key string) string {
+	m, ok := data.(map[string]any)
+	if !ok {
+		return ""
+	}
+	v, _ := m[key].(string)
+	return v
+}
+
+func dataStrSlice(data any, key string) []string {
+	m, ok := data.(map[string]any)
+	if !ok {
+		return nil
+	}
+	raw, ok := m[key].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
 }

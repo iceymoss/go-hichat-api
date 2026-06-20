@@ -6,6 +6,7 @@ import { type Contact } from '@/lib/types';
 import { useChatStore } from '@/lib/chat-store';
 import { ChatListProvider, ChatListToolbar, ChatListContent } from './ChatList';
 import ChatDetail from './ChatDetail';
+import { CallOverlay } from './CallOverlay';
 import ContactList from './ContactList';
 import ContactDetailPanel from './ContactDetailPanel';
 import FloatingProfileCard from './FloatingProfileCard';
@@ -306,6 +307,7 @@ export default function IMLayout() {
           </div>
         )}
         {floatingCard}
+        <CallOverlay />
       </div>
     );
   }
@@ -524,6 +526,7 @@ export default function IMLayout() {
         </div>
       )}
       {floatingCard}
+      <CallOverlay />
     </div>
   );
 }

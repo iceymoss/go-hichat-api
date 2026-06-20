@@ -33,6 +33,7 @@ start_service() {
     api)  go_file="apps/$app_dir/api/$app_dir.go"; cfg="apps/$app_dir/api/etc/${app_dir}-sample.yaml" ;;
     im)   go_file="apps/$app_dir/ws/im.go";        cfg="apps/$app_dir/ws/etc/${app_dir}-sample.yaml" ;;
     task) go_file="apps/$app_dir/mq/mq.go";        cfg="apps/$app_dir/mq/etc/mq-sample.yaml" ;;
+    streaming) go_file="apps/$app_dir/streaming.go"; cfg="apps/$app_dir/etc/${app_dir}-sample.yaml" ;;
     *)    echo "$name: 未知服务类型 $service_type"; return 1 ;;
   esac
 
@@ -60,6 +61,7 @@ SERVICES=(
   "task task"
   "rpc trend"
   "api trend"
+  "streaming streaming"
 )
 
 # 遍历数组启动服务

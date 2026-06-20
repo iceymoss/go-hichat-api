@@ -156,6 +156,54 @@ sequenceDiagram
   IMWS->>ReceiverClient: 在线时推送 trend.notify
 ```
 
+## 音视频通话
+
+独立的 `streaming` 服务提供 WebRTC 实时音视频。通话**控制**信令复用 im ws 通道（`push.call` → 客户端 `call.signal`）；**媒体协商**（offer/answer/ICE）走 streaming 服务自有的 WebSocket relay，而媒体数据本身**点对点直连、永不经过服务器**。1:1 为直接 P2P；群组采用**全连接 Mesh** 拓扑（两两直连，上限 4 人）。SFU 与 TURN 作为会议、直播、更强 NAT 穿透的预留扩展点。
+
+### 单聊通话（1:1）
+
+```mermaid
+sequenceDiagram
+  Caller->>StreamingWS: call_invite（被叫、类型）
+  StreamingWS->>SocialRPC: 校验好友关系
+  StreamingWS-->>Caller: 会话已创建（callId）
+  StreamingWS->>IMWS: push.call invite
+  IMWS->>Callee: call.signal invite（振铃）
+  Callee->>StreamingWS: call_accept
+  StreamingWS->>Caller: call.signal accept
+  Caller->>StreamingWS: offer / ICE 候选
+  StreamingWS->>Callee: relay offer / ICE
+  Callee->>StreamingWS: answer / ICE 候选
+  StreamingWS->>Caller: relay answer / ICE
+  Note over Caller,Callee: P2P 媒体直连，不经服务器
+  Caller->>StreamingWS: call_end
+  StreamingWS->>Callee: call.signal end
+  Note over Caller,Callee: 向会话投递一条通话记录
+```
+
+### 群聊通话（Mesh）
+
+```mermaid
+sequenceDiagram
+  Initiator->>StreamingWS: group_invite（群、成员、类型）
+  StreamingWS->>SocialRPC: 校验群成员
+  StreamingWS-->>Initiator: group_created（callId）
+  StreamingWS->>IMWS: push.call group.invite（逐个被邀成员）
+  IMWS->>Member: call.signal group.invite（振铃）
+  StreamingWS->>GroupMembers: group.state 广播（横幅 / 列表标识）
+  Member->>StreamingWS: group_join（callId）
+  StreamingWS->>Initiator: peer_joined（新成员 uid）
+  Note over Initiator,Member: 由老成员向新人发 offer（避免 glare）
+  Initiator->>StreamingWS: offer（to = Member）
+  StreamingWS->>Member: relay offer
+  Member->>StreamingWS: answer（to = Initiator）
+  StreamingWS->>Initiator: relay answer
+  Note over Initiator,Member: 两两 P2P 直连（全连接 Mesh）
+  Member->>StreamingWS: group_leave
+  StreamingWS->>Initiator: peer_left
+  StreamingWS->>GroupMembers: group.state 广播（更新 / 清除）
+```
+
 ## 服务列表
 
 | 服务 | 层 | 职责 |
@@ -186,7 +234,6 @@ sequenceDiagram
 ├── LICENSE
 ├── README.md
 ├── apps
-│   ├── demo
 │   ├── im
 │   ├── social
 │   ├── streaming

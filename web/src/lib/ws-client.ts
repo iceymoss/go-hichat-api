@@ -28,6 +28,8 @@ export const MsgType = {
   ContentMakeRead: 6,
   // Video = 8：视频（追加在 6/7 控制类型之后，与后端 constants/im.go 对应）
   Video: 8,
+  // Call = 10：音视频通话记录（content 为 JSON {callType,status,duration}）
+  Call: 10,
 } as const;
 
 // ContentType 附加类型（与 MsgType 独立），ws.Chat.contentType 字段

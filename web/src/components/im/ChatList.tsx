@@ -20,9 +20,12 @@ import {
   Pin,
   Trash2,
   BellOff,
+  Phone,
+  Video,
 } from 'lucide-react';
 import { formatTime, getAvatarColor } from '@/lib/utils';
 import { useT } from '@/hooks/use-i18n';
+import { useCallStore } from '@/lib/call-store';
 import AddFriendPanel from './AddFriendPanel';
 import NotificationCenter from './NotificationCenter';
 import { toast } from 'sonner';
@@ -246,6 +249,8 @@ function ConversationItem({
   onToggleMute?: () => void;
 }) {
   const avatarSize = 48;
+  // 群通话进行中标识（来自 streaming group.state 广播 / 进群聊补拉）
+  const activeCall = useCallStore(s => s.activeGroupCalls[conversation.id]);
   const showCheckbox = editMode;
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const t = useT();
@@ -392,6 +397,15 @@ function ConversationItem({
             >
               {conversation.name}
             </span>
+            {activeCall && activeCall.participants.length > 0 && (
+              <span
+                className="shrink-0"
+                title=""
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#1BB45B' }}
+              >
+                {activeCall.callType === 'video' ? <Video size={14} /> : <Phone size={14} />}
+              </span>
+            )}
             {conversation.muted && (
               <svg
                 className="conv-mute shrink-0"
@@ -439,6 +453,9 @@ function ConversationItem({
           >
             {conversation.hasAtMe && (
               <span style={{ color: '#FA5151', fontWeight: 600, marginRight: 4 }}>{t('chatlist.atMe')}</span>
+            )}
+            {conversation.hasMissedCall && (
+              <span style={{ color: '#FA5151', fontWeight: 600, marginRight: 4 }}>{t('chatlist.missedCall')}</span>
             )}
             {conversation.lastMessage}
           </span>
