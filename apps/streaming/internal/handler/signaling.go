@@ -59,6 +59,7 @@ type SignalingServer struct {
 	auth     *JwtAuth
 	upgrader websocket.Upgrader
 	calls    *logic.CallService
+	groups   *logic.GroupCallService
 
 	mu    sync.RWMutex
 	conns map[string]*clientConn // uid -> conn（单会话，重复登录顶号）
@@ -76,6 +77,7 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 		svc:   svcCtx,
 		auth:  NewJwtAuth(svcCtx),
 		calls: logic.NewCallService(ring),
+		groups: logic.NewGroupCallService(4), // Mesh 上限 4 人
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  svcCtx.Config.Signaling.WebSocket.ReadBufferSize,
 			WriteBufferSize: svcCtx.Config.Signaling.WebSocket.WriteBufferSize,
@@ -202,6 +204,12 @@ func (s *SignalingServer) route(c *clientConn, msg *types.SignalingMessage) {
 		s.handleCancel(c, msg)
 	case types.MessageTypeCallEnd:
 		s.handleEnd(c, msg)
+	case types.MessageTypeGroupInvite:
+		s.handleGroupInvite(c, msg)
+	case types.MessageTypeGroupJoin:
+		s.handleGroupJoin(c, msg)
+	case types.MessageTypeGroupLeave:
+		s.handleGroupLeave(c, msg)
 	case types.MessageTypeOffer, types.MessageTypeAnswer, types.MessageTypeIceCandidate, types.MessageTypeMediaState:
 		s.relayToPeer(c, msg)
 	default:
@@ -299,48 +307,185 @@ func (s *SignalingServer) handleEnd(c *clientConn, msg *types.SignalingMessage) 
 	s.notifyUser(peer, &wsframe.CallSignal{Event: "end", CallId: sess.ID, Reason: string(sess.EndReason), Duration: sess.Duration()})
 }
 
-// relayToPeer 1:1 媒体协商 relay：把 offer/answer/ice/media_state 透传给对端（不经手媒体字节）。
+// ==================== 群组通话（Mesh）====================
+
+// handleGroupInvite 发起群通话：校验群成员 -> 建群会话 -> 回执 callId -> 逐个被邀成员振铃（im ws）。
+func (s *SignalingServer) handleGroupInvite(c *clientConn, msg *types.SignalingMessage) {
+	groupID := dataStr(msg.Data, "group_id")
+	if groupID == "" {
+		s.sendError(c, "group_id required")
+		return
+	}
+	callType := logic.CallType(dataStr(msg.Data, "call_type"))
+	if callType != logic.CallVoice && callType != logic.CallVideo {
+		callType = logic.CallVoice
+	}
+	members := dataStrSlice(msg.Data, "members")
+	if len(members) == 0 {
+		s.sendError(c, "members required")
+		return
+	}
+	if !s.isGroupMember(c.uid, groupID) {
+		s.sendError(c, "not a group member")
+		return
+	}
+	// 过滤：仅保留群成员、去掉自己
+	invited := make([]string, 0, len(members))
+	for _, m := range members {
+		if m != c.uid && s.isGroupMember(m, groupID) {
+			invited = append(invited, m)
+		}
+	}
+
+	callID, err := s.groups.Create(c.uid, groupID, callType, invited)
+	if err != nil {
+		s.sendError(c, err.Error())
+		return
+	}
+
+	// 回执发起人 callId
+	s.send(c, &types.SignalingMessage{
+		Type:   types.MessageTypeGroupCreated,
+		RoomID: callID,
+		Data:   map[string]any{"call_id": callID, "call_type": string(callType), "group_id": groupID},
+	})
+
+	// 振铃被邀成员（im ws -> call.signal，event=group.invite，带参与者名单）
+	roster := append([]string{c.uid}, invited...)
+	for _, m := range invited {
+		s.pushSignal(&wsframe.CallSignal{
+			ReceiverId: m,
+			Event:      "group.invite",
+			CallId:     callID,
+			CallType:   string(callType),
+			MediaMode:  "mesh",
+			Scope:      "group",
+			GroupId:    groupID,
+			FromUid:    c.uid,
+			Members:    roster,
+		})
+	}
+}
+
+// handleGroupJoin 加入群通话：回执新人当前名单 -> 通知已有参与者「有人加入」（他们作 offerer 建连）。
+func (s *SignalingServer) handleGroupJoin(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	others, callType, err := s.groups.Join(callID, c.uid)
+	if err != nil {
+		s.sendError(c, err.Error())
+		return
+	}
+	// 回执新加入者：当前其他参与者（建 tile，等待对方 offer）
+	s.send(c, &types.SignalingMessage{
+		Type:   types.MessageTypeGroupRoster,
+		RoomID: callID,
+		Data:   map[string]any{"call_id": callID, "call_type": string(callType), "participants": others},
+	})
+	// 通知已有参与者：有人加入（防 glare：由老人向新人发 offer）
+	for _, p := range others {
+		if pc, ok := s.getConn(p); ok {
+			s.send(pc, &types.SignalingMessage{
+				Type:   types.MessageTypePeerJoined,
+				RoomID: callID,
+				Data:   map[string]any{"call_id": callID, "uid": c.uid},
+			})
+		}
+	}
+}
+
+// handleGroupLeave 离开群通话：广播 peer_left 给剩余参与者。
+func (s *SignalingServer) handleGroupLeave(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	remaining, _, err := s.groups.Leave(callID, c.uid)
+	if err != nil {
+		return
+	}
+	s.broadcastPeerLeft(callID, c.uid, remaining)
+}
+
+// broadcastPeerLeft 通知剩余参与者某人离开。
+func (s *SignalingServer) broadcastPeerLeft(callID, uid string, remaining []string) {
+	for _, p := range remaining {
+		if pc, ok := s.getConn(p); ok {
+			s.send(pc, &types.SignalingMessage{
+				Type:   types.MessageTypePeerLeft,
+				RoomID: callID,
+				Data:   map[string]any{"call_id": callID, "uid": uid},
+			})
+		}
+	}
+}
+
+// isGroupMember 校验 uid 是否群成员：读关系缓存，Unknown 时 fail-open（与项目鉴权一致；前端已先按群成员过滤）。
+func (s *SignalingServer) isGroupMember(uid, groupID string) bool {
+	switch s.svc.RelationCache.IsGroupMember(s.ctx, groupID, uid) {
+	case relationcache.VerdictAllowed:
+		return true
+	case relationcache.VerdictDenied:
+		return false
+	default:
+		return true // Unknown / 冷缓存 → 放行（TODO: 回源 GroupUsers RPC 收紧）
+	}
+}
+
+// relayToPeer 媒体协商 relay：把 offer/answer/ice/media_state 透传给对端（不经手媒体字节）。
+// 带 data.to=目标uid 时走群组 Mesh 定向；否则走 1:1 对端推导。
 func (s *SignalingServer) relayToPeer(c *clientConn, msg *types.SignalingMessage) {
 	callID := msgCallID(msg)
-	sess, ok := s.calls.Get(callID)
-	if !ok {
-		zLog.Warn("relay: call not found", zap.String("from", c.uid), zap.String("type", string(msg.Type)), zap.String("call_id", callID))
-		s.sendError(c, "call not found")
-		return
+	to := dataStr(msg.Data, "to")
+	var target string
+	if to != "" {
+		// 群组 Mesh：校验 from/to 均为该群通话参与者
+		if !s.groups.HasParticipant(callID, c.uid) || !s.groups.HasParticipant(callID, to) {
+			s.sendError(c, "not a group participant")
+			return
+		}
+		target = to
+	} else {
+		// 1:1：按会话推导对端（保持原行为）
+		sess, ok := s.calls.Get(callID)
+		if !ok {
+			zLog.Warn("relay: call not found", zap.String("from", c.uid), zap.String("type", string(msg.Type)), zap.String("call_id", callID))
+			s.sendError(c, "call not found")
+			return
+		}
+		if sess.CallerID != c.uid && sess.CalleeID != c.uid {
+			s.sendError(c, "not a participant")
+			return
+		}
+		target = sess.Peer(c.uid)
 	}
-	if sess.CallerID != c.uid && sess.CalleeID != c.uid {
-		s.sendError(c, "not a participant")
-		return
-	}
-	peer := sess.Peer(c.uid)
-	pc, ok := s.getConn(peer)
+
+	pc, ok := s.getConn(target)
 	if !ok {
-		// 对端不在线/未连 streaming ws，媒体帧丢弃（控制层会处理掉线）
-		zLog.Warn("relay: peer not connected to streaming ws",
-			zap.String("type", string(msg.Type)), zap.String("from", c.uid), zap.String("peer", peer))
+		zLog.Warn("relay: target not connected to streaming ws",
+			zap.String("type", string(msg.Type)), zap.String("from", c.uid), zap.String("to", target))
 		return
 	}
 	// 透传原帧，标记来源 uid（覆盖客户端自报值）
 	msg.UserID = c.uid
 	if err := pc.sendJSON(msg); err != nil {
-		zLog.Error("relay to peer failed", zap.String("peer", peer), zap.Error(err))
+		zLog.Error("relay to peer failed", zap.String("to", target), zap.Error(err))
 		return
 	}
-	zLog.Info("relay ok", zap.String("type", string(msg.Type)), zap.String("from", c.uid), zap.String("to", peer))
+	zLog.Info("relay ok", zap.String("type", string(msg.Type)), zap.String("from", c.uid), zap.String("to", target))
 }
 
 // cleanupCall 断线清理：若用户仍在通话中，结束并通知对端。
 func (s *SignalingServer) cleanupCall(uid string) {
-	callID, ok := s.calls.ActiveCallID(uid)
-	if !ok {
-		return
+	// 1:1
+	if callID, ok := s.calls.ActiveCallID(uid); ok {
+		if sess, err := s.calls.End(callID, uid); err == nil {
+			peer := sess.Peer(uid)
+			s.notifyUser(peer, &wsframe.CallSignal{Event: "end", CallId: sess.ID, Reason: string(sess.EndReason), Duration: sess.Duration()})
+		}
 	}
-	sess, err := s.calls.End(callID, uid)
-	if err != nil {
-		return
+	// 群组：离开并通知剩余参与者
+	if callID, ok := s.groups.ActiveCallID(uid); ok {
+		if remaining, _, err := s.groups.Leave(callID, uid); err == nil {
+			s.broadcastPeerLeft(callID, uid, remaining)
+		}
 	}
-	peer := sess.Peer(uid)
-	s.notifyUser(peer, &wsframe.CallSignal{Event: "end", CallId: sess.ID, Reason: string(sess.EndReason), Duration: sess.Duration()})
 }
 
 // notifyUser 下发通话控制信令给某用户：
@@ -436,4 +581,22 @@ func dataStr(data any, key string) string {
 	}
 	v, _ := m[key].(string)
 	return v
+}
+
+func dataStrSlice(data any, key string) []string {
+	m, ok := data.(map[string]any)
+	if !ok {
+		return nil
+	}
+	raw, ok := m[key].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
 }

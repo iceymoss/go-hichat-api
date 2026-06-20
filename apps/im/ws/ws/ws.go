@@ -156,6 +156,7 @@ type CallSignal struct {
 	FromName   string `json:"fromName,omitempty" mapstructure:"fromName"`   // 主叫昵称（来电展示）
 	FromAvatar string `json:"fromAvatar,omitempty" mapstructure:"fromAvatar"`
 	GroupId    string `json:"groupId,omitempty" mapstructure:"groupId"`
+	Members    []string `json:"members,omitempty" mapstructure:"members"` // 群通话参与者名单（群振铃用）
 	Reason     string `json:"reason,omitempty" mapstructure:"reason"`     // 结束原因
 	Duration   int64  `json:"duration,omitempty" mapstructure:"duration"` // 通话时长(秒)
 	Timestamp  int64  `json:"timestamp" mapstructure:"timestamp"`
