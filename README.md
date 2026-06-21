@@ -106,54 +106,82 @@ Key Connections
 
 ```mermaid
 sequenceDiagram
-  SenderClient->>IMWS: WebSocket chat.user
-  IMWS->>KafkaMsgChatTransfer: Publish chat message
-  KafkaMsgChatTransfer->>TaskMQ: Consume MsgChatTransfer
-  TaskMQ->>MongoDBChatLog: Persist chat log
-  TaskMQ->>IMWS: Push via route push
-  IMWS->>ReceiverClient: WebSocket message frame
-  ReceiverClient-->>IMWS: ACK frame
-  IMWS-->>SenderClient: Optional sender echo with server msgId
+  participant C as Sender
+  participant WS as im/ws
+  participant K as Kafka
+  participant MQ as task/mq
+  participant DB as MongoDB
+  participant R as Receiver
+  C->>WS: chat.user
+  WS->>K: msgChatTransfer
+  K->>MQ: consume
+  MQ->>DB: persist chatlog
+  MQ->>WS: push
+  WS->>R: message frame
+  R-->>WS: ACK
+  WS-->>C: echo (real msgId)
 ```
 
 ### Read Receipt
 
 ```mermaid
 sequenceDiagram
-  ReaderClient->>IMWS: WebSocket chat.markChat
-  IMWS->>KafkaMsgReadTransfer: Publish read event
-  KafkaMsgReadTransfer->>TaskMQ: Consume MsgReadTransfer
-  TaskMQ->>MongoDBChatLog: Update read bitmap and read time
-  TaskMQ->>IMWS: Push read receipt control message
-  IMWS->>SenderClient: WebSocket readRecords update
-  SenderClient->>IMAPI: GET /v1/im/chatlog/readRecords
-  IMAPI->>MongoDBChatLog: Query detailed read and unread users
+  participant C as Reader
+  participant WS as im/ws
+  participant K as Kafka
+  participant MQ as task/mq
+  participant DB as MongoDB
+  participant API as im/api
+  participant S as Sender
+  C->>WS: chat.markChat
+  WS->>K: msgReadTransfer
+  K->>MQ: consume
+  MQ->>DB: update read bitmap + time
+  MQ->>WS: push read receipt
+  WS->>S: readRecords update
+  S->>API: GET /v1/im/chatlog (read detail)
+  API->>DB: query read / unread users
 ```
 
 ### Message Recall
 
 ```mermaid
 sequenceDiagram
-  OperatorClient->>IMAPI: POST /v1/im/chatlog/recall
-  IMAPI->>IMRPC: RecallMsg
-  IMRPC->>MongoDBChatLog: Mark message as recalled
-  IMAPI->>KafkaMsgRecallTransfer: Publish recall event
-  KafkaMsgRecallTransfer->>TaskMQ: Consume MsgRecallTransfer
-  TaskMQ->>IMWS: Push recall control frame
-  IMWS->>OnlineClients: WebSocket recall frame
+  participant C as Operator
+  participant API as im/api
+  participant RPC as im/rpc
+  participant DB as MongoDB
+  participant K as Kafka
+  participant MQ as task/mq
+  participant WS as im/ws
+  C->>API: POST /v1/im/chatlog/recall
+  API->>RPC: RecallMsg
+  RPC->>DB: mark recalled
+  API->>K: msgRecallTransfer
+  K->>MQ: consume
+  MQ->>WS: push recall
+  WS->>C: recall frame (online clients)
 ```
 
 ### Activity Notification
 
 ```mermaid
 sequenceDiagram
-  ActorClient->>TrendAPI: Create mention, comment, reply, or like
-  TrendAPI->>TrendRPC: Apply business logic
-  TrendRPC->>MySQLTrendData: Write feed and notification data
-  TrendRPC->>KafkaTrendNotifyTransfer: Publish TrendNotifyTransfer
-  KafkaTrendNotifyTransfer->>TaskMQ: Consume notification event
-  TaskMQ->>IMWS: push.trend with TrendNotify payload
-  IMWS->>ReceiverClient: WebSocket trend.notify if online
+  participant C as Actor
+  participant API as trend/api
+  participant RPC as trend/rpc
+  participant DB as MySQL
+  participant K as Kafka
+  participant MQ as task/mq
+  participant WS as im/ws
+  participant R as Receiver
+  C->>API: mention / comment / reply / like
+  API->>RPC: apply business logic
+  RPC->>DB: write feed + notification
+  RPC->>K: trendNotifyTransfer
+  K->>MQ: consume
+  MQ->>WS: push.trend
+  WS->>R: trend.notify (if online)
 ```
 
 ## Voice / Video Calls
@@ -164,44 +192,54 @@ The independent `streaming` service delivers WebRTC real-time audio/video. Call 
 
 ```mermaid
 sequenceDiagram
-  Caller->>StreamingWS: call_invite (callee, type)
-  StreamingWS->>SocialRPC: Verify friendship
-  StreamingWS-->>Caller: Call created (callId)
-  StreamingWS->>IMWS: push.call invite
-  IMWS->>Callee: call.signal invite (ring)
-  Callee->>StreamingWS: call_accept
-  StreamingWS->>Caller: call.signal accept
-  Caller->>StreamingWS: offer / ICE candidate
-  StreamingWS->>Callee: Relay offer / ICE
-  Callee->>StreamingWS: answer / ICE candidate
-  StreamingWS->>Caller: Relay answer / ICE
-  Note over Caller,Callee: P2P media flows directly, not via server
-  Caller->>StreamingWS: call_end
-  StreamingWS->>Callee: call.signal end
-  Note over Caller,Callee: A call record is posted to the chat
+  participant A as Caller
+  participant ST as streaming
+  participant SR as social/rpc
+  participant WS as im/ws
+  participant B as Callee
+  A->>ST: call_invite (callee, type)
+  ST->>SR: verify friendship
+  ST-->>A: call created (callId)
+  ST->>WS: push.call invite
+  WS->>B: call.signal invite (ring)
+  B->>ST: call_accept
+  ST->>A: call.signal accept
+  A->>ST: offer / ICE
+  ST->>B: relay offer / ICE
+  B->>ST: answer / ICE
+  ST->>A: relay answer / ICE
+  Note over A,B: P2P media flows directly, not via server
+  A->>ST: call_end
+  ST->>B: call.signal end
+  Note over A,B: a call record is posted to the chat
 ```
 
 ### Group Call (Mesh)
 
 ```mermaid
 sequenceDiagram
-  Initiator->>StreamingWS: group_invite (group, members, type)
-  StreamingWS->>SocialRPC: Verify group members
-  StreamingWS-->>Initiator: group_created (callId)
-  StreamingWS->>IMWS: push.call group.invite (per invited member)
-  IMWS->>Member: call.signal group.invite (ring)
-  StreamingWS->>GroupMembers: group.state broadcast (banner / list badge)
-  Member->>StreamingWS: group_join (callId)
-  StreamingWS->>Initiator: peer_joined (new uid)
-  Note over Initiator,Member: Existing peer offers to the newcomer (avoids glare)
-  Initiator->>StreamingWS: offer (to = Member)
-  StreamingWS->>Member: Relay offer
-  Member->>StreamingWS: answer (to = Initiator)
-  StreamingWS->>Initiator: Relay answer
-  Note over Initiator,Member: Every pair connects P2P (full mesh)
-  Member->>StreamingWS: group_leave
-  StreamingWS->>Initiator: peer_left
-  StreamingWS->>GroupMembers: group.state broadcast (update / clear)
+  participant I as Initiator
+  participant ST as streaming
+  participant SR as social/rpc
+  participant WS as im/ws
+  participant M as Member
+  I->>ST: group_invite (group, members, type)
+  ST->>SR: verify group members
+  ST-->>I: group_created (callId)
+  ST->>WS: push.call group.invite (per member)
+  WS->>M: call.signal group.invite (ring)
+  ST->>M: group.state broadcast (banner / badge)
+  M->>ST: group_join (callId)
+  ST->>I: peer_joined (new uid)
+  Note over I,M: existing peer offers to the newcomer (avoids glare)
+  I->>ST: offer (to = Member)
+  ST->>M: relay offer
+  M->>ST: answer (to = Initiator)
+  ST->>I: relay answer
+  Note over I,M: every pair connects P2P (full mesh)
+  M->>ST: group_leave
+  ST->>I: peer_left
+  ST->>WS: group.state broadcast (update / clear)
 ```
 
 ## Services
@@ -218,7 +256,7 @@ sequenceDiagram
 
 ## Tech Stack
 
-- Backend: Go 1.23, toolchain Go 1.24.2, go-zero, zRPC, gRPC, goctl.
+- Backend: Go 1.25, go-zero, zRPC, gRPC, goctl.
 - Realtime: WebSocket, Kafka, WebRTC, Pion.
 - Storage: MySQL, MongoDB, Redis.
 - Service discovery: Etcd.
@@ -329,6 +367,8 @@ Generated with `tree -L 2`.
 The fastest way to run the whole stack (6 microservices + middleware + web client) with a single command — no local toolchain needed, just Docker:
 
 ```bash
+git clone https://github.com/iceymoss/go-hichat-api.git
+cd go-hichat-api
 docker compose up -d --build
 ```
 
@@ -339,13 +379,16 @@ docker compose ps            # service status
 docker compose logs -f web   # follow a service's logs
 docker compose down          # stop (keep data)
 docker compose down -v       # stop and wipe all data volumes
+
+# one-shot cleanup: drop volumes + the images this project built
+docker compose down -v --remove-orphans && docker images 'hichat-*' -q | xargs -r docker rmi
 ```
 
-See the [Docker deployment guide](deploy/docker/README.md) for architecture, ports, server/domain (reverse proxy + HTTPS) deployment, and audio/video (TURN) notes.
+See the [Docker deployment guide](deploy/docker/README.md) for architecture, ports, cleanup, server/domain (reverse proxy + HTTPS) deployment, and audio/video (TURN) notes.
 
 ### Prerequisites
 
-- Go 1.23 or newer, using toolchain Go 1.24.2.
+- Go 1.25 or newer (matches the `go` directive in `go.mod`).
 - Bun for the web client.
 - MySQL, Redis, Etcd, MongoDB, and Kafka.
 - go-zero tooling: `goctl`, `protoc`, `protoc-gen-go`, and `protoc-gen-go-grpc`.
