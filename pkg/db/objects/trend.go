@@ -12,7 +12,7 @@ type Trend struct {
 	Type          uint64       `gorm:"column:type;type:TINYINT UNSIGNED;not null;comment:动态类型：1文本，2混合(图片)，3长文，4第三方分享(如B站视频)，5视频，6置顶广告"`
 	Content       string       `gorm:"column:content;type:TEXT;not null;comment:动态内容"`
 	PositionName  string       `gorm:"column:position_name;type:VARCHAR(255);default:'';comment:位置名称"`
-	PositionPoint string       `gorm:"column:position;type:VARCHAR(30);comment:位置信息（使用JSON数组）"`
+	PositionPoint string       `gorm:"column:position_point;type:VARCHAR(30);comment:位置信息（使用JSON数组）"`
 	ReplyCount    uint64       `gorm:"column:reply_count;type:BIGINT UNSIGNED;default:0;comment:评论数量"`
 	AgreeCount    uint64       `gorm:"column:agree_count;type:BIGINT UNSIGNED;default:0;comment:点赞数量"`
 	Createtime    time.Time    `gorm:"column:createtime;type:DATETIME;not null;default:CURRENT_TIMESTAMP;index:idx_circle_time;index:idx_userid_circle,priority:2;comment:原始创建时间"`

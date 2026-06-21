@@ -47,6 +47,9 @@ WORKDIR /app
 # 仅拷贝编译产物；运行期配置全部由 compose 挂载提供
 COPY --from=builder /app/service /app/service
 
+# 运行期需要的静态资源（如 trend-rpc 的敏感词库 resources/sensitive/*.txt，按相对路径加载）
+COPY --from=builder /app/resources /app/resources
+
 # 上传文件目录（user-api / im-api 静态资源）与日志目录，compose 用命名卷挂载持久化
 RUN mkdir -p /app/temp /app/logs /app/config
 
