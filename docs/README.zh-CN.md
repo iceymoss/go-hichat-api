@@ -339,9 +339,11 @@ sequenceDiagram
 
 ### 一键部署（Docker Compose）
 
-无需本地工具链，只要有 Docker，一条命令即可拉起整套服务（6 个微服务 + 中间件 + 前端）：
+无需本地工具链，只要有 Docker，克隆后一条命令即可拉起整套服务（6 个微服务 + 中间件 + 前端）：
 
 ```bash
+git clone https://github.com/iceymoss/go-hichat-api.git
+cd go-hichat-api
 docker compose up -d --build
 ```
 
@@ -352,9 +354,12 @@ docker compose ps            # 查看各服务状态
 docker compose logs -f web   # 跟踪某个服务日志
 docker compose down          # 停止（保留数据）
 docker compose down -v       # 停止并清空所有数据卷
+
+# 一键清理：删数据卷 + 删本项目构建的镜像
+docker compose down -v --remove-orphans && docker images 'hichat-*' -q | xargs -r docker rmi
 ```
 
-架构、端口、服务器域名（反向代理 + HTTPS）部署、音视频（TURN）说明详见 [Docker 部署指南](../deploy/docker/README.zh-CN.md)。
+架构、端口、清理卸载、服务器域名（反向代理 + HTTPS）部署、音视频（TURN）说明详见 [Docker 部署指南](../deploy/docker/README.zh-CN.md)。
 
 ### 前置依赖
 

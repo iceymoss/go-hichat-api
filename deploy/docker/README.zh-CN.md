@@ -9,11 +9,11 @@
 - 已安装 **Docker** 与 **Docker Compose v2**（`docker compose version` 可用）
 - 建议宿主机内存 ≥ 4G（Kafka / MySQL / 前端构建较吃资源）
 
-## 本地一键启动
-
-在项目根目录执行：
+## 克隆即用（从零开始）
 
 ```bash
+git clone https://github.com/iceymoss/go-hichat-api.git
+cd go-hichat-api
 docker compose up -d --build
 ```
 
@@ -30,9 +30,27 @@ docker compose up -d --build
 ```bash
 docker compose ps              # 查看各服务状态
 docker compose logs -f web     # 跟踪某个服务日志
-docker compose down            # 停止（保留数据）
+docker compose restart web     # 重启某个服务
+docker compose down            # 停止（保留数据卷与镜像）
 docker compose down -v         # 停止并清空所有数据卷（MySQL/Mongo/上传文件等）
 ```
+
+## 一键清理 / 卸载
+
+```bash
+# 1) 停止并删除容器、网络、数据卷（清空所有数据）
+docker compose down -v --remove-orphans
+
+# 2) 删除本项目构建出的应用镜像（hichat-* 一组：各微服务 + 迁移 + 前端）
+docker images 'hichat-*' -q | xargs -r docker rmi
+
+# 3) 可选：回收 BuildKit 构建缓存，释放磁盘
+docker builder prune -f
+```
+
+> 上面只删本项目的 `hichat-*` 应用镜像；mysql/redis/mongo/etcd/kafka 等公共基础镜像**不动**（可能被别的项目复用）。
+> 想连基础镜像一起删，用 `docker compose down -v --rmi all --remove-orphans`（注意会移除中间件镜像）。
+
 
 ## 架构与端口
 

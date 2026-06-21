@@ -342,6 +342,8 @@ Generated with `tree -L 2`.
 The fastest way to run the whole stack (6 microservices + middleware + web client) with a single command — no local toolchain needed, just Docker:
 
 ```bash
+git clone https://github.com/iceymoss/go-hichat-api.git
+cd go-hichat-api
 docker compose up -d --build
 ```
 
@@ -352,9 +354,12 @@ docker compose ps            # service status
 docker compose logs -f web   # follow a service's logs
 docker compose down          # stop (keep data)
 docker compose down -v       # stop and wipe all data volumes
+
+# one-shot cleanup: drop volumes + the images this project built
+docker compose down -v --remove-orphans && docker images 'hichat-*' -q | xargs -r docker rmi
 ```
 
-See the [Docker deployment guide](deploy/docker/README.md) for architecture, ports, server/domain (reverse proxy + HTTPS) deployment, and audio/video (TURN) notes.
+See the [Docker deployment guide](deploy/docker/README.md) for architecture, ports, cleanup, server/domain (reverse proxy + HTTPS) deployment, and audio/video (TURN) notes.
 
 ### Prerequisites
 

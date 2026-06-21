@@ -9,11 +9,11 @@ Bring up the entire HiChat stack (6 microservices + middleware + web client) wit
 - **Docker** and **Docker Compose v2** installed (`docker compose version` works)
 - Host memory ≥ 4 GB recommended (Kafka / MySQL / the frontend build are resource-hungry)
 
-## Local one-click start
-
-From the repository root:
+## Clone & run (from scratch)
 
 ```bash
+git clone https://github.com/iceymoss/go-hichat-api.git
+cd go-hichat-api
 docker compose up -d --build
 ```
 
@@ -29,9 +29,27 @@ Status / logs / stop:
 ```bash
 docker compose ps              # service status
 docker compose logs -f web     # follow a service's logs
-docker compose down            # stop (keep data)
+docker compose restart web     # restart one service
+docker compose down            # stop (keep volumes and images)
 docker compose down -v         # stop and wipe all data volumes (MySQL/Mongo/uploads...)
 ```
+
+## One-shot cleanup / uninstall
+
+```bash
+# 1) Stop and remove containers, networks and data volumes (wipes all data)
+docker compose down -v --remove-orphans
+
+# 2) Remove the images this project built (the hichat-* set: services + migrate + web)
+docker images 'hichat-*' -q | xargs -r docker rmi
+
+# 3) Optional: reclaim BuildKit build cache / disk
+docker builder prune -f
+```
+
+> Step 2 only removes this project's `hichat-*` app images; shared base images (mysql/redis/mongo/etcd/kafka) are left intact (other projects may reuse them).
+> To also drop those, use `docker compose down -v --rmi all --remove-orphans` (note: this removes the middleware images too).
+
 
 ## Architecture & ports
 
