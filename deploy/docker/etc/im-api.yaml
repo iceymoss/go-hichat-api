@@ -1,0 +1,39 @@
+Name: im
+Host: 0.0.0.0
+Port: 8890
+# 富媒体上传上限：120MB（覆盖 go-zero 默认 1MB，给 100MB 文件留 multipart 余量）
+MaxBytes: 125829120
+
+SocialRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: social.rpc
+
+UserRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: user.rpc
+
+ImRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: im.rpc
+
+# 撤回事件专用的 Kafka topic（与 mq 消费端一致）
+MsgRecallTransfer:
+  Topic: msgRecallTransfer
+  Addrs:
+    - kafka:9092
+
+JwtAuth:
+  AccessSecret: iceymoss.hichat.hichat2.com
+  AccessExpire: 8640000
+
+# 上传文件落盘到 ./temp（与 user-api 共享 uploads 卷），URL 经 user-api 静态服务对外。
+# 服务器部署时把下面的 localhost:8887 改成对外可达地址（或经反向代理的 /static）。
+Upload:
+  BasePath: ./temp
+  BaseURL: http://localhost:8887/static

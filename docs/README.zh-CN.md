@@ -337,6 +337,25 @@ sequenceDiagram
 
 ## 快速开始
 
+### 一键部署（Docker Compose）
+
+无需本地工具链，只要有 Docker，一条命令即可拉起整套服务（6 个微服务 + 中间件 + 前端）：
+
+```bash
+docker compose up -d --build
+```
+
+随后访问 **http://localhost:2470**。首次使用点「注册」即可——演示模式下验证码会自动填入输入框（无需真实短信），填昵称密码即可注册登录。
+
+```bash
+docker compose ps            # 查看各服务状态
+docker compose logs -f web   # 跟踪某个服务日志
+docker compose down          # 停止（保留数据）
+docker compose down -v       # 停止并清空所有数据卷
+```
+
+架构、端口、服务器域名（反向代理 + HTTPS）部署、音视频（TURN）说明详见 [Docker 部署指南](../deploy/docker/README.zh-CN.md)。
+
 ### 前置依赖
 
 - Go 1.23 或更高版本，使用 toolchain Go 1.24.2。

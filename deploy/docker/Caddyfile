@@ -1,0 +1,29 @@
+# 服务器域名部署的统一入口（docker compose --profile proxy up -d）。
+# 本地体验无需启用此服务，直接访问 http://localhost:3001 即可。
+#
+# 使用前：在项目根目录 .env 写入 DOMAIN=your-domain.com（Caddy 会自动签发 HTTPS 证书）。
+# 另外服务器部署时需把 deploy/docker/etc/im-api.yaml 里的 Upload.BaseURL 改为
+#   https://your-domain.com/static
+# 这样上传文件的 URL 才能经本代理回源到 user-api。
+
+{$DOMAIN:localhost} {
+	# im-ws 长连接（前端生产模式走 wss://host/ws）
+	handle /ws* {
+		reverse_proxy im-ws:10090
+	}
+
+	# streaming 音视频信令（前端生产模式走 wss://host/streaming/ws）
+	handle_path /streaming/* {
+		reverse_proxy streaming:10093
+	}
+
+	# 上传文件静态资源（头像/图片/语音），回源到 user-api 的静态服务
+	handle /static/* {
+		reverse_proxy user-api:8887
+	}
+
+	# 其余全部交给 Next.js 前端（含其自身的 /api/* 服务端代理）
+	handle {
+		reverse_proxy web:3001
+	}
+}

@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: '验证码已发送',
+      // 测试/演示模式后端会回传验证码，供前端自动填入输入框（生产配置真实短信商后为空）
+      code: (resp.data as { code?: string } | undefined)?.code,
     });
   } catch (error) {
     console.error('Send code proxy error:', error);

@@ -324,6 +324,25 @@ Generated with `tree -L 2`.
 
 ## Getting Started
 
+### One-Click Deploy (Docker Compose)
+
+The fastest way to run the whole stack (6 microservices + middleware + web client) with a single command — no local toolchain needed, just Docker:
+
+```bash
+docker compose up -d --build
+```
+
+Then open **http://localhost:2470**. On first use click **Register** — in demo mode the verification code is auto-filled into the input box (no real SMS), so you can sign up and log in right away.
+
+```bash
+docker compose ps            # service status
+docker compose logs -f web   # follow a service's logs
+docker compose down          # stop (keep data)
+docker compose down -v       # stop and wipe all data volumes
+```
+
+See the [Docker deployment guide](deploy/docker/README.md) for architecture, ports, server/domain (reverse proxy + HTTPS) deployment, and audio/video (TURN) notes.
+
 ### Prerequisites
 
 - Go 1.23 or newer, using toolchain Go 1.24.2.
