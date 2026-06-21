@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func toChatLogPb(c *model.ChatLog) *im.ChatLog {
@@ -68,7 +69,10 @@ func (l *GetChatLogLogic) GetChatLog(in *im.GetChatLogReq) (*im.GetChatLogResp, 
 	removedAt := conversationRemovedAt(l.ctx, l.svcCtx, in.UserId, in.ConversationId)
 
 	// msgId 作为游标
-	if in.MsgId != "" {
+	// 仅当 msgId 是合法的 MongoDB ObjectID 时才按游标点查；前端在消息尚未拿到真实 ID 时
+	// 可能传入 local_<时间戳> 之类的占位 ID，此时不报错，退化为「无游标」按会话+时间范围查询，
+	// 避免 ObjectIDFromHex 失败导致整段会话加载抛「数据库繁忙」。
+	if _, idErr := primitive.ObjectIDFromHex(in.MsgId); in.MsgId != "" && idErr == nil {
 		target, err := l.svcCtx.ChatLogModel.FindOne(l.ctx, in.MsgId)
 		if err != nil {
 			return nil, errors.Wrapf(xerr.NewDBErr(), "find chatLog by msgId err %v, req %v", err, in.MsgId)
