@@ -376,6 +376,7 @@ services:
     volumes:
       - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
       - ./deploy/docker/etc/trend-api.yaml:/app/apps/trend/api/etc/trend-local.yaml:ro
+      - uploads:/app/temp   # 动态图片/视频上传目录，与 user-api 共享（经 user-api:8887/static 对外）
     healthcheck:
       <<: *hc
       test: ["CMD-SHELL", "nc -z 127.0.0.1 8891 || exit 1"]
