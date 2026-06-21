@@ -297,18 +297,6 @@ sequenceDiagram
 │   └── xerr
 ├── resources
 │   └── sensitive
-├── temp
-│   ├── avatar
-│   ├── emoji
-│   ├── favorite
-│   ├── im
-│   ├── img.png
-│   ├── img_1.png
-│   ├── img_2.png
-│   ├── img_3.png
-│   ├── img_4.png
-│   └── trend
-├── test.sh
 └── web
     ├── Caddyfile
     ├── bun.lock
@@ -332,7 +320,6 @@ sequenceDiagram
     ├── upload
     └── worklog.md
 
-71 directories, 32 files
 ```
 
 ## 快速开始
@@ -345,7 +332,7 @@ sequenceDiagram
 docker compose up -d --build
 ```
 
-随后访问 **http://localhost:2470**。首次使用点「注册」即可——演示模式下验证码会自动填入输入框（无需真实短信），填昵称密码即可注册登录。
+随后访问 **http://localhost:2470** 。首次使用点「注册」即可——演示模式下验证码会自动填入输入框（无需真实短信），填昵称密码即可注册登录。
 
 ```bash
 docker compose ps            # 查看各服务状态
