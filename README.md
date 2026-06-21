@@ -297,18 +297,6 @@ Generated with `tree -L 2`.
 │   └── xerr
 ├── resources
 │   └── sensitive
-├── temp
-│   ├── avatar
-│   ├── emoji
-│   ├── favorite
-│   ├── im
-│   ├── img.png
-│   ├── img_1.png
-│   ├── img_2.png
-│   ├── img_3.png
-│   ├── img_4.png
-│   └── trend
-├── test.sh
 └── web
     ├── Caddyfile
     ├── bun.lock
@@ -332,7 +320,6 @@ Generated with `tree -L 2`.
     ├── upload
     └── worklog.md
 
-71 directories, 32 files
 ```
 
 ## Getting Started
