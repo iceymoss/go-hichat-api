@@ -106,54 +106,82 @@ go-hichat-api 是 HiChat 2.0 的后端与 Web 客户端仓库，是一个基于 
 
 ```mermaid
 sequenceDiagram
-  SenderClient->>IMWS: WebSocket chat.user
-  IMWS->>KafkaMsgChatTransfer: 发布聊天消息
-  KafkaMsgChatTransfer->>TaskMQ: 消费 MsgChatTransfer
-  TaskMQ->>MongoDBChatLog: 持久化聊天记录
-  TaskMQ->>IMWS: 通过 push 路由推送
-  IMWS->>ReceiverClient: WebSocket 消息帧
-  ReceiverClient-->>IMWS: ACK 帧
-  IMWS-->>SenderClient: 可选发送方回响和服务端 msgId
+  participant C as 发送方
+  participant WS as im/ws
+  participant K as Kafka
+  participant MQ as task/mq
+  participant DB as MongoDB
+  participant R as 接收方
+  C->>WS: chat.user
+  WS->>K: msgChatTransfer
+  K->>MQ: 消费
+  MQ->>DB: 落库 chatlog
+  MQ->>WS: push
+  WS->>R: 消息帧
+  R-->>WS: ACK
+  WS-->>C: echo（真实 msgId）
 ```
 
 ### 已读回执
 
 ```mermaid
 sequenceDiagram
-  ReaderClient->>IMWS: WebSocket chat.markChat
-  IMWS->>KafkaMsgReadTransfer: 发布已读事件
-  KafkaMsgReadTransfer->>TaskMQ: 消费 MsgReadTransfer
-  TaskMQ->>MongoDBChatLog: 更新已读 bitmap 和已读时间
-  TaskMQ->>IMWS: 推送已读回执控制消息
-  IMWS->>SenderClient: WebSocket readRecords 更新
-  SenderClient->>IMAPI: GET /v1/im/chatlog/readRecords
-  IMAPI->>MongoDBChatLog: 查询详细已读和未读用户
+  participant C as 阅读方
+  participant WS as im/ws
+  participant K as Kafka
+  participant MQ as task/mq
+  participant DB as MongoDB
+  participant API as im/api
+  participant S as 发送方
+  C->>WS: chat.markChat
+  WS->>K: msgReadTransfer
+  K->>MQ: 消费
+  MQ->>DB: 更新已读 bitmap + 时间
+  MQ->>WS: 推送已读回执
+  WS->>S: readRecords 更新
+  S->>API: GET /v1/im/chatlog（已读详情）
+  API->>DB: 查询已读 / 未读用户
 ```
 
 ### 消息撤回
 
 ```mermaid
 sequenceDiagram
-  OperatorClient->>IMAPI: POST /v1/im/chatlog/recall
-  IMAPI->>IMRPC: RecallMsg
-  IMRPC->>MongoDBChatLog: 标记消息为已撤回
-  IMAPI->>KafkaMsgRecallTransfer: 发布撤回事件
-  KafkaMsgRecallTransfer->>TaskMQ: 消费 MsgRecallTransfer
-  TaskMQ->>IMWS: 推送撤回控制帧
-  IMWS->>OnlineClients: WebSocket 撤回帧
+  participant C as 操作者
+  participant API as im/api
+  participant RPC as im/rpc
+  participant DB as MongoDB
+  participant K as Kafka
+  participant MQ as task/mq
+  participant WS as im/ws
+  C->>API: POST /v1/im/chatlog/recall
+  API->>RPC: RecallMsg
+  RPC->>DB: 标记已撤回
+  API->>K: msgRecallTransfer
+  K->>MQ: 消费
+  MQ->>WS: 推送撤回
+  WS->>C: 撤回帧（在线客户端）
 ```
 
 ### 动态通知
 
 ```mermaid
 sequenceDiagram
-  ActorClient->>TrendAPI: 创建提及、评论、回复或点赞
-  TrendAPI->>TrendRPC: 执行业务逻辑
-  TrendRPC->>MySQLTrendData: 写入动态与通知数据
-  TrendRPC->>KafkaTrendNotifyTransfer: 发布 TrendNotifyTransfer
-  KafkaTrendNotifyTransfer->>TaskMQ: 消费动态通知事件
-  TaskMQ->>IMWS: push.trend 携带 TrendNotify payload
-  IMWS->>ReceiverClient: 在线时推送 trend.notify
+  participant C as 操作者
+  participant API as trend/api
+  participant RPC as trend/rpc
+  participant DB as MySQL
+  participant K as Kafka
+  participant MQ as task/mq
+  participant WS as im/ws
+  participant R as 接收方
+  C->>API: 提及 / 评论 / 回复 / 点赞
+  API->>RPC: 执行业务逻辑
+  RPC->>DB: 写入动态 + 通知
+  RPC->>K: trendNotifyTransfer
+  K->>MQ: 消费
+  MQ->>WS: push.trend
+  WS->>R: trend.notify（在线时）
 ```
 
 ## 音视频通话
@@ -164,44 +192,54 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-  Caller->>StreamingWS: call_invite（被叫、类型）
-  StreamingWS->>SocialRPC: 校验好友关系
-  StreamingWS-->>Caller: 会话已创建（callId）
-  StreamingWS->>IMWS: push.call invite
-  IMWS->>Callee: call.signal invite（振铃）
-  Callee->>StreamingWS: call_accept
-  StreamingWS->>Caller: call.signal accept
-  Caller->>StreamingWS: offer / ICE 候选
-  StreamingWS->>Callee: relay offer / ICE
-  Callee->>StreamingWS: answer / ICE 候选
-  StreamingWS->>Caller: relay answer / ICE
-  Note over Caller,Callee: P2P 媒体直连，不经服务器
-  Caller->>StreamingWS: call_end
-  StreamingWS->>Callee: call.signal end
-  Note over Caller,Callee: 向会话投递一条通话记录
+  participant A as 主叫
+  participant ST as streaming
+  participant SR as social/rpc
+  participant WS as im/ws
+  participant B as 被叫
+  A->>ST: call_invite（被叫、类型）
+  ST->>SR: 校验好友关系
+  ST-->>A: 会话已创建（callId）
+  ST->>WS: push.call invite
+  WS->>B: call.signal invite（振铃）
+  B->>ST: call_accept
+  ST->>A: call.signal accept
+  A->>ST: offer / ICE
+  ST->>B: relay offer / ICE
+  B->>ST: answer / ICE
+  ST->>A: relay answer / ICE
+  Note over A,B: P2P 媒体直连，不经服务器
+  A->>ST: call_end
+  ST->>B: call.signal end
+  Note over A,B: 向会话投递一条通话记录
 ```
 
 ### 群聊通话（Mesh）
 
 ```mermaid
 sequenceDiagram
-  Initiator->>StreamingWS: group_invite（群、成员、类型）
-  StreamingWS->>SocialRPC: 校验群成员
-  StreamingWS-->>Initiator: group_created（callId）
-  StreamingWS->>IMWS: push.call group.invite（逐个被邀成员）
-  IMWS->>Member: call.signal group.invite（振铃）
-  StreamingWS->>GroupMembers: group.state 广播（横幅 / 列表标识）
-  Member->>StreamingWS: group_join（callId）
-  StreamingWS->>Initiator: peer_joined（新成员 uid）
-  Note over Initiator,Member: 由老成员向新人发 offer（避免 glare）
-  Initiator->>StreamingWS: offer（to = Member）
-  StreamingWS->>Member: relay offer
-  Member->>StreamingWS: answer（to = Initiator）
-  StreamingWS->>Initiator: relay answer
-  Note over Initiator,Member: 两两 P2P 直连（全连接 Mesh）
-  Member->>StreamingWS: group_leave
-  StreamingWS->>Initiator: peer_left
-  StreamingWS->>GroupMembers: group.state 广播（更新 / 清除）
+  participant I as 发起人
+  participant ST as streaming
+  participant SR as social/rpc
+  participant WS as im/ws
+  participant M as 成员
+  I->>ST: group_invite（群、成员、类型）
+  ST->>SR: 校验群成员
+  ST-->>I: group_created（callId）
+  ST->>WS: push.call group.invite（逐个成员）
+  WS->>M: call.signal group.invite（振铃）
+  ST->>M: group.state 广播（横幅 / 标识）
+  M->>ST: group_join（callId）
+  ST->>I: peer_joined（新成员 uid）
+  Note over I,M: 由老成员向新人发 offer（避免 glare）
+  I->>ST: offer（to = 成员）
+  ST->>M: relay offer
+  M->>ST: answer（to = 发起人）
+  ST->>I: relay answer
+  Note over I,M: 两两 P2P 直连（全连接 Mesh）
+  M->>ST: group_leave
+  ST->>I: peer_left
+  ST->>WS: group.state 广播（更新 / 清除）
 ```
 
 ## 服务列表
@@ -218,7 +256,7 @@ sequenceDiagram
 
 ## 技术栈
 
-- 后端：Go 1.23、toolchain Go 1.24.2、go-zero、zRPC、gRPC、goctl。
+- 后端：Go 1.25、go-zero、zRPC、gRPC、goctl。
 - 实时通信：WebSocket、Kafka、WebRTC、Pion。
 - 存储：MySQL、MongoDB、Redis。
 - 服务发现：Etcd。
@@ -363,7 +401,7 @@ docker compose down -v --remove-orphans && docker images 'hichat-*' -q | xargs -
 
 ### 前置依赖
 
-- Go 1.23 或更高版本，使用 toolchain Go 1.24.2。
+- Go 1.25 或更高版本（与 `go.mod` 的 `go` 指令一致）。
 - Web 客户端需要 Bun。
 - MySQL、Redis、Etcd、MongoDB 和 Kafka。
 - go-zero 工具链：`goctl`、`protoc`、`protoc-gen-go` 和 `protoc-gen-go-grpc`。
