@@ -70,6 +70,7 @@ type SendPhoneCodeReq struct {
 }
 
 type SendPhoneCodeResp struct {
+	Code string `json:"code,omitempty"` // 仅测试/演示模式回传，供前端自动填入验证码输入框
 }
 
 type SendVerificationEmailReq struct {

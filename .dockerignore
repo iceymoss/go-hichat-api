@@ -1,0 +1,21 @@
+# Go 后端构建上下文裁剪：排除前端、依赖、产物、日志等无关内容，加速构建。
+.git
+.idea
+.vscode
+.DS_Store
+
+# 前端整套不参与 Go 镜像构建（前端有独立的 web/Dockerfile）
+web
+
+# 运行期产物 / 日志 / 上传目录
+logs
+temp
+**/*.log
+
+# 文档与本地素材
+docs/imgs
+*.md
+
+# 本地配置（容器内由挂载提供）
+**/*-local.yaml
+**/*-local.yml

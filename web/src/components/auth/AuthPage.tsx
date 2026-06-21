@@ -40,7 +40,7 @@ async function sendCode(target: string, type: 'register' | 'login') {
       body: JSON.stringify({ target, type }),
     });
     const d = await res.json();
-    return { ok: d.success, msg: d.message };
+    return { ok: d.success, msg: d.message, code: d.code as string | undefined };
   } catch { return { ok: false, msg: '网络错误，请稍后重试' }; }
 }
 
@@ -181,7 +181,7 @@ function RegisterBox() {
     if (!PHONE_RE.test(phone)) { setError(t('auth.err.phone')); return; }
     setError('');
     const r = await sendCode(phone, 'register');
-    if (r.ok) { setSent(true); cd.start(); } else setError(r.msg);
+    if (r.ok) { setSent(true); cd.start(); if (r.code) setCode(r.code); } else setError(r.msg);
   };
 
   const submit = async () => {
@@ -248,7 +248,7 @@ function ResetBox() {
     if (!isPhone && !isEmail) { setError(t('auth.err.account')); return; }
     setError('');
     const r = await sendCode(account, 'register');
-    if (r.ok) { setSent(true); cd.start(); } else setError(r.msg);
+    if (r.ok) { setSent(true); cd.start(); if (r.code) setCode(r.code); } else setError(r.msg);
   };
 
   const submit = async () => {

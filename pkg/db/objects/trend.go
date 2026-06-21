@@ -70,7 +70,7 @@ type TrendDiscuss struct {
 	DiscussCount int       `gorm:"column:discuss_count;type:INT;not null;default:0;comment:子评论数量"`
 	State        uint64    `gorm:"column:state;type:TINYINT UNSIGNED;not null;default:1;index:idx_state;index:idx_updatetime_state,priority:2;comment:状态（0=已删除, 1=正常）"`
 	Read         int       `gorm:"column:read;type:TINYINT;not null;default:1;comment:已读状态（0=已读, 1=未读）"`
-	Path         string    `gorm:"column:path;type:VARCHAR(1000);not null;default:'/';index:idx_path_level,priority:1;index:idx_path;comment:评论路径"`
+	Path         string    `gorm:"column:path;type:VARCHAR(1000);not null;default:'/';index:idx_path_level,priority:1,length:100;index:idx_path,length:255;comment:评论路径"`
 	Createtime   time.Time `gorm:"column:createtime;type:DATETIME;not null;default:CURRENT_TIMESTAMP;index:idx_createtime;index:idx_trendid_createtime,priority:2;comment:创建时间"`
 	Updatetime   time.Time `gorm:"column:updatetime;type:DATETIME;not null;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;index:idx_trendid_updatetime,priority:2;index:idx_updatetime_state,priority:1;comment:最后更新时间"`
 }
