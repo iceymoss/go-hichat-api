@@ -428,6 +428,44 @@ services:
     depends_on:
       streaming: {condition: service_healthy}   # 链尾就绪即代表全部后端已起
 
+  # ==================== 可选：演示数据填充（一次性） ====================
+  # 仅在 --profile mock 时启用：注册 14 个中文示例用户，并灌入好友、群、单聊/群聊、
+  # 动态/评论/点赞，方便部署后立刻截图体验。复用通用 Dockerfile 在容器网络内运行，
+  # 通过服务名直连各服务与 redis，无需本机 Go 工具链。
+  #
+  #   docker compose up -d --build                     # 先把整套服务起好
+  #   docker compose --profile mock run --rm mockdata  # 再灌入演示数据（跑一次即可）
+  #
+  # 主角登录账号：13800138000 / hichat2024（14 个账号同密码）。
+  # 注意：仅在「全新/空库」上跑一次；重复运行会产生重复的好友申请与群。
+  mockdata:
+    <<: *go-service
+    profiles: ["mock"]
+    build:
+      <<: *go-build
+      args: {SVC_DIR: scripts/mockdata}
+    image: hichat-mockdata
+    restart: "no"
+    environment:
+      USER_API: http://user-api:8887
+      SOCIAL_API: http://social-api:8889
+      IM_API: http://im-api:8890
+      TREND_API: http://trend-api:8891
+      WS_URL: ws://im-ws:10090/ws
+      REDIS_ADDR: redis:6379
+      IMG_DIR: /app/docs/imgs
+      TZ: Asia/Shanghai
+    volumes:
+      - ./docs/imgs:/app/docs/imgs:ro   # 头像素材（运行期读取并上传）
+    depends_on:
+      redis: {condition: service_healthy}
+      user-api: {condition: service_healthy}
+      social-api: {condition: service_healthy}
+      im-api: {condition: service_healthy}
+      im-ws: {condition: service_healthy}
+      trend-api: {condition: service_healthy}
+      task-mq: {condition: service_started}   # 消费者就绪后聊天消息才会落库
+
   # ==================== 可选：反向代理（服务器域名部署） ====================
   # 仅在 --profile proxy 时启用：单域名统一入口 + 自动 HTTPS。
   caddy:

@@ -34,6 +34,82 @@ go-hichat-api 是 HiChat 2.0 的后端与 Web 客户端仓库，是一个基于 
 | 流媒体 | WebRTC 单聊通话、群组通话、会议、屏幕共享、直播、信令、房间和 SFU 组件。 |
 | Web 客户端 | Next.js 应用、Bun 脚本、TypeScript、Tailwind CSS、Semi UI，开发服务默认运行在 `3001` 端口。 |
 
+## 产品截图
+
+截取自基于演示数据集运行的 Web 客户端（14 个预置用户，含好友、群组、会话和动态，由 [`scripts/mockdata`](../scripts/mockdata) 生成）。
+
+### 账号
+
+<table>
+  <tr>
+    <td width="33%" align="center"><img src="screenshots/login.png" alt="登录"/><br/><sub><b>登录</b></sub></td>
+    <td width="33%" align="center"><img src="screenshots/register.png" alt="注册"/><br/><sub><b>注册</b></sub></td>
+    <td width="33%" align="center"><img src="screenshots/forgot-password.png" alt="忘记密码"/><br/><sub><b>忘记密码</b></sub></td>
+  </tr>
+</table>
+
+### 即时通讯
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/conversation-list.png" alt="会话列表"/><br/><sub><b>会话列表</b></sub></td>
+    <td width="50%" align="center"><img src="screenshots/single-chat.png" alt="单聊会话"/><br/><sub><b>单聊会话</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/group-chat.png" alt="群会话"/><br/><sub><b>群会话</b></sub></td>
+    <td width="50%" align="center"><img src="screenshots/create-group.png" alt="创建群聊"/><br/><sub><b>创建群聊</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/conversation-batch-actions.png" alt="多选会话、免打扰、置顶"/><br/><sub><b>多选 · 免打扰 · 置顶</b></sub></td>
+    <td width="50%" align="center"><img src="screenshots/chat-user-card.png" alt="对话框用户资料卡片"/><br/><sub><b>对话内资料卡片</b></sub></td>
+  </tr>
+</table>
+
+### 好友
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/friend-list-and-settings.png" alt="好友列表、详情、设置"/><br/><sub><b>好友列表 · 详情 · 设置</b></sub></td>
+    <td width="50%" align="center"><img src="screenshots/friend-request-detail.png" alt="好友申请详情"/><br/><sub><b>好友申请详情</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/friend-requests-received.png" alt="收到的好友申请"/><br/><sub><b>收到的申请</b></sub></td>
+    <td width="50%" align="center"><img src="screenshots/friend-requests-sent.png" alt="我发起的好友申请"/><br/><sub><b>我发起的申请</b></sub></td>
+  </tr>
+</table>
+
+### 动态空间（朋友圈）
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/publish-moment.png" alt="发布动态"/><br/><sub><b>发布动态</b></sub></td>
+    <td width="50%" align="center"><img src="screenshots/moments-feed-and-detail.png" alt="动态列表、详情、评论、点赞"/><br/><sub><b>列表 · 详情 · 评论 · 点赞</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/moments.png" alt="我的朋友圈"/><br/><sub><b>我的朋友圈</b></sub></td>
+    <td width="50%" align="center"><img src="screenshots/moments-space.png" alt="朋友圈空间"/><br/><sub><b>朋友圈空间</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="screenshots/moments-notifications.png" alt="点赞与评论列表"/><br/><sub><b>点赞 / 评论列表</b></sub></td>
+    <td width="50%"></td>
+  </tr>
+</table>
+
+### 个人主页与设置
+
+<table>
+  <tr>
+    <td width="33%" align="center"><img src="screenshots/profile-home.png" alt="我的主页"/><br/><sub><b>我的主页</b></sub></td>
+    <td width="33%" align="center"><img src="screenshots/favorites.png" alt="我的收藏"/><br/><sub><b>我的收藏</b></sub></td>
+    <td width="33%" align="center"><img src="screenshots/settings.png" alt="系统设置"/><br/><sub><b>系统设置</b></sub></td>
+  </tr>
+  <tr>
+    <td width="33%" align="center"><img src="screenshots/settings-more.png" alt="更多设置"/><br/><sub><b>更多设置</b></sub></td>
+    <td width="33%"></td>
+    <td width="33%"></td>
+  </tr>
+</table>
+
 ## 架构
 
 ```text
@@ -294,6 +370,7 @@ sequenceDiagram
 │   ├── api.md
 │   ├── development-guide.md
 │   ├── imgs
+│   ├── screenshots
 │   └── specs
 ├── go.mod
 ├── go.sum
@@ -385,6 +462,29 @@ docker compose down -v --remove-orphans && docker images 'hichat-*' -q | xargs -
 ```
 
 架构、端口、清理卸载、服务器域名（反向代理 + HTTPS）部署、音视频（TURN）说明详见 [Docker 部署指南](../deploy/docker/README.zh-CN.md)。
+
+### 填充演示数据（可选）
+
+部署完想立刻有数据可点、可截图？内置的数据生成器会注册 **14 个中文示例用户**，并灌入好友、群组、单聊/群聊、动态及评论点赞——即 [产品截图](#产品截图) 里展示的那套数据。
+
+用 Docker Compose 部署的（无需本机 Go 工具链），直接跑随仓库附带的一次性服务：
+
+```bash
+docker compose --profile mock run --rm mockdata
+```
+
+从源码运行的（已装 Go）：
+
+```bash
+go run ./scripts/mockdata              # 完整数据集
+go run ./scripts/mockdata -trends-only # 只重灌动态/评论/点赞
+```
+
+随后访问 **http://localhost:2470**，用主角账号登录：
+
+- 手机号 `13800138000`，密码 `hichat2024`。14 个账号同密码，手机号为 `13800138000`–`13800138013`。
+
+> 仅在「全新/空库」上**跑一次**；重复运行会产生重复的好友申请与群。它只插入演示数据，不会删除任何东西。人设与内容脚本见 [`scripts/mockdata`](../scripts/mockdata)。
 
 ### 前置依赖
 
