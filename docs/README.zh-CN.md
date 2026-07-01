@@ -65,6 +65,16 @@ go-hichat-api 是 HiChat 2.0 的后端与 Web 客户端仓库，是一个基于 
   </tr>
 </table>
 
+### 音视频通话
+
+<table>
+  <tr>
+    <td width="33%" align="center"><img src="screenshots/call-incoming.png" alt="来电提醒"/><br/><sub><b>来电提醒</b></sub></td>
+    <td width="33%" align="center"><img src="screenshots/group-call.png" alt="群通话界面"/><br/><sub><b>群通话界面</b></sub></td>
+    <td width="33%" align="center"><img src="screenshots/group-call-active.png" alt="多人群通话中"/><br/><sub><b>多人群通话中</b></sub></td>
+  </tr>
+</table>
+
 ### 好友
 
 <table>

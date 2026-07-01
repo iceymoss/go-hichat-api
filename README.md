@@ -65,6 +65,16 @@ Captured from the web client running on the live demo dataset (14 seeded users w
   </tr>
 </table>
 
+### Voice &amp; Video Calls
+
+<table>
+  <tr>
+    <td width="33%" align="center"><img src="docs/screenshots/call-incoming.png" alt="Incoming call"/><br/><sub><b>Incoming call</b></sub></td>
+    <td width="33%" align="center"><img src="docs/screenshots/group-call.png" alt="Group call"/><br/><sub><b>Group call</b></sub></td>
+    <td width="33%" align="center"><img src="docs/screenshots/group-call-active.png" alt="Group call in progress"/><br/><sub><b>Group call in progress</b></sub></td>
+  </tr>
+</table>
+
 ### Friends
 
 <table>
