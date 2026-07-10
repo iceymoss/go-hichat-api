@@ -52,6 +52,21 @@ func (s *SFU) getPeer(uid string) *Peer {
 	return s.peers[uid]
 }
 
+// GetPeer 返回 uid 的 peer（信令层路由 sfu_publish/answer 用），不存在返回 nil。
+func (s *SFU) GetPeer(uid string) *Peer { return s.getPeer(uid) }
+
+// RemovePeer 关闭并移除某参与者的 peer（离开/断线时调用）：从注册表删除并关闭其 PeerConnection，
+// 触发房间路由清理（其上行轨与作为订阅者的下行订阅一并移除）。
+func (s *SFU) RemovePeer(uid string) {
+	s.mu.Lock()
+	p := s.peers[uid]
+	delete(s.peers, uid)
+	s.mu.Unlock()
+	if p != nil {
+		_ = p.Close()
+	}
+}
+
 // Peer 一个参与者在房间内的 pion 连接（含服务端发起 renegotiation 的能力）。
 type Peer struct {
 	uid  string

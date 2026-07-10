@@ -34,7 +34,7 @@ const (
 	MessageTypeMediaState  SignalingMessageType = "media_state"  // 静音/开关摄像头
 	MessageTypeCallSignal  SignalingMessageType = "call_signal"  // 服务端经 streaming ws 直推的通话控制信令
 
-	// 群组通话（Mesh）
+	// 群组通话（SFU）
 	MessageTypeGroupInvite  SignalingMessageType = "group_invite"
 	MessageTypeGroupJoin    SignalingMessageType = "group_join"
 	MessageTypeGroupLeave   SignalingMessageType = "group_leave"
@@ -42,6 +42,12 @@ const (
 	MessageTypeGroupRoster  SignalingMessageType = "group_roster"  // 回执新加入者：当前参与者名单
 	MessageTypePeerJoined   SignalingMessageType = "peer_joined"   // 通知房间内其他人：有人加入（去与其建连）
 	MessageTypePeerLeft     SignalingMessageType = "peer_left"     // 通知房间内其他人：有人离开（关连接）
+
+	// 群组 SFU 媒体协商（客户端与 streaming 内 SFU 建一条 PeerConnection）
+	MessageTypeSFUPublish       SignalingMessageType = "sfu_publish"        // C->S：发布 offer
+	MessageTypeSFUPublishAnswer SignalingMessageType = "sfu_publish_answer" // S->C：对发布的 answer
+	MessageTypeSFUOffer         SignalingMessageType = "sfu_offer"          // S->C：服务端发起的 renegotiation offer
+	MessageTypeSFUAnswer        SignalingMessageType = "sfu_answer"         // C->S：对 renegotiation 的 answer
 
 	// 会议功能
 	MessageTypeMeetingCreate  SignalingMessageType = "meeting_create"
