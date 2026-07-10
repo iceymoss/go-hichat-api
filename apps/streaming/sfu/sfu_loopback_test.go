@@ -1,6 +1,7 @@
 package sfu
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -9,14 +10,24 @@ import (
 )
 
 // fakeFactory 假下行工厂：为每个订阅者建一个 fakeSink 并记录，隔离真实 pion 下行接线。
+// 并发安全（newDownlink 在 pion 的 OnTrack goroutine 里被调，测试主 goroutine 读取）。
 type fakeFactory struct {
+	mu    sync.Mutex
 	sinks map[string]*fakeSink
 }
 
 func (f *fakeFactory) newDownlink(subUID, _ string, _ string, _ webrtc.RTPCodecType) (RTPSink, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	s := &fakeSink{}
 	f.sinks[subUID] = s
 	return s, nil
+}
+
+func (f *fakeFactory) sink(subUID string) *fakeSink {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.sinks[subUID]
 }
 
 // Test_SFU_IngestsRealTrackAndFansOut_Loopback pion 进程内 loopback 集成测试：
@@ -24,7 +35,7 @@ func (f *fakeFactory) newDownlink(subUID, _ string, _ string, _ webrtc.RTPCodecT
 // 断言订阅者 sink 收到经 SFU 转发的真实 RTP。验证核心媒体 ingest+fan-out 路径（不碰浏览器）。
 func Test_SFU_IngestsRealTrackAndFansOut_Loopback(t *testing.T) {
 	factory := &fakeFactory{sinks: map[string]*fakeSink{}}
-	s := NewSFU(factory)
+	s := newSFUWithFactory(factory)
 
 	// sub 先在房间里，这样 pub 的 OnTrack 会为 sub 建下行订阅
 	room := s.room("call1")
@@ -89,7 +100,7 @@ func Test_SFU_IngestsRealTrackAndFansOut_Loopback(t *testing.T) {
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		if sink, ok := factory.sinks["sub"]; ok && sink.count() > 0 {
+		if sink := factory.sink("sub"); sink != nil && sink.count() > 0 {
 			return // 成功：真实媒体经 SFU 转发到订阅端
 		}
 		time.Sleep(100 * time.Millisecond)
