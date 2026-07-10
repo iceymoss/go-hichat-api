@@ -52,11 +52,22 @@ func (r *Room) Join(uid string) {
 	r.participants[uid] = struct{}{}
 }
 
-// Leave 离开房间（未知成员为 no-op）。
+// Leave 离开房间（未知成员为 no-op），并清理其订阅路由：
+// 作为发布者——移除其所有已发布轨的订阅表；作为订阅者——从其余轨的订阅表里移除自己。
 func (r *Room) Leave(uid string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.participants, uid)
+	for key, subs := range r.subs {
+		if key.pubUID == uid {
+			delete(r.subs, key) // 作为发布者：整条轨的订阅表清掉
+			continue
+		}
+		delete(subs, uid) // 作为订阅者：从别人轨的订阅表里移除自己
+		if len(subs) == 0 {
+			delete(r.subs, key)
+		}
+	}
 }
 
 // Participants 返回当前成员 uid 列表（顺序不保证）。
