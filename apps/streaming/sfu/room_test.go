@@ -141,3 +141,58 @@ func Test_Room_Leave_CleansUpSubscriptions(t *testing.T) {
 		t.Errorf("left publisher 'a' track still routed: got %d, want 0", got)
 	}
 }
+
+// Test_Room_PublishedRegistry_ExceptAndCleanup published 轨注册表：
+// PublishedExcept 返回除指定 uid 外的已发布轨（供迟到者回填）；Unpublish 与 Leave 正确清理。
+func Test_Room_PublishedRegistry_ExceptAndCleanup(t *testing.T) {
+	r := NewRoom("c")
+	r.Join("a")
+	r.Join("b")
+	r.AddPublished("a", "a-vid", "video")
+	r.AddPublished("a", "a-aud", "audio")
+	r.AddPublished("b", "b-aud", "audio")
+
+	// PublishedExcept("b") 只含 a 的两条
+	if got := trackIDs(r.PublishedExcept("b")); !sameSet(got, []string{"a-vid", "a-aud"}) {
+		t.Errorf("PublishedExcept(b) = %v, want a-vid,a-aud", got)
+	}
+
+	// Unpublish 移除单条
+	r.Unpublish("a", "a-vid")
+	if got := trackIDs(r.PublishedExcept("b")); !sameSet(got, []string{"a-aud"}) {
+		t.Errorf("after Unpublish, PublishedExcept(b) = %v, want a-aud", got)
+	}
+
+	// Leave 移除该发布者全部已发布轨
+	r.Leave("a")
+	if got := r.PublishedExcept("b"); len(got) != 0 {
+		t.Errorf("after 'a' leaves, PublishedExcept(b) = %v, want empty", got)
+	}
+}
+
+func trackIDs(pts []PublishedTrack) []string {
+	out := make([]string, 0, len(pts))
+	for _, p := range pts {
+		out = append(out, p.TrackID)
+	}
+	return out
+}
+
+func sameSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	m := map[string]int{}
+	for _, x := range a {
+		m[x]++
+	}
+	for _, x := range b {
+		m[x]--
+	}
+	for _, v := range m {
+		if v != 0 {
+			return false
+		}
+	}
+	return true
+}

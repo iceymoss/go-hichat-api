@@ -23,6 +23,13 @@ type trackKey struct {
 	trackID string
 }
 
+// PublishedTrack 已发布轨的元信息（供迟到者回填订阅）。Kind 为 "audio"/"video"。
+type PublishedTrack struct {
+	PubUID  string
+	TrackID string
+	Kind    string
+}
+
 // Room 一通群通话的路由核心：维护参与者集合与「发布者 -> 订阅者下行 sink」路由表，
 // 负责把某发布者的 RTP 包 fan-out 给其余订阅者。并发安全（所有访问经 mu）。
 type Room struct {
@@ -31,6 +38,7 @@ type Room struct {
 	mu           sync.RWMutex
 	participants map[string]struct{}            // uid 集合
 	subs         map[trackKey]map[string]RTPSink // 已发布轨 -> (订阅者 uid -> 下行 sink)
+	published    map[trackKey]PublishedTrack     // 当前已发布轨注册表（供回填）
 }
 
 // NewRoom 创建空房间。
@@ -39,6 +47,7 @@ func NewRoom(id string) *Room {
 		id:           id,
 		participants: make(map[string]struct{}),
 		subs:         make(map[trackKey]map[string]RTPSink),
+		published:    make(map[trackKey]PublishedTrack),
 	}
 }
 
@@ -68,6 +77,42 @@ func (r *Room) Leave(uid string) {
 			delete(r.subs, key)
 		}
 	}
+	for key := range r.published {
+		if key.pubUID == uid {
+			delete(r.published, key) // 作为发布者：从已发布注册表移除
+		}
+	}
+}
+
+// AddPublished 登记一条已发布轨（供迟到者回填订阅）。
+func (r *Room) AddPublished(pubUID, trackID, kind string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	key := trackKey{pubUID: pubUID, trackID: trackID}
+	r.published[key] = PublishedTrack{PubUID: pubUID, TrackID: trackID, Kind: kind}
+}
+
+// Unpublish 移除一条已发布轨及其订阅表（轨结束/关闭时）。
+func (r *Room) Unpublish(pubUID, trackID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	key := trackKey{pubUID: pubUID, trackID: trackID}
+	delete(r.published, key)
+	delete(r.subs, key)
+}
+
+// PublishedExcept 返回除 uid 外的全部已发布轨（迟到者 uid 入房时据此回填订阅）。
+func (r *Room) PublishedExcept(uid string) []PublishedTrack {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]PublishedTrack, 0, len(r.published))
+	for _, pt := range r.published {
+		if pt.PubUID == uid {
+			continue
+		}
+		out = append(out, pt)
+	}
+	return out
 }
 
 // Participants 返回当前成员 uid 列表（顺序不保证）。

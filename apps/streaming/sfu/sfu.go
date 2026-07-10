@@ -82,6 +82,7 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 	})
 	pc.OnTrack(func(tr *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 		trackID := tr.ID()
+		room.AddPublished(uid, trackID, tr.Kind().String())
 		for _, sub := range room.Participants() {
 			if sub == uid {
 				continue
@@ -92,13 +93,37 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 			}
 			room.Subscribe(sub, uid, trackID, sink)
 		}
-		go pump(room, uid, trackID, trackRemoteReader{t: tr})
+		go func() {
+			pump(room, uid, trackID, trackRemoteReader{t: tr})
+			room.Unpublish(uid, trackID) // 轨结束：从注册表 + 订阅表清理
+		}()
 	})
 
 	s.mu.Lock()
 	s.peers[uid] = p
 	s.mu.Unlock()
 	return p, nil
+}
+
+// SubscribeExisting 为迟到入房者 uid 回填订阅：订阅房间内已有的全部发布轨，
+// 使其收到早于自己入房者的媒体。信令层在该 peer 发布/就绪后调用。
+func (s *SFU) SubscribeExisting(roomID, uid string) {
+	room := s.room(roomID)
+	for _, pt := range room.PublishedExcept(uid) {
+		sink, err := s.factory.newDownlink(uid, pt.PubUID, pt.TrackID, kindFromString(pt.Kind))
+		if err != nil {
+			continue
+		}
+		room.Subscribe(uid, pt.PubUID, pt.TrackID, sink)
+	}
+}
+
+// kindFromString 把 "audio"/"video" 还原为 webrtc.RTPCodecType。
+func kindFromString(s string) webrtc.RTPCodecType {
+	if s == webrtc.RTPCodecTypeAudio.String() {
+		return webrtc.RTPCodecTypeAudio
+	}
+	return webrtc.RTPCodecTypeVideo
 }
 
 // Publish 处理客户端发布 offer（客户端作 offerer），返回 SFU answer（非 trickle）。
