@@ -5,7 +5,23 @@
 // 接口（*webrtc.TrackLocalStaticRTP 天然满足），媒体读写泵在上层把真实 track 接进来。
 package sfu
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/pion/rtp"
+)
+
+// RTPSink 下行投递目标：把一个 RTP 包写给某订阅者的某条下行轨。
+// *webrtc.TrackLocalStaticRTP 天然满足该接口（其 WriteRTP(*rtp.Packet) error）。
+type RTPSink interface {
+	WriteRTP(*rtp.Packet) error
+}
+
+// trackKey 唯一标识一条已发布轨：发布者 uid + track id。
+type trackKey struct {
+	pubUID  string
+	trackID string
+}
 
 // Room 一通群通话的路由核心：维护参与者集合与「发布者 -> 订阅者下行 sink」路由表，
 // 负责把某发布者的 RTP 包 fan-out 给其余订阅者。并发安全（所有访问经 mu）。
@@ -13,7 +29,8 @@ type Room struct {
 	id string
 
 	mu           sync.RWMutex
-	participants map[string]struct{} // uid 集合
+	participants map[string]struct{}            // uid 集合
+	subs         map[trackKey]map[string]RTPSink // 已发布轨 -> (订阅者 uid -> 下行 sink)
 }
 
 // NewRoom 创建空房间。
@@ -21,6 +38,7 @@ func NewRoom(id string) *Room {
 	return &Room{
 		id:           id,
 		participants: make(map[string]struct{}),
+		subs:         make(map[trackKey]map[string]RTPSink),
 	}
 }
 
@@ -50,4 +68,38 @@ func (r *Room) Participants() []string {
 		out = append(out, uid)
 	}
 	return out
+}
+
+// Subscribe 登记：订阅者 subUID 订阅发布者 pubUID 的 trackID，下行经 sink 投递。
+// 订阅自己的轨会被记录但在 RouteRTP 时排除（不回声）。
+func (r *Room) Subscribe(subUID, pubUID, trackID string, sink RTPSink) {
+	key := trackKey{pubUID: pubUID, trackID: trackID}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	subs, ok := r.subs[key]
+	if !ok {
+		subs = make(map[string]RTPSink)
+		r.subs[key] = subs
+	}
+	subs[subUID] = sink
+}
+
+// RouteRTP 把发布者 pubUID 的 trackID 的一个 RTP 包 fan-out 给所有订阅者，
+// 但永不回给发布者自己。未知轨 / 无订阅者为 no-op。
+func (r *Room) RouteRTP(pubUID, trackID string, pkt *rtp.Packet) {
+	key := trackKey{pubUID: pubUID, trackID: trackID}
+	r.mu.RLock()
+	// 拷出目标 sink，避免持锁写 I/O
+	targets := make([]RTPSink, 0, len(r.subs[key]))
+	for subUID, sink := range r.subs[key] {
+		if subUID == pubUID {
+			continue // 排除自己
+		}
+		targets = append(targets, sink)
+	}
+	r.mu.RUnlock()
+
+	for _, sink := range targets {
+		_ = sink.WriteRTP(pkt) // 单个订阅者写失败不影响其他订阅者；错误由上层 I/O 层处理
+	}
 }
