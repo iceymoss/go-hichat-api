@@ -217,6 +217,8 @@ func (s *SignalingServer) route(c *clientConn, msg *types.SignalingMessage) {
 		s.handleSFUPublish(c, msg)
 	case types.MessageTypeSFUAnswer:
 		s.handleSFUAnswer(c, msg)
+	case types.MessageTypeSFUMediaState:
+		s.handleSFUMediaState(c, msg)
 	case types.MessageTypeOffer, types.MessageTypeAnswer, types.MessageTypeIceCandidate, types.MessageTypeMediaState:
 		s.relayToPeer(c, msg)
 	default:
@@ -432,6 +434,30 @@ func (s *SignalingServer) handleSFUAnswer(c *clientConn, msg *types.SignalingMes
 	}
 	if err := peer.HandleAnswer(dataStr(msg.Data, "sdp")); err != nil {
 		zLog.Warn("sfu handle answer failed", zap.String("uid", c.uid), zap.Error(err))
+	}
+}
+
+// handleSFUMediaState 广播开关麦/摄像头状态给同一通话内其余参与者（SFU 不经手媒体，状态经控制面同步）。
+func (s *SignalingServer) handleSFUMediaState(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	participants, ok := s.groups.Participants(callID)
+	if !ok {
+		return
+	}
+	data, _ := msg.Data.(map[string]any)
+	audio, _ := data["audio"].(bool)
+	video, _ := data["video"].(bool)
+	for _, p := range participants {
+		if p == c.uid {
+			continue
+		}
+		if pc, ok := s.getConn(p); ok {
+			s.send(pc, &types.SignalingMessage{
+				Type:   types.MessageTypeSFUMediaState,
+				RoomID: callID,
+				Data:   map[string]any{"call_id": callID, "uid": c.uid, "audio": audio, "video": video},
+			})
+		}
 	}
 }
 

@@ -129,9 +129,22 @@ export class SFUGroupEngine {
 
   toggleMute(muted: boolean) {
     this.localStream?.getAudioTracks().forEach(tr => (tr.enabled = !muted));
+    this.sendMediaState();
   }
   toggleCamera(on: boolean) {
     this.localStream?.getVideoTracks().forEach(tr => (tr.enabled = on));
+    this.sendMediaState();
+  }
+
+  /** 本端当前开关麦/摄像头状态 */
+  private myMediaState() {
+    const audio = this.localStream?.getAudioTracks().some(t => t.enabled) ?? true;
+    const video = this.localStream?.getVideoTracks().some(t => t.enabled) ?? false;
+    return { audio, video };
+  }
+  /** 广播本端媒体状态给同通话其余参与者（经 streaming ws 控制面，SFU 不经手） */
+  private sendMediaState() {
+    this.sendWs('sfu_media_state', { call_id: this.callId, ...this.myMediaState() });
   }
 
   // ==================== streaming ws（控制面 + SFU 协商） ====================
@@ -174,6 +187,13 @@ export class SFUGroupEngine {
       case 'sfu_peer_left': {
         const uid = data.uid as string;
         if (uid) this.onParticipantGone(uid);
+        break;
+      }
+      case 'sfu_media_state': {
+        const uid = data.uid as string;
+        if (uid && uid !== this.opts.selfId) {
+          this.cb.onParticipantMedia(uid, { audio: data.audio !== false, video: data.video === true });
+        }
         break;
       }
       case 'error':
@@ -230,6 +250,7 @@ export class SFUGroupEngine {
       this.hadPeer = true;
       if (this.joinTimer) { clearTimeout(this.joinTimer); this.joinTimer = null; }
       this.cb.onPeerEvent(uid, 'joined');
+      this.sendMediaState(); // 让新出现的参与者立即知道我当前的开关麦/摄像头状态
     }
     this.cb.onParticipantStream(uid, stream);
   }
