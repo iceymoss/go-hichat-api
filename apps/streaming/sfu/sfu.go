@@ -2,9 +2,12 @@ package sfu
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/pion/ice/v2"
+	"github.com/pion/interceptor"
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
@@ -24,18 +27,49 @@ type SFU struct {
 	peers   map[string]*Peer  // uid -> peer（单会话，uid 全局唯一）
 	pubSSRC map[string]uint32 // "pubUID|trackID" -> 上行轨 SSRC（PLI 转发用）
 	factory downlinkFactory
+	api     *webrtc.API // 带接口过滤的 pion API（滤掉虚拟接口候选）
 }
 
 // NewSFU 创建协调器，使用真实 pion 下行工厂（生产）。
 func NewSFU() *SFU {
-	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32)}
+	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), api: buildAPI()}
 	s.factory = realDownlink{sfu: s}
 	return s
 }
 
 // newSFUWithFactory 注入自定义下行工厂（测试用，隔离 pion 下行 I/O）。
 func newSFUWithFactory(f downlinkFactory) *SFU {
-	return &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), factory: f}
+	return &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), api: buildAPI(), factory: f}
+}
+
+// buildAPI 构造带 SettingEngine 的 pion API：注册默认编解码 + 拦截器（NACK/RTCP 等），
+// 并过滤 ICE 采集接口——只留可用的物理/回环接口，滤掉 VPN/Docker/AWDL 等虚拟接口，
+// 否则它们的垃圾候选会拖慢 ICE 甚至判失败（表现为发起即报错、加载很慢）。
+func buildAPI() *webrtc.API {
+	me := &webrtc.MediaEngine{}
+	if err := me.RegisterDefaultCodecs(); err != nil {
+		panic(err)
+	}
+	ir := &interceptor.Registry{}
+	if err := webrtc.RegisterDefaultInterceptors(me, ir); err != nil {
+		panic(err)
+	}
+	se := webrtc.SettingEngine{}
+	se.SetInterfaceFilter(usableInterface)
+	// 解析浏览器发来的 mDNS(.local) 主机候选：Chrome 默认把 host IP 藏成 .local，
+	// 不解析就只能靠反射候选连通，本地/局域网易慢或连不上。
+	se.SetICEMulticastDNSMode(ice.MulticastDNSModeQueryOnly)
+	return webrtc.NewAPI(webrtc.WithMediaEngine(me), webrtc.WithInterceptorRegistry(ir), webrtc.WithSettingEngine(se))
+}
+
+// usableInterface 判断某网卡是否用于 ICE 候选采集：排除已知虚拟/隧道接口。
+func usableInterface(name string) bool {
+	for _, bad := range []string{"utun", "awdl", "llw", "bridge", "vmenet", "docker", "veth", "tap", "tun", "ipsec", "ppp"} {
+		if strings.HasPrefix(name, bad) {
+			return false
+		}
+	}
+	return true
 }
 
 func ssrcKey(pubUID, trackID string) string { return pubUID + "|" + trackID }
@@ -109,7 +143,7 @@ type Peer struct {
 // AddPeer 为 uid 建一条新 PeerConnection 加入房间；OnTrack 里为其余人建下行订阅并起收流泵；
 // AddTrack 触发的重协商由服务端作为 offerer 驱动（避 glare）。
 func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer, error) {
-	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{ICEServers: iceServers})
+	pc, err := s.api.NewPeerConnection(webrtc.Configuration{ICEServers: iceServers})
 	if err != nil {
 		return nil, err
 	}
