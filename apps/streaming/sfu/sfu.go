@@ -3,6 +3,7 @@ package sfu
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
@@ -100,8 +101,9 @@ type Peer struct {
 	pc   *webrtc.PeerConnection
 
 	negMu      sync.Mutex
-	negPending bool               // 信令非 stable 时标记待重协商
-	onOffer    func(sdp string)   // 服务端发起的 renegotiation offer -> 客户端（由信令层接线）
+	negPending bool             // 有 offer 在途、期间又有 track 变化时标记待补
+	negTimer   *time.Timer      // 去抖定时器（合并一批 AddTrack 成一次 renegotiation）
+	onOffer    func(sdp string) // 服务端发起的 renegotiation offer -> 客户端（由信令层接线）
 }
 
 // AddPeer 为 uid 建一条新 PeerConnection 加入房间；OnTrack 里为其余人建下行订阅并起收流泵；
@@ -115,7 +117,7 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 	room.Join(uid)
 	p := &Peer{uid: uid, room: room, pc: pc}
 
-	pc.OnNegotiationNeeded(p.negotiate)
+	pc.OnNegotiationNeeded(p.scheduleNegotiation)
 	pc.OnSignalingStateChange(func(st webrtc.SignalingState) {
 		if st == webrtc.SignalingStateStable {
 			p.flushPendingNegotiation()
@@ -197,11 +199,26 @@ func (p *Peer) HandleAnswer(sdp string) error {
 	return p.pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: sdp})
 }
 
-// negotiate 由 OnNegotiationNeeded 触发：信令 stable 才发 offer，否则标记待重协商。
-func (p *Peer) negotiate() {
+// negotiationDebounce 去抖窗口：把一批 AddTrack（如迟到者回填 4 条轨）合并成一次 renegotiation，
+// 大幅减少重协商竞争与偶发丢轨（"少一个人的视频"的根因）。
+const negotiationDebounce = 120 * time.Millisecond
+
+// scheduleNegotiation 由 OnNegotiationNeeded 触发：去抖排程，多次触发合并成一次 offer。
+func (p *Peer) scheduleNegotiation() {
 	p.negMu.Lock()
+	defer p.negMu.Unlock()
+	if p.negTimer != nil {
+		return // 已排程，等它触发时会反映当时的全部 track 变化
+	}
+	p.negTimer = time.AfterFunc(negotiationDebounce, p.doNegotiation)
+}
+
+// doNegotiation 去抖窗口到期：stable 就发一次合并的 offer；有 offer 在途则标记待补。
+func (p *Peer) doNegotiation() {
+	p.negMu.Lock()
+	p.negTimer = nil
 	if p.pc.SignalingState() != webrtc.SignalingStateStable {
-		p.negPending = true
+		p.negPending = true // 有 offer 在途，待 answer 回 stable 后再补
 		p.negMu.Unlock()
 		return
 	}
@@ -213,20 +230,16 @@ func (p *Peer) negotiate() {
 	}
 }
 
-// flushPendingNegotiation 信令回到 stable 时补发被延迟的重协商。
+// flushPendingNegotiation 信令回到 stable 时，若期间又有 track 变化则再排一次去抖协商。
 func (p *Peer) flushPendingNegotiation() {
 	p.negMu.Lock()
-	if !p.negPending || p.pc.SignalingState() != webrtc.SignalingStateStable {
+	if !p.negPending || p.negTimer != nil {
 		p.negMu.Unlock()
 		return
 	}
 	p.negPending = false
-	sdp, ok := p.createOfferLocked()
-	cb := p.onOffer
+	p.negTimer = time.AfterFunc(negotiationDebounce, p.doNegotiation)
 	p.negMu.Unlock()
-	if ok && cb != nil {
-		cb(sdp)
-	}
 }
 
 // createOfferLocked 生成并设置本端 offer，返回其 SDP（含已收集候选）。调用方须持 negMu。
@@ -243,6 +256,12 @@ func (p *Peer) createOfferLocked() (string, bool) {
 
 // Close 关闭连接并从房间 + 注册表移除（触发订阅路由清理）。
 func (p *Peer) Close() error {
+	p.negMu.Lock()
+	if p.negTimer != nil {
+		p.negTimer.Stop()
+		p.negTimer = nil
+	}
+	p.negMu.Unlock()
 	p.room.Leave(p.uid)
 	return p.pc.Close()
 }
