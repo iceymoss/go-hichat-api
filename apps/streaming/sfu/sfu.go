@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 )
@@ -19,20 +20,36 @@ type downlinkFactory interface {
 type SFU struct {
 	mu      sync.Mutex
 	rooms   map[string]*Room
-	peers   map[string]*Peer // uid -> peer（单会话，uid 全局唯一）
+	peers   map[string]*Peer  // uid -> peer（单会话，uid 全局唯一）
+	pubSSRC map[string]uint32 // "pubUID|trackID" -> 上行轨 SSRC（PLI 转发用）
 	factory downlinkFactory
 }
 
 // NewSFU 创建协调器，使用真实 pion 下行工厂（生产）。
 func NewSFU() *SFU {
-	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer)}
+	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32)}
 	s.factory = realDownlink{sfu: s}
 	return s
 }
 
 // newSFUWithFactory 注入自定义下行工厂（测试用，隔离 pion 下行 I/O）。
 func newSFUWithFactory(f downlinkFactory) *SFU {
-	return &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), factory: f}
+	return &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), factory: f}
+}
+
+func ssrcKey(pubUID, trackID string) string { return pubUID + "|" + trackID }
+
+func (s *SFU) setPubSSRC(pubUID, trackID string, ssrc uint32) {
+	s.mu.Lock()
+	s.pubSSRC[ssrcKey(pubUID, trackID)] = ssrc
+	s.mu.Unlock()
+}
+
+func (s *SFU) getPubSSRC(pubUID, trackID string) (uint32, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ssrc, ok := s.pubSSRC[ssrcKey(pubUID, trackID)]
+	return ssrc, ok
 }
 
 func (s *SFU) room(roomID string) *Room {
@@ -97,6 +114,7 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 	})
 	pc.OnTrack(func(tr *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 		trackID := tr.ID()
+		s.setPubSSRC(uid, trackID, uint32(tr.SSRC())) // 记录上行 SSRC（PLI 转发用）
 		room.AddPublished(uid, trackID, tr.Kind().String())
 		for _, sub := range room.Participants() {
 			if sub == uid {
@@ -236,10 +254,41 @@ func (d realDownlink) newDownlink(subUID, pubUID, trackID string, kind webrtc.RT
 	if err != nil {
 		return nil, err
 	}
-	if _, err := sub.pc.AddTrack(local); err != nil { // 触发 sub 的 OnNegotiationNeeded
+	sender, err := sub.pc.AddTrack(local) // 触发 sub 的 OnNegotiationNeeded
+	if err != nil {
 		return nil, err
 	}
+	// 视频：转发订阅者的关键帧请求(PLI/FIR)给发布者，避免新订阅者黑屏等待下一个关键帧
+	if kind == webrtc.RTPCodecTypeVideo {
+		go d.forwardKeyframeRequests(sender, pubUID, trackID)
+	}
 	return local, nil
+}
+
+// forwardKeyframeRequests 读订阅者下行 sender 的 RTCP，遇 PLI/FIR 就向发布者 PC 发 PLI 请关键帧。
+func (d realDownlink) forwardKeyframeRequests(sender *webrtc.RTPSender, pubUID, trackID string) {
+	buf := make([]byte, 1500)
+	for {
+		n, _, err := sender.Read(buf)
+		if err != nil {
+			return // sender 关闭
+		}
+		pkts, err := rtcp.Unmarshal(buf[:n])
+		if err != nil {
+			continue
+		}
+		for _, pkt := range pkts {
+			switch pkt.(type) {
+			case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
+				pub := d.sfu.getPeer(pubUID)
+				ssrc, ok := d.sfu.getPubSSRC(pubUID, trackID)
+				if pub == nil || !ok {
+					continue
+				}
+				_ = pub.pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: ssrc}})
+			}
+		}
+	}
 }
 
 // mimeForKind Phase 0 固定编解码：音频 Opus、视频 VP8（simulcast/协商留 Phase 3）。
