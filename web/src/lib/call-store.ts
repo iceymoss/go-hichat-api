@@ -8,7 +8,7 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { CallEngine, type CallMediaType, type CallPhase, type CallPeer, type CallSignal } from './call-engine';
-import { GroupCallEngine } from './group-call-engine';
+import { SFUGroupEngine } from './sfu-group-engine';
 import { useIMStore } from './im-store';
 import { useChatStore } from './chat-store';
 import { t as translate } from './i18n';
@@ -112,7 +112,7 @@ interface CallState {
 }
 
 let engine: CallEngine | null = null;
-let groupEngine: GroupCallEngine | null = null;
+let groupEngine: SFUGroupEngine | null = null;
 
 export const useCallStore = create<CallState>((set, get) => {
   // 用 store 自身的 set 接 engine 回调
@@ -214,12 +214,12 @@ export const useCallStore = create<CallState>((set, get) => {
     onError: (key: string) => set({ errorMsg: key }),
   };
 
-  const ensureGroupEngine = (): GroupCallEngine | null => {
+  const ensureGroupEngine = (): SFUGroupEngine | null => {
     const me = useIMStore.getState().currentUser;
     if (!me?.token || !me.id) return null;
     if (!groupEngine) {
       const { wsUrl, httpBase } = streamingEndpoints();
-      groupEngine = new GroupCallEngine({ wsUrl, httpBase, token: me.token, selfId: me.id }, groupCallbacks);
+      groupEngine = new SFUGroupEngine({ wsUrl, httpBase, token: me.token, selfId: me.id }, groupCallbacks);
     }
     return groupEngine;
   };

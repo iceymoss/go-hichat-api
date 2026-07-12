@@ -462,16 +462,31 @@ func (s *SignalingServer) handleGroupJoin(c *clientConn, msg *types.SignalingMes
 	}
 }
 
-// handleGroupLeave 离开群通话：关 SFU peer + 更新会话态 + 广播群横幅状态。
+// handleGroupLeave 离开群通话：关 SFU peer + 通知剩余参与者移除 tile + 广播群横幅状态。
 func (s *SignalingServer) handleGroupLeave(c *clientConn, msg *types.SignalingMessage) {
 	callID := msgCallID(msg)
 	groupID, _, _, _ := s.groups.Info(callID) // 结束前捕获 groupID（结束后会话被删）
-	_, _, err := s.groups.Leave(callID, c.uid)
+	remaining, _, err := s.groups.Leave(callID, c.uid)
 	if err != nil {
 		return
 	}
-	s.sfu.RemovePeer(c.uid) // 关连接：其上行轨与下行订阅经房间路由清理；其余人 tile 由轨结束移除
+	s.sfu.RemovePeer(c.uid) // 关连接：其上行轨与下行订阅经房间路由清理
+	s.broadcastSFUPeerLeft(callID, c.uid, remaining)
 	s.broadcastGroupState(groupID)
+}
+
+// broadcastSFUPeerLeft 通知剩余参与者某人离开（前端移除其 tile）。
+// SFU Phase 0 不主动移除下行轨，故用显式帧驱动 tile 清理。
+func (s *SignalingServer) broadcastSFUPeerLeft(callID, uid string, remaining []string) {
+	for _, p := range remaining {
+		if pc, ok := s.getConn(p); ok {
+			s.send(pc, &types.SignalingMessage{
+				Type:   types.MessageTypeSFUPeerLeft,
+				RoomID: callID,
+				Data:   map[string]any{"call_id": callID, "uid": uid},
+			})
+		}
+	}
 }
 
 // isGroupMember 校验 uid 是否群成员：读关系缓存，Unknown 时 fail-open（与项目鉴权一致；前端已先按群成员过滤）。
@@ -541,8 +556,9 @@ func (s *SignalingServer) cleanupCall(uid string) {
 	// 群组：离开并关 SFU peer（其上行轨与下行订阅经房间路由清理）
 	if callID, ok := s.groups.ActiveCallID(uid); ok {
 		groupID, _, _, _ := s.groups.Info(callID) // 结束前捕获 groupID
-		if _, _, err := s.groups.Leave(callID, uid); err == nil {
+		if remaining, _, err := s.groups.Leave(callID, uid); err == nil {
 			s.sfu.RemovePeer(uid)
+			s.broadcastSFUPeerLeft(callID, uid, remaining)
 			s.broadcastGroupState(groupID)
 		}
 	}

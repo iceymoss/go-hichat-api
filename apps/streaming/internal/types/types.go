@@ -48,6 +48,7 @@ const (
 	MessageTypeSFUPublishAnswer SignalingMessageType = "sfu_publish_answer" // S->C：对发布的 answer
 	MessageTypeSFUOffer         SignalingMessageType = "sfu_offer"          // S->C：服务端发起的 renegotiation offer
 	MessageTypeSFUAnswer        SignalingMessageType = "sfu_answer"         // C->S：对 renegotiation 的 answer
+	MessageTypeSFUPeerLeft      SignalingMessageType = "sfu_peer_left"      // S->C：某参与者离开（移除 tile）
 
 	// 会议功能
 	MessageTypeMeetingCreate  SignalingMessageType = "meeting_create"
