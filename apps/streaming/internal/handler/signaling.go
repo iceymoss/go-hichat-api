@@ -80,7 +80,10 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 		auth:   NewJwtAuth(svcCtx),
 		calls:  logic.NewCallService(ring),
 		groups: logic.NewGroupCallService(50), // SFU 上限（Phase 4 落配置）
-		sfu:    sfu.NewSFU(),
+		sfu: sfu.NewSFU(
+			sfu.WithPublicIP(svcCtx.Config.Public.IP),
+			sfu.WithUDPPortRange(svcCtx.Config.Public.UDPPortMin, svcCtx.Config.Public.UDPPortMax),
+		),
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  svcCtx.Config.Signaling.WebSocket.ReadBufferSize,
 			WriteBufferSize: svcCtx.Config.Signaling.WebSocket.WriteBufferSize,

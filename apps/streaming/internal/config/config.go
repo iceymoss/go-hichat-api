@@ -94,4 +94,23 @@ type Config struct {
 		// RingTimeoutSeconds 振铃超时（秒），超时未接转“未接听”。默认 30。
 		RingTimeoutSeconds int
 	}
+
+	// Public SFU 公网化（Phase 1）：跨 NAT 真实可用所需
+	Public struct {
+		// IP 公网 IP（NAT1To1），SFU 对外宣告候选用；空则用本机采集的候选（本地/局域网）
+		IP string
+		// UDPPortMin/Max 媒体 UDP 端口范围，需在防火墙/docker 放行；<=0 用 pion 默认随机端口
+		UDPPortMin int
+		UDPPortMax int
+	}
+
+	// Turn coturn 中继（Phase 1）：REST(use-auth-secret) 短期凭证，穿透对称 NAT
+	Turn struct {
+		// URLs 下发给前端的 turn 地址，如 turn:example.com:3478?transport=udp
+		URLs []string
+		// Secret coturn static-auth-secret，签发短期凭证用；走配置不写死、不入库
+		Secret string
+		// TTLSeconds 短期凭证有效期（秒），默认 3600
+		TTLSeconds int64
+	}
 }

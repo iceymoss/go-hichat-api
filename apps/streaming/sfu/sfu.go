@@ -30,22 +30,43 @@ type SFU struct {
 	api     *webrtc.API // 带接口过滤的 pion API（滤掉虚拟接口候选）
 }
 
-// NewSFU 创建协调器，使用真实 pion 下行工厂（生产）。
-func NewSFU() *SFU {
-	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), api: buildAPI()}
+// Option 配置 SFU 的 pion 网络参数（Phase 1 公网化）。
+type Option func(*sfuConfig)
+
+type sfuConfig struct {
+	publicIP       string
+	udpMin, udpMax int
+}
+
+// WithPublicIP 让 SFU 对外宣告公网 IP（NAT1To1），跨 NAT 时客户端才连得到。
+func WithPublicIP(ip string) Option { return func(c *sfuConfig) { c.publicIP = ip } }
+
+// WithUDPPortRange 把媒体 UDP 限制在指定端口范围（需在防火墙/docker 放行）。
+func WithUDPPortRange(min, max int) Option {
+	return func(c *sfuConfig) { c.udpMin, c.udpMax = min, max }
+}
+
+// NewSFU 创建协调器，使用真实 pion 下行工厂（生产）。opts 配置公网 IP / UDP 端口范围。
+func NewSFU(opts ...Option) *SFU {
+	cfg := sfuConfig{}
+	for _, o := range opts {
+		o(&cfg)
+	}
+	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), api: buildAPI(cfg)}
 	s.factory = realDownlink{sfu: s}
 	return s
 }
 
 // newSFUWithFactory 注入自定义下行工厂（测试用，隔离 pion 下行 I/O）。
 func newSFUWithFactory(f downlinkFactory) *SFU {
-	return &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), api: buildAPI(), factory: f}
+	return &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), api: buildAPI(sfuConfig{}), factory: f}
 }
 
 // buildAPI 构造带 SettingEngine 的 pion API：注册默认编解码 + 拦截器（NACK/RTCP 等），
 // 并过滤 ICE 采集接口——只留可用的物理/回环接口，滤掉 VPN/Docker/AWDL 等虚拟接口，
 // 否则它们的垃圾候选会拖慢 ICE 甚至判失败（表现为发起即报错、加载很慢）。
-func buildAPI() *webrtc.API {
+// Phase 1：可选宣告公网 IP（NAT1To1）+ 限定媒体 UDP 端口范围。
+func buildAPI(cfg sfuConfig) *webrtc.API {
 	me := &webrtc.MediaEngine{}
 	if err := me.RegisterDefaultCodecs(); err != nil {
 		panic(err)
@@ -59,6 +80,14 @@ func buildAPI() *webrtc.API {
 	// 解析浏览器发来的 mDNS(.local) 主机候选：Chrome 默认把 host IP 藏成 .local，
 	// 不解析就只能靠反射候选连通，本地/局域网易慢或连不上。
 	se.SetICEMulticastDNSMode(ice.MulticastDNSModeQueryOnly)
+	if cfg.publicIP != "" {
+		se.SetNAT1To1IPs([]string{cfg.publicIP}, webrtc.ICECandidateTypeHost)
+	}
+	if cfg.udpMin > 0 && cfg.udpMax >= cfg.udpMin {
+		if err := se.SetEphemeralUDPPortRange(uint16(cfg.udpMin), uint16(cfg.udpMax)); err != nil {
+			panic(err)
+		}
+	}
 	return webrtc.NewAPI(webrtc.WithMediaEngine(me), webrtc.WithInterceptorRegistry(ir), webrtc.WithSettingEngine(se))
 }
 

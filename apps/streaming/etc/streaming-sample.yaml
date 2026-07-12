@@ -73,6 +73,18 @@ Ws:
 Call:
   RingTimeoutSeconds: 30   # 振铃超时，超时未接转“未接听”
 
+# SFU 公网化（Phase 1）。本地/局域网留空即可；公网部署填公网 IP + 放行的 UDP 端口范围。
+Public:
+  IP: ""            # 公网 IP（NAT1To1），如 "203.0.113.10"
+  UDPPortMin: 0     # 媒体 UDP 端口范围下界，如 50000（需防火墙/docker 放行）
+  UDPPortMax: 0     # 上界，如 50200；<=0 用 pion 随机端口（本地够用）
+
+# coturn 中继（Phase 1）。本地留空不下发 TURN；公网填 coturn 地址 + static-auth-secret。
+Turn:
+  URLs: []          # 如 ["turn:turn.example.com:3478?transport=udp"]
+  Secret: ""        # coturn static-auth-secret，签发短期凭证用
+  TTLSeconds: 3600  # 短期凭证有效期
+
 # 各个微服务的RPC配置
 SocialRpc:
   Etcd:
