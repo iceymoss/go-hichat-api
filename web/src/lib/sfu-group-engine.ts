@@ -216,7 +216,10 @@ export class SFUGroupEngine {
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     this.pc = pc;
     pc.ontrack = (ev) => this.onRemoteTrack(ev);
+    pc.oniceconnectionstatechange = () => this.log('ice:', pc.iceConnectionState);
+    pc.onicegatheringstatechange = () => this.log('gather:', pc.iceGatheringState);
     pc.onconnectionstatechange = () => {
+      this.log('conn:', pc.connectionState);
       if (pc.connectionState === 'failed') this.cb.onError('call.err.connect');
     };
 

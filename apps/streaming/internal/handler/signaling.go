@@ -389,7 +389,9 @@ func (s *SignalingServer) handleGroupInvite(c *clientConn, msg *types.SignalingM
 // setupSFUPeer 为 c.uid 在 callID 房间建一条 SFU PeerConnection，并接好服务端发起的
 // renegotiation offer 下发（sfu_offer）。客户端收到 group_created/group_roster 后发 sfu_publish。
 func (s *SignalingServer) setupSFUPeer(c *clientConn, callID string) error {
-	peer, err := s.sfu.AddPeer(callID, c.uid, nil) // Phase 0 本地：host 候选即可；coturn/ICE 留 Phase 1
+	// 服务端 PC 也配 STUN，增强候选（Phase 1 追加 coturn TURN）
+	ice := sfu.STUNServers("stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302")
+	peer, err := s.sfu.AddPeer(callID, c.uid, ice)
 	if err != nil {
 		return err
 	}

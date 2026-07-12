@@ -39,6 +39,15 @@ func newSFUWithFactory(f downlinkFactory) *SFU {
 
 func ssrcKey(pubUID, trackID string) string { return pubUID + "|" + trackID }
 
+// STUNServers 构造 pion ICE 配置（服务端 PeerConnection 用）。给服务端也配 STUN 可增强候选，
+// 缓解 Chrome 把 host 候选藏成 mDNS 时只能靠反射候选连通的情况。
+func STUNServers(urls ...string) []webrtc.ICEServer {
+	if len(urls) == 0 {
+		return nil
+	}
+	return []webrtc.ICEServer{{URLs: urls}}
+}
+
 func (s *SFU) setPubSSRC(pubUID, trackID string, ssrc uint32) {
 	s.mu.Lock()
 	s.pubSSRC[ssrcKey(pubUID, trackID)] = ssrc
