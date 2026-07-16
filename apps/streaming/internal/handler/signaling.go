@@ -275,6 +275,10 @@ func (s *SignalingServer) route(c *clientConn, msg *types.SignalingMessage) {
 		s.handleSFUReconnect(c, msg)
 	case types.MessageTypeSFUMediaState:
 		s.handleSFUMediaState(c, msg)
+	case types.MessageTypeSubscribe:
+		s.handleVideoSubscribe(c, msg)
+	case types.MessageTypeUnsubscribe:
+		s.handleVideoUnsubscribe(c, msg)
 	case types.MessageTypeOffer, types.MessageTypeAnswer, types.MessageTypeIceCandidate, types.MessageTypeMediaState:
 		s.relayToPeer(c, msg)
 	default:
@@ -584,6 +588,39 @@ func (s *SignalingServer) handleSFURestart(c *clientConn, msg *types.SignalingMe
 	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "ice_restart_requested"})
 }
 
+func (s *SignalingServer) videoSubscriptionParticipants(c *clientConn, msg *types.SignalingMessage) (string, string, bool) {
+	callID := msgCallID(msg)
+	publisherUID := dataStr(msg.Data, "publisher_uid")
+	subscriber := s.sfu.GetPeer(c.uid)
+	publisher := s.sfu.GetPeer(publisherUID)
+	if callID == "" || publisherUID == "" || publisherUID == c.uid ||
+		subscriber == nil || subscriber.RoomID() != callID ||
+		publisher == nil || publisher.RoomID() != callID ||
+		!s.groups.HasParticipant(callID, c.uid) || !s.groups.HasParticipant(callID, publisherUID) {
+		s.sendError(c, "not a group participant")
+		return "", "", false
+	}
+	return callID, publisherUID, true
+}
+
+func (s *SignalingServer) handleVideoSubscribe(c *clientConn, msg *types.SignalingMessage) {
+	callID, publisherUID, ok := s.videoSubscriptionParticipants(c, msg)
+	if !ok {
+		return
+	}
+	if err := s.sfu.SubscribeVideo(callID, c.uid, publisherUID); err != nil {
+		zLog.Warn("sfu subscribe video failed", zap.String("uid", c.uid), zap.String("publisher_uid", publisherUID), zap.Error(err))
+		s.sendError(c, "video subscription failed")
+	}
+}
+
+func (s *SignalingServer) handleVideoUnsubscribe(c *clientConn, msg *types.SignalingMessage) {
+	callID, publisherUID, ok := s.videoSubscriptionParticipants(c, msg)
+	if ok {
+		s.sfu.UnsubscribeVideo(callID, c.uid, publisherUID)
+	}
+}
+
 func (s *SignalingServer) handleSFUReconnect(c *clientConn, msg *types.SignalingMessage) {
 	callID := msgCallID(msg)
 	if !s.groups.HasParticipant(callID, c.uid) {
@@ -689,10 +726,27 @@ func (s *SignalingServer) handleGroupJoin(c *clientConn, msg *types.SignalingMes
 		RoomID: callID,
 		Data:   map[string]any{"call_id": callID, "call_type": string(callType), "participants": others},
 	})
+	s.broadcastGroupRoster(callID)
 
 	// 广播更新后的参与者名单（全体群成员，含未在通话中的）
 	if groupID, _, _, ok := s.groups.Info(callID); ok {
 		s.broadcastGroupState(groupID)
+	}
+}
+
+func (s *SignalingServer) broadcastGroupRoster(callID string) {
+	participants, ok := s.groups.Participants(callID)
+	if !ok {
+		return
+	}
+	for _, uid := range participants {
+		if c, connected := s.getConn(uid); connected {
+			s.send(c, &types.SignalingMessage{
+				Type:   types.MessageTypeGroupRoster,
+				RoomID: callID,
+				Data:   map[string]any{"call_id": callID, "participants": participants},
+			})
+		}
 	}
 }
 

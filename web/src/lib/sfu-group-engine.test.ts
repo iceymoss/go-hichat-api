@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs } from './sfu-group-engine';
+import { diffVideoSubscriptions, mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs } from './sfu-group-engine';
 
 class FakeTrack {
   constructor(public id: string, public kind: 'audio' | 'video') {}
@@ -66,5 +66,18 @@ describe('parseActiveSpeakers', () => {
     [{}, []],
   ])('sanitizes %o', (data, want) => {
     expect(parseActiveSpeakers(data)).toEqual(want);
+  });
+});
+
+describe('diffVideoSubscriptions', () => {
+  test('emits only page changes', () => {
+    expect(diffVideoSubscriptions(new Set(['11', '12']), new Set(['12', '20']))).toEqual({
+      subscribe: ['20'],
+      unsubscribe: ['11'],
+    });
+  });
+
+  test('does nothing for an unchanged page', () => {
+    expect(diffVideoSubscriptions(new Set(['11']), new Set(['11']))).toEqual({ subscribe: [], unsubscribe: [] });
   });
 });

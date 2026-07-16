@@ -45,6 +45,7 @@ type Room struct {
 	activeAudio  map[string]struct{}             // 当前允许转发音频的发布者 uid
 	managedAudio map[string]struct{}             // 已协商 audio-level、可参与 top-N 的发布者
 	speakers     *ActiveSpeakers
+	videoWants   map[string]map[string]struct{} // 订阅者 -> 想看的视频发布者
 }
 
 // NewRoom 创建空房间。
@@ -57,6 +58,7 @@ func NewRoom(id string) *Room {
 		activeAudio:  make(map[string]struct{}),
 		managedAudio: make(map[string]struct{}),
 		speakers:     NewActiveSpeakers(),
+		videoWants:   make(map[string]map[string]struct{}),
 	}
 }
 
@@ -112,6 +114,13 @@ func (r *Room) Leave(uid string) {
 	delete(r.participants, uid)
 	delete(r.managedAudio, uid)
 	delete(r.activeAudio, uid)
+	delete(r.videoWants, uid)
+	for subUID, publishers := range r.videoWants {
+		delete(publishers, uid)
+		if len(publishers) == 0 {
+			delete(r.videoWants, subUID)
+		}
+	}
 	for key, subs := range r.subs {
 		if key.pubUID == uid {
 			for _, sink := range subs {
@@ -131,6 +140,66 @@ func (r *Room) Leave(uid string) {
 	for key := range r.published {
 		if key.pubUID == uid {
 			delete(r.published, key) // 作为发布者：从已发布注册表移除
+		}
+	}
+	r.mu.Unlock()
+	closeSinks(removed)
+}
+
+func (r *Room) WantVideo(subUID, pubUID string) {
+	r.mu.Lock()
+	if r.videoWants[subUID] == nil {
+		r.videoWants[subUID] = make(map[string]struct{})
+	}
+	r.videoWants[subUID][pubUID] = struct{}{}
+	r.mu.Unlock()
+}
+
+func (r *Room) VideoSubscribers(pubUID string) []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]string, 0)
+	for subUID, publishers := range r.videoWants {
+		if _, ok := publishers[pubUID]; ok {
+			out = append(out, subUID)
+		}
+	}
+	return out
+}
+
+func (r *Room) HasVideoSubscription(subUID, pubUID string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.videoWants[subUID][pubUID]
+	return ok
+}
+
+func (r *Room) HasTrackSubscription(subUID, pubUID, trackID string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.subs[trackKey{pubUID: pubUID, trackID: trackID}][subUID]
+	return ok
+}
+
+func (r *Room) RemoveVideoSubscription(subUID, pubUID string) {
+	r.mu.Lock()
+	if publishers := r.videoWants[subUID]; publishers != nil {
+		delete(publishers, pubUID)
+		if len(publishers) == 0 {
+			delete(r.videoWants, subUID)
+		}
+	}
+	removed := make([]RTPSink, 0)
+	for key, published := range r.published {
+		if key.pubUID != pubUID || published.Kind != webrtc.RTPCodecTypeVideo.String() {
+			continue
+		}
+		if sink, ok := r.subs[key][subUID]; ok {
+			removed = append(removed, sink)
+			delete(r.subs[key], subUID)
+			if len(r.subs[key]) == 0 {
+				delete(r.subs, key)
+			}
 		}
 	}
 	r.mu.Unlock()

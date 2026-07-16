@@ -38,8 +38,11 @@ func Test_SFU_LateJoiner_ReceivesExistingPublisher_Loopback(t *testing.T) {
 		}
 	})
 
-	// 回填：B 订阅房间内已有发布者（A）
+	// 回填只自动订阅音频；可见视频由分页订阅显式请求。
 	s.SubscribeExisting("call1", "b")
+	if err := s.SubscribeVideo("call1", "b", "a"); err != nil {
+		t.Fatalf("SubscribeVideo: %v", err)
+	}
 
 	select {
 	case <-gotRTP:
@@ -49,23 +52,59 @@ func Test_SFU_LateJoiner_ReceivesExistingPublisher_Loopback(t *testing.T) {
 	}
 }
 
-func Test_SFU_SubscribeExisting_PreservesPublisherCodec(t *testing.T) {
+func Test_SFU_SubscribeExisting_OnlyAutomaticallySubscribesAudio(t *testing.T) {
 	factory := &fakeFactory{sinks: map[string]*fakeSink{}, codecs: map[string]webrtc.RTPCodecCapability{}}
 	s := newSFUWithFactory(factory)
 	room := s.room("call1")
 	room.Join("publisher")
 	room.Join("subscriber")
-	codec := webrtc.RTPCodecCapability{
+	videoCodec := webrtc.RTPCodecCapability{
 		MimeType:     webrtc.MimeTypeH264,
 		ClockRate:    90000,
 		SDPFmtpLine:  "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
 		RTCPFeedback: []webrtc.RTCPFeedback{{Type: "nack"}, {Type: "nack", Parameter: "pli"}},
 	}
-	room.AddPublished("publisher", "video", "video", codec)
+	room.AddPublished("publisher", "video", "video", videoCodec)
+	audioCodec := webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus, ClockRate: 48000, Channels: 2}
+	room.AddPublished("publisher", "audio", "audio", audioCodec)
 
 	s.SubscribeExisting("call1", "subscriber")
 
-	if got := factory.codec("subscriber"); !reflect.DeepEqual(got, codec) {
-		t.Fatalf("downlink codec = %+v, want %+v", got, codec)
+	if got := factory.createdCount(); got != 1 {
+		t.Fatalf("created downlinks = %d, want only audio downlink", got)
+	}
+	if got := factory.codec("subscriber"); !reflect.DeepEqual(got, audioCodec) {
+		t.Fatalf("downlink codec = %+v, want %+v", got, audioCodec)
+	}
+}
+
+func Test_SFU_VideoSubscription_IsPendingIdempotentAndRemovable(t *testing.T) {
+	factory := &fakeFactory{sinks: map[string]*fakeSink{}}
+	s := newSFUWithFactory(factory)
+	room := s.room("call1")
+	room.Join("publisher")
+	room.Join("subscriber")
+
+	if err := s.SubscribeVideo("call1", "subscriber", "publisher"); err != nil {
+		t.Fatal(err)
+	}
+	if got := factory.createdCount(); got != 0 {
+		t.Fatalf("downlinks before publish = %d, want 0", got)
+	}
+	room.AddPublished("publisher", "video", "video", webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8})
+	if err := s.reconcileVideoSubscription("call1", "subscriber", "publisher"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SubscribeVideo("call1", "subscriber", "publisher"); err != nil {
+		t.Fatal(err)
+	}
+	if got := factory.createdCount(); got != 1 {
+		t.Fatalf("downlinks after repeated subscribe = %d, want 1", got)
+	}
+
+	s.UnsubscribeVideo("call1", "subscriber", "publisher")
+	s.UnsubscribeVideo("call1", "subscriber", "publisher")
+	if room.HasVideoSubscription("subscriber", "publisher") {
+		t.Fatal("video subscription remains after unsubscribe")
 	}
 }

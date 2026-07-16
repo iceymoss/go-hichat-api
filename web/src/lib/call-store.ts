@@ -108,6 +108,7 @@ interface CallState {
   toggleMute: () => void;
   toggleCamera: () => void;
   setMinimized: (v: boolean) => void;
+  setVisibleGroupVideos: (uids: string[]) => void;
   onSignal: (sig: CallSignal) => void;
   clearError: () => void;
 }
@@ -209,6 +210,17 @@ export const useCallStore = create<CallState>((set, get) => {
       });
     },
     onActiveSpeakers: (activeSpeakerIds: string[]) => set({ activeSpeakerIds }),
+    onRoster: (uids: string[]) => {
+      set(state => {
+        const next: Record<string, GroupParticipant> = {};
+        for (const uid of uids) {
+          const previous = state.participants[uid];
+          const contact = resolveContact(uid);
+          next[uid] = previous ?? { id: uid, name: contact.name, avatar: contact.avatar, stream: null, media: { audio: true, video: true } };
+        }
+        return { participants: next, activeSpeakerIds: state.activeSpeakerIds.filter(uid => uids.includes(uid)) };
+      });
+    },
     onPeerEvent: (uid: string, kind: 'joined' | 'left') => {
       const c = resolveContact(uid);
       toast(`${c.name} ${kind === 'joined' ? tt('call.toast.joined') : tt('call.toast.left')}`);
@@ -326,6 +338,8 @@ export const useCallStore = create<CallState>((set, get) => {
     },
 
     setMinimized: (v) => set({ minimized: v }),
+
+    setVisibleGroupVideos: (uids) => groupEngine?.setVisibleVideoParticipants(uids),
 
     onSignal: (sig) => {
       // 群通话活跃状态广播（全体群成员收）：更新横幅/列表标识，不弹通话 UI

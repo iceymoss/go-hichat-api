@@ -21,6 +21,7 @@ export interface GroupCallEngineCallbacks {
   onParticipantMedia: (uid: string, media: { audio: boolean; video: boolean }) => void;
   onParticipantLeft: (uid: string) => void;
   onActiveSpeakers: (uids: string[]) => void;
+  onRoster: (uids: string[]) => void;
   onPeerEvent: (uid: string, kind: 'joined' | 'left') => void;
   onError: (key: string) => void;
 }
@@ -100,6 +101,13 @@ export function parseActiveSpeakers(data: Record<string, unknown>) {
   return [...new Set(data.speakers.filter((uid): uid is string => typeof uid === 'string' && uid.length > 0))];
 }
 
+export function diffVideoSubscriptions(current: Set<string>, next: Set<string>) {
+  return {
+    subscribe: [...next].filter(uid => !current.has(uid)),
+    unsubscribe: [...current].filter(uid => !next.has(uid)),
+  };
+}
+
 export class SFUGroupEngine {
   private ws: WebSocket | null = null;
   private pc: RTCPeerConnection | null = null;
@@ -123,6 +131,8 @@ export class SFUGroupEngine {
   private videoTrackOwners = new Map<string, string>();
   private remoteVideoEnabled = new Map<string, boolean>();
   private videoSnapshots = new Map<string, { framesDecoded: number; stalledSince: number | null; reportedStall: boolean }>();
+  private desiredVideoSubscriptions = new Set<string>();
+  private sentVideoSubscriptions = new Set<string>();
   private readonly sessionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -219,6 +229,24 @@ export class SFUGroupEngine {
     this.sendMediaState();
   }
 
+  setVisibleVideoParticipants(uids: string[]) {
+    this.desiredVideoSubscriptions = new Set(uids.filter(uid => uid && uid !== this.opts.selfId));
+    this.syncVideoSubscriptions();
+  }
+
+  private syncVideoSubscriptions() {
+    if (!this.callId || this.ws?.readyState !== WebSocket.OPEN) return;
+    const diff = diffVideoSubscriptions(this.sentVideoSubscriptions, this.desiredVideoSubscriptions);
+    for (const publisherUid of diff.unsubscribe) {
+      this.sendWs('unsubscribe', { call_id: this.callId, publisher_uid: publisherUid });
+      this.sentVideoSubscriptions.delete(publisherUid);
+    }
+    for (const publisherUid of diff.subscribe) {
+      this.sendWs('subscribe', { call_id: this.callId, publisher_uid: publisherUid });
+      this.sentVideoSubscriptions.add(publisherUid);
+    }
+  }
+
   /** 本端当前开关麦/摄像头状态 */
   private myMediaState() {
     const audio = this.localStream?.getAudioTracks().some(t => t.enabled) ?? true;
@@ -269,6 +297,14 @@ export class SFUGroupEngine {
           message_type: msg.type,
           participant_count: Array.isArray(data.participants) ? data.participants.length : 0,
         });
+        if (Array.isArray(data.participants)) {
+          const roster = data.participants.filter((uid): uid is string => typeof uid === 'string' && uid !== this.opts.selfId);
+          this.cb.onRoster(roster);
+          if (roster.length > 0) {
+            this.hadPeer = true;
+            if (this.joinTimer) { clearTimeout(this.joinTimer); this.joinTimer = null; }
+          }
+        }
         this.publish().catch(() => this.cb.onError('call.err.connect'));
         break;
       case 'sfu_publish_answer':
@@ -278,6 +314,7 @@ export class SFUGroupEngine {
           await this.pc.setRemoteDescription({ type: 'answer', sdp: String(data.sdp ?? '') });
           this.remoteDescSet = true;
           await this.flushPendingIce();
+          this.syncVideoSubscriptions();
         });
         break;
       case 'sfu_offer':
@@ -455,6 +492,7 @@ export class SFUGroupEngine {
     this.remoteDescSet = false;
     this.pendingIce = [];
     this.negotiation = Promise.resolve();
+    this.sentVideoSubscriptions.clear();
     for (const uid of this.remoteUids) this.cb.onParticipantLeft(uid);
     this.remoteUids.clear();
     this.remoteStreams.clear();
@@ -518,6 +556,12 @@ export class SFUGroupEngine {
     this.cb.onParticipantStream(uid, aggregate);
     this.diagnose('remote_track', { peer_uid: uid, kind: ev.track.kind, track_state: ev.track.readyState });
     if (ev.track.kind === 'video') this.videoTrackOwners.set(ev.track.id, uid);
+    ev.track.addEventListener('ended', () => {
+      const current = this.remoteStreams.get(uid);
+      current?.removeTrack(ev.track);
+      this.videoTrackOwners.delete(ev.track.id);
+      if (current) this.cb.onParticipantStream(uid, current);
+    }, { once: true });
   }
 
   private startVideoDiagnostics() {
@@ -584,10 +628,10 @@ export class SFUGroupEngine {
 
   /** 某参与者离开（服务端 sfu_peer_left）：只移除 tile；通话是否结束由服务端权威状态决定。 */
   private onParticipantGone(uid: string) {
-    if (!this.remoteUids.delete(uid)) return;
+    const hadMedia = this.remoteUids.delete(uid);
     this.remoteStreams.delete(uid);
     this.cb.onParticipantLeft(uid);
-    this.cb.onPeerEvent(uid, 'left');
+    if (hadMedia) this.cb.onPeerEvent(uid, 'left');
   }
 
   private queueNegotiation(task: () => Promise<void>) {
@@ -707,6 +751,8 @@ export class SFUGroupEngine {
     this.negotiation = Promise.resolve();
     this.remoteUids.clear();
     this.remoteStreams.clear();
+    this.desiredVideoSubscriptions.clear();
+    this.sentVideoSubscriptions.clear();
     this.hadPeer = false;
     this.localStream?.getTracks().forEach(tr => tr.stop());
     this.diagnose('cleanup', { reason: 'engine_cleanup', phase: this.phase });

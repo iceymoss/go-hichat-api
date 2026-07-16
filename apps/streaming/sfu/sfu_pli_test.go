@@ -41,7 +41,9 @@ func Test_SFU_SubscribeExisting_RequestsPublisherKeyframe(t *testing.T) {
 		}
 	}()
 
-	s.SubscribeExisting("call1", "subscriber")
+	if err := s.SubscribeVideo("call1", "subscriber", "publisher"); err != nil {
+		t.Fatal(err)
+	}
 
 	select {
 	case <-pli:

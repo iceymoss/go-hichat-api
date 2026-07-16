@@ -39,6 +39,7 @@ type SFU struct {
 	lastSpeakers       map[string][]string
 	stopSpeakers       chan struct{}
 	stopOnce           sync.Once
+	subscriptionMu     sync.Mutex
 }
 
 // MediaEvent 是不含 SSRC、地址和媒体内容的 SFU 数据面诊断事件。
@@ -469,15 +470,20 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 		codec := tr.Codec().RTPCodecCapability
 		room.AddPublished(uid, trackID, tr.Kind().String(), codec)
 		s.emitMediaEvent(MediaEvent{Name: "track_published", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String(), Codec: codec.MimeType})
-		for _, sub := range room.Participants() {
-			if sub == uid {
-				continue
+		if tr.Kind() == webrtc.RTPCodecTypeAudio {
+			for _, sub := range room.Participants() {
+				if sub == uid {
+					continue
+				}
+				sink, err := s.factory.newDownlink(sub, uid, trackID, codec)
+				if err == nil {
+					room.Subscribe(sub, uid, trackID, sink)
+				}
 			}
-			sink, err := s.factory.newDownlink(sub, uid, trackID, codec)
-			if err != nil {
-				continue
+		} else {
+			for _, sub := range room.VideoSubscribers(uid) {
+				_ = s.reconcileVideoSubscription(roomID, sub, uid)
 			}
-			room.Subscribe(sub, uid, trackID, sink)
 		}
 		extensionID := uint8(0)
 		if tr.Kind() == webrtc.RTPCodecTypeAudio {
@@ -496,17 +502,53 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 	return p, nil
 }
 
-// SubscribeExisting 为迟到入房者 uid 回填订阅：订阅房间内已有的全部发布轨，
-// 使其收到早于自己入房者的媒体。信令层在该 peer 发布/就绪后调用。
+// SubscribeExisting 为迟到入房者回填已有音频；视频由可见宫格显式订阅。
 func (s *SFU) SubscribeExisting(roomID, uid string) {
 	room := s.room(roomID)
 	for _, pt := range room.PublishedExcept(uid) {
+		if pt.Kind != webrtc.RTPCodecTypeAudio.String() {
+			continue
+		}
 		sink, err := s.factory.newDownlink(uid, pt.PubUID, pt.TrackID, pt.Codec)
 		if err != nil {
 			continue
 		}
 		room.Subscribe(uid, pt.PubUID, pt.TrackID, sink)
 	}
+}
+
+// SubscribeVideo 记录可见视频期望，并在发布轨已存在时创建唯一的下行轨。
+func (s *SFU) SubscribeVideo(roomID, subUID, pubUID string) error {
+	room := s.room(roomID)
+	room.WantVideo(subUID, pubUID)
+	return s.reconcileVideoSubscription(roomID, subUID, pubUID)
+}
+
+func (s *SFU) reconcileVideoSubscription(roomID, subUID, pubUID string) error {
+	s.subscriptionMu.Lock()
+	defer s.subscriptionMu.Unlock()
+	room := s.room(roomID)
+	if !room.HasVideoSubscription(subUID, pubUID) {
+		return nil
+	}
+	for _, track := range room.PublishedExcept(subUID) {
+		if track.PubUID != pubUID || track.Kind != webrtc.RTPCodecTypeVideo.String() || room.HasTrackSubscription(subUID, pubUID, track.TrackID) {
+			continue
+		}
+		sink, err := s.factory.newDownlink(subUID, pubUID, track.TrackID, track.Codec)
+		if err != nil {
+			return err
+		}
+		room.Subscribe(subUID, pubUID, track.TrackID, sink)
+	}
+	return nil
+}
+
+// UnsubscribeVideo 移除期望及该发布者到订阅者的全部视频下行，保留音频。
+func (s *SFU) UnsubscribeVideo(roomID, subUID, pubUID string) {
+	s.subscriptionMu.Lock()
+	defer s.subscriptionMu.Unlock()
+	s.room(roomID).RemoveVideoSubscription(subUID, pubUID)
 }
 
 // Publish 处理客户端发布 offer（客户端作 offerer），返回 SFU answer；ICE candidate 单独 trickle。

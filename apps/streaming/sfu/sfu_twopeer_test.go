@@ -102,6 +102,9 @@ func Test_SFU_TwoPeers_ForwardsViaRenegotiation_Loopback(t *testing.T) {
 			}
 		}
 	})
+	if err := s.SubscribeVideo("call1", "b", "a"); err != nil {
+		t.Fatalf("SubscribeVideo: %v", err)
+	}
 
 	// A 后入房发布 -> SFU 为 B 建下行 A 的轨 -> 触发对 B 的 renegotiation
 	_, pcA, trackA := newLoopbackClient(t, s, "call1", "a")

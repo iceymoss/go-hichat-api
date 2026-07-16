@@ -12,9 +12,10 @@ import (
 // fakeFactory 假下行工厂：为每个订阅者建一个 fakeSink 并记录，隔离真实 pion 下行接线。
 // 并发安全（newDownlink 在 pion 的 OnTrack goroutine 里被调，测试主 goroutine 读取）。
 type fakeFactory struct {
-	mu     sync.Mutex
-	sinks  map[string]*fakeSink
-	codecs map[string]webrtc.RTPCodecCapability
+	mu      sync.Mutex
+	sinks   map[string]*fakeSink
+	codecs  map[string]webrtc.RTPCodecCapability
+	created int
 }
 
 func (f *fakeFactory) newDownlink(subUID, _ string, _ string, codec webrtc.RTPCodecCapability) (RTPSink, error) {
@@ -22,10 +23,17 @@ func (f *fakeFactory) newDownlink(subUID, _ string, _ string, codec webrtc.RTPCo
 	defer f.mu.Unlock()
 	s := &fakeSink{}
 	f.sinks[subUID] = s
+	f.created++
 	if f.codecs != nil {
 		f.codecs[subUID] = codec
 	}
 	return s, nil
+}
+
+func (f *fakeFactory) createdCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.created
 }
 
 func (f *fakeFactory) sink(subUID string) *fakeSink {
@@ -50,6 +58,9 @@ func Test_SFU_IngestsRealTrackAndFansOut_Loopback(t *testing.T) {
 	// sub 先在房间里，这样 pub 的 OnTrack 会为 sub 建下行订阅
 	room := s.room("call1")
 	room.Join("sub")
+	if err := s.SubscribeVideo("call1", "sub", "pub"); err != nil {
+		t.Fatalf("SubscribeVideo: %v", err)
+	}
 
 	peer, err := s.AddPeer("call1", "pub", nil)
 	if err != nil {
