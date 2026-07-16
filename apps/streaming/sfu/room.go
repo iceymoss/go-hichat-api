@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/pion/rtp"
+	"github.com/pion/webrtc/v3"
 )
 
 // RTPSink 下行投递目标：把一个 RTP 包写给某订阅者的某条下行轨。
@@ -29,6 +30,7 @@ type PublishedTrack struct {
 	PubUID  string
 	TrackID string
 	Kind    string
+	Codec   webrtc.RTPCodecCapability
 }
 
 // Room 一通群通话的路由核心：维护参与者集合与「发布者 -> 订阅者下行 sink」路由表，
@@ -94,11 +96,11 @@ func (r *Room) Leave(uid string) {
 }
 
 // AddPublished 登记一条已发布轨（供迟到者回填订阅）。
-func (r *Room) AddPublished(pubUID, trackID, kind string) {
+func (r *Room) AddPublished(pubUID, trackID, kind string, codec webrtc.RTPCodecCapability) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	key := trackKey{pubUID: pubUID, trackID: trackID}
-	r.published[key] = PublishedTrack{PubUID: pubUID, TrackID: trackID, Kind: kind}
+	r.published[key] = PublishedTrack{PubUID: pubUID, TrackID: trackID, Kind: kind, Codec: codec}
 }
 
 // Unpublish 移除一条已发布轨及其订阅表（轨结束/关闭时）。

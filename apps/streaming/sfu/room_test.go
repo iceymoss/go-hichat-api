@@ -1,11 +1,13 @@
 package sfu
 
 import (
+	"reflect"
 	"sort"
 	"sync"
 	"testing"
 
 	"github.com/pion/rtp"
+	"github.com/pion/webrtc/v3"
 )
 
 // fakeSink 假下行 sink：记录收到的 RTP 包，供断言 fan-out 是否正确。
@@ -158,13 +160,19 @@ func Test_Room_PublishedRegistry_ExceptAndCleanup(t *testing.T) {
 	r := NewRoom("c")
 	r.Join("a")
 	r.Join("b")
-	r.AddPublished("a", "a-vid", "video")
-	r.AddPublished("a", "a-aud", "audio")
-	r.AddPublished("b", "b-aud", "audio")
+	videoCodec := webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264, ClockRate: 90000, SDPFmtpLine: "profile-level-id=42e01f"}
+	r.AddPublished("a", "a-vid", "video", videoCodec)
+	r.AddPublished("a", "a-aud", "audio", webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus})
+	r.AddPublished("b", "b-aud", "audio", webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus})
 
 	// PublishedExcept("b") 只含 a 的两条
 	if got := trackIDs(r.PublishedExcept("b")); !sameSet(got, []string{"a-vid", "a-aud"}) {
 		t.Errorf("PublishedExcept(b) = %v, want a-vid,a-aud", got)
+	}
+	for _, track := range r.PublishedExcept("b") {
+		if track.TrackID == "a-vid" && !reflect.DeepEqual(track.Codec, videoCodec) {
+			t.Fatalf("video codec = %+v, want %+v", track.Codec, videoCodec)
+		}
 	}
 
 	// Unpublish 移除单条

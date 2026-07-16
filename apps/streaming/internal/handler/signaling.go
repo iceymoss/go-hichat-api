@@ -112,6 +112,9 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 			return
 		}
 		fields := map[string]any{"kind": event.Kind}
+		if event.Codec != "" {
+			fields["codec"] = event.Codec
+		}
 		if event.PubUID != "" {
 			fields["peer_uid"] = event.PubUID
 		}

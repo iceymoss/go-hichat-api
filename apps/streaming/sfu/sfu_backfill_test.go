@@ -1,6 +1,7 @@
 package sfu
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -45,5 +46,26 @@ func Test_SFU_LateJoiner_ReceivesExistingPublisher_Loopback(t *testing.T) {
 		// 成功：迟到者 B 经回填 + renegotiation 收到早入房者 A 的媒体
 	case <-time.After(15 * time.Second):
 		t.Fatal("late joiner B did not receive existing publisher A's media within timeout")
+	}
+}
+
+func Test_SFU_SubscribeExisting_PreservesPublisherCodec(t *testing.T) {
+	factory := &fakeFactory{sinks: map[string]*fakeSink{}, codecs: map[string]webrtc.RTPCodecCapability{}}
+	s := newSFUWithFactory(factory)
+	room := s.room("call1")
+	room.Join("publisher")
+	room.Join("subscriber")
+	codec := webrtc.RTPCodecCapability{
+		MimeType:     webrtc.MimeTypeH264,
+		ClockRate:    90000,
+		SDPFmtpLine:  "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+		RTCPFeedback: []webrtc.RTCPFeedback{{Type: "nack"}, {Type: "nack", Parameter: "pli"}},
+	}
+	room.AddPublished("publisher", "video", "video", codec)
+
+	s.SubscribeExisting("call1", "subscriber")
+
+	if got := factory.codec("subscriber"); !reflect.DeepEqual(got, codec) {
+		t.Fatalf("downlink codec = %+v, want %+v", got, codec)
 	}
 }

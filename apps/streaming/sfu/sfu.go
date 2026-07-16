@@ -17,7 +17,7 @@ import (
 // 生产实现 realDownlink：建 *webrtc.TrackLocalStaticRTP，AddTrack 到 subUID 的 PeerConnection
 // （触发服务端 renegotiation），返回该 track 作为 RTPSink。测试可注入假实现隔离 pion I/O。
 type downlinkFactory interface {
-	newDownlink(subUID, pubUID, trackID string, kind webrtc.RTPCodecType) (RTPSink, error)
+	newDownlink(subUID, pubUID, trackID string, codec webrtc.RTPCodecCapability) (RTPSink, error)
 }
 
 // SFU 协调器：管理房间、pion peer 注册表，编排「某人发布 -> 为其余人建下行订阅 + 起收流泵」。
@@ -42,6 +42,7 @@ type MediaEvent struct {
 	SubUID  string
 	TrackID string
 	Kind    string
+	Codec   string
 	Reason  string
 }
 
@@ -372,13 +373,14 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 	pc.OnTrack(func(tr *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 		trackID := tr.ID()
 		s.setPubSSRC(uid, trackID, uint32(tr.SSRC())) // 记录上行 SSRC（PLI 转发用）
-		room.AddPublished(uid, trackID, tr.Kind().String())
-		s.emitMediaEvent(MediaEvent{Name: "track_published", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String()})
+		codec := tr.Codec().RTPCodecCapability
+		room.AddPublished(uid, trackID, tr.Kind().String(), codec)
+		s.emitMediaEvent(MediaEvent{Name: "track_published", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String(), Codec: codec.MimeType})
 		for _, sub := range room.Participants() {
 			if sub == uid {
 				continue
 			}
-			sink, err := s.factory.newDownlink(sub, uid, trackID, tr.Kind())
+			sink, err := s.factory.newDownlink(sub, uid, trackID, codec)
 			if err != nil {
 				continue
 			}
@@ -399,20 +401,12 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 func (s *SFU) SubscribeExisting(roomID, uid string) {
 	room := s.room(roomID)
 	for _, pt := range room.PublishedExcept(uid) {
-		sink, err := s.factory.newDownlink(uid, pt.PubUID, pt.TrackID, kindFromString(pt.Kind))
+		sink, err := s.factory.newDownlink(uid, pt.PubUID, pt.TrackID, pt.Codec)
 		if err != nil {
 			continue
 		}
 		room.Subscribe(uid, pt.PubUID, pt.TrackID, sink)
 	}
-}
-
-// kindFromString 把 "audio"/"video" 还原为 webrtc.RTPCodecType。
-func kindFromString(s string) webrtc.RTPCodecType {
-	if s == webrtc.RTPCodecTypeAudio.String() {
-		return webrtc.RTPCodecTypeAudio
-	}
-	return webrtc.RTPCodecTypeVideo
 }
 
 // Publish 处理客户端发布 offer（客户端作 offerer），返回 SFU answer；ICE candidate 单独 trickle。
@@ -558,13 +552,13 @@ func (d *pionDownlink) Close() error {
 	return d.err
 }
 
-func (d realDownlink) newDownlink(subUID, pubUID, trackID string, kind webrtc.RTPCodecType) (RTPSink, error) {
+func (d realDownlink) newDownlink(subUID, pubUID, trackID string, codec webrtc.RTPCodecCapability) (RTPSink, error) {
 	sub := d.sfu.getPeer(subUID)
 	if sub == nil {
 		return nil, fmt.Errorf("sfu: subscriber peer %s not found", subUID)
 	}
 	local, err := webrtc.NewTrackLocalStaticRTP(
-		webrtc.RTPCodecCapability{MimeType: mimeForKind(kind)},
+		codec,
 		pubUID+"_"+trackID, // 下行 track id（含发布者，便于订阅端区分来源）
 		pubUID,             // stream id = 发布者
 	)
@@ -575,8 +569,12 @@ func (d realDownlink) newDownlink(subUID, pubUID, trackID string, kind webrtc.RT
 	if err != nil {
 		return nil, err
 	}
+	kind := webrtc.RTPCodecTypeAudio
+	if strings.HasPrefix(strings.ToLower(codec.MimeType), "video/") {
+		kind = webrtc.RTPCodecTypeVideo
+	}
 	video := kind == webrtc.RTPCodecTypeVideo
-	d.sfu.emitMediaEvent(MediaEvent{Name: "downlink_created", RoomID: sub.RoomID(), PubUID: pubUID, SubUID: subUID, TrackID: trackID, Kind: kind.String()})
+	d.sfu.emitMediaEvent(MediaEvent{Name: "downlink_created", RoomID: sub.RoomID(), PubUID: pubUID, SubUID: subUID, TrackID: trackID, Kind: kind.String(), Codec: codec.MimeType})
 	// 每条 sender 都必须持续消费 RTCP，避免多路 receiver report/TWCC 堵塞 interceptor 缓冲。
 	go drainRTCP(senderRTCPReader{sender: sender}, video, func() {
 		d.sfu.requestKeyframe(pubUID, trackID, "subscriber_feedback")
@@ -603,14 +601,6 @@ func drainRTCP(reader rtcpReader, video bool, requestKeyframe func()) {
 			}
 		}
 	}
-}
-
-// mimeForKind Phase 0 固定编解码：音频 Opus、视频 VP8（simulcast/协商留 Phase 3）。
-func mimeForKind(kind webrtc.RTPCodecType) string {
-	if kind == webrtc.RTPCodecTypeAudio {
-		return webrtc.MimeTypeOpus
-	}
-	return webrtc.MimeTypeVP8
 }
 
 // trackRemoteReader 把 *webrtc.TrackRemote 适配成 rtpReader（丢弃 interceptor.Attributes）。
