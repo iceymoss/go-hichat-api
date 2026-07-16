@@ -42,6 +42,7 @@ type Room struct {
 	participants map[string]struct{}             // uid 集合
 	subs         map[trackKey]map[string]RTPSink // 已发布轨 -> (订阅者 uid -> 下行 sink)
 	published    map[trackKey]PublishedTrack     // 当前已发布轨注册表（供回填）
+	activeAudio  map[string]struct{}             // 当前允许转发音频的发布者 uid
 }
 
 // NewRoom 创建空房间。
@@ -51,7 +52,19 @@ func NewRoom(id string) *Room {
 		participants: make(map[string]struct{}),
 		subs:         make(map[trackKey]map[string]RTPSink),
 		published:    make(map[trackKey]PublishedTrack),
+		activeAudio:  make(map[string]struct{}),
 	}
+}
+
+// SetActiveSpeakers 原子替换当前允许转发的音频发布者集合，不改变下行轨和 SDP。
+func (r *Room) SetActiveSpeakers(uids []string) {
+	active := make(map[string]struct{}, len(uids))
+	for _, uid := range uids {
+		active[uid] = struct{}{}
+	}
+	r.mu.Lock()
+	r.activeAudio = active
+	r.mu.Unlock()
 }
 
 // ID 返回房间标识（= callID）。
@@ -180,6 +193,12 @@ func closeSinks(sinks []RTPSink) {
 func (r *Room) RouteRTP(pubUID, trackID string, pkt *rtp.Packet) {
 	key := trackKey{pubUID: pubUID, trackID: trackID}
 	r.mu.RLock()
+	if published, ok := r.published[key]; ok && published.Kind == webrtc.RTPCodecTypeAudio.String() {
+		if _, active := r.activeAudio[pubUID]; !active {
+			r.mu.RUnlock()
+			return
+		}
+	}
 	// 拷出目标 sink，避免持锁写 I/O
 	targets := make([]RTPSink, 0, len(r.subs[key]))
 	for subUID, sink := range r.subs[key] {

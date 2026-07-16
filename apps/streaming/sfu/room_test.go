@@ -128,6 +128,47 @@ func Test_Room_RouteRTP_FansOutToSubscribersExceptSelf(t *testing.T) {
 	r.RouteRTP("zzz", "a-audio", &rtp.Packet{})
 }
 
+func Test_Room_RouteRTP_OnlyForwardsSelectedAudioSpeakers(t *testing.T) {
+	r := NewRoom("call1")
+	for _, uid := range []string{"a", "b", "viewer"} {
+		r.Join(uid)
+	}
+	r.AddPublished("a", "a-audio", "audio", webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus})
+	r.AddPublished("b", "b-audio", "audio", webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus})
+	r.AddPublished("b", "b-video", "video", webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8})
+	audioA := &fakeSink{}
+	audioB := &fakeSink{}
+	videoB := &fakeSink{}
+	r.Subscribe("viewer", "a", "a-audio", audioA)
+	r.Subscribe("viewer", "b", "b-audio", audioB)
+	r.Subscribe("viewer", "b", "b-video", videoB)
+
+	r.SetActiveSpeakers([]string{"a"})
+	r.RouteRTP("a", "a-audio", &rtp.Packet{})
+	r.RouteRTP("b", "b-audio", &rtp.Packet{})
+	r.RouteRTP("b", "b-video", &rtp.Packet{})
+
+	if got := audioA.count(); got != 1 {
+		t.Fatalf("selected audio packets = %d, want 1", got)
+	}
+	if got := audioB.count(); got != 0 {
+		t.Fatalf("unselected audio packets = %d, want 0", got)
+	}
+	if got := videoB.count(); got != 1 {
+		t.Fatalf("video packets = %d, want 1", got)
+	}
+
+	r.SetActiveSpeakers([]string{"b"})
+	r.RouteRTP("a", "a-audio", &rtp.Packet{})
+	r.RouteRTP("b", "b-audio", &rtp.Packet{})
+	if got := audioA.count(); got != 1 {
+		t.Fatalf("deselected audio packets = %d, want unchanged 1", got)
+	}
+	if got := audioB.count(); got != 1 {
+		t.Fatalf("newly selected audio packets = %d, want 1", got)
+	}
+}
+
 // Test_Room_Leave_CleansUpSubscriptions 离开时双向清理：
 // 离开者作为订阅者的下行 sink 被移除；作为发布者其 track 的路由被清空。
 func Test_Room_Leave_CleansUpSubscriptions(t *testing.T) {
