@@ -52,6 +52,9 @@ export class SFUGroupEngine {
   private negotiation = Promise.resolve();
   private iceRestartTimer: ReturnType<typeof setTimeout> | null = null;
   private iceRestartAttempts = 0;
+  private readonly sessionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   constructor(
     private opts: { wsUrl: string; httpBase: string; token: string; selfId: string },
@@ -124,6 +127,7 @@ export class SFUGroupEngine {
 
   /** 挂断 / 离开群通话 */
   hangup() {
+    this.diagnose('cleanup', { reason: 'hangup' });
     if (this.callId && this.ws?.readyState === WebSocket.OPEN) {
       this.sendWs('group_leave', { call_id: this.callId });
     }
@@ -164,8 +168,17 @@ export class SFUGroupEngine {
       const url = `${this.opts.wsUrl}?token=${encodeURIComponent(this.opts.token)}`;
       const ws = new WebSocket(url);
       this.ws = ws;
-      ws.onopen = () => resolve();
-      ws.onerror = () => reject(new Error('group signaling ws connect failed'));
+      ws.onopen = () => {
+        this.diagnose('ws_opened');
+        resolve();
+      };
+      ws.onerror = () => {
+        this.diagnose('ws_error');
+        reject(new Error('group signaling ws connect failed'));
+      };
+      ws.onclose = (event) => {
+        console.warn('[sfu-gcall] ws closed', event.code, event.reason);
+      };
       ws.onmessage = (e) => this.handleStreamingMsg(e);
     });
   }
@@ -181,9 +194,14 @@ export class SFUGroupEngine {
       case 'group_roster':
         // 服务端已建好本端 SFU peer；开始发布本地轨
         this.callId = (data.call_id as string) || this.callId;
+        this.diagnose('group_ready', {
+          message_type: msg.type,
+          participant_count: Array.isArray(data.participants) ? data.participants.length : 0,
+        });
         this.publish().catch(() => this.cb.onError('call.err.connect'));
         break;
       case 'sfu_publish_answer':
+        this.diagnose('sfu_answer_received', { sdp_bytes: String(data.sdp ?? '').length });
         this.queueNegotiation(async () => {
           if (!this.pc) return;
           await this.pc.setRemoteDescription({ type: 'answer', sdp: String(data.sdp ?? '') });
@@ -193,13 +211,16 @@ export class SFUGroupEngine {
         break;
       case 'sfu_offer':
         // 服务端发起的 renegotiation（新增/移除下行轨）：应答回去
+        this.diagnose('sfu_offer_received', { sdp_bytes: String(data.sdp ?? '').length });
         this.queueNegotiation(() => this.handleServerOffer(String(data.sdp ?? '')));
         break;
       case 'sfu_ice':
+        this.diagnose('ice_candidate_received', this.candidateSummary(data));
         void this.handleRemoteIce(data);
         break;
       case 'sfu_peer_left': {
         const uid = data.uid as string;
+        this.diagnose('peer_left', { peer_uid: uid || '', ended: data.ended === true });
         if (uid) this.onParticipantGone(uid);
         if (data.ended === true) this.cleanup();
         break;
@@ -223,6 +244,16 @@ export class SFUGroupEngine {
     }
   }
 
+  private diagnose(event: string, fields: Record<string, unknown> = {}) {
+    if (this.ws?.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({
+      type: 'sfu_diagnostic',
+      room_id: this.callId,
+      data: { call_id: this.callId, session_id: this.sessionId, event, fields },
+      timestamp: new Date().toISOString(),
+    }));
+  }
+
   // ==================== SFU PeerConnection ====================
 
   /** 建本端与 SFU 的 PeerConnection，发布本地轨并通过 sfu_ice trickle candidate。 */
@@ -233,6 +264,11 @@ export class SFUGroupEngine {
     pc.ontrack = (ev) => this.onRemoteTrack(ev);
     pc.onicecandidate = (ev) => {
       if (!ev.candidate) return;
+      this.diagnose('ice_candidate_sent', {
+        candidate_type: ev.candidate.type,
+        protocol: ev.candidate.protocol,
+        tcp_type: ev.candidate.tcpType,
+      });
       this.sendWs('sfu_ice', {
         call_id: this.callId,
         candidate: ev.candidate.candidate,
@@ -243,13 +279,18 @@ export class SFUGroupEngine {
     };
     pc.oniceconnectionstatechange = () => {
       this.log('ice:', pc.iceConnectionState);
+      this.diagnose('ice_state', { state: pc.iceConnectionState });
       if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
         this.scheduleIceRestart();
       }
     };
-    pc.onicegatheringstatechange = () => this.log('gather:', pc.iceGatheringState);
+    pc.onicegatheringstatechange = () => {
+      this.log('gather:', pc.iceGatheringState);
+      this.diagnose('ice_gathering_state', { state: pc.iceGatheringState });
+    };
     pc.onconnectionstatechange = () => {
       this.log('conn:', pc.connectionState);
+      this.diagnose('peer_state', { state: pc.connectionState });
       if (pc.connectionState === 'connected') {
         this.clearIceRestartTimer();
         this.iceRestartAttempts = 0;
@@ -261,6 +302,10 @@ export class SFUGroupEngine {
     };
 
     this.localStream?.getTracks().forEach(tr => pc.addTrack(tr, this.localStream!));
+    this.diagnose('publish_started', {
+      audio_tracks: this.localStream?.getAudioTracks().length ?? 0,
+      video_tracks: this.localStream?.getVideoTracks().length ?? 0,
+    });
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -285,12 +330,14 @@ export class SFUGroupEngine {
       this.iceRestartTimer = null;
       if (!this.pc || (this.pc.connectionState !== 'disconnected' && this.pc.connectionState !== 'failed')) return;
       if (this.iceRestartAttempts >= MAX_ICE_RESTARTS) {
+        this.diagnose('ice_restart_exhausted', { attempts: this.iceRestartAttempts });
         this.cb.onError('call.err.connect');
         this.hangup();
         return;
       }
       this.iceRestartAttempts += 1;
       this.remoteDescSet = false;
+      this.diagnose('ice_restart_requested', { attempt: this.iceRestartAttempts });
       this.sendWs('sfu_restart', { call_id: this.callId });
       this.scheduleIceRestart();
     }, delay);
@@ -317,6 +364,7 @@ export class SFUGroupEngine {
       this.sendMediaState(); // 让新出现的参与者立即知道我当前的开关麦/摄像头状态
     }
     this.cb.onParticipantStream(uid, stream);
+    this.diagnose('remote_track', { peer_uid: uid, kind: ev.track.kind, track_state: ev.track.readyState });
   }
 
   /** 某参与者离开（服务端 sfu_peer_left）：只移除 tile；通话是否结束由服务端权威状态决定。 */
@@ -329,6 +377,7 @@ export class SFUGroupEngine {
   private queueNegotiation(task: () => Promise<void>) {
     this.negotiation = this.negotiation.then(task).catch((error) => {
       console.warn('[sfu-gcall] negotiation failed', error);
+      this.diagnose('negotiation_error', { error: this.errorSummary(error), signaling_state: this.pc?.signalingState ?? 'none' });
       this.cb.onError('call.err.connect');
     });
   }
@@ -348,6 +397,7 @@ export class SFUGroupEngine {
       await this.pc.addIceCandidate(candidate);
     } catch (error) {
       console.warn('[sfu-gcall] add ICE candidate failed', candidate.usernameFragment, error);
+      this.diagnose('ice_candidate_error', { error: this.errorSummary(error), stage: 'direct', ...this.candidateSummary(data) });
     }
   }
 
@@ -360,6 +410,7 @@ export class SFUGroupEngine {
         await this.pc.addIceCandidate(candidate);
       } catch (error) {
         console.warn('[sfu-gcall] flush ICE candidate failed', candidate.usernameFragment, error);
+        this.diagnose('ice_candidate_error', { error: this.errorSummary(error), stage: 'flush' });
       }
     }
   }
@@ -405,6 +456,24 @@ export class SFUGroupEngine {
     console.log('[sfu-gcall]', ...args);
   }
 
+  private candidateSummary(data: Record<string, unknown>) {
+    try {
+      const candidate = new RTCIceCandidate({
+        candidate: String(data.candidate ?? ''),
+        sdpMid: (data.sdpMid as string) ?? null,
+        sdpMLineIndex: (data.sdpMLineIndex as number) ?? null,
+      });
+      return { candidate_type: candidate.type, protocol: candidate.protocol, tcp_type: candidate.tcpType };
+    } catch {
+      return { candidate_type: 'invalid' };
+    }
+  }
+
+  private errorSummary(error: unknown) {
+    if (error instanceof Error) return `${error.name}: ${error.message}`;
+    return String(error);
+  }
+
   private cleanup() {
     if (this.joinTimer) { clearTimeout(this.joinTimer); this.joinTimer = null; }
     this.clearIceRestartTimer();
@@ -417,6 +486,7 @@ export class SFUGroupEngine {
     this.remoteUids.clear();
     this.hadPeer = false;
     this.localStream?.getTracks().forEach(tr => tr.stop());
+    this.diagnose('cleanup', { reason: 'engine_cleanup', phase: this.phase });
     try { this.ws?.close(); } catch { /* ignore */ }
     this.ws = null;
     this.localStream = null;

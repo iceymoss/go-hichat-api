@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
+	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/diagnostics"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/logic"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/types"
@@ -18,6 +19,7 @@ import (
 	"github.com/gorilla/websocket"
 	imws "github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	wsframe "github.com/iceymoss/go-hichat-api/apps/im/ws/ws"
+	"github.com/pion/ice/v2"
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/zap"
 )
@@ -63,6 +65,7 @@ type SignalingServer struct {
 	calls    *logic.CallService
 	groups   *logic.GroupCallService
 	sfu      *sfu.SFU // 群通话 SFU：进程内媒体转发（1:1 不经此）
+	diag     *diagnostics.Logger
 
 	mu    sync.RWMutex
 	conns map[string]*clientConn // uid -> conn（单会话，重复登录顶号）
@@ -76,6 +79,15 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	ring := time.Duration(svcCtx.Config.Call.RingTimeoutSeconds) * time.Second
+	var diag *diagnostics.Logger
+	if cfg := svcCtx.Config.Diagnostics; cfg.Enabled {
+		maxBytes := int64(cfg.MaxMB) * 1024 * 1024
+		var err error
+		diag, err = diagnostics.New(cfg.Path, maxBytes)
+		if err != nil {
+			zLog.Error("open sfu diagnostics failed", zap.String("path", cfg.Path), zap.Error(err))
+		}
+	}
 	s := &SignalingServer{
 		svc:    svcCtx,
 		auth:   NewJwtAuth(svcCtx),
@@ -85,6 +97,7 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 			sfu.WithPublicIP(svcCtx.Config.Public.IP),
 			sfu.WithUDPPortRange(svcCtx.Config.Public.UDPPortMin, svcCtx.Config.Public.UDPPortMax),
 		),
+		diag: diag,
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  svcCtx.Config.Signaling.WebSocket.ReadBufferSize,
 			WriteBufferSize: svcCtx.Config.Signaling.WebSocket.WriteBufferSize,
@@ -120,7 +133,9 @@ func (s *SignalingServer) HandleWebSocket(w http.ResponseWriter, r *http.Request
 	}
 
 	c := &clientConn{uid: uid, conn: conn}
-	s.register(c)
+	conn.SetReadLimit(64 * 1024)
+	replaced := s.register(c)
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: uid, Name: "ws_connected", Fields: map[string]any{"replaced": replaced}})
 	zLog.Info("streaming ws connected", zap.String("user_id", uid))
 
 	stopPing := make(chan struct{})
@@ -132,17 +147,21 @@ func (s *SignalingServer) HandleWebSocket(w http.ResponseWriter, r *http.Request
 	if s.unregister(c) {
 		s.cleanupCall(uid)
 	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: uid, Name: "ws_disconnected"})
 	zLog.Info("streaming ws disconnected", zap.String("user_id", uid))
 }
 
 // register 登记连接；同一 uid 已有连接则顶号（关旧）。
-func (s *SignalingServer) register(c *clientConn) {
+func (s *SignalingServer) register(c *clientConn) bool {
 	s.mu.Lock()
+	replaced := false
 	if old, ok := s.conns[c.uid]; ok {
+		replaced = true
 		old.close()
 	}
 	s.conns[c.uid] = c
 	s.mu.Unlock()
+	return replaced
 }
 
 // unregister 仅当当前登记的就是本连接时才删除，并报告调用方是否需要清理通话。
@@ -229,6 +248,8 @@ func (s *SignalingServer) route(c *clientConn, msg *types.SignalingMessage) {
 		s.handleSFUIce(c, msg)
 	case types.MessageTypeSFURestart:
 		s.handleSFURestart(c, msg)
+	case types.MessageTypeSFUDiagnostic:
+		s.handleSFUDiagnostic(c, msg)
 	case types.MessageTypeSFUMediaState:
 		s.handleSFUMediaState(c, msg)
 	case types.MessageTypeOffer, types.MessageTypeAnswer, types.MessageTypeIceCandidate, types.MessageTypeMediaState:
@@ -363,6 +384,7 @@ func (s *SignalingServer) handleGroupInvite(c *clientConn, msg *types.SignalingM
 		s.sendError(c, err.Error())
 		return
 	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "group_created", Fields: map[string]any{"participant_count": 1}})
 
 	// 为发起人建 SFU peer（服务端 PeerConnection），接好 renegotiation offer 下发
 	if err := s.setupSFUPeer(c, callID); err != nil {
@@ -403,12 +425,13 @@ func (s *SignalingServer) handleGroupInvite(c *clientConn, msg *types.SignalingM
 // renegotiation offer 下发（sfu_offer）。客户端收到 group_created/group_roster 后发 sfu_publish。
 func (s *SignalingServer) setupSFUPeer(c *clientConn, callID string) error {
 	// 服务端 PC 也配 STUN，增强候选（Phase 1 追加 coturn TURN）
-	ice := sfu.STUNServers("stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302")
-	peer, err := s.sfu.AddPeer(callID, c.uid, ice)
+	iceServers := sfu.STUNServers("stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302")
+	peer, err := s.sfu.AddPeer(callID, c.uid, iceServers)
 	if err != nil {
 		return err
 	}
 	peer.OnOffer(func(sdp string) {
+		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "sfu_offer_sent", Fields: map[string]any{"sdp_bytes": len(sdp)}})
 		s.send(c, &types.SignalingMessage{
 			Type:   types.MessageTypeSFUOffer,
 			RoomID: callID,
@@ -416,6 +439,11 @@ func (s *SignalingServer) setupSFUPeer(c *clientConn, callID string) error {
 		})
 	})
 	peer.OnICECandidate(func(candidate webrtc.ICECandidateInit) {
+		candidateType := "unknown"
+		if parsed, err := ice.UnmarshalCandidate(candidate.Candidate); err == nil {
+			candidateType = parsed.Type().String()
+		}
+		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "ice_candidate_sent", Fields: map[string]any{"candidate_type": candidateType}})
 		s.send(c, &types.SignalingMessage{
 			Type:   types.MessageTypeSFUIce,
 			RoomID: callID,
@@ -429,9 +457,11 @@ func (s *SignalingServer) setupSFUPeer(c *clientConn, callID string) error {
 		})
 	})
 	peer.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "ice_state", Fields: map[string]any{"state": state.String()}})
 		zLog.Info("sfu ice state changed", zap.String("uid", c.uid), zap.String("call_id", callID), zap.String("state", state.String()))
 	})
 	peer.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "peer_state", Fields: map[string]any{"state": state.String()}})
 		zLog.Info("sfu peer state changed", zap.String("uid", c.uid), zap.String("call_id", callID), zap.String("state", state.String()))
 	})
 	return nil
@@ -445,6 +475,7 @@ func (s *SignalingServer) handleSFUPublish(c *clientConn, msg *types.SignalingMe
 		s.sendError(c, "not a group participant")
 		return
 	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "publish_started", Fields: map[string]any{"sdp_bytes": len(dataStr(msg.Data, "sdp"))}})
 	answer, err := peer.Publish(dataStr(msg.Data, "sdp"))
 	if err != nil {
 		zLog.Error("sfu publish failed", zap.String("uid", c.uid), zap.Error(err))
@@ -467,6 +498,7 @@ func (s *SignalingServer) handleSFUAnswer(c *clientConn, msg *types.SignalingMes
 	if peer == nil || peer.RoomID() != callID || !s.groups.HasParticipant(callID, c.uid) {
 		return
 	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "sfu_answer_received", Fields: map[string]any{"sdp_bytes": len(dataStr(msg.Data, "sdp"))}})
 	if err := peer.HandleAnswer(dataStr(msg.Data, "sdp")); err != nil {
 		zLog.Warn("sfu handle answer failed", zap.String("uid", c.uid), zap.Error(err))
 	}
@@ -485,6 +517,11 @@ func (s *SignalingServer) handleSFUIce(c *clientConn, msg *types.SignalingMessag
 		return
 	}
 	candidate := webrtc.ICECandidateInit{Candidate: dataStr(data, "candidate")}
+	candidateType := "unknown"
+	if parsed, err := ice.UnmarshalCandidate(candidate.Candidate); err == nil {
+		candidateType = parsed.Type().String()
+	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "ice_candidate_received", Fields: map[string]any{"candidate_type": candidateType}})
 	if mid, ok := data["sdpMid"].(string); ok {
 		candidate.SDPMid = &mid
 	}
@@ -509,6 +546,43 @@ func (s *SignalingServer) handleSFURestart(c *clientConn, msg *types.SignalingMe
 		return
 	}
 	peer.RequestICERestart()
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "ice_restart_requested"})
+}
+
+var allowedDiagnosticEvents = map[string]struct{}{
+	"cleanup": {}, "group_ready": {}, "ice_candidate_error": {}, "ice_candidate_received": {},
+	"ice_candidate_sent": {}, "ice_gathering_state": {}, "ice_restart_exhausted": {},
+	"ice_restart_requested": {}, "ice_state": {}, "negotiation_error": {}, "peer_left": {},
+	"peer_state": {}, "publish_started": {}, "remote_track": {}, "sfu_answer_received": {},
+	"sfu_offer_received": {}, "ws_closed": {}, "ws_error": {}, "ws_opened": {},
+}
+
+// handleSFUDiagnostic 汇总浏览器状态到服务端 JSONL。UID 只取鉴权连接，不接受客户端自报。
+func (s *SignalingServer) handleSFUDiagnostic(c *clientConn, msg *types.SignalingMessage) {
+	data, ok := msg.Data.(map[string]any)
+	if !ok {
+		return
+	}
+	name := dataStr(data, "event")
+	if _, ok := allowedDiagnosticEvents[name]; !ok {
+		return
+	}
+	callID := msgCallID(msg)
+	if callID != "" && !s.groups.HasParticipant(callID, c.uid) {
+		return
+	}
+	sessionID := dataStr(data, "session_id")
+	if len(sessionID) > 80 {
+		sessionID = sessionID[:80]
+	}
+	fields, _ := data["fields"].(map[string]any)
+	s.writeDiagnostic(diagnostics.Event{Source: "client", UID: c.uid, CallID: callID, SessionID: sessionID, Name: name, Fields: fields})
+}
+
+func (s *SignalingServer) writeDiagnostic(event diagnostics.Event) {
+	if s.diag != nil {
+		s.diag.Write(event)
+	}
 }
 
 // handleSFUMediaState 广播开关麦/摄像头状态给同一通话内其余参与者（SFU 不经手媒体，状态经控制面同步）。
@@ -548,6 +622,7 @@ func (s *SignalingServer) handleGroupJoin(c *clientConn, msg *types.SignalingMes
 		s.sendError(c, err.Error())
 		return
 	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "group_joined", Fields: map[string]any{"participant_count": len(others) + 1}})
 	// 为新加入者建 SFU peer（收 sfu_publish 前需就绪）
 	if err := s.setupSFUPeer(c, callID); err != nil {
 		zLog.Error("sfu setup peer failed", zap.String("uid", c.uid), zap.Error(err))
@@ -576,6 +651,7 @@ func (s *SignalingServer) handleGroupLeave(c *clientConn, msg *types.SignalingMe
 	if err != nil {
 		return
 	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "group_left", Fields: map[string]any{"ended": ended, "remaining_count": len(remaining)}})
 	if ended {
 		s.sfu.RemoveRoom(callID)
 	} else {
@@ -786,6 +862,9 @@ func (s *SignalingServer) Close() error {
 		delete(s.conns, uid)
 	}
 	s.mu.Unlock()
+	if s.diag != nil {
+		_ = s.diag.Close()
+	}
 	zLog.Info("signaling server closed")
 	return nil
 }

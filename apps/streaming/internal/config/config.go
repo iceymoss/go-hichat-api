@@ -117,6 +117,13 @@ type Config struct {
 		UserTimeout int `yaml:"UserTimeout"`
 	}
 
+	// Diagnostics 将浏览器和服务端 SFU 状态汇总为本地 JSONL，便于复盘多人通话。
+	Diagnostics struct {
+		Enabled bool
+		Path    string
+		MaxMB   int
+	}
+
 	// 信令服务器配置
 	Signaling struct {
 		// WebSocket 配置

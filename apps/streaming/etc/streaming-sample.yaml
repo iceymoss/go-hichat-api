@@ -52,6 +52,11 @@ SFU:
   # 用户连接超时时间(秒)
   UserTimeout: 300
 
+Diagnostics:
+  Enabled: true
+  Path: logs/sfu-diagnostics.jsonl
+  MaxMB: 20
+
 # 信令服务器配置
 Signaling:
   # WebSocket 配置

@@ -422,6 +422,7 @@ services:
     volumes:
       - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
       - ./deploy/docker/etc/streaming.yaml:/app/apps/streaming/etc/streaming-local.yaml:ro
+      - ./logs:/app/logs
     healthcheck:
       <<: *hc
       test: ["CMD-SHELL", "nc -z 127.0.0.1 10093 || exit 1"]

@@ -148,6 +148,7 @@ mesh 是两两一次性协商；SFU 里**每加/减一路订阅轨都改变 SDP*
 - `apps/streaming/internal/handler/iceserver.go` — ICE 下发（接 coturn）。
 
 ## 测试计划
+- 诊断日志：浏览器通过鉴权后的 `sfu_diagnostic` 帧上报 WS/SDP/ICE/PC/restart/track 状态摘要，streaming 与服务端事件合并写入 `logs/sfu-diagnostics.jsonl`；按 `call_id`、`uid`、`session_id` 复盘多人时间线。禁止记录 JWT、完整 SDP、完整 ICE candidate 和媒体内容；默认 20 MiB 轮转为 `.1`。
 - [ ] SFU 单元：房间加/退、收流泵转发正确性、订阅关系变更后下行轨增减（table-driven，不依赖真实网络的部分用假 track/RTP 包）。
 - [ ] `GroupCallService` 上限/忙线/幂等（沿用 `groupcall_test.go` 风格）。
 - [ ] active-speaker：给定一串带 audio-level 的 RTP，top-N 选路正确、切换正确。

@@ -37,6 +37,11 @@ SFU:
   RoomTimeout: 3600
   UserTimeout: 300
 
+Diagnostics:
+  Enabled: true
+  Path: logs/sfu-diagnostics.jsonl
+  MaxMB: 20
+
 Signaling:
   WebSocket:
     ReadBufferSize: 4096
