@@ -111,6 +111,8 @@ type Config struct {
 		MaxRooms int `yaml:"MaxRooms"`
 		// 每个房间最大用户数
 		MaxUsersPerRoom int `yaml:"MaxUsersPerRoom"`
+		// 同时转发和高亮的活跃发言人数
+		ActiveSpeakers int `yaml:"ActiveSpeakers"`
 		// 房间超时时间(秒)
 		RoomTimeout int `yaml:"RoomTimeout"`
 		// 用户连接超时时间(秒)

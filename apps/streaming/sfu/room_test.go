@@ -144,6 +144,8 @@ func Test_Room_RouteRTP_OnlyForwardsSelectedAudioSpeakers(t *testing.T) {
 	r.Subscribe("viewer", "b", "b-video", videoB)
 
 	r.SetActiveSpeakers([]string{"a"})
+	r.ManageAudio("a")
+	r.ManageAudio("b")
 	r.RouteRTP("a", "a-audio", &rtp.Packet{})
 	r.RouteRTP("b", "b-audio", &rtp.Packet{})
 	r.RouteRTP("b", "b-video", &rtp.Packet{})
@@ -166,6 +168,17 @@ func Test_Room_RouteRTP_OnlyForwardsSelectedAudioSpeakers(t *testing.T) {
 	}
 	if got := audioB.count(); got != 1 {
 		t.Fatalf("newly selected audio packets = %d, want 1", got)
+	}
+}
+
+func Test_Room_RouteRTP_ForwardsAudioWithoutLevelNegotiation(t *testing.T) {
+	r := NewRoom("call1")
+	r.AddPublished("legacy", "audio", "audio", webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus})
+	sink := &fakeSink{}
+	r.Subscribe("listener", "legacy", "audio", sink)
+	r.RouteRTP("legacy", "audio", &rtp.Packet{})
+	if got := sink.count(); got != 1 {
+		t.Fatalf("fallback audio packets = %d, want 1", got)
 	}
 }
 

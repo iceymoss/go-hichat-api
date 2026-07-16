@@ -93,6 +93,7 @@ interface CallState {
   minimized: boolean;       // 通话窗口是否最小化为悬浮球
   isGroup: boolean;         // 是否群组通话（mesh）
   participants: Record<string, GroupParticipant>; // 群组：每个对端一路流
+  activeSpeakerIds: string[];
   activeGroupCalls: Record<string, ActiveGroupCall>; // groupId -> 该群当前活跃通话（横幅/列表标识）
   errorMsg: string | null;
 
@@ -181,7 +182,7 @@ export const useCallStore = create<CallState>((set, get) => {
       if (phase === 'idle' || phase === 'ended') {
         set({
           startedAt: null, muted: false, cameraOff: false, minimized: false,
-          isGroup: false, participants: {},
+          isGroup: false, participants: {}, activeSpeakerIds: [],
         });
       }
     },
@@ -204,9 +205,10 @@ export const useCallStore = create<CallState>((set, get) => {
       set(state => {
         const next = { ...state.participants };
         delete next[uid];
-        return { participants: next };
+        return { participants: next, activeSpeakerIds: state.activeSpeakerIds.filter(id => id !== uid) };
       });
     },
+    onActiveSpeakers: (activeSpeakerIds: string[]) => set({ activeSpeakerIds }),
     onPeerEvent: (uid: string, kind: 'joined' | 'left') => {
       const c = resolveContact(uid);
       toast(`${c.name} ${kind === 'joined' ? tt('call.toast.joined') : tt('call.toast.left')}`);
@@ -238,6 +240,7 @@ export const useCallStore = create<CallState>((set, get) => {
     minimized: false,
     isGroup: false,
     participants: {},
+    activeSpeakerIds: [],
     activeGroupCalls: {},
     errorMsg: null,
 
@@ -253,7 +256,7 @@ export const useCallStore = create<CallState>((set, get) => {
       if (!eng) return;
       set({
         isGroup: true, isCaller: true, mediaType: type, minimized: false, errorMsg: null,
-        participants: {}, peer: { id: groupId, name: groupName || '群通话' },
+        participants: {}, activeSpeakerIds: [], peer: { id: groupId, name: groupName || '群通话' },
       });
       eng.startGroupCall(groupId, members, type);
     },
@@ -265,7 +268,7 @@ export const useCallStore = create<CallState>((set, get) => {
       if (!eng) return;
       set({
         isGroup: true, isCaller: false, mediaType: type, minimized: false, errorMsg: null,
-        participants: {}, peer: { id: groupId, name: groupName || '群通话' },
+        participants: {}, activeSpeakerIds: [], peer: { id: groupId, name: groupName || '群通话' },
       });
       eng.joinExisting(callId, type);
     },
@@ -349,7 +352,7 @@ export const useCallStore = create<CallState>((set, get) => {
         const initiator = resolveContact(sig.fromUid || '');
         set({
           isGroup: true, isCaller: false, mediaType: sig.callType || 'voice',
-          minimized: false, errorMsg: null, participants: {},
+          minimized: false, errorMsg: null, participants: {}, activeSpeakerIds: [],
           peer: { id: sig.groupId || '', name: initiator.name, avatar: initiator.avatar },
         });
         eng.setIncoming(sig.callId, sig.callType || 'voice');

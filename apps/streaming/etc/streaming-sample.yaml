@@ -47,6 +47,8 @@ SFU:
   MaxRooms: 1000
   # 每个房间最大用户数
   MaxUsersPerRoom: 50
+  # 同时转发和高亮的活跃发言人数
+  ActiveSpeakers: 4
   # 房间超时时间(秒)
   RoomTimeout: 3600
   # 用户连接超时时间(秒)

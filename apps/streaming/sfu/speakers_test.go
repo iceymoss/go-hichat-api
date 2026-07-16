@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/pion/rtp"
+	"github.com/pion/sdp/v3"
+	"github.com/pion/webrtc/v3"
 )
 
 // Test_ActiveSpeakers_TopByLoudness 活跃发言人 top-N：
@@ -53,6 +55,19 @@ func Test_ActiveSpeakers_TopByLoudness(t *testing.T) {
 	}
 }
 
+func Test_AudioLevelExtensionID_UsesNegotiatedParameter(t *testing.T) {
+	params := webrtc.RTPParameters{HeaderExtensions: []webrtc.RTPHeaderExtensionParameter{
+		{URI: "other", ID: 2},
+		{URI: sdp.AudioLevelURI, ID: 7},
+	}}
+	if got := audioLevelExtensionID(params); got != 7 {
+		t.Fatalf("audioLevelExtensionID() = %d, want 7", got)
+	}
+	if got := audioLevelExtensionID(webrtc.RTPParameters{}); got != 0 {
+		t.Fatalf("audioLevelExtensionID(empty) = %d, want 0", got)
+	}
+}
+
 func Test_AudioLevel_ParsesNegotiatedRFC6464Extension(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -62,7 +77,7 @@ func Test_AudioLevel_ParsesNegotiatedRFC6464Extension(t *testing.T) {
 		ok    bool
 	}{
 		{name: "voice sample", id: 3, value: []byte{0x80 | 17}, want: 17, ok: true},
-		{name: "non voice sample", id: 3, value: []byte{17}},
+		{name: "level without optional voice flag", id: 3, value: []byte{17}, want: 17, ok: true},
 		{name: "missing extension", id: 3},
 		{name: "malformed extension", id: 3, value: []byte{0x80, 0x01}},
 		{name: "unnegotiated id", id: 0, value: []byte{0x80 | 17}},
@@ -98,5 +113,26 @@ func Test_ActiveSpeakers_ExcludesSilentAndStalePublishers(t *testing.T) {
 	now = now.Add(activeSpeakerStaleAfter + time.Millisecond)
 	if got := as.Top(4); len(got) != 0 {
 		t.Fatalf("Top(4) after expiry = %v, want empty", got)
+	}
+}
+
+func Test_SFU_ActiveSpeakers_EmitsOnlyWhenOrderedListChanges(t *testing.T) {
+	s := newSFUWithFactory(&fakeFactory{})
+	defer s.Close()
+	r := s.room("call1")
+	emitted := make([][]string, 0)
+	s.OnActiveSpeakers(func(_ string, speakers []string) {
+		emitted = append(emitted, speakers)
+	})
+
+	r.ObserveAudioLevel("a", 10, 4)
+	s.refreshActiveSpeakers()
+	s.refreshActiveSpeakers()
+	r.ObserveAudioLevel("b", 5, 4)
+	s.refreshActiveSpeakers()
+
+	want := [][]string{{"a"}, {"b", "a"}}
+	if !reflect.DeepEqual(emitted, want) {
+		t.Fatalf("emitted = %v, want %v", emitted, want)
 	}
 }

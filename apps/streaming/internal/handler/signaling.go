@@ -96,6 +96,7 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 		sfu: sfu.NewSFU(
 			sfu.WithPublicIP(svcCtx.Config.Public.IP),
 			sfu.WithUDPPortRange(svcCtx.Config.Public.UDPPortMin, svcCtx.Config.Public.UDPPortMax),
+			sfu.WithActiveSpeakerLimit(svcCtx.Config.SFU.ActiveSpeakers),
 		),
 		diag: diag,
 		upgrader: websocket.Upgrader{
@@ -126,6 +127,7 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 		}
 		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: event.PubUID, CallID: event.RoomID, Name: event.Name, Fields: fields})
 	})
+	s.sfu.OnActiveSpeakers(s.broadcastActiveSpeakers)
 
 	// 振铃超时：通知双方“未接听”
 	s.calls.SetTimeoutHandler(func(sess *logic.CallSession) {
@@ -725,6 +727,22 @@ func (s *SignalingServer) broadcastSFUPeerLeft(callID, uid string, remaining []s
 	}
 }
 
+func (s *SignalingServer) broadcastActiveSpeakers(callID string, speakers []string) {
+	participants, ok := s.groups.Participants(callID)
+	if !ok {
+		return
+	}
+	for _, uid := range participants {
+		if c, connected := s.getConn(uid); connected {
+			s.send(c, &types.SignalingMessage{
+				Type:   types.MessageTypeActiveSpeakers,
+				RoomID: callID,
+				Data:   map[string]any{"call_id": callID, "speakers": speakers},
+			})
+		}
+	}
+}
+
 // isGroupMember 校验 uid 是否群成员：读关系缓存，Unknown 时 fail-open（与项目鉴权一致；前端已先按群成员过滤）。
 func (s *SignalingServer) isGroupMember(uid, groupID string) bool {
 	switch s.svc.RelationCache.IsGroupMember(s.ctx, groupID, uid) {
@@ -907,6 +925,7 @@ func (s *SignalingServer) sendError(c *clientConn, errMsg string) {
 // Close 关闭信令服务器：取消上下文并关闭所有连接。
 func (s *SignalingServer) Close() error {
 	s.cancel()
+	s.sfu.Close()
 	s.mu.Lock()
 	for uid, c := range s.conns {
 		c.close()

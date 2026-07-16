@@ -20,6 +20,7 @@ export interface GroupCallEngineCallbacks {
   onParticipantStream: (uid: string, stream: MediaStream | null) => void;
   onParticipantMedia: (uid: string, media: { audio: boolean; video: boolean }) => void;
   onParticipantLeft: (uid: string) => void;
+  onActiveSpeakers: (uids: string[]) => void;
   onPeerEvent: (uid: string, kind: 'joined' | 'left') => void;
   onError: (key: string) => void;
 }
@@ -92,6 +93,11 @@ export function mergeRemoteStream(target: MediaStream, incoming: MediaStream, ev
 /** Phase 0 统一使用软件可并发编码的 VP8，避免多标签页耗尽硬件 H264 encoder 后只输出约 1 FPS。 */
 export function preferredVideoCodecs(codecs: RTCRtpCodec[]) {
   return codecs.filter(codec => codec.mimeType.toLowerCase() === 'video/vp8');
+}
+
+export function parseActiveSpeakers(data: Record<string, unknown>) {
+  if (!Array.isArray(data.speakers)) return [];
+  return [...new Set(data.speakers.filter((uid): uid is string => typeof uid === 'string' && uid.length > 0))];
 }
 
 export class SFUGroupEngine {
@@ -305,6 +311,9 @@ export class SFUGroupEngine {
         }
         break;
       }
+      case 'active_speakers':
+        this.cb.onActiveSpeakers(parseActiveSpeakers(data));
+        break;
       case 'error':
         this.cb.onError('call.err.generic');
         break;

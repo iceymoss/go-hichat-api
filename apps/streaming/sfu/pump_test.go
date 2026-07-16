@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/pion/rtp"
+	"github.com/pion/webrtc/v3"
 )
 
 // fakeReader 假上行 RTP 源：按序吐包，读完返回 io.EOF。
@@ -37,9 +38,31 @@ func Test_pump_ForwardsAllPacketsUntilEOF(t *testing.T) {
 		{Header: rtp.Header{SequenceNumber: 3}},
 	}}
 
-	pump(r, "a", "a-video", src) // 同步跑到 EOF（生产中在 goroutine 里）
+	pump(r, "a", "a-video", src, 0, defaultActiveSpeakerLimit) // 同步跑到 EOF（生产中在 goroutine 里）
 
 	if got := sinkB.count(); got != 3 {
 		t.Errorf("pump forwarded %d packets, want 3", got)
+	}
+}
+
+func Test_pump_ObservesAudioLevelBeforeRouting(t *testing.T) {
+	r := NewRoom("call1")
+	r.Join("speaker")
+	r.Join("listener")
+	r.AddPublished("speaker", "audio", "audio", webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus})
+	sink := &fakeSink{}
+	r.Subscribe("listener", "speaker", "audio", sink)
+	pkt := &rtp.Packet{}
+	if err := pkt.Header.SetExtension(3, []byte{0x80 | 12}); err != nil {
+		t.Fatal(err)
+	}
+
+	pump(r, "speaker", "audio", &fakeReader{pkts: []*rtp.Packet{pkt}}, 3, defaultActiveSpeakerLimit)
+
+	if got := sink.count(); got != 1 {
+		t.Fatalf("forwarded audio packets = %d, want 1", got)
+	}
+	if got := r.ActiveSpeakers(4); len(got) != 1 || got[0] != "speaker" {
+		t.Fatalf("ActiveSpeakers() = %v, want [speaker]", got)
 	}
 }

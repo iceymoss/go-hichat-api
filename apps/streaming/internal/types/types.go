@@ -55,6 +55,7 @@ const (
 	MessageTypeSFUReconnectReady SignalingMessageType = "sfu_reconnect_ready" // S->C：替换完成，客户端可重新 publish
 	MessageTypeSFUPeerLeft       SignalingMessageType = "sfu_peer_left"       // S->C：某参与者离开（移除 tile）
 	MessageTypeSFUMediaState     SignalingMessageType = "sfu_media_state"     // 双向：开关麦/摄像头状态同步
+	MessageTypeActiveSpeakers    SignalingMessageType = "active_speakers"     // S->C：当前按响度排序的 top-N 发言人
 
 	// 会议功能
 	MessageTypeMeetingCreate  SignalingMessageType = "meeting_create"

@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { mergeRemoteStream, preferredVideoCodecs } from './sfu-group-engine';
+import { mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs } from './sfu-group-engine';
 
 class FakeTrack {
   constructor(public id: string, public kind: 'audio' | 'video') {}
@@ -55,5 +55,16 @@ describe('preferredVideoCodecs', () => {
     const codecs = [{ mimeType: 'video/H264', clockRate: 90000 }] as RTCRtpCodec[];
 
     expect(preferredVideoCodecs(codecs)).toEqual([]);
+  });
+});
+
+describe('parseActiveSpeakers', () => {
+  test.each([
+    [{ speakers: ['12', '11', '12', '', 20] }, ['12', '11']],
+    [{ speakers: [] }, []],
+    [{ speakers: '12' }, []],
+    [{}, []],
+  ])('sanitizes %o', (data, want) => {
+    expect(parseActiveSpeakers(data)).toEqual(want);
   });
 });

@@ -34,6 +34,7 @@ WebRTC:
 SFU:
   MaxRooms: 1000
   MaxUsersPerRoom: 50
+  ActiveSpeakers: 4
   RoomTimeout: 3600
   UserTimeout: 300
 

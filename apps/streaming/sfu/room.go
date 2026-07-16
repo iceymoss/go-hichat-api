@@ -43,6 +43,8 @@ type Room struct {
 	subs         map[trackKey]map[string]RTPSink // 已发布轨 -> (订阅者 uid -> 下行 sink)
 	published    map[trackKey]PublishedTrack     // 当前已发布轨注册表（供回填）
 	activeAudio  map[string]struct{}             // 当前允许转发音频的发布者 uid
+	managedAudio map[string]struct{}             // 已协商 audio-level、可参与 top-N 的发布者
+	speakers     *ActiveSpeakers
 }
 
 // NewRoom 创建空房间。
@@ -53,7 +55,26 @@ func NewRoom(id string) *Room {
 		subs:         make(map[trackKey]map[string]RTPSink),
 		published:    make(map[trackKey]PublishedTrack),
 		activeAudio:  make(map[string]struct{}),
+		managedAudio: make(map[string]struct{}),
+		speakers:     NewActiveSpeakers(),
 	}
+}
+
+func (r *Room) ManageAudio(uid string) {
+	r.mu.Lock()
+	r.managedAudio[uid] = struct{}{}
+	r.mu.Unlock()
+}
+
+// ObserveAudioLevel 更新发布者响度，并立即刷新音频转发选择。
+func (r *Room) ObserveAudioLevel(uid string, level uint8, limit int) {
+	r.speakers.Observe(uid, level)
+	r.SetActiveSpeakers(r.speakers.Top(limit))
+}
+
+// ActiveSpeakers 返回当前按响度排序的发言人。
+func (r *Room) ActiveSpeakers(limit int) []string {
+	return r.speakers.Top(limit)
 }
 
 // SetActiveSpeakers 原子替换当前允许转发的音频发布者集合，不改变下行轨和 SDP。
@@ -65,6 +86,12 @@ func (r *Room) SetActiveSpeakers(uids []string) {
 	r.mu.Lock()
 	r.activeAudio = active
 	r.mu.Unlock()
+}
+
+func (r *Room) refreshActiveSpeakers(limit int) []string {
+	speakers := r.speakers.Top(limit)
+	r.SetActiveSpeakers(speakers)
+	return speakers
 }
 
 // ID 返回房间标识（= callID）。
@@ -83,6 +110,8 @@ func (r *Room) Leave(uid string) {
 	r.mu.Lock()
 	removed := make([]RTPSink, 0)
 	delete(r.participants, uid)
+	delete(r.managedAudio, uid)
+	delete(r.activeAudio, uid)
 	for key, subs := range r.subs {
 		if key.pubUID == uid {
 			for _, sink := range subs {
@@ -194,7 +223,9 @@ func (r *Room) RouteRTP(pubUID, trackID string, pkt *rtp.Packet) {
 	key := trackKey{pubUID: pubUID, trackID: trackID}
 	r.mu.RLock()
 	if published, ok := r.published[key]; ok && published.Kind == webrtc.RTPCodecTypeAudio.String() {
-		if _, active := r.activeAudio[pubUID]; !active {
+		_, managed := r.managedAudio[pubUID]
+		_, active := r.activeAudio[pubUID]
+		if managed && !active {
 			r.mu.RUnlock()
 			return
 		}

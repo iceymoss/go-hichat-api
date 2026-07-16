@@ -34,6 +34,7 @@ export function CallOverlay() {
   const minimized = useCallStore(s => s.minimized);
   const isGroup = useCallStore(s => s.isGroup);
   const participants = useCallStore(s => s.participants);
+  const activeSpeakerIds = useCallStore(s => s.activeSpeakerIds);
 
   const accept = useCallStore(s => s.accept);
   const reject = useCallStore(s => s.reject);
@@ -144,8 +145,8 @@ export function CallOverlay() {
   // 群组网格：群通话且非来电响铃态时，用网格展示本地 + 各参与者
   const isGroupGrid = isGroup && phase !== 'incoming';
   const groupTiles = [
-    { key: 'local', stream: localStream, name: t('call.self'), avatar: undefined as string | undefined, isLocal: true, video: isVideo && !cameraOff, micOff: muted },
-    ...Object.values(participants).map(p => ({ key: p.id, stream: p.stream, name: p.name, avatar: p.avatar, isLocal: false, video: isVideo && p.media.video, micOff: !p.media.audio })),
+    { key: 'local', stream: localStream, name: t('call.self'), avatar: undefined as string | undefined, isLocal: true, video: isVideo && !cameraOff, micOff: muted, speaking: false },
+    ...Object.values(participants).map(p => ({ key: p.id, stream: p.stream, name: p.name, avatar: p.avatar, isLocal: false, video: isVideo && p.media.video, micOff: !p.media.audio, speaking: activeSpeakerIds.includes(p.id) })),
   ];
 
   const statusText =
@@ -330,7 +331,7 @@ export function CallOverlay() {
 }
 
 /** 群组网格的单个视频/头像格子。始终渲染 video（播放音频），无视频流时盖头像；右下角静音角标。 */
-function VideoTile({ stream, name, avatar, isLocal, video, micOff }: { stream: MediaStream | null; name: string; avatar?: string; isLocal?: boolean; video?: boolean; micOff?: boolean }) {
+function VideoTile({ stream, name, avatar, isLocal, video, micOff, speaking }: { stream: MediaStream | null; name: string; avatar?: string; isLocal?: boolean; video?: boolean; micOff?: boolean; speaking?: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     if (ref.current && ref.current.srcObject !== stream) ref.current.srcObject = stream;
@@ -338,7 +339,7 @@ function VideoTile({ stream, name, avatar, isLocal, video, micOff }: { stream: M
   // 远端关摄像头时其 track 仍 enabled，故是否出图以 video 标志（含对端 media_state）为准
   const hasVideo = !!video && !!stream && stream.getVideoTracks().length > 0;
   return (
-    <div style={{ position: 'relative', background: '#000', borderRadius: 10, overflow: 'hidden', minHeight: 0, minWidth: 0 }}>
+    <div style={{ position: 'relative', background: '#000', borderRadius: 10, overflow: 'hidden', minHeight: 0, minWidth: 0, boxShadow: speaking ? 'inset 0 0 0 3px #1BB45B, 0 0 16px rgba(27,180,91,0.38)' : 'none', transition: 'box-shadow 160ms ease' }}>
       <video ref={ref} autoPlay playsInline muted={isLocal} style={{ width: '100%', height: '100%', objectFit: 'cover', display: hasVideo ? 'block' : 'none' }} />
       {!hasVideo && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: getAvatarColor(name) }}>
@@ -360,7 +361,7 @@ function VideoTile({ stream, name, avatar, isLocal, video, micOff }: { stream: M
 }
 
 /** 群组通话网格（≤4 人，2 列） */
-function GroupGrid({ tiles }: { tiles: Array<{ key: string; stream: MediaStream | null; name: string; avatar?: string; isLocal?: boolean; video?: boolean; micOff?: boolean }> }) {
+function GroupGrid({ tiles }: { tiles: Array<{ key: string; stream: MediaStream | null; name: string; avatar?: string; isLocal?: boolean; video?: boolean; micOff?: boolean; speaking?: boolean }> }) {
   const cols = tiles.length <= 1 ? 1 : 2;
   return (
     <div style={{
@@ -368,7 +369,7 @@ function GroupGrid({ tiles }: { tiles: Array<{ key: string; stream: MediaStream 
       display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: '1fr', gap: 8,
     }}>
       {tiles.map(tl => (
-        <VideoTile key={tl.key} stream={tl.stream} name={tl.name} avatar={tl.avatar} isLocal={tl.isLocal} video={tl.video} micOff={tl.micOff} />
+        <VideoTile key={tl.key} stream={tl.stream} name={tl.name} avatar={tl.avatar} isLocal={tl.isLocal} video={tl.video} micOff={tl.micOff} speaking={tl.speaking} />
       ))}
     </div>
   );

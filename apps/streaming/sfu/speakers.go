@@ -6,12 +6,16 @@ import (
 	"time"
 
 	"github.com/pion/rtp"
+	"github.com/pion/sdp/v3"
+	"github.com/pion/webrtc/v3"
 )
 
 // speakerAlpha EMA 平滑系数：越大越跟手（新样本权重高），越小越平滑。
 const speakerAlpha = 0.2
 
 const activeSpeakerStaleAfter = time.Second
+
+const defaultActiveSpeakerLimit = 4
 
 // ActiveSpeakers 按 RFC6464 音量的指数滑动平均维护各发言人响度，供 top-N 选路 + 高亮。
 // 音量输入 0..127（0=最响，127=静音）；内部转成响度 = 127-level（越大越响）。并发安全。
@@ -92,7 +96,7 @@ func (a *ActiveSpeakers) Top(n int) []string {
 	return out
 }
 
-// audioLevel 读取已协商 ID 的 RFC 6464 SSRC audio-level。只采纳 V 位标记为语音的样本。
+// audioLevel 读取已协商 ID 的 RFC 6464 SSRC audio-level。V 位是可选能力，不能用于跨浏览器过滤。
 func audioLevel(pkt *rtp.Packet, extensionID uint8) (uint8, bool) {
 	if pkt == nil || extensionID == 0 {
 		return 0, false
@@ -102,8 +106,17 @@ func audioLevel(pkt *rtp.Packet, extensionID uint8) (uint8, bool) {
 		return 0, false
 	}
 	var level rtp.AudioLevelExtension
-	if err := level.Unmarshal(raw); err != nil || !level.Voice {
+	if err := level.Unmarshal(raw); err != nil {
 		return 0, false
 	}
 	return level.Level, true
+}
+
+func audioLevelExtensionID(params webrtc.RTPParameters) uint8 {
+	for _, extension := range params.HeaderExtensions {
+		if extension.URI == sdp.AudioLevelURI && extension.ID > 0 && extension.ID <= 255 {
+			return uint8(extension.ID)
+		}
+	}
+	return 0
 }

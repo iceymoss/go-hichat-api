@@ -10,6 +10,7 @@ import (
 	"github.com/pion/interceptor"
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
+	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 )
 
@@ -22,16 +23,22 @@ type downlinkFactory interface {
 
 // SFU 协调器：管理房间、pion peer 注册表，编排「某人发布 -> 为其余人建下行订阅 + 起收流泵」。
 type SFU struct {
-	mu           sync.Mutex
-	rooms        map[string]*Room
-	peers        map[string]*Peer  // uid -> peer（单会话，uid 全局唯一）
-	pubSSRC      map[string]uint32 // "pubUID|trackID" -> 上行轨 SSRC（PLI 转发用）
-	factory      downlinkFactory
-	api          *webrtc.API // 带接口过滤的 pion API（滤掉虚拟接口候选）
-	mediaEventMu sync.RWMutex
-	onMediaEvent func(MediaEvent)
-	keyframeMu   sync.Mutex
-	lastKeyframe map[string]time.Time
+	mu                 sync.Mutex
+	rooms              map[string]*Room
+	peers              map[string]*Peer  // uid -> peer（单会话，uid 全局唯一）
+	pubSSRC            map[string]uint32 // "pubUID|trackID" -> 上行轨 SSRC（PLI 转发用）
+	factory            downlinkFactory
+	api                *webrtc.API // 带接口过滤的 pion API（滤掉虚拟接口候选）
+	mediaEventMu       sync.RWMutex
+	onMediaEvent       func(MediaEvent)
+	keyframeMu         sync.Mutex
+	lastKeyframe       map[string]time.Time
+	activeSpeakerLimit int
+	activeSpeakerMu    sync.RWMutex
+	onActiveSpeakers   func(string, []string)
+	lastSpeakers       map[string][]string
+	stopSpeakers       chan struct{}
+	stopOnce           sync.Once
 }
 
 // MediaEvent 是不含 SSRC、地址和媒体内容的 SFU 数据面诊断事件。
@@ -50,8 +57,9 @@ type MediaEvent struct {
 type Option func(*sfuConfig)
 
 type sfuConfig struct {
-	publicIP       string
-	udpMin, udpMax int
+	publicIP           string
+	udpMin, udpMax     int
+	activeSpeakerLimit int
 }
 
 // 浏览器可能把多路 receiver report/TWCC 合并为超过 Pion 默认 1460 字节的 compound RTCP。
@@ -68,20 +76,30 @@ func WithUDPPortRange(min, max int) Option {
 	return func(c *sfuConfig) { c.udpMin, c.udpMax = min, max }
 }
 
+// WithActiveSpeakerLimit 设置每个房间同时转发和高亮的音频发布者数量。
+func WithActiveSpeakerLimit(limit int) Option {
+	return func(c *sfuConfig) { c.activeSpeakerLimit = limit }
+}
+
 // NewSFU 创建协调器，使用真实 pion 下行工厂（生产）。opts 配置公网 IP / UDP 端口范围。
 func NewSFU(opts ...Option) *SFU {
 	cfg := sfuConfig{}
 	for _, o := range opts {
 		o(&cfg)
 	}
-	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), lastKeyframe: make(map[string]time.Time), api: buildAPI(cfg)}
+	if cfg.activeSpeakerLimit <= 0 {
+		cfg.activeSpeakerLimit = defaultActiveSpeakerLimit
+	}
+	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), lastKeyframe: make(map[string]time.Time), api: buildAPI(cfg), activeSpeakerLimit: cfg.activeSpeakerLimit, lastSpeakers: make(map[string][]string), stopSpeakers: make(chan struct{})}
 	s.factory = realDownlink{sfu: s}
+	go s.runActiveSpeakers()
 	return s
 }
 
 // newSFUWithFactory 注入自定义下行工厂（测试用，隔离 pion 下行 I/O）。
 func newSFUWithFactory(f downlinkFactory) *SFU {
-	return &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), lastKeyframe: make(map[string]time.Time), api: buildAPI(sfuConfig{}), factory: f}
+	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), lastKeyframe: make(map[string]time.Time), api: buildAPI(sfuConfig{}), factory: f, activeSpeakerLimit: defaultActiveSpeakerLimit, lastSpeakers: make(map[string][]string), stopSpeakers: make(chan struct{})}
+	return s
 }
 
 // buildAPI 构造带 SettingEngine 的 pion API：注册默认编解码 + 拦截器（NACK/RTCP 等），
@@ -91,6 +109,9 @@ func newSFUWithFactory(f downlinkFactory) *SFU {
 func buildAPI(cfg sfuConfig) *webrtc.API {
 	me := &webrtc.MediaEngine{}
 	if err := me.RegisterDefaultCodecs(); err != nil {
+		panic(err)
+	}
+	if err := me.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: sdp.AudioLevelURI}, webrtc.RTPCodecTypeAudio); err != nil {
 		panic(err)
 	}
 	ir := &interceptor.Registry{}
@@ -156,6 +177,75 @@ func (s *SFU) OnMediaEvent(cb func(MediaEvent)) {
 	s.mediaEventMu.Lock()
 	s.onMediaEvent = cb
 	s.mediaEventMu.Unlock()
+}
+
+// OnActiveSpeakers 注册房间 top-N 变化回调。回调运行在独立的周期任务，不阻塞 RTP 收流。
+func (s *SFU) OnActiveSpeakers(cb func(roomID string, speakers []string)) {
+	s.activeSpeakerMu.Lock()
+	s.onActiveSpeakers = cb
+	s.activeSpeakerMu.Unlock()
+}
+
+func (s *SFU) runActiveSpeakers() {
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			s.refreshActiveSpeakers()
+		case <-s.stopSpeakers:
+			return
+		}
+	}
+}
+
+func (s *SFU) refreshActiveSpeakers() {
+	s.mu.Lock()
+	rooms := make([]*Room, 0, len(s.rooms))
+	for _, room := range s.rooms {
+		rooms = append(rooms, room)
+	}
+	s.mu.Unlock()
+	for _, room := range rooms {
+		speakers := room.refreshActiveSpeakers(s.activeSpeakerLimit)
+		s.activeSpeakerMu.Lock()
+		previous := s.lastSpeakers[room.ID()]
+		changed := !equalStrings(previous, speakers)
+		if changed {
+			s.lastSpeakers[room.ID()] = append([]string(nil), speakers...)
+		}
+		cb := s.onActiveSpeakers
+		s.activeSpeakerMu.Unlock()
+		if changed && cb != nil {
+			cb(room.ID(), append([]string(nil), speakers...))
+		}
+	}
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// Close 停止 SFU 后台任务并关闭全部房间。
+func (s *SFU) Close() {
+	s.stopOnce.Do(func() { close(s.stopSpeakers) })
+	s.mu.Lock()
+	rooms := make([]string, 0, len(s.rooms))
+	for roomID := range s.rooms {
+		rooms = append(rooms, roomID)
+	}
+	s.mu.Unlock()
+	for _, roomID := range rooms {
+		s.RemoveRoom(roomID)
+	}
 }
 
 func (s *SFU) emitMediaEvent(event MediaEvent) {
@@ -252,6 +342,9 @@ func (s *SFU) RemoveRoom(roomID string) {
 	}
 	delete(s.rooms, roomID)
 	s.mu.Unlock()
+	s.activeSpeakerMu.Lock()
+	delete(s.lastSpeakers, roomID)
+	s.activeSpeakerMu.Unlock()
 
 	for _, p := range peers {
 		_ = p.Close()
@@ -370,7 +463,7 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 			p.flushPendingNegotiation()
 		}
 	})
-	pc.OnTrack(func(tr *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
+	pc.OnTrack(func(tr *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		trackID := tr.ID()
 		s.setPubSSRC(uid, trackID, uint32(tr.SSRC())) // 记录上行 SSRC（PLI 转发用）
 		codec := tr.Codec().RTPCodecCapability
@@ -386,9 +479,16 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 			}
 			room.Subscribe(sub, uid, trackID, sink)
 		}
+		extensionID := uint8(0)
+		if tr.Kind() == webrtc.RTPCodecTypeAudio {
+			extensionID = audioLevelExtensionID(receiver.GetParameters())
+		}
 		go func() {
-			pump(room, uid, trackID, trackRemoteReader{t: tr})
+			pump(room, uid, trackID, trackRemoteReader{t: tr}, extensionID, s.activeSpeakerLimit)
 			room.Unpublish(uid, trackID) // 轨结束：从注册表 + 订阅表清理
+			if tr.Kind() == webrtc.RTPCodecTypeAudio {
+				room.speakers.Remove(uid)
+			}
 			s.emitMediaEvent(MediaEvent{Name: "track_ended", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String()})
 		}()
 	})
