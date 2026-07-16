@@ -116,6 +116,21 @@ export function videoSendEncodings(): RTCRtpEncodingParameters[] {
   ];
 }
 
+export function addVideoTransceiver(pc: RTCPeerConnection, track: MediaStreamTrack, stream: MediaStream) {
+  try {
+    return pc.addTransceiver(track, {
+      direction: 'sendonly',
+      streams: [stream],
+      sendEncodings: videoSendEncodings(),
+    });
+  } catch {
+    const sender = pc.addTrack(track, stream);
+    const transceiver = pc.getTransceivers().find(candidate => candidate.sender === sender);
+    if (!transceiver) throw new Error('video transceiver unavailable');
+    return transceiver;
+  }
+}
+
 export class SFUGroupEngine {
   private ws: WebSocket | null = null;
   private pc: RTCPeerConnection | null = null;
@@ -434,11 +449,7 @@ export class SFUGroupEngine {
         pc.addTrack(track, this.localStream!);
         return;
       }
-      const transceiver = pc.addTransceiver(track, {
-        direction: 'sendonly',
-        streams: [this.localStream!],
-        sendEncodings: videoSendEncodings(),
-      });
+      const transceiver = addVideoTransceiver(pc, track, this.localStream!);
       const codecs = RTCRtpSender.getCapabilities?.('video')?.codecs ?? [];
       const preferred = preferredVideoCodecs(codecs);
       if (preferred.length > 0) {

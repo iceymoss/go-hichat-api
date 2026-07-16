@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { diffVideoSubscriptions, mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs, videoSendEncodings } from './sfu-group-engine';
+import { addVideoTransceiver, diffVideoSubscriptions, mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs, videoSendEncodings } from './sfu-group-engine';
 
 class FakeTrack {
   constructor(public id: string, public kind: 'audio' | 'video') {}
@@ -89,5 +89,18 @@ describe('videoSendEncodings', () => {
       { rid: 'h', scaleResolutionDownBy: 2, maxBitrate: 500000 },
       { rid: 'f', scaleResolutionDownBy: 1, maxBitrate: 1500000 },
     ]);
+  });
+});
+
+describe('addVideoTransceiver', () => {
+  test('falls back to a single video track when simulcast is rejected', () => {
+    const fallback = { sender: {} } as RTCRtpTransceiver;
+    const pc = {
+      addTransceiver: () => { throw new TypeError('sendEncodings unsupported'); },
+      addTrack: () => fallback.sender,
+      getTransceivers: () => [fallback],
+    } as unknown as RTCPeerConnection;
+
+    expect(addVideoTransceiver(pc, {} as MediaStreamTrack, {} as MediaStream)).toBe(fallback);
   });
 });
