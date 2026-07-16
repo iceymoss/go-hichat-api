@@ -80,6 +80,9 @@ func buildAPI(cfg sfuConfig) *webrtc.API {
 		panic(err)
 	}
 	se := webrtc.SettingEngine{}
+	// SFU 是固定公网/局域网端点，使用 ICE Lite，由浏览器作为唯一 controlling agent 选路。
+	// 避免服务端 full ICE 在多网卡 host/srflx 候选间主动切换，造成浏览器单边 consent 超时。
+	se.SetLite(true)
 	se.SetReceiveMTU(sfuReceiveMTU)
 	se.SetInterfaceFilter(usableInterface)
 	// 解析浏览器发来的 mDNS(.local) 主机候选：Chrome 默认把 host IP 藏成 .local，
@@ -360,9 +363,13 @@ func (p *Peer) Publish(offerSDP string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	gatherComplete := webrtc.GatheringCompletePromise(p.pc)
 	if err := p.pc.SetLocalDescription(answer); err != nil {
 		return "", err
 	}
+	// ICE Lite 仅收集本机/NAT1To1 候选，等待开销很小；让初始 answer 自包含候选，
+	// 同时保留 OnICECandidate trickle 以兼容后续 ICE restart。
+	<-gatherComplete
 	return p.pc.LocalDescription().SDP, nil
 }
 

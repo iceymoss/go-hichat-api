@@ -426,9 +426,8 @@ func (s *SignalingServer) handleGroupInvite(c *clientConn, msg *types.SignalingM
 // setupSFUPeer 为 c.uid 在 callID 房间建一条 SFU PeerConnection，并接好服务端发起的
 // renegotiation offer 下发（sfu_offer）。客户端收到 group_created/group_roster 后发 sfu_publish。
 func (s *SignalingServer) setupSFUPeer(c *clientConn, callID string) error {
-	// 服务端 PC 也配 STUN，增强候选（Phase 1 追加 coturn TURN）
-	iceServers := sfu.STUNServers("stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302")
-	peer, err := s.sfu.AddPeer(callID, c.uid, iceServers)
+	// SFU 使用 ICE Lite，只采集本机候选；公网地址由 SettingEngine NAT1To1 宣告。
+	peer, err := s.sfu.AddPeer(callID, c.uid, nil)
 	if err != nil {
 		return err
 	}
@@ -474,8 +473,7 @@ func (s *SignalingServer) wireSFUPeer(c *clientConn, callID string, peer *sfu.Pe
 }
 
 func (s *SignalingServer) replaceSFUPeer(c *clientConn, callID string) error {
-	iceServers := sfu.STUNServers("stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302")
-	peer, err := s.sfu.ReplacePeer(callID, c.uid, iceServers)
+	peer, err := s.sfu.ReplacePeer(callID, c.uid, nil)
 	if err != nil {
 		return err
 	}
@@ -585,6 +583,7 @@ var allowedDiagnosticEvents = map[string]struct{}{
 	"ice_candidate_sent": {}, "ice_gathering_state": {}, "ice_restart_exhausted": {},
 	"ice_restart_requested": {}, "ice_state": {}, "negotiation_error": {}, "peer_left": {},
 	"media_reconnect_requested": {}, "media_reconnect_ready": {},
+	"candidate_pair": {}, "media_reconnect_paused": {},
 	"peer_state": {}, "publish_started": {}, "remote_track": {}, "sfu_answer_received": {},
 	"sfu_offer_received": {}, "ws_closed": {}, "ws_error": {}, "ws_opened": {},
 }

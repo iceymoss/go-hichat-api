@@ -31,11 +31,28 @@ interface StreamingMsg {
   data?: Record<string, unknown>;
 }
 
+interface CandidatePairStats extends RTCStats {
+  nominated: boolean;
+  state: string;
+  localCandidateId: string;
+  remoteCandidateId: string;
+  packetsSent?: number;
+  packetsReceived?: number;
+  bytesSent?: number;
+  bytesReceived?: number;
+  currentRoundTripTime?: number;
+}
+
+interface CandidateStats extends RTCStats {
+  candidateType?: string;
+}
+
 const DEFAULT_ICE: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
 const ICE_RESTART_DELAY_MS = 1500;
 const ICE_RESTART_RETRY_MS = 5000;
 const MAX_ICE_RESTARTS = 2;
-const MAX_MEDIA_RECONNECTS = 1;
+const MAX_MEDIA_RECONNECTS = 3;
+const MEDIA_RECONNECT_COOLDOWN_MS = 30000;
 
 export class SFUGroupEngine {
   private ws: WebSocket | null = null;
@@ -54,6 +71,7 @@ export class SFUGroupEngine {
   private iceRestartTimer: ReturnType<typeof setTimeout> | null = null;
   private iceRestartAttempts = 0;
   private mediaReconnectAttempts = 0;
+  private mediaReconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly sessionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -289,6 +307,7 @@ export class SFUGroupEngine {
       this.log('ice:', pc.iceConnectionState);
       this.diagnose('ice_state', { state: pc.iceConnectionState });
       if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+        void this.reportCandidatePair();
         this.scheduleIceRestart();
       }
     };
@@ -353,7 +372,14 @@ export class SFUGroupEngine {
   private rebuildMediaConnection() {
     if (this.mediaReconnectAttempts >= MAX_MEDIA_RECONNECTS) {
       this.cb.onError('call.err.connect');
-      this.hangup();
+      this.diagnose('media_reconnect_paused', { reconnect_attempt: this.mediaReconnectAttempts });
+      if (!this.mediaReconnectTimer) {
+        this.mediaReconnectTimer = setTimeout(() => {
+          this.mediaReconnectTimer = null;
+          this.mediaReconnectAttempts = 0;
+          this.rebuildMediaConnection();
+        }, MEDIA_RECONNECT_COOLDOWN_MS);
+      }
       return;
     }
     this.mediaReconnectAttempts += 1;
@@ -368,6 +394,32 @@ export class SFUGroupEngine {
     this.remoteUids.clear();
     this.diagnose('media_reconnect_requested', { reconnect_attempt: this.mediaReconnectAttempts });
     this.sendWs('sfu_reconnect', { call_id: this.callId });
+  }
+
+  private async reportCandidatePair() {
+    if (!this.pc) return;
+    try {
+      const report = await this.pc.getStats();
+      let selected: CandidatePairStats | undefined;
+      report.forEach(stat => {
+        const pair = stat as CandidatePairStats;
+        if (pair.type === 'candidate-pair' && pair.nominated && pair.state === 'succeeded') selected = pair;
+      });
+      if (!selected) return;
+      const local = report.get(selected.localCandidateId) as CandidateStats | undefined;
+      const remote = report.get(selected.remoteCandidateId) as CandidateStats | undefined;
+      this.diagnose('candidate_pair', {
+        local_candidate_type: local?.candidateType ?? 'unknown',
+        remote_candidate_type: remote?.candidateType ?? 'unknown',
+        packets_sent: selected.packetsSent ?? 0,
+        packets_received: selected.packetsReceived ?? 0,
+        bytes_sent: selected.bytesSent ?? 0,
+        bytes_received: selected.bytesReceived ?? 0,
+        rtt_ms: Math.round((selected.currentRoundTripTime ?? 0) * 1000),
+      });
+    } catch (error) {
+      console.warn('[sfu-gcall] get selected candidate pair failed', error);
+    }
   }
 
   private clearIceRestartTimer() {
@@ -506,6 +558,10 @@ export class SFUGroupEngine {
     this.clearIceRestartTimer();
     this.iceRestartAttempts = 0;
     this.mediaReconnectAttempts = 0;
+    if (this.mediaReconnectTimer) {
+      clearTimeout(this.mediaReconnectTimer);
+      this.mediaReconnectTimer = null;
+    }
     try { this.pc?.close(); } catch { /* ignore */ }
     this.pc = null;
     this.remoteDescSet = false;

@@ -76,7 +76,7 @@ mesh 是两两一次性协商；SFU 里**每加/减一路订阅轨都改变 SDP*
 
 ### 4. 公网可用（coturn / ICE / 端口）
 - 新增 `coturn` 服务（docker-compose），下发到前端的 ICE 追加 `turn:` 条目（`iceserver.go`）。
-- streaming 侧 pion `SettingEngine`：配置 **公网 IP（1:1 NAT）** 与 **UDP 媒体端口范围**（如 50000–50200），docker 暴露该范围；生产 `wss`。
+- streaming 侧 pion `SettingEngine`：SFU 使用 **ICE Lite**（浏览器作为唯一 controlling agent），配置 **公网 IP（1:1 NAT）** 与 **UDP 媒体端口范围**（如 50000–50200），docker 暴露该范围；生产 `wss`。
 - 对称 NAT / UDP 被封时经 coturn TCP/TLS 中继兜底。
 
 ## 信令契约（streaming ws；附加，1:1 帧不动）

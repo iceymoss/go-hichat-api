@@ -20,9 +20,10 @@ var sensitiveFields = map[string]struct{}{
 
 var allowedFields = map[string]struct{}{
 	"attempt": {}, "attempts": {}, "audio_tracks": {}, "candidate_type": {}, "ended": {},
+	"bytes_received": {}, "bytes_sent": {}, "local_candidate_type": {},
 	"error": {}, "kind": {}, "message_type": {}, "participant_count": {}, "peer_uid": {},
-	"reconnect_attempt": {},
-	"phase":             {}, "protocol": {}, "reason": {}, "remaining_count": {}, "replaced": {}, "sdp_bytes": {}, "signaling_state": {},
+	"packets_received": {}, "packets_sent": {}, "reconnect_attempt": {}, "remote_candidate_type": {}, "rtt_ms": {},
+	"phase": {}, "protocol": {}, "reason": {}, "remaining_count": {}, "replaced": {}, "sdp_bytes": {}, "signaling_state": {},
 	"stage": {}, "state": {}, "tcp_type": {}, "track_state": {}, "video_tracks": {},
 }
 
