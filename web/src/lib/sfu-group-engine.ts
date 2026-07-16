@@ -32,6 +32,9 @@ interface StreamingMsg {
 }
 
 const DEFAULT_ICE: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+const ICE_RESTART_DELAY_MS = 1500;
+const ICE_RESTART_RETRY_MS = 5000;
+const MAX_ICE_RESTARTS = 2;
 
 export class SFUGroupEngine {
   private ws: WebSocket | null = null;
@@ -47,6 +50,8 @@ export class SFUGroupEngine {
   private remoteDescSet = false;
   private pendingIce: RTCIceCandidateInit[] = [];
   private negotiation = Promise.resolve();
+  private iceRestartTimer: ReturnType<typeof setTimeout> | null = null;
+  private iceRestartAttempts = 0;
 
   constructor(
     private opts: { wsUrl: string; httpBase: string; token: string; selfId: string },
@@ -196,6 +201,7 @@ export class SFUGroupEngine {
       case 'sfu_peer_left': {
         const uid = data.uid as string;
         if (uid) this.onParticipantGone(uid);
+        if (data.ended === true) this.cleanup();
         break;
       }
       case 'sfu_media_state': {
@@ -219,7 +225,7 @@ export class SFUGroupEngine {
 
   // ==================== SFU PeerConnection ====================
 
-  /** 建本端与 SFU 的 PeerConnection，发布本地轨并发 sfu_publish（非 trickle：等 ICE 收集完再发）。 */
+  /** 建本端与 SFU 的 PeerConnection，发布本地轨并通过 sfu_ice trickle candidate。 */
   private async publish() {
     if (this.pc) return; // 已发布
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
@@ -232,16 +238,25 @@ export class SFUGroupEngine {
         candidate: ev.candidate.candidate,
         sdpMid: ev.candidate.sdpMid,
         sdpMLineIndex: ev.candidate.sdpMLineIndex,
+        usernameFragment: ev.candidate.usernameFragment,
       });
     };
-    pc.oniceconnectionstatechange = () => this.log('ice:', pc.iceConnectionState);
+    pc.oniceconnectionstatechange = () => {
+      this.log('ice:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+        this.scheduleIceRestart();
+      }
+    };
     pc.onicegatheringstatechange = () => this.log('gather:', pc.iceGatheringState);
     pc.onconnectionstatechange = () => {
       this.log('conn:', pc.connectionState);
-      if (pc.connectionState === 'connected') this.setPhase('connected');
-      if (pc.connectionState === 'failed') {
-        this.cb.onError('call.err.connect');
-        this.hangup();
+      if (pc.connectionState === 'connected') {
+        this.clearIceRestartTimer();
+        this.iceRestartAttempts = 0;
+        this.setPhase('connected');
+      }
+      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+        this.scheduleIceRestart();
       }
     };
 
@@ -252,7 +267,7 @@ export class SFUGroupEngine {
     this.sendWs('sfu_publish', { call_id: this.callId, sdp: pc.localDescription?.sdp ?? '' });
   }
 
-  /** 处理服务端 renegotiation offer：setRemote -> answer -> setLocal -> 等收集 -> 回 sfu_answer。 */
+  /** 处理服务端 renegotiation/ICE restart offer：setRemote -> answer -> setLocal -> 回 sfu_answer。 */
   private async handleServerOffer(sdp: string) {
     if (!this.pc || !sdp) return;
     await this.pc.setRemoteDescription({ type: 'offer', sdp });
@@ -261,6 +276,30 @@ export class SFUGroupEngine {
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
     this.sendWs('sfu_answer', { call_id: this.callId, sdp: this.pc.localDescription?.sdp ?? '' });
+  }
+
+  private scheduleIceRestart() {
+    if (this.iceRestartTimer) return;
+    const delay = this.iceRestartAttempts === 0 ? ICE_RESTART_DELAY_MS : ICE_RESTART_RETRY_MS;
+    this.iceRestartTimer = setTimeout(() => {
+      this.iceRestartTimer = null;
+      if (!this.pc || (this.pc.connectionState !== 'disconnected' && this.pc.connectionState !== 'failed')) return;
+      if (this.iceRestartAttempts >= MAX_ICE_RESTARTS) {
+        this.cb.onError('call.err.connect');
+        this.hangup();
+        return;
+      }
+      this.iceRestartAttempts += 1;
+      this.remoteDescSet = false;
+      this.sendWs('sfu_restart', { call_id: this.callId });
+      this.scheduleIceRestart();
+    }, delay);
+  }
+
+  private clearIceRestartTimer() {
+    if (!this.iceRestartTimer) return;
+    clearTimeout(this.iceRestartTimer);
+    this.iceRestartTimer = null;
   }
 
   /** 远端轨到达：stream.id = 发布者 uid（SFU 下行轨 streamID=pubUID），按 uid 分组渲染。 */
@@ -280,18 +319,16 @@ export class SFUGroupEngine {
     this.cb.onParticipantStream(uid, stream);
   }
 
-  /** 某参与者离开（服务端 sfu_peer_left）：移除 tile；只剩自己则结束。 */
+  /** 某参与者离开（服务端 sfu_peer_left）：只移除 tile；通话是否结束由服务端权威状态决定。 */
   private onParticipantGone(uid: string) {
     if (!this.remoteUids.delete(uid)) return;
     this.cb.onParticipantLeft(uid);
     this.cb.onPeerEvent(uid, 'left');
-    if (this.hadPeer && this.remoteUids.size === 0 && (this.phase === 'connected' || this.phase === 'connecting')) {
-      this.hangup();
-    }
   }
 
   private queueNegotiation(task: () => Promise<void>) {
-    this.negotiation = this.negotiation.then(task).catch(() => {
+    this.negotiation = this.negotiation.then(task).catch((error) => {
+      console.warn('[sfu-gcall] negotiation failed', error);
       this.cb.onError('call.err.connect');
     });
   }
@@ -301,12 +338,17 @@ export class SFUGroupEngine {
       candidate: String(data.candidate ?? ''),
       sdpMid: (data.sdpMid as string) ?? null,
       sdpMLineIndex: (data.sdpMLineIndex as number) ?? null,
+      usernameFragment: (data.usernameFragment as string) ?? null,
     };
     if (!this.pc || !this.remoteDescSet) {
       this.pendingIce.push(candidate);
       return;
     }
-    try { await this.pc.addIceCandidate(candidate); } catch { /* ignore individual candidate */ }
+    try {
+      await this.pc.addIceCandidate(candidate);
+    } catch (error) {
+      console.warn('[sfu-gcall] add ICE candidate failed', candidate.usernameFragment, error);
+    }
   }
 
   private async flushPendingIce() {
@@ -314,7 +356,11 @@ export class SFUGroupEngine {
     const pending = this.pendingIce;
     this.pendingIce = [];
     for (const candidate of pending) {
-      try { await this.pc.addIceCandidate(candidate); } catch { /* ignore individual candidate */ }
+      try {
+        await this.pc.addIceCandidate(candidate);
+      } catch (error) {
+        console.warn('[sfu-gcall] flush ICE candidate failed', candidate.usernameFragment, error);
+      }
     }
   }
 
@@ -361,6 +407,8 @@ export class SFUGroupEngine {
 
   private cleanup() {
     if (this.joinTimer) { clearTimeout(this.joinTimer); this.joinTimer = null; }
+    this.clearIceRestartTimer();
+    this.iceRestartAttempts = 0;
     try { this.pc?.close(); } catch { /* ignore */ }
     this.pc = null;
     this.remoteDescSet = false;

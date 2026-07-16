@@ -49,6 +49,7 @@ const (
 	MessageTypeSFUOffer         SignalingMessageType = "sfu_offer"          // S->C：服务端发起的 renegotiation offer
 	MessageTypeSFUAnswer        SignalingMessageType = "sfu_answer"         // C->S：对 renegotiation 的 answer
 	MessageTypeSFUIce           SignalingMessageType = "sfu_ice"            // 双向：trickle ICE candidate
+	MessageTypeSFURestart       SignalingMessageType = "sfu_restart"        // C->S：请求 SFU 发起 ICE restart offer
 	MessageTypeSFUPeerLeft      SignalingMessageType = "sfu_peer_left"      // S->C：某参与者离开（移除 tile）
 	MessageTypeSFUMediaState    SignalingMessageType = "sfu_media_state"    // 双向：开关麦/摄像头状态同步
 

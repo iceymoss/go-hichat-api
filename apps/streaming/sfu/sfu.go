@@ -221,6 +221,7 @@ type Peer struct {
 
 	negMu      sync.Mutex
 	negPending bool             // 有 offer 在途、期间又有 track 变化时标记待补
+	iceRestart bool             // 下一次服务端 offer 强制刷新 ICE credentials
 	negTimer   *time.Timer      // 去抖定时器（合并一批 AddTrack 成一次 renegotiation）
 	onOffer    func(sdp string) // 服务端发起的 renegotiation offer -> 客户端（由信令层接线）
 }
@@ -240,6 +241,16 @@ func (p *Peer) OnICECandidate(cb func(webrtc.ICECandidateInit)) {
 // AddICECandidate 应用客户端 trickle 过来的 ICE candidate。
 func (p *Peer) AddICECandidate(candidate webrtc.ICECandidateInit) error {
 	return p.pc.AddICECandidate(candidate)
+}
+
+// OnICEConnectionStateChange 注册 ICE 连接状态回调，供信令层记录带用户和房间信息的日志。
+func (p *Peer) OnICEConnectionStateChange(cb func(webrtc.ICEConnectionState)) {
+	p.pc.OnICEConnectionStateChange(cb)
+}
+
+// OnConnectionStateChange 注册 PeerConnection 状态回调。
+func (p *Peer) OnConnectionStateChange(cb func(webrtc.PeerConnectionState)) {
+	p.pc.OnConnectionStateChange(cb)
 }
 
 // AddPeer 为 uid 建一条新 PeerConnection 加入房间；OnTrack 里为其余人建下行订阅并起收流泵；
@@ -351,6 +362,16 @@ func (p *Peer) HandleAnswer(sdp string) error {
 	return p.pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: sdp})
 }
 
+// RequestICERestart 请求由 SFU 发起一次 ICE restart，客户端仍只负责 answer，避免 renegotiation glare。
+func (p *Peer) RequestICERestart() {
+	p.negMu.Lock()
+	p.iceRestart = true
+	if p.negTimer == nil {
+		p.negTimer = time.AfterFunc(negotiationDebounce, p.doNegotiation)
+	}
+	p.negMu.Unlock()
+}
+
 // negotiationDebounce 去抖窗口：把一批 AddTrack（如迟到者回填 4 条轨）合并成一次 renegotiation，
 // 大幅减少重协商竞争与偶发丢轨（"少一个人的视频"的根因）。
 const negotiationDebounce = 120 * time.Millisecond
@@ -396,13 +417,14 @@ func (p *Peer) flushPendingNegotiation() {
 
 // createOfferLocked 生成并设置本端 offer，返回其 SDP（含已收集候选）。调用方须持 negMu。
 func (p *Peer) createOfferLocked() (string, bool) {
-	offer, err := p.pc.CreateOffer(nil)
+	offer, err := p.pc.CreateOffer(&webrtc.OfferOptions{ICERestart: p.iceRestart})
 	if err != nil {
 		return "", false
 	}
 	if err := p.pc.SetLocalDescription(offer); err != nil {
 		return "", false
 	}
+	p.iceRestart = false
 	return p.pc.LocalDescription().SDP, true
 }
 

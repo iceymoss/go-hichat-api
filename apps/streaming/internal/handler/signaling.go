@@ -129,8 +129,9 @@ func (s *SignalingServer) HandleWebSocket(w http.ResponseWriter, r *http.Request
 	s.readLoop(c)
 
 	close(stopPing)
-	s.unregister(c)
-	s.cleanupCall(uid)
+	if s.unregister(c) {
+		s.cleanupCall(uid)
+	}
 	zLog.Info("streaming ws disconnected", zap.String("user_id", uid))
 }
 
@@ -144,13 +145,16 @@ func (s *SignalingServer) register(c *clientConn) {
 	s.mu.Unlock()
 }
 
-// unregister 仅当当前登记的就是本连接时才删除（避免顶号后误删新连接）。
-func (s *SignalingServer) unregister(c *clientConn) {
+// unregister 仅当当前登记的就是本连接时才删除，并报告调用方是否需要清理通话。
+// 被新连接顶替的旧连接返回 false，避免旧读循环退出后误删新连接正在使用的 SFU peer。
+func (s *SignalingServer) unregister(c *clientConn) bool {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	if cur, ok := s.conns[c.uid]; ok && cur == c {
 		delete(s.conns, c.uid)
+		return true
 	}
-	s.mu.Unlock()
+	return false
 }
 
 func (s *SignalingServer) getConn(uid string) (*clientConn, bool) {
@@ -223,6 +227,8 @@ func (s *SignalingServer) route(c *clientConn, msg *types.SignalingMessage) {
 		s.handleSFUAnswer(c, msg)
 	case types.MessageTypeSFUIce:
 		s.handleSFUIce(c, msg)
+	case types.MessageTypeSFURestart:
+		s.handleSFURestart(c, msg)
 	case types.MessageTypeSFUMediaState:
 		s.handleSFUMediaState(c, msg)
 	case types.MessageTypeOffer, types.MessageTypeAnswer, types.MessageTypeIceCandidate, types.MessageTypeMediaState:
@@ -414,12 +420,19 @@ func (s *SignalingServer) setupSFUPeer(c *clientConn, callID string) error {
 			Type:   types.MessageTypeSFUIce,
 			RoomID: callID,
 			Data: map[string]any{
-				"call_id":       callID,
-				"candidate":     candidate.Candidate,
-				"sdpMid":        candidate.SDPMid,
-				"sdpMLineIndex": candidate.SDPMLineIndex,
+				"call_id":          callID,
+				"candidate":        candidate.Candidate,
+				"sdpMid":           candidate.SDPMid,
+				"sdpMLineIndex":    candidate.SDPMLineIndex,
+				"usernameFragment": candidate.UsernameFragment,
 			},
 		})
+	})
+	peer.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		zLog.Info("sfu ice state changed", zap.String("uid", c.uid), zap.String("call_id", callID), zap.String("state", state.String()))
+	})
+	peer.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		zLog.Info("sfu peer state changed", zap.String("uid", c.uid), zap.String("call_id", callID), zap.String("state", state.String()))
 	})
 	return nil
 }
@@ -479,9 +492,23 @@ func (s *SignalingServer) handleSFUIce(c *clientConn, msg *types.SignalingMessag
 		i := uint16(index)
 		candidate.SDPMLineIndex = &i
 	}
+	if ufrag, ok := data["usernameFragment"].(string); ok {
+		candidate.UsernameFragment = &ufrag
+	}
 	if err := peer.AddICECandidate(candidate); err != nil {
 		zLog.Warn("sfu add ice candidate failed", zap.String("uid", c.uid), zap.Error(err))
 	}
+}
+
+// handleSFURestart 让 SFU 作为 offerer 发起 ICE restart，避免客户端 offer 与下行轨重协商 glare。
+func (s *SignalingServer) handleSFURestart(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	peer := s.sfu.GetPeer(c.uid)
+	if peer == nil || peer.RoomID() != callID || !s.groups.HasParticipant(callID, c.uid) {
+		s.sendError(c, "not a group participant")
+		return
+	}
+	peer.RequestICERestart()
 }
 
 // handleSFUMediaState 广播开关麦/摄像头状态给同一通话内其余参与者（SFU 不经手媒体，状态经控制面同步）。
@@ -554,19 +581,18 @@ func (s *SignalingServer) handleGroupLeave(c *clientConn, msg *types.SignalingMe
 	} else {
 		s.sfu.RemovePeer(c.uid)
 	}
-	s.broadcastSFUPeerLeft(callID, c.uid, remaining)
+	s.broadcastSFUPeerLeft(callID, c.uid, remaining, ended)
 	s.broadcastGroupState(groupID)
 }
 
-// broadcastSFUPeerLeft 通知剩余参与者某人离开（前端移除其 tile）。
-// SFU Phase 0 不主动移除下行轨，故用显式帧驱动 tile 清理。
-func (s *SignalingServer) broadcastSFUPeerLeft(callID, uid string, remaining []string) {
+// broadcastSFUPeerLeft 通知剩余参与者某人离开，并携带服务端权威的通话结束状态。
+func (s *SignalingServer) broadcastSFUPeerLeft(callID, uid string, remaining []string, ended bool) {
 	for _, p := range remaining {
 		if pc, ok := s.getConn(p); ok {
 			s.send(pc, &types.SignalingMessage{
 				Type:   types.MessageTypeSFUPeerLeft,
 				RoomID: callID,
-				Data:   map[string]any{"call_id": callID, "uid": uid},
+				Data:   map[string]any{"call_id": callID, "uid": uid, "ended": ended},
 			})
 		}
 	}
@@ -641,7 +667,7 @@ func (s *SignalingServer) cleanupCall(uid string) {
 			} else {
 				s.sfu.RemovePeer(uid)
 			}
-			s.broadcastSFUPeerLeft(callID, uid, remaining)
+			s.broadcastSFUPeerLeft(callID, uid, remaining, ended)
 			s.broadcastGroupState(groupID)
 		}
 	}
