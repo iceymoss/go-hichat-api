@@ -623,10 +623,24 @@ func (s *SignalingServer) handleVideoSubscribe(c *clientConn, msg *types.Signali
 }
 
 func (s *SignalingServer) handleVideoUnsubscribe(c *clientConn, msg *types.SignalingMessage) {
-	callID, publisherUID, ok := s.videoSubscriptionParticipants(c, msg)
-	if ok {
-		s.sfu.UnsubscribeVideo(callID, c.uid, publisherUID)
+	callID := msgCallID(msg)
+	publisherUID := dataStr(msg.Data, "publisher_uid")
+	subscriber := s.sfu.GetPeer(c.uid)
+	if !videoUnsubscribeAllowed(callID, publisherUID, c.uid, subscriber, s.groups.HasParticipant(callID, c.uid)) {
+		s.sendError(c, "not a group participant")
+		return
 	}
+	// The publisher may already be gone when roster cleanup reaches the client.
+	s.sfu.UnsubscribeVideo(callID, c.uid, publisherUID)
+}
+
+type roomPeer interface {
+	RoomID() string
+}
+
+func videoUnsubscribeAllowed(callID, publisherUID, selfUID string, subscriber roomPeer, subscriberInCall bool) bool {
+	return callID != "" && publisherUID != "" && publisherUID != selfUID &&
+		subscriber != nil && subscriber.RoomID() == callID && subscriberInCall
 }
 
 func (s *SignalingServer) handleSFUReconnect(c *clientConn, msg *types.SignalingMessage) {
@@ -652,7 +666,7 @@ var allowedDiagnosticEvents = map[string]struct{}{
 	"candidate_pair": {}, "media_reconnect_paused": {},
 	"camera_state_changed": {}, "camera_toggle_failed": {}, "camera_toggle_requested": {},
 	"peer_state": {}, "publish_started": {}, "remote_track": {}, "sfu_answer_received": {},
-	"sfu_offer_received": {}, "video_inbound_stats": {}, "video_stalled": {},
+	"server_error": {}, "sfu_offer_received": {}, "video_inbound_stats": {}, "video_stalled": {},
 	"ws_closed": {}, "ws_error": {}, "ws_opened": {},
 }
 

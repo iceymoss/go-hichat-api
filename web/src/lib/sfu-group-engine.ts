@@ -108,11 +108,20 @@ export function diffVideoSubscriptions(current: Set<string>, next: Set<string>) 
   };
 }
 
+export function groupVideoConstraints(): MediaTrackConstraints {
+  return {
+    width: { ideal: 640, max: 640 },
+    height: { ideal: 360, max: 360 },
+    frameRate: { ideal: 24, max: 24 },
+  };
+}
+
 export function addVideoTransceiver(pc: RTCPeerConnection, track: MediaStreamTrack, stream: MediaStream) {
   try {
     return pc.addTransceiver(track, {
       direction: 'sendrecv',
       streams: [stream],
+      sendEncodings: [{ maxBitrate: 700_000, maxFramerate: 24 }],
     });
   } catch {
     const sender = pc.addTrack(track, stream);
@@ -288,7 +297,7 @@ export class SFUGroupEngine {
     try {
       if (!this.videoSender) throw new Error('video sender unavailable');
       const track = await replaceEndedVideoTrack(this.localStream, this.videoSender, async () => {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: groupVideoConstraints() });
         const replacement = stream.getVideoTracks()[0];
         if (!replacement) throw new Error('camera track unavailable');
         return replacement;
@@ -425,6 +434,11 @@ export class SFUGroupEngine {
         this.cb.onActiveSpeakers(parseActiveSpeakers(data));
         break;
       case 'error':
+        this.diagnose('server_error', {
+          error: typeof data.error === 'string' ? data.error : 'unknown server error',
+          phase: this.phase,
+          signaling_state: this.pc?.signalingState ?? 'none',
+        });
         this.cb.onError('call.err.generic');
         break;
     }
@@ -774,7 +788,7 @@ export class SFUGroupEngine {
   private async getLocalMedia(type: CallMediaType) {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
-      video: type === 'video' ? { width: 1280, height: 720 } : false,
+      video: type === 'video' ? groupVideoConstraints() : false,
     });
     this.localStream = stream;
     this.cb.onLocalStream(stream);

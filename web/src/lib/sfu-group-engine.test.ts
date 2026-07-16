@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { addVideoTransceiver, disableVideoTrack, diffVideoSubscriptions, mediaState, mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs, replaceEndedVideoTrack } from './sfu-group-engine';
+import { addVideoTransceiver, disableVideoTrack, diffVideoSubscriptions, groupVideoConstraints, mediaState, mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs, replaceEndedVideoTrack } from './sfu-group-engine';
 
 class FakeTrack {
   enabled = true;
@@ -90,7 +90,7 @@ describe('diffVideoSubscriptions', () => {
 });
 
 describe('addVideoTransceiver', () => {
-  test('keeps the shared SFU connection bidirectional with one video encoding', () => {
+  test('keeps the shared SFU connection bidirectional with one capped video encoding', () => {
     let init: RTCRtpTransceiverInit | undefined;
     const transceiver = { sender: {} } as RTCRtpTransceiver;
     const pc = {
@@ -102,7 +102,8 @@ describe('addVideoTransceiver', () => {
 
     expect(addVideoTransceiver(pc, {} as MediaStreamTrack, {} as MediaStream)).toBe(transceiver);
     expect(init?.direction).toBe('sendrecv');
-    expect(init?.sendEncodings).toBeUndefined();
+    expect(init?.sendEncodings).toEqual([{ maxBitrate: 700_000, maxFramerate: 24 }]);
+    expect(init?.sendEncodings?.[0]?.rid).toBeUndefined();
   });
 
   test('falls back to a single video track when simulcast is rejected', () => {
@@ -114,6 +115,16 @@ describe('addVideoTransceiver', () => {
     } as unknown as RTCPeerConnection;
 
     expect(addVideoTransceiver(pc, {} as MediaStreamTrack, {} as MediaStream)).toBe(fallback);
+  });
+});
+
+describe('groupVideoConstraints', () => {
+  test('caps gallery capture before a fifth participant adds a fourth decoder', () => {
+    expect(groupVideoConstraints()).toEqual({
+      width: { ideal: 640, max: 640 },
+      height: { ideal: 360, max: 360 },
+      frameRate: { ideal: 24, max: 24 },
+    });
   });
 });
 
