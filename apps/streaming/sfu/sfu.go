@@ -38,6 +38,10 @@ type sfuConfig struct {
 	udpMin, udpMax int
 }
 
+// 浏览器可能把多路 receiver report/TWCC 合并为超过 Pion 默认 1460 字节的 compound RTCP。
+// 过小会让 ICE 上层 mux 丢弃整包并持续报 io.ErrShortBuffer。
+const sfuReceiveMTU = 8192
+
 // WithPublicIP 让 SFU 对外宣告公网 IP（NAT1To1），跨 NAT 时客户端才连得到。
 func WithPublicIP(ip string) Option { return func(c *sfuConfig) { c.publicIP = ip } }
 
@@ -76,6 +80,7 @@ func buildAPI(cfg sfuConfig) *webrtc.API {
 		panic(err)
 	}
 	se := webrtc.SettingEngine{}
+	se.SetReceiveMTU(sfuReceiveMTU)
 	se.SetInterfaceFilter(usableInterface)
 	// 解析浏览器发来的 mDNS(.local) 主机候选：Chrome 默认把 host IP 藏成 .local，
 	// 不解析就只能靠反射候选连通，本地/局域网易慢或连不上。
@@ -446,6 +451,17 @@ func (p *Peer) Close() error {
 // realDownlink 真实 pion 下行：为订阅者 PC 建下行本地轨并 AddTrack（触发其重协商）。
 type realDownlink struct{ sfu *SFU }
 
+type rtcpReader interface {
+	ReadRTCP() ([]rtcp.Packet, error)
+}
+
+type senderRTCPReader struct{ sender *webrtc.RTPSender }
+
+func (r senderRTCPReader) ReadRTCP() ([]rtcp.Packet, error) {
+	packets, _, err := r.sender.ReadRTCP()
+	return packets, err
+}
+
 type pionDownlink struct {
 	track  *webrtc.TrackLocalStaticRTP
 	peer   *Peer
@@ -480,30 +496,30 @@ func (d realDownlink) newDownlink(subUID, pubUID, trackID string, kind webrtc.RT
 	if err != nil {
 		return nil, err
 	}
-	// 视频：转发订阅者的关键帧请求(PLI/FIR)给发布者，避免新订阅者黑屏等待下一个关键帧
-	if kind == webrtc.RTPCodecTypeVideo {
-		go d.forwardKeyframeRequests(sender, pubUID, trackID)
+	video := kind == webrtc.RTPCodecTypeVideo
+	// 每条 sender 都必须持续消费 RTCP，避免多路 receiver report/TWCC 堵塞 interceptor 缓冲。
+	go drainRTCP(senderRTCPReader{sender: sender}, video, func() {
+		d.sfu.requestKeyframe(pubUID, trackID)
+	})
+	if video {
 		d.sfu.requestKeyframe(pubUID, trackID)
 	}
 	return &pionDownlink{track: local, peer: sub, sender: sender}, nil
 }
 
-// forwardKeyframeRequests 读订阅者下行 sender 的 RTCP，遇 PLI/FIR 就向发布者 PC 发 PLI 请关键帧。
-func (d realDownlink) forwardKeyframeRequests(sender *webrtc.RTPSender, pubUID, trackID string) {
-	buf := make([]byte, 1500)
+// drainRTCP 持续消费下行 sender 的反馈；视频 PLI/FIR 转发给发布者，其余反馈由 interceptor 消费。
+func drainRTCP(reader rtcpReader, video bool, requestKeyframe func()) {
 	for {
-		n, _, err := sender.Read(buf)
+		packets, err := reader.ReadRTCP()
 		if err != nil {
-			return // sender 关闭
+			return
 		}
-		pkts, err := rtcp.Unmarshal(buf[:n])
-		if err != nil {
-			continue
-		}
-		for _, pkt := range pkts {
+		for _, pkt := range packets {
 			switch pkt.(type) {
 			case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
-				d.sfu.requestKeyframe(pubUID, trackID)
+				if video {
+					requestKeyframe()
+				}
 			}
 		}
 	}
