@@ -131,6 +131,37 @@ export function addVideoTransceiver(pc: RTCPeerConnection, track: MediaStreamTra
   }
 }
 
+export function mediaState(stream: MediaStream | null) {
+  const audio = stream?.getAudioTracks().some(track => track.enabled && track.readyState === 'live') ?? false;
+  const video = stream?.getVideoTracks().some(track => track.enabled && track.readyState === 'live') ?? false;
+  return { audio, video };
+}
+
+export async function replaceEndedVideoTrack(
+  stream: MediaStream,
+  sender: RTCRtpSender,
+  acquire: () => Promise<MediaStreamTrack>,
+) {
+  const current = stream.getVideoTracks().find(track => track.readyState === 'live');
+  if (current) {
+    current.enabled = true;
+    return current;
+  }
+  const replacement = await acquire();
+  await sender.replaceTrack(replacement);
+  for (const track of stream.getVideoTracks()) stream.removeTrack(track);
+  stream.addTrack(replacement);
+  return replacement;
+}
+
+export async function disableVideoTrack(stream: MediaStream, sender: RTCRtpSender) {
+  await sender.replaceTrack(null);
+  for (const track of stream.getVideoTracks()) {
+    track.stop();
+    stream.removeTrack(track);
+  }
+}
+
 export class SFUGroupEngine {
   private ws: WebSocket | null = null;
   private pc: RTCPeerConnection | null = null;
@@ -156,6 +187,7 @@ export class SFUGroupEngine {
   private videoSnapshots = new Map<string, { framesDecoded: number; stalledSince: number | null; reportedStall: boolean }>();
   private desiredVideoSubscriptions = new Set<string>();
   private sentVideoSubscriptions = new Set<string>();
+  private videoSender: RTCRtpSender | null = null;
   private readonly sessionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -247,9 +279,38 @@ export class SFUGroupEngine {
     this.localStream?.getAudioTracks().forEach(tr => (tr.enabled = !muted));
     this.sendMediaState();
   }
-  toggleCamera(on: boolean) {
-    this.localStream?.getVideoTracks().forEach(tr => (tr.enabled = on));
-    this.sendMediaState();
+  async toggleCamera(on: boolean) {
+    if (!this.localStream) return;
+    this.diagnose('camera_toggle_requested', { on, track_state: this.localStream.getVideoTracks()[0]?.readyState ?? 'missing' });
+    if (!on) {
+      try {
+        if (this.videoSender) await disableVideoTrack(this.localStream, this.videoSender);
+        this.cb.onLocalStream(this.localStream);
+        this.diagnose('camera_state_changed', { on: false, track_state: 'missing' });
+      } catch (error) {
+        this.diagnose('camera_toggle_failed', { on, error: this.errorSummary(error) });
+      } finally {
+        this.sendMediaState();
+      }
+      return;
+    }
+    try {
+      if (!this.videoSender) throw new Error('video sender unavailable');
+      const track = await replaceEndedVideoTrack(this.localStream, this.videoSender, async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+        const replacement = stream.getVideoTracks()[0];
+        if (!replacement) throw new Error('camera track unavailable');
+        return replacement;
+      });
+      track.enabled = true;
+      this.cb.onLocalStream(this.localStream);
+      this.sendMediaState();
+      this.diagnose('camera_state_changed', { on: true, track_state: track.readyState });
+    } catch (error) {
+      this.diagnose('camera_toggle_failed', { on, error: this.errorSummary(error) });
+      this.cb.onError(this.mediaErr(error));
+      this.sendMediaState();
+    }
   }
 
   setVisibleVideoParticipants(uids: string[]) {
@@ -272,9 +333,7 @@ export class SFUGroupEngine {
 
   /** 本端当前开关麦/摄像头状态 */
   private myMediaState() {
-    const audio = this.localStream?.getAudioTracks().some(t => t.enabled) ?? true;
-    const video = this.localStream?.getVideoTracks().some(t => t.enabled) ?? false;
-    return { audio, video };
+    return mediaState(this.localStream);
   }
   /** 广播本端媒体状态给同通话其余参与者（经 streaming ws 控制面，SFU 不经手） */
   private sendMediaState() {
@@ -450,6 +509,7 @@ export class SFUGroupEngine {
         return;
       }
       const transceiver = addVideoTransceiver(pc, track, this.localStream!);
+      this.videoSender = transceiver.sender;
       const codecs = RTCRtpSender.getCapabilities?.('video')?.codecs ?? [];
       const preferred = preferredVideoCodecs(codecs);
       if (preferred.length > 0) {
@@ -515,6 +575,7 @@ export class SFUGroupEngine {
     this.iceRestartAttempts = 0;
     try { this.pc?.close(); } catch { /* ignore */ }
     this.pc = null;
+    this.videoSender = null;
     this.remoteDescSet = false;
     this.pendingIce = [];
     this.negotiation = Promise.resolve();
@@ -611,7 +672,8 @@ export class SFUGroupEngine {
       report.forEach(raw => {
         const stat = raw as InboundVideoStats;
         if (stat.type !== 'inbound-rtp' || (stat.kind ?? stat.mediaType) !== 'video') return;
-        const peerUid = this.videoTrackOwners.get(stat.trackIdentifier ?? '') ?? 'unknown';
+        const peerUid = this.videoTrackOwners.get(stat.trackIdentifier ?? '');
+        if (!peerUid) return;
         const framesDecoded = stat.framesDecoded ?? 0;
         const previous = this.videoSnapshots.get(stat.id);
         let stalledSince = previous?.stalledSince ?? null;
@@ -772,6 +834,7 @@ export class SFUGroupEngine {
     }
     try { this.pc?.close(); } catch { /* ignore */ }
     this.pc = null;
+    this.videoSender = null;
     this.remoteDescSet = false;
     this.pendingIce = [];
     this.negotiation = Promise.resolve();

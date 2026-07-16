@@ -2,10 +2,14 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { addVideoTransceiver, diffVideoSubscriptions, mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs, videoSendEncodings } from './sfu-group-engine';
+import { addVideoTransceiver, disableVideoTrack, diffVideoSubscriptions, mediaState, mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs, replaceEndedVideoTrack, videoSendEncodings } from './sfu-group-engine';
 
 class FakeTrack {
+  enabled = true;
+  readyState: MediaStreamTrackState = 'live';
+  stopped = false;
   constructor(public id: string, public kind: 'audio' | 'video') {}
+  stop() { this.stopped = true; this.readyState = 'ended'; }
 }
 
 class FakeStream {
@@ -16,7 +20,10 @@ class FakeStream {
   }
 
   getTracks() { return [...this.tracks]; }
+  getAudioTracks() { return this.tracks.filter(track => track.kind === 'audio'); }
+  getVideoTracks() { return this.tracks.filter(track => track.kind === 'video'); }
   addTrack(track: FakeTrack) { this.tracks.push(track); }
+  removeTrack(track: FakeTrack) { this.tracks = this.tracks.filter(candidate => candidate !== track); }
 }
 
 describe('mergeRemoteStream', () => {
@@ -116,5 +123,43 @@ describe('addVideoTransceiver', () => {
     } as unknown as RTCPeerConnection;
 
     expect(addVideoTransceiver(pc, {} as MediaStreamTrack, {} as MediaStream)).toBe(fallback);
+  });
+});
+
+describe('camera lifecycle', () => {
+  test('camera off detaches and stops capture without replacing the transceiver', async () => {
+    const video = new FakeTrack('video-1', 'video');
+    const stream = new FakeStream([video]);
+    let replacedWith: MediaStreamTrack | null | undefined;
+    const sender = { replaceTrack: async (track: MediaStreamTrack | null) => { replacedWith = track; } } as RTCRtpSender;
+
+    await disableVideoTrack(stream as unknown as MediaStream, sender);
+
+    expect(replacedWith).toBeNull();
+    expect(video.stopped).toBeTrue();
+    expect(stream.getVideoTracks()).toEqual([]);
+  });
+
+  test('does not advertise an enabled but ended camera track', () => {
+    const video = new FakeTrack('video-1', 'video');
+    video.readyState = 'ended';
+    const stream = new FakeStream([video]);
+
+    expect(mediaState(stream as unknown as MediaStream)).toEqual({ audio: false, video: false });
+  });
+
+  test('replaces an ended camera track on the existing sender', async () => {
+    const ended = new FakeTrack('video-old', 'video');
+    ended.readyState = 'ended';
+    const replacement = new FakeTrack('video-new', 'video');
+    const stream = new FakeStream([ended]);
+    const senderState: { track: MediaStreamTrack | null } = { track: null };
+    const sender = { replaceTrack: async (track: MediaStreamTrack | null) => { senderState.track = track; } } as RTCRtpSender;
+
+    const track = await replaceEndedVideoTrack(stream as unknown as MediaStream, sender, async () => replacement as unknown as MediaStreamTrack);
+
+    expect(track.id).toBe(replacement.id);
+    expect(senderState.track?.id).toBe(replacement.id);
+    expect(stream.getVideoTracks()).toEqual([replacement]);
   });
 });

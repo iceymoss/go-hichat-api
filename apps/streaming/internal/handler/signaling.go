@@ -650,6 +650,7 @@ var allowedDiagnosticEvents = map[string]struct{}{
 	"ice_restart_requested": {}, "ice_state": {}, "negotiation_error": {}, "peer_left": {},
 	"media_reconnect_requested": {}, "media_reconnect_ready": {},
 	"candidate_pair": {}, "media_reconnect_paused": {},
+	"camera_state_changed": {}, "camera_toggle_failed": {}, "camera_toggle_requested": {},
 	"peer_state": {}, "publish_started": {}, "remote_track": {}, "sfu_answer_received": {},
 	"sfu_offer_received": {}, "video_inbound_stats": {}, "video_stalled": {},
 	"ws_closed": {}, "ws_error": {}, "ws_opened": {},
