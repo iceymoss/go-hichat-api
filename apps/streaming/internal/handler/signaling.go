@@ -107,6 +107,22 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 		ctx:    ctx,
 		cancel: cancel,
 	}
+	s.sfu.OnMediaEvent(func(event sfu.MediaEvent) {
+		if event.Kind != webrtc.RTPCodecTypeVideo.String() {
+			return
+		}
+		fields := map[string]any{"kind": event.Kind}
+		if event.PubUID != "" {
+			fields["peer_uid"] = event.PubUID
+		}
+		if event.SubUID != "" {
+			fields["sub_uid"] = event.SubUID
+		}
+		if event.Reason != "" {
+			fields["reason"] = event.Reason
+		}
+		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: event.PubUID, CallID: event.RoomID, Name: event.Name, Fields: fields})
+	})
 
 	// 振铃超时：通知双方“未接听”
 	s.calls.SetTimeoutHandler(func(sess *logic.CallSession) {
@@ -585,7 +601,8 @@ var allowedDiagnosticEvents = map[string]struct{}{
 	"media_reconnect_requested": {}, "media_reconnect_ready": {},
 	"candidate_pair": {}, "media_reconnect_paused": {},
 	"peer_state": {}, "publish_started": {}, "remote_track": {}, "sfu_answer_received": {},
-	"sfu_offer_received": {}, "ws_closed": {}, "ws_error": {}, "ws_opened": {},
+	"sfu_offer_received": {}, "video_inbound_stats": {}, "video_stalled": {},
+	"ws_closed": {}, "ws_error": {}, "ws_opened": {},
 }
 
 // handleSFUDiagnostic 汇总浏览器状态到服务端 JSONL。UID 只取鉴权连接，不接受客户端自报。

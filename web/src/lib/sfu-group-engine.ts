@@ -47,12 +47,36 @@ interface CandidateStats extends RTCStats {
   candidateType?: string;
 }
 
+interface InboundVideoStats extends RTCStats {
+  kind?: string;
+  mediaType?: string;
+  trackIdentifier?: string;
+  codecId?: string;
+  bytesReceived?: number;
+  packetsReceived?: number;
+  packetsLost?: number;
+  jitter?: number;
+  frameWidth?: number;
+  frameHeight?: number;
+  framesDecoded?: number;
+  framesDropped?: number;
+  framesPerSecond?: number;
+  keyFramesDecoded?: number;
+  freezeCount?: number;
+}
+
+interface CodecStats extends RTCStats {
+  mimeType?: string;
+}
+
 const DEFAULT_ICE: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
 const ICE_RESTART_DELAY_MS = 1500;
 const ICE_RESTART_RETRY_MS = 5000;
 const MAX_ICE_RESTARTS = 2;
 const MAX_MEDIA_RECONNECTS = 3;
 const MEDIA_RECONNECT_COOLDOWN_MS = 30000;
+const VIDEO_STATS_INTERVAL_MS = 5000;
+const VIDEO_STALL_THRESHOLD_MS = 10000;
 
 export class SFUGroupEngine {
   private ws: WebSocket | null = null;
@@ -72,6 +96,10 @@ export class SFUGroupEngine {
   private iceRestartAttempts = 0;
   private mediaReconnectAttempts = 0;
   private mediaReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private videoStatsTimer: ReturnType<typeof setInterval> | null = null;
+  private videoTrackOwners = new Map<string, string>();
+  private remoteVideoEnabled = new Map<string, boolean>();
+  private videoSnapshots = new Map<string, { framesDecoded: number; stalledSince: number | null; reportedStall: boolean }>();
   private readonly sessionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -254,7 +282,9 @@ export class SFUGroupEngine {
       case 'sfu_media_state': {
         const uid = data.uid as string;
         if (uid && uid !== this.opts.selfId) {
-          this.cb.onParticipantMedia(uid, { audio: data.audio !== false, video: data.video === true });
+          const video = data.video === true;
+          this.remoteVideoEnabled.set(uid, video);
+          this.cb.onParticipantMedia(uid, { audio: data.audio !== false, video });
         }
         break;
       }
@@ -333,6 +363,7 @@ export class SFUGroupEngine {
       audio_tracks: this.localStream?.getAudioTracks().length ?? 0,
       video_tracks: this.localStream?.getVideoTracks().length ?? 0,
     });
+    if (this.mediaType === 'video') this.startVideoDiagnostics();
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -392,6 +423,7 @@ export class SFUGroupEngine {
     this.negotiation = Promise.resolve();
     for (const uid of this.remoteUids) this.cb.onParticipantLeft(uid);
     this.remoteUids.clear();
+    this.stopVideoDiagnostics();
     this.diagnose('media_reconnect_requested', { reconnect_attempt: this.mediaReconnectAttempts });
     this.sendWs('sfu_reconnect', { call_id: this.callId });
   }
@@ -444,6 +476,69 @@ export class SFUGroupEngine {
     }
     this.cb.onParticipantStream(uid, stream);
     this.diagnose('remote_track', { peer_uid: uid, kind: ev.track.kind, track_state: ev.track.readyState });
+    if (ev.track.kind === 'video') this.videoTrackOwners.set(ev.track.id, uid);
+  }
+
+  private startVideoDiagnostics() {
+    if (this.videoStatsTimer) return;
+    this.videoStatsTimer = setInterval(() => void this.reportVideoStats(), VIDEO_STATS_INTERVAL_MS);
+  }
+
+  private stopVideoDiagnostics() {
+    if (this.videoStatsTimer) clearInterval(this.videoStatsTimer);
+    this.videoStatsTimer = null;
+    this.videoTrackOwners.clear();
+    this.remoteVideoEnabled.clear();
+    this.videoSnapshots.clear();
+  }
+
+  private async reportVideoStats() {
+    if (!this.pc || this.pc.connectionState !== 'connected') return;
+    try {
+      const report = await this.pc.getStats();
+      const now = Date.now();
+      report.forEach(raw => {
+        const stat = raw as InboundVideoStats;
+        if (stat.type !== 'inbound-rtp' || (stat.kind ?? stat.mediaType) !== 'video') return;
+        const peerUid = this.videoTrackOwners.get(stat.trackIdentifier ?? '') ?? 'unknown';
+        const framesDecoded = stat.framesDecoded ?? 0;
+        const previous = this.videoSnapshots.get(stat.id);
+        let stalledSince = previous?.stalledSince ?? null;
+        let reportedStall = previous?.reportedStall ?? false;
+        if (this.remoteVideoEnabled.get(peerUid) === false || !previous || framesDecoded > previous.framesDecoded) {
+          stalledSince = null;
+          reportedStall = false;
+        } else if (stalledSince === null) {
+          stalledSince = now;
+        }
+        const stalledMs = stalledSince === null ? 0 : now - stalledSince;
+        const codec = report.get(stat.codecId ?? '') as CodecStats | undefined;
+        const fields = {
+          peer_uid: peerUid,
+          codec: codec?.mimeType ?? 'unknown',
+          bytes_received: stat.bytesReceived ?? 0,
+          packets_received: stat.packetsReceived ?? 0,
+          packets_lost: stat.packetsLost ?? 0,
+          jitter_ms: Math.round((stat.jitter ?? 0) * 1000),
+          frame_width: stat.frameWidth ?? 0,
+          frame_height: stat.frameHeight ?? 0,
+          frames_decoded: framesDecoded,
+          frames_dropped: stat.framesDropped ?? 0,
+          frames_per_second: stat.framesPerSecond ?? 0,
+          key_frames_decoded: stat.keyFramesDecoded ?? 0,
+          freeze_count: stat.freezeCount ?? 0,
+          stalled_ms: stalledMs,
+        };
+        this.diagnose('video_inbound_stats', fields);
+        if (!reportedStall && stalledMs >= VIDEO_STALL_THRESHOLD_MS) {
+          this.diagnose('video_stalled', fields);
+          reportedStall = true;
+        }
+        this.videoSnapshots.set(stat.id, { framesDecoded, stalledSince, reportedStall });
+      });
+    } catch (error) {
+      this.diagnose('video_inbound_stats', { error: this.errorSummary(error), stage: 'get_stats' });
+    }
   }
 
   /** 某参与者离开（服务端 sfu_peer_left）：只移除 tile；通话是否结束由服务端权威状态决定。 */
@@ -558,6 +653,7 @@ export class SFUGroupEngine {
     this.clearIceRestartTimer();
     this.iceRestartAttempts = 0;
     this.mediaReconnectAttempts = 0;
+    this.stopVideoDiagnostics();
     if (this.mediaReconnectTimer) {
       clearTimeout(this.mediaReconnectTimer);
       this.mediaReconnectTimer = null;

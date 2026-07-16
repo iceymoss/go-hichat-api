@@ -21,10 +21,12 @@ var sensitiveFields = map[string]struct{}{
 var allowedFields = map[string]struct{}{
 	"attempt": {}, "attempts": {}, "audio_tracks": {}, "candidate_type": {}, "ended": {},
 	"bytes_received": {}, "bytes_sent": {}, "local_candidate_type": {},
-	"error": {}, "kind": {}, "message_type": {}, "participant_count": {}, "peer_uid": {},
+	"codec": {}, "error": {}, "frame_height": {}, "frame_width": {}, "frames_decoded": {},
+	"frames_dropped": {}, "frames_per_second": {}, "freeze_count": {}, "jitter_ms": {},
+	"key_frames_decoded": {}, "kind": {}, "message_type": {}, "packets_lost": {}, "participant_count": {}, "peer_uid": {},
 	"packets_received": {}, "packets_sent": {}, "reconnect_attempt": {}, "remote_candidate_type": {}, "rtt_ms": {},
 	"phase": {}, "protocol": {}, "reason": {}, "remaining_count": {}, "replaced": {}, "sdp_bytes": {}, "signaling_state": {},
-	"stage": {}, "state": {}, "tcp_type": {}, "track_state": {}, "video_tracks": {},
+	"stage": {}, "stalled_ms": {}, "state": {}, "sub_uid": {}, "tcp_type": {}, "track_state": {}, "video_tracks": {},
 }
 
 // Event 是一条可按通话、用户和浏览器会话关联的 SFU 诊断事件。

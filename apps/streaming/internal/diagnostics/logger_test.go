@@ -77,3 +77,36 @@ func Test_Logger_Write_RotatesAtConfiguredSize(t *testing.T) {
 		t.Fatalf("rotated file: %v", err)
 	}
 }
+
+func Test_Logger_Write_PersistsVideoDiagnosticFields(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sfu.jsonl")
+	logger, err := New(path, 1024*1024)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer logger.Close()
+
+	logger.Write(Event{Source: "client", Name: "video_inbound_stats", Fields: map[string]any{
+		"peer_uid": "user-2", "codec": "video/VP8", "frame_width": 1280,
+		"frame_height": 720, "frames_decoded": 120, "frames_dropped": 3,
+		"frames_per_second": 30, "key_frames_decoded": 2, "jitter_ms": 4,
+		"packets_lost": 1, "freeze_count": 0, "stalled_ms": 0,
+	}})
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	var got Event
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	for _, field := range []string{
+		"codec", "frame_width", "frame_height", "frames_decoded", "frames_dropped",
+		"frames_per_second", "key_frames_decoded", "jitter_ms", "packets_lost", "freeze_count", "stalled_ms",
+	} {
+		if _, ok := got.Fields[field]; !ok {
+			t.Errorf("video diagnostic field %q was not persisted", field)
+		}
+	}
+}

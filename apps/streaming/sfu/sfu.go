@@ -22,12 +22,25 @@ type downlinkFactory interface {
 
 // SFU 协调器：管理房间、pion peer 注册表，编排「某人发布 -> 为其余人建下行订阅 + 起收流泵」。
 type SFU struct {
-	mu      sync.Mutex
-	rooms   map[string]*Room
-	peers   map[string]*Peer  // uid -> peer（单会话，uid 全局唯一）
-	pubSSRC map[string]uint32 // "pubUID|trackID" -> 上行轨 SSRC（PLI 转发用）
-	factory downlinkFactory
-	api     *webrtc.API // 带接口过滤的 pion API（滤掉虚拟接口候选）
+	mu           sync.Mutex
+	rooms        map[string]*Room
+	peers        map[string]*Peer  // uid -> peer（单会话，uid 全局唯一）
+	pubSSRC      map[string]uint32 // "pubUID|trackID" -> 上行轨 SSRC（PLI 转发用）
+	factory      downlinkFactory
+	api          *webrtc.API // 带接口过滤的 pion API（滤掉虚拟接口候选）
+	mediaEventMu sync.RWMutex
+	onMediaEvent func(MediaEvent)
+}
+
+// MediaEvent 是不含 SSRC、地址和媒体内容的 SFU 数据面诊断事件。
+type MediaEvent struct {
+	Name    string
+	RoomID  string
+	PubUID  string
+	SubUID  string
+	TrackID string
+	Kind    string
+	Reason  string
 }
 
 // Option 配置 SFU 的 pion 网络参数（Phase 1 公网化）。
@@ -133,11 +146,29 @@ func (s *SFU) getPubSSRC(pubUID, trackID string) (uint32, bool) {
 	return ssrc, ok
 }
 
-func (s *SFU) requestKeyframe(pubUID, trackID string) {
+// OnMediaEvent 注册轻量媒体数据面诊断回调。
+func (s *SFU) OnMediaEvent(cb func(MediaEvent)) {
+	s.mediaEventMu.Lock()
+	s.onMediaEvent = cb
+	s.mediaEventMu.Unlock()
+}
+
+func (s *SFU) emitMediaEvent(event MediaEvent) {
+	s.mediaEventMu.RLock()
+	cb := s.onMediaEvent
+	s.mediaEventMu.RUnlock()
+	if cb != nil {
+		cb(event)
+	}
+}
+
+func (s *SFU) requestKeyframe(pubUID, trackID, reason string) {
 	pub := s.getPeer(pubUID)
 	ssrc, ok := s.getPubSSRC(pubUID, trackID)
 	if pub != nil && ok {
-		_ = pub.pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: ssrc}})
+		if err := pub.pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: ssrc}}); err == nil {
+			s.emitMediaEvent(MediaEvent{Name: "keyframe_requested", RoomID: pub.RoomID(), PubUID: pubUID, TrackID: trackID, Kind: webrtc.RTPCodecTypeVideo.String(), Reason: reason})
+		}
 	}
 }
 
@@ -314,6 +345,7 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 		trackID := tr.ID()
 		s.setPubSSRC(uid, trackID, uint32(tr.SSRC())) // 记录上行 SSRC（PLI 转发用）
 		room.AddPublished(uid, trackID, tr.Kind().String())
+		s.emitMediaEvent(MediaEvent{Name: "track_published", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String()})
 		for _, sub := range room.Participants() {
 			if sub == uid {
 				continue
@@ -327,6 +359,7 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 		go func() {
 			pump(room, uid, trackID, trackRemoteReader{t: tr})
 			room.Unpublish(uid, trackID) // 轨结束：从注册表 + 订阅表清理
+			s.emitMediaEvent(MediaEvent{Name: "track_ended", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String()})
 		}()
 	})
 
@@ -515,12 +548,13 @@ func (d realDownlink) newDownlink(subUID, pubUID, trackID string, kind webrtc.RT
 		return nil, err
 	}
 	video := kind == webrtc.RTPCodecTypeVideo
+	d.sfu.emitMediaEvent(MediaEvent{Name: "downlink_created", RoomID: sub.RoomID(), PubUID: pubUID, SubUID: subUID, TrackID: trackID, Kind: kind.String()})
 	// 每条 sender 都必须持续消费 RTCP，避免多路 receiver report/TWCC 堵塞 interceptor 缓冲。
 	go drainRTCP(senderRTCPReader{sender: sender}, video, func() {
-		d.sfu.requestKeyframe(pubUID, trackID)
+		d.sfu.requestKeyframe(pubUID, trackID, "subscriber_feedback")
 	})
 	if video {
-		d.sfu.requestKeyframe(pubUID, trackID)
+		d.sfu.requestKeyframe(pubUID, trackID, "downlink_created")
 	}
 	return &pionDownlink{track: local, peer: sub, sender: sender}, nil
 }
