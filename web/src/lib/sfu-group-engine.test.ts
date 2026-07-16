@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { mergeRemoteStream } from './sfu-group-engine';
+import { mergeRemoteStream, preferredVideoCodecs } from './sfu-group-engine';
 
 class FakeTrack {
   constructor(public id: string, public kind: 'audio' | 'video') {}
@@ -37,5 +37,23 @@ describe('mergeRemoteStream', () => {
     mergeRemoteStream(aggregate as unknown as MediaStream, new FakeStream([video]) as unknown as MediaStream, video as unknown as MediaStreamTrack);
 
     expect(aggregate.getTracks()).toHaveLength(1);
+  });
+});
+
+describe('preferredVideoCodecs', () => {
+  test('forces VP8 when browsers also advertise hardware H264', () => {
+    const codecs = [
+      { mimeType: 'video/H264', clockRate: 90000 },
+      { mimeType: 'video/VP8', clockRate: 90000 },
+      { mimeType: 'video/VP9', clockRate: 90000 },
+    ] as RTCRtpCodec[];
+
+    expect(preferredVideoCodecs(codecs).map(codec => codec.mimeType)).toEqual(['video/VP8']);
+  });
+
+  test('returns no preference when VP8 is unavailable', () => {
+    const codecs = [{ mimeType: 'video/H264', clockRate: 90000 }] as RTCRtpCodec[];
+
+    expect(preferredVideoCodecs(codecs)).toEqual([]);
   });
 });

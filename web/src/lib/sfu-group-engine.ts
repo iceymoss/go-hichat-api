@@ -89,6 +89,11 @@ export function mergeRemoteStream(target: MediaStream, incoming: MediaStream, ev
   }
 }
 
+/** Phase 0 统一使用软件可并发编码的 VP8，避免多标签页耗尽硬件 H264 encoder 后只输出约 1 FPS。 */
+export function preferredVideoCodecs(codecs: RTCRtpCodec[]) {
+  return codecs.filter(codec => codec.mimeType.toLowerCase() === 'video/vp8');
+}
+
 export class SFUGroupEngine {
   private ws: WebSocket | null = null;
   private pc: RTCPeerConnection | null = null;
@@ -370,7 +375,15 @@ export class SFUGroupEngine {
       }
     };
 
-    this.localStream?.getTracks().forEach(tr => pc.addTrack(tr, this.localStream!));
+    this.localStream?.getTracks().forEach(track => {
+      const sender = pc.addTrack(track, this.localStream!);
+      if (track.kind !== 'video') return;
+      const codecs = RTCRtpSender.getCapabilities?.('video')?.codecs ?? [];
+      const preferred = preferredVideoCodecs(codecs);
+      if (preferred.length > 0) {
+        pc.getTransceivers().find(transceiver => transceiver.sender === sender)?.setCodecPreferences(preferred);
+      }
+    });
     this.diagnose('publish_started', {
       audio_tracks: this.localStream?.getAudioTracks().length ?? 0,
       video_tracks: this.localStream?.getVideoTracks().length ?? 0,
