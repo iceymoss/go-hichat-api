@@ -2,7 +2,9 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/logic"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -41,17 +43,31 @@ func ICEServersHandler(svcCtx *svc.ServiceContext, auth *JwtAuth) http.HandlerFu
 			return
 		}
 
-		if uid := auth.ParseUID(r); uid == "" {
+		uid := auth.ParseUID(r)
+		if uid == "" {
 			httpx.WriteJson(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 
-		resp := ICEServersResp{IceServers: make([]ICEServer, 0, len(svcCtx.Config.WebRTC.IceServers))}
+		resp := ICEServersResp{IceServers: make([]ICEServer, 0, len(svcCtx.Config.WebRTC.IceServers)+1)}
 		for _, s := range svcCtx.Config.WebRTC.IceServers {
 			resp.IceServers = append(resp.IceServers, ICEServer{
 				URLs:       s.URLs,
 				Username:   s.Username,
 				Credential: s.Credential,
+			})
+		}
+		// coturn TURN：为本次请求签发短期凭证（HMAC，避免下发长期密钥）
+		if turn := svcCtx.Config.Turn; turn.Secret != "" && len(turn.URLs) > 0 {
+			ttl := time.Duration(turn.TTLSeconds) * time.Second
+			if ttl <= 0 {
+				ttl = time.Hour
+			}
+			user, cred := logic.TurnCredential(turn.Secret, uid, ttl, time.Now())
+			resp.IceServers = append(resp.IceServers, ICEServer{
+				URLs:       turn.URLs,
+				Username:   user,
+				Credential: cred,
 			})
 		}
 		if len(resp.IceServers) == 0 {

@@ -8,7 +8,7 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { CallEngine, type CallMediaType, type CallPhase, type CallPeer, type CallSignal } from './call-engine';
-import { GroupCallEngine } from './group-call-engine';
+import { SFUGroupEngine } from './sfu-group-engine';
 import { useIMStore } from './im-store';
 import { useChatStore } from './chat-store';
 import { t as translate } from './i18n';
@@ -93,6 +93,7 @@ interface CallState {
   minimized: boolean;       // 通话窗口是否最小化为悬浮球
   isGroup: boolean;         // 是否群组通话（mesh）
   participants: Record<string, GroupParticipant>; // 群组：每个对端一路流
+  activeSpeakerIds: string[];
   activeGroupCalls: Record<string, ActiveGroupCall>; // groupId -> 该群当前活跃通话（横幅/列表标识）
   errorMsg: string | null;
 
@@ -107,12 +108,13 @@ interface CallState {
   toggleMute: () => void;
   toggleCamera: () => void;
   setMinimized: (v: boolean) => void;
+  setVisibleGroupVideos: (uids: string[]) => void;
   onSignal: (sig: CallSignal) => void;
   clearError: () => void;
 }
 
 let engine: CallEngine | null = null;
-let groupEngine: GroupCallEngine | null = null;
+let groupEngine: SFUGroupEngine | null = null;
 
 export const useCallStore = create<CallState>((set, get) => {
   // 用 store 自身的 set 接 engine 回调
@@ -181,7 +183,7 @@ export const useCallStore = create<CallState>((set, get) => {
       if (phase === 'idle' || phase === 'ended') {
         set({
           startedAt: null, muted: false, cameraOff: false, minimized: false,
-          isGroup: false, participants: {},
+          isGroup: false, participants: {}, activeSpeakerIds: [],
         });
       }
     },
@@ -204,7 +206,19 @@ export const useCallStore = create<CallState>((set, get) => {
       set(state => {
         const next = { ...state.participants };
         delete next[uid];
-        return { participants: next };
+        return { participants: next, activeSpeakerIds: state.activeSpeakerIds.filter(id => id !== uid) };
+      });
+    },
+    onActiveSpeakers: (activeSpeakerIds: string[]) => set({ activeSpeakerIds }),
+    onRoster: (uids: string[]) => {
+      set(state => {
+        const next: Record<string, GroupParticipant> = {};
+        for (const uid of uids) {
+          const previous = state.participants[uid];
+          const contact = resolveContact(uid);
+          next[uid] = previous ?? { id: uid, name: contact.name, avatar: contact.avatar, stream: null, media: { audio: true, video: true } };
+        }
+        return { participants: next, activeSpeakerIds: state.activeSpeakerIds.filter(uid => uids.includes(uid)) };
       });
     },
     onPeerEvent: (uid: string, kind: 'joined' | 'left') => {
@@ -214,12 +228,12 @@ export const useCallStore = create<CallState>((set, get) => {
     onError: (key: string) => set({ errorMsg: key }),
   };
 
-  const ensureGroupEngine = (): GroupCallEngine | null => {
+  const ensureGroupEngine = (): SFUGroupEngine | null => {
     const me = useIMStore.getState().currentUser;
     if (!me?.token || !me.id) return null;
     if (!groupEngine) {
       const { wsUrl, httpBase } = streamingEndpoints();
-      groupEngine = new GroupCallEngine({ wsUrl, httpBase, token: me.token, selfId: me.id }, groupCallbacks);
+      groupEngine = new SFUGroupEngine({ wsUrl, httpBase, token: me.token, selfId: me.id }, groupCallbacks);
     }
     return groupEngine;
   };
@@ -238,6 +252,7 @@ export const useCallStore = create<CallState>((set, get) => {
     minimized: false,
     isGroup: false,
     participants: {},
+    activeSpeakerIds: [],
     activeGroupCalls: {},
     errorMsg: null,
 
@@ -253,7 +268,7 @@ export const useCallStore = create<CallState>((set, get) => {
       if (!eng) return;
       set({
         isGroup: true, isCaller: true, mediaType: type, minimized: false, errorMsg: null,
-        participants: {}, peer: { id: groupId, name: groupName || '群通话' },
+        participants: {}, activeSpeakerIds: [], peer: { id: groupId, name: groupName || '群通话' },
       });
       eng.startGroupCall(groupId, members, type);
     },
@@ -265,7 +280,7 @@ export const useCallStore = create<CallState>((set, get) => {
       if (!eng) return;
       set({
         isGroup: true, isCaller: false, mediaType: type, minimized: false, errorMsg: null,
-        participants: {}, peer: { id: groupId, name: groupName || '群通话' },
+        participants: {}, activeSpeakerIds: [], peer: { id: groupId, name: groupName || '群通话' },
       });
       eng.joinExisting(callId, type);
     },
@@ -324,6 +339,8 @@ export const useCallStore = create<CallState>((set, get) => {
 
     setMinimized: (v) => set({ minimized: v }),
 
+    setVisibleGroupVideos: (uids) => groupEngine?.setVisibleVideoParticipants(uids),
+
     onSignal: (sig) => {
       // 群通话活跃状态广播（全体群成员收）：更新横幅/列表标识，不弹通话 UI
       if (sig.event === 'group.state') {
@@ -349,7 +366,7 @@ export const useCallStore = create<CallState>((set, get) => {
         const initiator = resolveContact(sig.fromUid || '');
         set({
           isGroup: true, isCaller: false, mediaType: sig.callType || 'voice',
-          minimized: false, errorMsg: null, participants: {},
+          minimized: false, errorMsg: null, participants: {}, activeSpeakerIds: [],
           peer: { id: sig.groupId || '', name: initiator.name, avatar: initiator.avatar },
         });
         eng.setIncoming(sig.callId, sig.callType || 'voice');

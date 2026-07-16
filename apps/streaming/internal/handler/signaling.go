@@ -7,16 +7,20 @@ import (
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
+	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/diagnostics"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/logic"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/types"
+	"github.com/iceymoss/go-hichat-api/apps/streaming/sfu"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 
+	"github.com/gorilla/websocket"
 	imws "github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	wsframe "github.com/iceymoss/go-hichat-api/apps/im/ws/ws"
-	"github.com/gorilla/websocket"
+	"github.com/pion/ice/v2"
+	"github.com/pion/webrtc/v3"
 	"go.uber.org/zap"
 )
 
@@ -60,6 +64,8 @@ type SignalingServer struct {
 	upgrader websocket.Upgrader
 	calls    *logic.CallService
 	groups   *logic.GroupCallService
+	sfu      *sfu.SFU // 群通话 SFU：进程内媒体转发（1:1 不经此）
+	diag     *diagnostics.Logger
 
 	mu    sync.RWMutex
 	conns map[string]*clientConn // uid -> conn（单会话，重复登录顶号）
@@ -73,11 +79,26 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	ring := time.Duration(svcCtx.Config.Call.RingTimeoutSeconds) * time.Second
+	var diag *diagnostics.Logger
+	if cfg := svcCtx.Config.Diagnostics; cfg.Enabled {
+		maxBytes := int64(cfg.MaxMB) * 1024 * 1024
+		var err error
+		diag, err = diagnostics.New(cfg.Path, maxBytes)
+		if err != nil {
+			zLog.Error("open sfu diagnostics failed", zap.String("path", cfg.Path), zap.Error(err))
+		}
+	}
 	s := &SignalingServer{
-		svc:   svcCtx,
-		auth:  NewJwtAuth(svcCtx),
-		calls: logic.NewCallService(ring),
-		groups: logic.NewGroupCallService(4), // Mesh 上限 4 人
+		svc:    svcCtx,
+		auth:   NewJwtAuth(svcCtx),
+		calls:  logic.NewCallService(ring),
+		groups: logic.NewGroupCallService(svcCtx.Config.SFU.MaxUsersPerRoom),
+		sfu: sfu.NewSFU(
+			sfu.WithPublicIP(svcCtx.Config.Public.IP),
+			sfu.WithUDPPortRange(svcCtx.Config.Public.UDPPortMin, svcCtx.Config.Public.UDPPortMax),
+			sfu.WithActiveSpeakerLimit(svcCtx.Config.SFU.ActiveSpeakers),
+		),
+		diag: diag,
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  svcCtx.Config.Signaling.WebSocket.ReadBufferSize,
 			WriteBufferSize: svcCtx.Config.Signaling.WebSocket.WriteBufferSize,
@@ -87,6 +108,29 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 		ctx:    ctx,
 		cancel: cancel,
 	}
+	s.sfu.OnMediaEvent(func(event sfu.MediaEvent) {
+		if event.Kind != webrtc.RTPCodecTypeVideo.String() {
+			return
+		}
+		fields := map[string]any{"kind": event.Kind}
+		if event.Codec != "" {
+			fields["codec"] = event.Codec
+		}
+		if event.PubUID != "" {
+			fields["peer_uid"] = event.PubUID
+		}
+		if event.SubUID != "" {
+			fields["sub_uid"] = event.SubUID
+		}
+		if event.Reason != "" {
+			fields["reason"] = event.Reason
+		}
+		if event.RID != "" {
+			fields["rid"] = event.RID
+		}
+		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: event.PubUID, CallID: event.RoomID, Name: event.Name, Fields: fields})
+	})
+	s.sfu.OnActiveSpeakers(s.broadcastActiveSpeakers)
 
 	// 振铃超时：通知双方“未接听”
 	s.calls.SetTimeoutHandler(func(sess *logic.CallSession) {
@@ -113,7 +157,9 @@ func (s *SignalingServer) HandleWebSocket(w http.ResponseWriter, r *http.Request
 	}
 
 	c := &clientConn{uid: uid, conn: conn}
-	s.register(c)
+	conn.SetReadLimit(64 * 1024)
+	replaced := s.register(c)
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: uid, Name: "ws_connected", Fields: map[string]any{"replaced": replaced}})
 	zLog.Info("streaming ws connected", zap.String("user_id", uid))
 
 	stopPing := make(chan struct{})
@@ -122,28 +168,36 @@ func (s *SignalingServer) HandleWebSocket(w http.ResponseWriter, r *http.Request
 	s.readLoop(c)
 
 	close(stopPing)
-	s.unregister(c)
-	s.cleanupCall(uid)
+	if s.unregister(c) {
+		s.cleanupCall(uid)
+	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: uid, Name: "ws_disconnected"})
 	zLog.Info("streaming ws disconnected", zap.String("user_id", uid))
 }
 
 // register 登记连接；同一 uid 已有连接则顶号（关旧）。
-func (s *SignalingServer) register(c *clientConn) {
+func (s *SignalingServer) register(c *clientConn) bool {
 	s.mu.Lock()
+	replaced := false
 	if old, ok := s.conns[c.uid]; ok {
+		replaced = true
 		old.close()
 	}
 	s.conns[c.uid] = c
 	s.mu.Unlock()
+	return replaced
 }
 
-// unregister 仅当当前登记的就是本连接时才删除（避免顶号后误删新连接）。
-func (s *SignalingServer) unregister(c *clientConn) {
+// unregister 仅当当前登记的就是本连接时才删除，并报告调用方是否需要清理通话。
+// 被新连接顶替的旧连接返回 false，避免旧读循环退出后误删新连接正在使用的 SFU peer。
+func (s *SignalingServer) unregister(c *clientConn) bool {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	if cur, ok := s.conns[c.uid]; ok && cur == c {
 		delete(s.conns, c.uid)
+		return true
 	}
-	s.mu.Unlock()
+	return false
 }
 
 func (s *SignalingServer) getConn(uid string) (*clientConn, bool) {
@@ -210,6 +264,24 @@ func (s *SignalingServer) route(c *clientConn, msg *types.SignalingMessage) {
 		s.handleGroupJoin(c, msg)
 	case types.MessageTypeGroupLeave:
 		s.handleGroupLeave(c, msg)
+	case types.MessageTypeSFUPublish:
+		s.handleSFUPublish(c, msg)
+	case types.MessageTypeSFUAnswer:
+		s.handleSFUAnswer(c, msg)
+	case types.MessageTypeSFUIce:
+		s.handleSFUIce(c, msg)
+	case types.MessageTypeSFURestart:
+		s.handleSFURestart(c, msg)
+	case types.MessageTypeSFUDiagnostic:
+		s.handleSFUDiagnostic(c, msg)
+	case types.MessageTypeSFUReconnect:
+		s.handleSFUReconnect(c, msg)
+	case types.MessageTypeSFUMediaState:
+		s.handleSFUMediaState(c, msg)
+	case types.MessageTypeSubscribe:
+		s.handleVideoSubscribe(c, msg)
+	case types.MessageTypeUnsubscribe:
+		s.handleVideoUnsubscribe(c, msg)
 	case types.MessageTypeOffer, types.MessageTypeAnswer, types.MessageTypeIceCandidate, types.MessageTypeMediaState:
 		s.relayToPeer(c, msg)
 	default:
@@ -342,6 +414,15 @@ func (s *SignalingServer) handleGroupInvite(c *clientConn, msg *types.SignalingM
 		s.sendError(c, err.Error())
 		return
 	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "group_created", Fields: map[string]any{"participant_count": 1}})
+
+	// 为发起人建 SFU peer（服务端 PeerConnection），接好 renegotiation offer 下发
+	if err := s.setupSFUPeer(c, callID); err != nil {
+		zLog.Error("sfu setup peer failed", zap.String("uid", c.uid), zap.Error(err))
+		_, _, _ = s.groups.Leave(callID, c.uid)
+		s.sendError(c, "sfu setup failed")
+		return
+	}
 
 	// 回执发起人 callId
 	s.send(c, &types.SignalingMessage{
@@ -358,7 +439,7 @@ func (s *SignalingServer) handleGroupInvite(c *clientConn, msg *types.SignalingM
 			Event:      "group.invite",
 			CallId:     callID,
 			CallType:   string(callType),
-			MediaMode:  "mesh",
+			MediaMode:  "sfu",
 			Scope:      "group",
 			GroupId:    groupID,
 			FromUid:    c.uid,
@@ -370,30 +451,305 @@ func (s *SignalingServer) handleGroupInvite(c *clientConn, msg *types.SignalingM
 	s.broadcastGroupState(groupID)
 }
 
-// handleGroupJoin 加入群通话：回执新人当前名单 -> 通知已有参与者「有人加入」（他们作 offerer 建连）。
+// setupSFUPeer 为 c.uid 在 callID 房间建一条 SFU PeerConnection，并接好服务端发起的
+// renegotiation offer 下发（sfu_offer）。客户端收到 group_created/group_roster 后发 sfu_publish。
+func (s *SignalingServer) setupSFUPeer(c *clientConn, callID string) error {
+	// SFU 使用 ICE Lite，只采集本机候选；公网地址由 SettingEngine NAT1To1 宣告。
+	peer, err := s.sfu.AddPeer(callID, c.uid, nil)
+	if err != nil {
+		return err
+	}
+	s.wireSFUPeer(c, callID, peer)
+	return nil
+}
+
+func (s *SignalingServer) wireSFUPeer(c *clientConn, callID string, peer *sfu.Peer) {
+	peer.OnOffer(func(sdp string) {
+		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "sfu_offer_sent", Fields: map[string]any{"sdp_bytes": len(sdp)}})
+		s.send(c, &types.SignalingMessage{
+			Type:   types.MessageTypeSFUOffer,
+			RoomID: callID,
+			Data:   map[string]any{"call_id": callID, "sdp": sdp},
+		})
+	})
+	peer.OnICECandidate(func(candidate webrtc.ICECandidateInit) {
+		candidateType := "unknown"
+		if parsed, err := ice.UnmarshalCandidate(candidate.Candidate); err == nil {
+			candidateType = parsed.Type().String()
+		}
+		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "ice_candidate_sent", Fields: map[string]any{"candidate_type": candidateType}})
+		s.send(c, &types.SignalingMessage{
+			Type:   types.MessageTypeSFUIce,
+			RoomID: callID,
+			Data: map[string]any{
+				"call_id":          callID,
+				"candidate":        candidate.Candidate,
+				"sdpMid":           candidate.SDPMid,
+				"sdpMLineIndex":    candidate.SDPMLineIndex,
+				"usernameFragment": candidate.UsernameFragment,
+			},
+		})
+	})
+	peer.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "ice_state", Fields: map[string]any{"state": state.String()}})
+		zLog.Info("sfu ice state changed", zap.String("uid", c.uid), zap.String("call_id", callID), zap.String("state", state.String()))
+	})
+	peer.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "peer_state", Fields: map[string]any{"state": state.String()}})
+		zLog.Info("sfu peer state changed", zap.String("uid", c.uid), zap.String("call_id", callID), zap.String("state", state.String()))
+	})
+}
+
+func (s *SignalingServer) replaceSFUPeer(c *clientConn, callID string) error {
+	peer, err := s.sfu.ReplacePeer(callID, c.uid, nil)
+	if err != nil {
+		return err
+	}
+	s.wireSFUPeer(c, callID, peer)
+	return nil
+}
+
+// handleSFUPublish 客户端发布 offer -> SFU 建 answer 回执 -> 回填订阅房间内已有发布者。
+func (s *SignalingServer) handleSFUPublish(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	peer := s.sfu.GetPeer(c.uid)
+	if peer == nil || peer.RoomID() != callID || !s.groups.HasParticipant(callID, c.uid) {
+		s.sendError(c, "not a group participant")
+		return
+	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "publish_started", Fields: map[string]any{"sdp_bytes": len(dataStr(msg.Data, "sdp"))}})
+	answer, err := peer.Publish(dataStr(msg.Data, "sdp"))
+	if err != nil {
+		zLog.Error("sfu publish failed", zap.String("uid", c.uid), zap.Error(err))
+		s.sendError(c, "sfu publish failed")
+		return
+	}
+	s.send(c, &types.SignalingMessage{
+		Type:   types.MessageTypeSFUPublishAnswer,
+		RoomID: callID,
+		Data:   map[string]any{"call_id": callID, "sdp": answer},
+	})
+	// 回填：本端订阅房间内已有发布者（迟到者据此收到早入房者媒体）
+	s.sfu.SubscribeExisting(callID, c.uid)
+}
+
+// handleSFUAnswer 客户端对服务端 renegotiation offer 的 answer。
+func (s *SignalingServer) handleSFUAnswer(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	peer := s.sfu.GetPeer(c.uid)
+	if peer == nil || peer.RoomID() != callID || !s.groups.HasParticipant(callID, c.uid) {
+		return
+	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "sfu_answer_received", Fields: map[string]any{"sdp_bytes": len(dataStr(msg.Data, "sdp"))}})
+	if err := peer.HandleAnswer(dataStr(msg.Data, "sdp")); err != nil {
+		zLog.Warn("sfu handle answer failed", zap.String("uid", c.uid), zap.Error(err))
+	}
+}
+
+// handleSFUIce 把客户端 trickle candidate 加到其 SFU PeerConnection。
+func (s *SignalingServer) handleSFUIce(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	peer := s.sfu.GetPeer(c.uid)
+	if peer == nil || peer.RoomID() != callID || !s.groups.HasParticipant(callID, c.uid) {
+		s.sendError(c, "not a group participant")
+		return
+	}
+	data, ok := msg.Data.(map[string]any)
+	if !ok {
+		return
+	}
+	candidate := webrtc.ICECandidateInit{Candidate: dataStr(data, "candidate")}
+	candidateType := "unknown"
+	if parsed, err := ice.UnmarshalCandidate(candidate.Candidate); err == nil {
+		candidateType = parsed.Type().String()
+	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "ice_candidate_received", Fields: map[string]any{"candidate_type": candidateType}})
+	if mid, ok := data["sdpMid"].(string); ok {
+		candidate.SDPMid = &mid
+	}
+	if index, ok := data["sdpMLineIndex"].(float64); ok {
+		i := uint16(index)
+		candidate.SDPMLineIndex = &i
+	}
+	if ufrag, ok := data["usernameFragment"].(string); ok {
+		candidate.UsernameFragment = &ufrag
+	}
+	if err := peer.AddICECandidate(candidate); err != nil {
+		zLog.Warn("sfu add ice candidate failed", zap.String("uid", c.uid), zap.Error(err))
+	}
+}
+
+// handleSFURestart 让 SFU 作为 offerer 发起 ICE restart，避免客户端 offer 与下行轨重协商 glare。
+func (s *SignalingServer) handleSFURestart(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	peer := s.sfu.GetPeer(c.uid)
+	if peer == nil || peer.RoomID() != callID || !s.groups.HasParticipant(callID, c.uid) {
+		s.sendError(c, "not a group participant")
+		return
+	}
+	peer.RequestICERestart()
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "ice_restart_requested"})
+}
+
+func (s *SignalingServer) videoSubscriptionParticipants(c *clientConn, msg *types.SignalingMessage) (string, string, bool) {
+	callID := msgCallID(msg)
+	publisherUID := dataStr(msg.Data, "publisher_uid")
+	subscriber := s.sfu.GetPeer(c.uid)
+	publisher := s.sfu.GetPeer(publisherUID)
+	if callID == "" || publisherUID == "" || publisherUID == c.uid ||
+		subscriber == nil || subscriber.RoomID() != callID ||
+		publisher == nil || publisher.RoomID() != callID ||
+		!s.groups.HasParticipant(callID, c.uid) || !s.groups.HasParticipant(callID, publisherUID) {
+		s.sendError(c, "not a group participant")
+		return "", "", false
+	}
+	return callID, publisherUID, true
+}
+
+func (s *SignalingServer) handleVideoSubscribe(c *clientConn, msg *types.SignalingMessage) {
+	callID, publisherUID, ok := s.videoSubscriptionParticipants(c, msg)
+	if !ok {
+		return
+	}
+	rid := dataStr(msg.Data, "rid")
+	if rid != "q" && rid != "h" && rid != "f" {
+		s.sendError(c, "invalid video layer")
+		return
+	}
+	if err := s.sfu.SubscribeVideo(callID, c.uid, publisherUID, rid); err != nil {
+		zLog.Warn("sfu subscribe video failed", zap.String("uid", c.uid), zap.String("publisher_uid", publisherUID), zap.Error(err))
+		s.sendError(c, "video subscription failed")
+	}
+}
+
+func (s *SignalingServer) handleVideoUnsubscribe(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	publisherUID := dataStr(msg.Data, "publisher_uid")
+	subscriber := s.sfu.GetPeer(c.uid)
+	if !videoUnsubscribeAllowed(callID, publisherUID, c.uid, subscriber, s.groups.HasParticipant(callID, c.uid)) {
+		s.sendError(c, "not a group participant")
+		return
+	}
+	// The publisher may already be gone when roster cleanup reaches the client.
+	s.sfu.UnsubscribeVideo(callID, c.uid, publisherUID)
+}
+
+type roomPeer interface {
+	RoomID() string
+}
+
+func videoUnsubscribeAllowed(callID, publisherUID, selfUID string, subscriber roomPeer, subscriberInCall bool) bool {
+	return callID != "" && publisherUID != "" && publisherUID != selfUID &&
+		subscriber != nil && subscriber.RoomID() == callID && subscriberInCall
+}
+
+func (s *SignalingServer) handleSFUReconnect(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	if !s.groups.HasParticipant(callID, c.uid) {
+		s.sendError(c, "not a group participant")
+		return
+	}
+	if err := s.replaceSFUPeer(c, callID); err != nil {
+		zLog.Warn("replace sfu peer failed", zap.String("uid", c.uid), zap.String("call_id", callID), zap.Error(err))
+		s.sendError(c, "sfu reconnect failed")
+		return
+	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "media_reconnect_ready"})
+	s.send(c, &types.SignalingMessage{Type: types.MessageTypeSFUReconnectReady, RoomID: callID, Data: map[string]any{"call_id": callID}})
+}
+
+var allowedDiagnosticEvents = map[string]struct{}{
+	"cleanup": {}, "group_ready": {}, "ice_candidate_error": {}, "ice_candidate_received": {},
+	"ice_candidate_sent": {}, "ice_gathering_state": {}, "ice_restart_exhausted": {},
+	"ice_restart_requested": {}, "ice_state": {}, "negotiation_error": {}, "peer_left": {},
+	"media_reconnect_requested": {}, "media_reconnect_ready": {},
+	"candidate_pair": {}, "media_reconnect_paused": {},
+	"camera_state_changed": {}, "camera_toggle_failed": {}, "camera_toggle_requested": {},
+	"peer_state": {}, "publish_started": {}, "remote_track": {}, "sfu_answer_received": {},
+	"server_error": {}, "sfu_offer_received": {}, "video_inbound_stats": {}, "video_stalled": {},
+	"ws_closed": {}, "ws_error": {}, "ws_opened": {},
+}
+
+// handleSFUDiagnostic 汇总浏览器状态到服务端 JSONL。UID 只取鉴权连接，不接受客户端自报。
+func (s *SignalingServer) handleSFUDiagnostic(c *clientConn, msg *types.SignalingMessage) {
+	data, ok := msg.Data.(map[string]any)
+	if !ok {
+		return
+	}
+	name := dataStr(data, "event")
+	if _, ok := allowedDiagnosticEvents[name]; !ok {
+		return
+	}
+	callID := msgCallID(msg)
+	if callID != "" && !s.groups.HasParticipant(callID, c.uid) {
+		return
+	}
+	sessionID := dataStr(data, "session_id")
+	if len(sessionID) > 80 {
+		sessionID = sessionID[:80]
+	}
+	fields, _ := data["fields"].(map[string]any)
+	s.writeDiagnostic(diagnostics.Event{Source: "client", UID: c.uid, CallID: callID, SessionID: sessionID, Name: name, Fields: fields})
+}
+
+func (s *SignalingServer) writeDiagnostic(event diagnostics.Event) {
+	if s.diag != nil {
+		s.diag.Write(event)
+	}
+}
+
+// handleSFUMediaState 广播开关麦/摄像头状态给同一通话内其余参与者（SFU 不经手媒体，状态经控制面同步）。
+func (s *SignalingServer) handleSFUMediaState(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	participants, ok := s.groups.Participants(callID)
+	if !ok || !s.groups.HasParticipant(callID, c.uid) {
+		return
+	}
+	data, _ := msg.Data.(map[string]any)
+	audio, _ := data["audio"].(bool)
+	video, _ := data["video"].(bool)
+	for _, p := range participants {
+		if p == c.uid {
+			continue
+		}
+		if pc, ok := s.getConn(p); ok {
+			s.send(pc, &types.SignalingMessage{
+				Type:   types.MessageTypeSFUMediaState,
+				RoomID: callID,
+				Data:   map[string]any{"call_id": callID, "uid": c.uid, "audio": audio, "video": video},
+			})
+		}
+	}
+}
+
+// handleGroupJoin 加入群通话：建 SFU peer -> 回执当前名单。媒体由 SFU 转发，无需两两建连。
 func (s *SignalingServer) handleGroupJoin(c *clientConn, msg *types.SignalingMessage) {
 	callID := msgCallID(msg)
+	groupID, _, _, ok := s.groups.Info(callID)
+	if !ok || !s.isGroupMember(c.uid, groupID) {
+		s.sendError(c, "not a group member")
+		return
+	}
 	others, callType, err := s.groups.Join(callID, c.uid)
 	if err != nil {
 		s.sendError(c, err.Error())
 		return
 	}
-	// 回执新加入者：当前其他参与者（建 tile，等待对方 offer）
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "group_joined", Fields: map[string]any{"participant_count": len(others) + 1}})
+	// 为新加入者建 SFU peer（收 sfu_publish 前需就绪）
+	if err := s.setupSFUPeer(c, callID); err != nil {
+		zLog.Error("sfu setup peer failed", zap.String("uid", c.uid), zap.Error(err))
+		_, _, _ = s.groups.Leave(callID, c.uid)
+		s.sendError(c, "sfu setup failed")
+		return
+	}
+	// 回执新加入者：当前其他参与者（tile 随 SFU 轨到达出现）
 	s.send(c, &types.SignalingMessage{
 		Type:   types.MessageTypeGroupRoster,
 		RoomID: callID,
 		Data:   map[string]any{"call_id": callID, "call_type": string(callType), "participants": others},
 	})
-	// 通知已有参与者：有人加入（防 glare：由老人向新人发 offer）
-	for _, p := range others {
-		if pc, ok := s.getConn(p); ok {
-			s.send(pc, &types.SignalingMessage{
-				Type:   types.MessageTypePeerJoined,
-				RoomID: callID,
-				Data:   map[string]any{"call_id": callID, "uid": c.uid},
-			})
-		}
-	}
+	s.broadcastGroupRoster(callID)
 
 	// 广播更新后的参与者名单（全体群成员，含未在通话中的）
 	if groupID, _, _, ok := s.groups.Info(callID); ok {
@@ -401,26 +757,64 @@ func (s *SignalingServer) handleGroupJoin(c *clientConn, msg *types.SignalingMes
 	}
 }
 
-// handleGroupLeave 离开群通话：广播 peer_left 给剩余参与者。
+func (s *SignalingServer) broadcastGroupRoster(callID string) {
+	participants, ok := s.groups.Participants(callID)
+	if !ok {
+		return
+	}
+	for _, uid := range participants {
+		if c, connected := s.getConn(uid); connected {
+			s.send(c, &types.SignalingMessage{
+				Type:   types.MessageTypeGroupRoster,
+				RoomID: callID,
+				Data:   map[string]any{"call_id": callID, "participants": participants},
+			})
+		}
+	}
+}
+
+// handleGroupLeave 离开群通话：关 SFU peer + 通知剩余参与者移除 tile + 广播群横幅状态。
 func (s *SignalingServer) handleGroupLeave(c *clientConn, msg *types.SignalingMessage) {
 	callID := msgCallID(msg)
 	groupID, _, _, _ := s.groups.Info(callID) // 结束前捕获 groupID（结束后会话被删）
-	remaining, _, err := s.groups.Leave(callID, c.uid)
+	remaining, ended, err := s.groups.Leave(callID, c.uid)
 	if err != nil {
 		return
 	}
-	s.broadcastPeerLeft(callID, c.uid, remaining)
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "group_left", Fields: map[string]any{"ended": ended, "remaining_count": len(remaining)}})
+	if ended {
+		s.sfu.RemoveRoom(callID)
+	} else {
+		s.sfu.RemovePeer(c.uid)
+	}
+	s.broadcastSFUPeerLeft(callID, c.uid, remaining, ended)
 	s.broadcastGroupState(groupID)
 }
 
-// broadcastPeerLeft 通知剩余参与者某人离开。
-func (s *SignalingServer) broadcastPeerLeft(callID, uid string, remaining []string) {
+// broadcastSFUPeerLeft 通知剩余参与者某人离开，并携带服务端权威的通话结束状态。
+func (s *SignalingServer) broadcastSFUPeerLeft(callID, uid string, remaining []string, ended bool) {
 	for _, p := range remaining {
 		if pc, ok := s.getConn(p); ok {
 			s.send(pc, &types.SignalingMessage{
-				Type:   types.MessageTypePeerLeft,
+				Type:   types.MessageTypeSFUPeerLeft,
 				RoomID: callID,
-				Data:   map[string]any{"call_id": callID, "uid": uid},
+				Data:   map[string]any{"call_id": callID, "uid": uid, "ended": ended},
+			})
+		}
+	}
+}
+
+func (s *SignalingServer) broadcastActiveSpeakers(callID string, speakers []string) {
+	participants, ok := s.groups.Participants(callID)
+	if !ok {
+		return
+	}
+	for _, uid := range participants {
+		if c, connected := s.getConn(uid); connected {
+			s.send(c, &types.SignalingMessage{
+				Type:   types.MessageTypeActiveSpeakers,
+				RoomID: callID,
+				Data:   map[string]any{"call_id": callID, "speakers": speakers},
 			})
 		}
 	}
@@ -445,12 +839,8 @@ func (s *SignalingServer) relayToPeer(c *clientConn, msg *types.SignalingMessage
 	to := dataStr(msg.Data, "to")
 	var target string
 	if to != "" {
-		// 群组 Mesh：校验 from/to 均为该群通话参与者
-		if !s.groups.HasParticipant(callID, c.uid) || !s.groups.HasParticipant(callID, to) {
-			s.sendError(c, "not a group participant")
-			return
-		}
-		target = to
+		s.sendError(c, "group media uses sfu signaling")
+		return
 	} else {
 		// 1:1：按会话推导对端（保持原行为）
 		sess, ok := s.calls.Get(callID)
@@ -490,11 +880,16 @@ func (s *SignalingServer) cleanupCall(uid string) {
 			s.notifyUser(peer, &wsframe.CallSignal{Event: "end", CallId: sess.ID, Reason: string(sess.EndReason), Duration: sess.Duration()})
 		}
 	}
-	// 群组：离开并通知剩余参与者
+	// 群组：离开并关 SFU peer（其上行轨与下行订阅经房间路由清理）
 	if callID, ok := s.groups.ActiveCallID(uid); ok {
 		groupID, _, _, _ := s.groups.Info(callID) // 结束前捕获 groupID
-		if remaining, _, err := s.groups.Leave(callID, uid); err == nil {
-			s.broadcastPeerLeft(callID, uid, remaining)
+		if remaining, ended, err := s.groups.Leave(callID, uid); err == nil {
+			if ended {
+				s.sfu.RemoveRoom(callID)
+			} else {
+				s.sfu.RemovePeer(uid)
+			}
+			s.broadcastSFUPeerLeft(callID, uid, remaining, ended)
 			s.broadcastGroupState(groupID)
 		}
 	}
@@ -607,12 +1002,16 @@ func (s *SignalingServer) sendError(c *clientConn, errMsg string) {
 // Close 关闭信令服务器：取消上下文并关闭所有连接。
 func (s *SignalingServer) Close() error {
 	s.cancel()
+	s.sfu.Close()
 	s.mu.Lock()
 	for uid, c := range s.conns {
 		c.close()
 		delete(s.conns, uid)
 	}
 	s.mu.Unlock()
+	if s.diag != nil {
+		_ = s.diag.Close()
+	}
 	zLog.Info("signaling server closed")
 	return nil
 }

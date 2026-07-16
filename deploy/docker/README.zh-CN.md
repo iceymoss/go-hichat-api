@@ -103,8 +103,8 @@ Caddy（`deploy/docker/Caddyfile`）会把单域名路由到：`/ws → im-ws`�
 ## 音视频通话说明
 
 - 同机 / 同局域网：内置公共 STUN 即可直接通话。
-- **跨公网**：需自建 TURN 服务器，把地址填入 `deploy/docker/etc/streaming.yaml` 的 `WebRTC.IceServers`。
-  另外浏览器使用摄像头/麦克风要求 **HTTPS**（localhost 例外），公网部署请走上面的反向代理 + 域名 HTTPS。
+- **跨公网**：在 `.env` 设置 `PUBLIC_IP`、随机生成的 `TURN_SECRET` 和 `TURN_URLS`，然后用 `docker compose --profile turn --profile proxy up -d --build` 启动。宿主机防火墙/安全组需放行 SFU UDP 范围（默认 `50000-50200/udp`）以及 coturn relay 范围（默认 `49160-49200/udp`）。`TURN_URLS` 应同时下发 UDP 与 TCP，例如 `turn:203.0.113.10:3478?transport=udp,turn:203.0.113.10:3478?transport=tcp`。
+- 浏览器使用摄像头/麦克风要求 **HTTPS**（localhost 例外），公网部署请走上面的反向代理。本 Compose 尚未启用 TURN TLS；严格网络环境如需 `turns:`，需另行给 coturn 配证书并开放 5349/TCP。
 
 ## 常见问题
 

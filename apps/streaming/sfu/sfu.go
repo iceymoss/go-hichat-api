@@ -1,417 +1,879 @@
 package sfu
 
 import (
-	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/types"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
-	"go.uber.org/zap"
-
+	"github.com/pion/ice/v2"
+	"github.com/pion/interceptor"
+	"github.com/pion/rtcp"
+	"github.com/pion/rtp"
+	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 )
 
-// SFU SFU实现
+// downlinkFactory 为「订阅者 subUID 订阅发布者 pubUID 的 trackID」创建一条下行投递 sink。
+// 生产实现 realDownlink：建 *webrtc.TrackLocalStaticRTP，AddTrack 到 subUID 的 PeerConnection
+// （触发服务端 renegotiation），返回该 track 作为 RTPSink。测试可注入假实现隔离 pion I/O。
+type downlinkFactory interface {
+	newDownlink(subUID, pubUID, trackID string, codec webrtc.RTPCodecCapability) (RTPSink, error)
+}
+
+// SFU 协调器：管理房间、pion peer 注册表，编排「某人发布 -> 为其余人建下行订阅 + 起收流泵」。
 type SFU struct {
-	rooms           map[string]*RoomSFU
-	mu              sync.RWMutex
-	ctx             context.Context
-	cancel          context.CancelFunc
-	maxRooms        int
-	maxUsersPerRoom int
+	mu                 sync.Mutex
+	rooms              map[string]*Room
+	peers              map[string]*Peer         // uid -> peer（单会话，uid 全局唯一）
+	pubSSRC            map[string]publishedSSRC // "pubUID|trackID" -> 当前上行轨 SSRC（PLI 转发用）
+	factory            downlinkFactory
+	api                *webrtc.API // 带接口过滤的 pion API（滤掉虚拟接口候选）
+	mediaEventMu       sync.RWMutex
+	onMediaEvent       func(MediaEvent)
+	keyframeMu         sync.Mutex
+	lastKeyframe       map[string]time.Time
+	activeSpeakerLimit int
+	activeSpeakerMu    sync.RWMutex
+	onActiveSpeakers   func(string, []string)
+	lastSpeakers       map[string][]string
+	stopSpeakers       chan struct{}
+	stopOnce           sync.Once
+	subscriptionMu     sync.Mutex
 }
 
-// RoomSFU 房间SFU
-type RoomSFU struct {
-	roomID    string
-	users     map[string]*UserSFU
-	mu        sync.RWMutex
-	createdAt time.Time
-	updatedAt time.Time
+// MediaEvent 是不含 SSRC、地址和媒体内容的 SFU 数据面诊断事件。
+type MediaEvent struct {
+	Name    string
+	RoomID  string
+	PubUID  string
+	SubUID  string
+	TrackID string
+	Kind    string
+	Codec   string
+	RID     string
+	Reason  string
 }
 
-// UserSFU 用户SFU
-type UserSFU struct {
-	userID      string
-	peerConn    *webrtc.PeerConnection
-	tracks      map[string]*webrtc.TrackLocalStaticRTP
-	mu          sync.RWMutex
-	connectedAt time.Time
+type publishedSSRC struct {
+	ssrc       uint32
+	generation uint64
 }
 
-// NewSFU 创建新的SFU
-func NewSFU(maxRooms, maxUsersPerRoom int) *SFU {
-	ctx, cancel := context.WithCancel(context.Background())
+// Option 配置 SFU 的 pion 网络参数（Phase 1 公网化）。
+type Option func(*sfuConfig)
 
-	sfu := &SFU{
-		rooms:           make(map[string]*RoomSFU),
-		ctx:             ctx,
-		cancel:          cancel,
-		maxRooms:        maxRooms,
-		maxUsersPerRoom: maxUsersPerRoom,
+type sfuConfig struct {
+	publicIP           string
+	udpMin, udpMax     int
+	activeSpeakerLimit int
+}
+
+// 浏览器可能把多路 receiver report/TWCC 合并为超过 Pion 默认 1460 字节的 compound RTCP。
+// 过小会让 ICE 上层 mux 丢弃整包并持续报 io.ErrShortBuffer。
+const sfuReceiveMTU = 8192
+
+const keyframeRequestInterval = 500 * time.Millisecond
+
+// WithPublicIP 让 SFU 对外宣告公网 IP（NAT1To1），跨 NAT 时客户端才连得到。
+func WithPublicIP(ip string) Option { return func(c *sfuConfig) { c.publicIP = ip } }
+
+// WithUDPPortRange 把媒体 UDP 限制在指定端口范围（需在防火墙/docker 放行）。
+func WithUDPPortRange(min, max int) Option {
+	return func(c *sfuConfig) { c.udpMin, c.udpMax = min, max }
+}
+
+// WithActiveSpeakerLimit 设置每个房间同时转发和高亮的音频发布者数量。
+func WithActiveSpeakerLimit(limit int) Option {
+	return func(c *sfuConfig) { c.activeSpeakerLimit = limit }
+}
+
+// NewSFU 创建协调器，使用真实 pion 下行工厂（生产）。opts 配置公网 IP / UDP 端口范围。
+func NewSFU(opts ...Option) *SFU {
+	cfg := sfuConfig{}
+	for _, o := range opts {
+		o(&cfg)
 	}
-
-	// 启动清理协程
-	go sfu.cleanupRoutine()
-
-	return sfu
+	if cfg.activeSpeakerLimit <= 0 {
+		cfg.activeSpeakerLimit = defaultActiveSpeakerLimit
+	}
+	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]publishedSSRC), lastKeyframe: make(map[string]time.Time), api: buildAPI(cfg), activeSpeakerLimit: cfg.activeSpeakerLimit, lastSpeakers: make(map[string][]string), stopSpeakers: make(chan struct{})}
+	s.factory = realDownlink{sfu: s}
+	go s.runActiveSpeakers()
+	return s
 }
 
-// HandleMediaStream 处理媒体流
-func (s *SFU) HandleMediaStream(roomID, userID string, track *webrtc.TrackLocalStaticRTP) error {
+// newSFUWithFactory 注入自定义下行工厂（测试用，隔离 pion 下行 I/O）。
+func newSFUWithFactory(f downlinkFactory) *SFU {
+	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]publishedSSRC), lastKeyframe: make(map[string]time.Time), api: buildAPI(sfuConfig{}), factory: f, activeSpeakerLimit: defaultActiveSpeakerLimit, lastSpeakers: make(map[string][]string), stopSpeakers: make(chan struct{})}
+	return s
+}
+
+// buildAPI 构造带 SettingEngine 的 pion API：注册默认编解码 + 拦截器（NACK/RTCP 等），
+// 并过滤 ICE 采集接口——只留可用的物理/回环接口，滤掉 VPN/Docker/AWDL 等虚拟接口，
+// 否则它们的垃圾候选会拖慢 ICE 甚至判失败（表现为发起即报错、加载很慢）。
+// Phase 1：可选宣告公网 IP（NAT1To1）+ 限定媒体 UDP 端口范围。
+func buildAPI(cfg sfuConfig) *webrtc.API {
+	me := &webrtc.MediaEngine{}
+	if err := me.RegisterDefaultCodecs(); err != nil {
+		panic(err)
+	}
+	if err := me.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: sdp.AudioLevelURI}, webrtc.RTPCodecTypeAudio); err != nil {
+		panic(err)
+	}
+	for _, uri := range []string{sdp.SDESMidURI, sdp.SDESRTPStreamIDURI, "urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id"} {
+		if err := me.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: uri}, webrtc.RTPCodecTypeVideo); err != nil {
+			panic(err)
+		}
+	}
+	ir := &interceptor.Registry{}
+	if err := webrtc.RegisterDefaultInterceptors(me, ir); err != nil {
+		panic(err)
+	}
+	se := webrtc.SettingEngine{}
+	// SFU 是固定公网/局域网端点，使用 ICE Lite，由浏览器作为唯一 controlling agent 选路。
+	// 避免服务端 full ICE 在多网卡 host/srflx 候选间主动切换，造成浏览器单边 consent 超时。
+	se.SetLite(true)
+	se.SetReceiveMTU(sfuReceiveMTU)
+	se.SetInterfaceFilter(usableInterface)
+	// 解析浏览器发来的 mDNS(.local) 主机候选：Chrome 默认把 host IP 藏成 .local，
+	// 不解析就只能靠反射候选连通，本地/局域网易慢或连不上。
+	se.SetICEMulticastDNSMode(ice.MulticastDNSModeQueryOnly)
+	if cfg.publicIP != "" {
+		se.SetNAT1To1IPs([]string{cfg.publicIP}, webrtc.ICECandidateTypeHost)
+	}
+	if cfg.udpMin > 0 && cfg.udpMax >= cfg.udpMin {
+		if err := se.SetEphemeralUDPPortRange(uint16(cfg.udpMin), uint16(cfg.udpMax)); err != nil {
+			panic(err)
+		}
+	}
+	return webrtc.NewAPI(webrtc.WithMediaEngine(me), webrtc.WithInterceptorRegistry(ir), webrtc.WithSettingEngine(se))
+}
+
+// usableInterface 判断某网卡是否用于 ICE 候选采集：排除已知虚拟/隧道接口。
+func usableInterface(name string) bool {
+	for _, bad := range []string{"utun", "awdl", "llw", "bridge", "vmenet", "docker", "veth", "tap", "tun", "ipsec", "ppp"} {
+		if strings.HasPrefix(name, bad) {
+			return false
+		}
+	}
+	return true
+}
+
+func ssrcKey(pubUID, trackID string) string { return pubUID + "|" + trackID }
+
+func sourceTrackID(trackID, rid string) string {
+	if rid == "" {
+		return trackID
+	}
+	return trackID + "|" + rid
+}
+
+func sourceRID(trackID string) string {
+	parts := strings.Split(trackID, "|")
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[len(parts)-1]
+}
+
+// STUNServers 构造 pion ICE 配置（服务端 PeerConnection 用）。给服务端也配 STUN 可增强候选，
+// 缓解 Chrome 把 host 候选藏成 mDNS 时只能靠反射候选连通的情况。
+func STUNServers(urls ...string) []webrtc.ICEServer {
+	if len(urls) == 0 {
+		return nil
+	}
+	return []webrtc.ICEServer{{URLs: urls}}
+}
+
+func (s *SFU) setPubSSRC(pubUID, trackID string, ssrc uint32) {
+	s.setPubSSRCGeneration(pubUID, trackID, ssrc, 0)
+}
+
+func (s *SFU) setPubSSRCGeneration(pubUID, trackID string, ssrc uint32, generation uint64) {
+	s.mu.Lock()
+	s.pubSSRC[ssrcKey(pubUID, trackID)] = publishedSSRC{ssrc: ssrc, generation: generation}
+	s.mu.Unlock()
+}
+
+func (s *SFU) getPubSSRC(pubUID, trackID string) (uint32, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	room, exists := s.rooms[roomID]
-	if !exists {
-		room = &RoomSFU{
-			roomID:    roomID,
-			users:     make(map[string]*UserSFU),
-			createdAt: time.Now(),
-			updatedAt: time.Now(),
-		}
-		s.rooms[roomID] = room
-	}
-
-	user, exists := room.users[userID]
-	if !exists {
-		user = &UserSFU{
-			userID:      userID,
-			tracks:      make(map[string]*webrtc.TrackLocalStaticRTP),
-			connectedAt: time.Now(),
-		}
-		room.users[userID] = user
-	}
-
-	user.mu.Lock()
-	user.tracks[track.ID()] = track
-	user.mu.Unlock()
-
-	room.updatedAt = time.Now()
-
-	zLog.Info("Media stream handled",
-		zap.String("room_id", roomID),
-		zap.String("user_id", userID),
-		zap.String("track_id", track.ID()),
-		zap.String("kind", track.Kind().String()))
-
-	return nil
+	published, ok := s.pubSSRC[ssrcKey(pubUID, trackID)]
+	return published.ssrc, ok
 }
 
-// ForwardMediaStream 转发媒体流
-func (s *SFU) ForwardMediaStream(roomID, fromUserID, toUserID string, track *webrtc.TrackLocalStaticRTP) error {
-	s.mu.RLock()
-	room, exists := s.rooms[roomID]
-	s.mu.RUnlock()
-
-	if !exists {
-		return fmt.Errorf("room %s not found", roomID)
-	}
-
-	room.mu.RLock()
-	fromUser, exists := room.users[fromUserID]
-	room.mu.RUnlock()
-
-	if !exists {
-		return fmt.Errorf("user %s not found in room %s", fromUserID, roomID)
-	}
-
-	room.mu.RLock()
-	toUser, exists := room.users[toUserID]
-	room.mu.RUnlock()
-
-	if !exists {
-		return fmt.Errorf("user %s not found in room %s", toUserID, roomID)
-	}
-
-	// 检查发送者是否有该轨道
-	fromUser.mu.RLock()
-	_, hasTrack := fromUser.tracks[track.ID()]
-	fromUser.mu.RUnlock()
-
-	if !hasTrack {
-		return fmt.Errorf("user %s does not have track %s", fromUserID, track.ID())
-	}
-
-	// 转发轨道到接收者
-	if toUser.peerConn != nil {
-		_, err := toUser.peerConn.AddTrack(track)
-		if err != nil {
-			return fmt.Errorf("failed to add track to user %s: %w", toUserID, err)
-		}
-	}
-
-	zLog.Debug("Media stream forwarded",
-		zap.String("room_id", roomID),
-		zap.String("from_user", fromUserID),
-		zap.String("to_user", toUserID),
-		zap.String("track_id", track.ID()))
-
-	return nil
+func (s *SFU) deletePubSSRC(pubUID, trackID string) {
+	s.deletePubSSRCGeneration(pubUID, trackID, 0)
 }
 
-// StopForwarding 停止转发
-func (s *SFU) StopForwarding(roomID, userID string) error {
-	s.mu.RLock()
-	room, exists := s.rooms[roomID]
-	s.mu.RUnlock()
-
-	if !exists {
-		return fmt.Errorf("room %s not found", roomID)
-	}
-
-	room.mu.Lock()
-	user, exists := room.users[userID]
-	if exists {
-		// 停止所有轨道
-		user.mu.Lock()
-		for trackID := range user.tracks {
-			// TrackLocalStaticRTP 没有 Close 方法，直接删除引用
-			zLog.Info("Removing track",
-				zap.String("track_id", trackID))
-		}
-		user.tracks = make(map[string]*webrtc.TrackLocalStaticRTP)
-		user.mu.Unlock()
-
-		// 关闭PeerConnection
-		if user.peerConn != nil {
-			if err := user.peerConn.Close(); err != nil {
-				zLog.Error("Failed to close peer connection",
-					zap.String("user_id", userID),
-					zap.Error(err))
-			}
-		}
-
-		delete(room.users, userID)
-		room.updatedAt = time.Now()
-	}
-	room.mu.Unlock()
-
-	zLog.Info("Forwarding stopped for user",
-		zap.String("room_id", roomID),
-		zap.String("user_id", userID))
-
-	return nil
-}
-
-// GetRoomStats 获取房间统计信息
-func (s *SFU) GetRoomStats(roomID string) (*types.RoomStats, error) {
-	s.mu.RLock()
-	room, exists := s.rooms[roomID]
-	s.mu.RUnlock()
-
-	if !exists {
-		return nil, fmt.Errorf("room %s not found", roomID)
-	}
-
-	room.mu.RLock()
-	userCount := len(room.users)
-	activeStreams := 0
-	bandwidth := int64(0)
-
-	for _, user := range room.users {
-		user.mu.RLock()
-		activeStreams += len(user.tracks)
-		// 这里可以计算实际的带宽使用
-		// 简化处理，假设每个轨道使用固定带宽
-		bandwidth += int64(len(user.tracks) * 1000000) // 1Mbps per track
-		user.mu.RUnlock()
-	}
-	room.mu.RUnlock()
-
-	return &types.RoomStats{
-		RoomID:        roomID,
-		UserCount:     userCount,
-		ActiveStreams: activeStreams,
-		Bandwidth:     bandwidth,
-		UpdatedAt:     time.Now(),
-	}, nil
-}
-
-// AddUserToRoom 添加用户到房间
-func (s *SFU) AddUserToRoom(roomID, userID string, peerConn *webrtc.PeerConnection) error {
+func (s *SFU) deletePubSSRCGeneration(pubUID, trackID string, generation uint64) {
+	key := ssrcKey(pubUID, trackID)
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	room, exists := s.rooms[roomID]
-	if !exists {
-		room = &RoomSFU{
-			roomID:    roomID,
-			users:     make(map[string]*UserSFU),
-			createdAt: time.Now(),
-			updatedAt: time.Now(),
-		}
-		s.rooms[roomID] = room
+	deleted := false
+	if published, ok := s.pubSSRC[key]; ok && (generation == 0 || published.generation == generation) {
+		delete(s.pubSSRC, key)
+		deleted = true
 	}
-
-	if len(room.users) >= s.maxUsersPerRoom {
-		return fmt.Errorf("room %s is full (max %d users)", roomID, s.maxUsersPerRoom)
+	s.mu.Unlock()
+	if !deleted {
+		return
 	}
-
-	user := &UserSFU{
-		userID:      userID,
-		peerConn:    peerConn,
-		tracks:      make(map[string]*webrtc.TrackLocalStaticRTP),
-		connectedAt: time.Now(),
-	}
-
-	room.users[userID] = user
-	room.updatedAt = time.Now()
-
-	zLog.Info("User added to SFU room",
-		zap.String("room_id", roomID),
-		zap.String("user_id", userID),
-		zap.Int("user_count", len(room.users)))
-
-	return nil
+	s.keyframeMu.Lock()
+	delete(s.lastKeyframe, key)
+	s.keyframeMu.Unlock()
 }
 
-// RemoveUserFromRoom 从房间移除用户
-func (s *SFU) RemoveUserFromRoom(roomID, userID string) error {
-	s.mu.RLock()
-	room, exists := s.rooms[roomID]
-	s.mu.RUnlock()
-
-	if !exists {
-		return fmt.Errorf("room %s not found", roomID)
-	}
-
-	room.mu.Lock()
-	user, exists := room.users[userID]
-	if exists {
-		// 停止所有轨道
-		user.mu.Lock()
-		for trackID := range user.tracks {
-			// TrackLocalStaticRTP 没有 Close 方法，直接删除引用
-			zLog.Info("Removing track",
-				zap.String("track_id", trackID))
-		}
-		user.mu.Unlock()
-
-		// 关闭PeerConnection
-		if user.peerConn != nil {
-			if err := user.peerConn.Close(); err != nil {
-				zLog.Error("Failed to close peer connection",
-					zap.String("user_id", userID),
-					zap.Error(err))
-			}
-		}
-
-		delete(room.users, userID)
-		room.updatedAt = time.Now()
-	}
-	room.mu.Unlock()
-
-	zLog.Info("User removed from SFU room",
-		zap.String("room_id", roomID),
-		zap.String("user_id", userID))
-
-	return nil
+// OnMediaEvent 注册轻量媒体数据面诊断回调。
+func (s *SFU) OnMediaEvent(cb func(MediaEvent)) {
+	s.mediaEventMu.Lock()
+	s.onMediaEvent = cb
+	s.mediaEventMu.Unlock()
 }
 
-// GetRoomUserCount 获取房间用户数量
-func (s *SFU) GetRoomUserCount(roomID string) (int, error) {
-	s.mu.RLock()
-	room, exists := s.rooms[roomID]
-	s.mu.RUnlock()
-
-	if !exists {
-		return 0, fmt.Errorf("room %s not found", roomID)
-	}
-
-	room.mu.RLock()
-	count := len(room.users)
-	room.mu.RUnlock()
-
-	return count, nil
+// OnActiveSpeakers 注册房间 top-N 变化回调。回调运行在独立的周期任务，不阻塞 RTP 收流。
+func (s *SFU) OnActiveSpeakers(cb func(roomID string, speakers []string)) {
+	s.activeSpeakerMu.Lock()
+	s.onActiveSpeakers = cb
+	s.activeSpeakerMu.Unlock()
 }
 
-// cleanupRoutine 清理协程
-func (s *SFU) cleanupRoutine() {
-	ticker := time.NewTicker(30 * time.Second)
+func (s *SFU) runActiveSpeakers() {
+	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
-
 	for {
 		select {
-		case <-s.ctx.Done():
-			return
 		case <-ticker.C:
-			s.cleanup()
+			s.refreshActiveSpeakers()
+		case <-s.stopSpeakers:
+			return
 		}
 	}
 }
 
-// cleanup 清理过期房间和用户
-func (s *SFU) cleanup() {
+func (s *SFU) refreshActiveSpeakers() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	now := time.Now()
-	expiredRooms := make([]string, 0)
-
-	for roomID, room := range s.rooms {
-		room.mu.RLock()
-		userCount := len(room.users)
-		room.mu.RUnlock()
-
-		// 如果房间为空且超过5分钟未更新，则删除
-		if userCount == 0 && now.Sub(room.updatedAt) > 5*time.Minute {
-			expiredRooms = append(expiredRooms, roomID)
+	rooms := make([]*Room, 0, len(s.rooms))
+	for _, room := range s.rooms {
+		rooms = append(rooms, room)
+	}
+	s.mu.Unlock()
+	for _, room := range rooms {
+		speakers := room.refreshActiveSpeakers(s.activeSpeakerLimit)
+		s.activeSpeakerMu.Lock()
+		previous := s.lastSpeakers[room.ID()]
+		changed := !equalStrings(previous, speakers)
+		if changed {
+			s.lastSpeakers[room.ID()] = append([]string(nil), speakers...)
 		}
-	}
-
-	// 删除过期房间
-	for _, roomID := range expiredRooms {
-		delete(s.rooms, roomID)
-		zLog.Info("Expired SFU room cleaned up", zap.String("room_id", roomID))
-	}
-
-	if len(expiredRooms) > 0 {
-		zLog.Info("SFU cleanup completed",
-			zap.Int("cleaned_rooms", len(expiredRooms)),
-			zap.Int("remaining_rooms", len(s.rooms)))
+		cb := s.onActiveSpeakers
+		s.activeSpeakerMu.Unlock()
+		if changed && cb != nil {
+			cb(room.ID(), append([]string(nil), speakers...))
+		}
 	}
 }
 
-// Close 关闭SFU
-func (s *SFU) Close() error {
-	s.cancel()
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
 
+// Close 停止 SFU 后台任务并关闭全部房间。
+func (s *SFU) Close() {
+	s.stopOnce.Do(func() { close(s.stopSpeakers) })
+	s.mu.Lock()
+	rooms := make([]string, 0, len(s.rooms))
+	for roomID := range s.rooms {
+		rooms = append(rooms, roomID)
+	}
+	s.mu.Unlock()
+	for _, roomID := range rooms {
+		s.RemoveRoom(roomID)
+	}
+}
+
+func (s *SFU) emitMediaEvent(event MediaEvent) {
+	s.mediaEventMu.RLock()
+	cb := s.onMediaEvent
+	s.mediaEventMu.RUnlock()
+	if cb != nil {
+		cb(event)
+	}
+}
+
+func (s *SFU) requestKeyframe(pubUID, trackID, reason string) {
+	if !s.allowKeyframeRequest(pubUID, trackID, reason, time.Now()) {
+		return
+	}
+	pub := s.getPeer(pubUID)
+	ssrc, ok := s.getPubSSRC(pubUID, trackID)
+	if pub != nil && ok {
+		if err := pub.pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: ssrc}}); err == nil {
+			s.emitMediaEvent(MediaEvent{Name: "keyframe_requested", RoomID: pub.RoomID(), PubUID: pubUID, TrackID: trackID, Kind: webrtc.RTPCodecTypeVideo.String(), Reason: reason})
+		}
+	}
+}
+
+func (s *SFU) allowKeyframeRequest(pubUID, trackID, reason string, now time.Time) bool {
+	if reason == "downlink_created" {
+		return true
+	}
+	key := ssrcKey(pubUID, trackID)
+	s.keyframeMu.Lock()
+	defer s.keyframeMu.Unlock()
+	if last := s.lastKeyframe[key]; !last.IsZero() && now.Sub(last) < keyframeRequestInterval {
+		return false
+	}
+	s.lastKeyframe[key] = now
+	return true
+}
+
+func (s *SFU) room(roomID string) *Room {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	r, ok := s.rooms[roomID]
+	if !ok {
+		r = NewRoom(roomID)
+		s.rooms[roomID] = r
+	}
+	return r
+}
 
-	// 关闭所有房间
-	for roomID, room := range s.rooms {
-		room.mu.Lock()
-		for userID, user := range room.users {
-			// 关闭所有轨道
-			user.mu.Lock()
-			for trackID := range user.tracks {
-				// TrackLocalStaticRTP 没有 Close 方法，直接删除引用
-				zLog.Info("Removing track",
-					zap.String("room_id", roomID),
-					zap.String("user_id", userID),
-					zap.String("track_id", trackID))
+func (s *SFU) getPeer(uid string) *Peer {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.peers[uid]
+}
+
+// GetPeer 返回 uid 的 peer（信令层路由 sfu_publish/answer 用），不存在返回 nil。
+func (s *SFU) GetPeer(uid string) *Peer { return s.getPeer(uid) }
+
+// RemovePeer 关闭并移除某参与者的 peer（离开/断线时调用）：从注册表删除并关闭其 PeerConnection，
+// 触发房间路由清理（其上行轨与作为订阅者的下行订阅一并移除）。
+func (s *SFU) RemovePeer(uid string) {
+	p := s.getPeer(uid)
+	if p != nil {
+		_ = p.Close()
+	}
+}
+
+// ReplacePeer 原地替换参与者的媒体连接，不改变上层群通话成员状态。
+func (s *SFU) ReplacePeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer, error) {
+	if current := s.getPeer(uid); current != nil {
+		if current.RoomID() != roomID {
+			return nil, fmt.Errorf("sfu: peer %s belongs to room %s", uid, current.RoomID())
+		}
+		_ = current.closeForReplacement()
+	}
+	return s.AddPeer(roomID, uid, iceServers)
+}
+
+// RemoveRoom 关闭并移除一通群通话中的全部 peer。
+func (s *SFU) RemoveRoom(roomID string) {
+	s.mu.Lock()
+	peers := make([]*Peer, 0)
+	for uid, p := range s.peers {
+		if p.room.ID() != roomID {
+			continue
+		}
+		peers = append(peers, p)
+		delete(s.peers, uid)
+		for key := range s.pubSSRC {
+			if strings.HasPrefix(key, uid+"|") {
+				delete(s.pubSSRC, key)
 			}
-			user.mu.Unlock()
+		}
+	}
+	delete(s.rooms, roomID)
+	s.mu.Unlock()
+	s.activeSpeakerMu.Lock()
+	delete(s.lastSpeakers, roomID)
+	s.activeSpeakerMu.Unlock()
 
-			// 关闭PeerConnection
-			if user.peerConn != nil {
-				if err := user.peerConn.Close(); err != nil {
-					zLog.Error("Failed to close peer connection",
-						zap.String("room_id", roomID),
-						zap.String("user_id", userID),
-						zap.Error(err))
+	for _, p := range peers {
+		_ = p.Close()
+	}
+}
+
+func (s *SFU) detachPeer(p *Peer, preserveMembership bool) {
+	s.mu.Lock()
+	if s.peers[p.uid] == p {
+		delete(s.peers, p.uid)
+	}
+	for key := range s.pubSSRC {
+		if strings.HasPrefix(key, p.uid+"|") {
+			delete(s.pubSSRC, key)
+		}
+	}
+	s.mu.Unlock()
+	s.keyframeMu.Lock()
+	for key := range s.lastKeyframe {
+		if strings.HasPrefix(key, p.uid+"|") {
+			delete(s.lastKeyframe, key)
+		}
+	}
+	s.keyframeMu.Unlock()
+
+	if preserveMembership {
+		p.room.ResetParticipantMedia(p.uid)
+	} else {
+		p.room.Leave(p.uid)
+	}
+	if !p.room.Empty() {
+		return
+	}
+	s.mu.Lock()
+	if s.rooms[p.room.ID()] == p.room && p.room.Empty() {
+		delete(s.rooms, p.room.ID())
+	}
+	s.mu.Unlock()
+}
+
+// Peer 一个参与者在房间内的 pion 连接（含服务端发起 renegotiation 的能力）。
+type Peer struct {
+	uid  string
+	room *Room
+	pc   *webrtc.PeerConnection
+	sfu  *SFU
+
+	closeOnce sync.Once
+	closeErr  error
+
+	negMu      sync.Mutex
+	negPending bool             // 有 offer 在途、期间又有 track 变化时标记待补
+	iceRestart bool             // 下一次服务端 offer 强制刷新 ICE credentials
+	negTimer   *time.Timer      // 去抖定时器（合并一批 AddTrack 成一次 renegotiation）
+	onOffer    func(sdp string) // 服务端发起的 renegotiation offer -> 客户端（由信令层接线）
+}
+
+// RoomID 返回 peer 所属的群通话 ID。
+func (p *Peer) RoomID() string { return p.room.ID() }
+
+// OnICECandidate 注册本端 trickle ICE candidate 回调。
+func (p *Peer) OnICECandidate(cb func(webrtc.ICECandidateInit)) {
+	p.pc.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+		if candidate != nil {
+			cb(candidate.ToJSON())
+		}
+	})
+}
+
+// AddICECandidate 应用客户端 trickle 过来的 ICE candidate。
+func (p *Peer) AddICECandidate(candidate webrtc.ICECandidateInit) error {
+	return p.pc.AddICECandidate(candidate)
+}
+
+// OnICEConnectionStateChange 注册 ICE 连接状态回调，供信令层记录带用户和房间信息的日志。
+func (p *Peer) OnICEConnectionStateChange(cb func(webrtc.ICEConnectionState)) {
+	p.pc.OnICEConnectionStateChange(cb)
+}
+
+// OnConnectionStateChange 注册 PeerConnection 状态回调。
+func (p *Peer) OnConnectionStateChange(cb func(webrtc.PeerConnectionState)) {
+	p.pc.OnConnectionStateChange(cb)
+}
+
+// AddPeer 为 uid 建一条新 PeerConnection 加入房间；OnTrack 里为其余人建下行订阅并起收流泵；
+// AddTrack 触发的重协商由服务端作为 offerer 驱动（避 glare）。
+func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer, error) {
+	if peer := s.getPeer(uid); peer != nil {
+		if peer.RoomID() == roomID {
+			return peer, nil
+		}
+		return nil, fmt.Errorf("sfu: peer %s already belongs to room %s", uid, peer.RoomID())
+	}
+	pc, err := s.api.NewPeerConnection(webrtc.Configuration{ICEServers: iceServers})
+	if err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	if existing := s.peers[uid]; existing != nil {
+		s.mu.Unlock()
+		_ = pc.Close()
+		if existing.RoomID() == roomID {
+			return existing, nil
+		}
+		return nil, fmt.Errorf("sfu: peer %s already belongs to room %s", uid, existing.RoomID())
+	}
+	room := s.rooms[roomID]
+	if room == nil {
+		room = NewRoom(roomID)
+		s.rooms[roomID] = room
+	}
+	room.Join(uid)
+	p := &Peer{uid: uid, room: room, pc: pc, sfu: s}
+	s.peers[uid] = p
+	s.mu.Unlock()
+
+	pc.OnNegotiationNeeded(p.scheduleNegotiation)
+	pc.OnSignalingStateChange(func(st webrtc.SignalingState) {
+		if st == webrtc.SignalingStateStable {
+			p.flushPendingNegotiation()
+		}
+	})
+	pc.OnTrack(func(tr *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		trackID := tr.ID()
+		rid := tr.RID()
+		codec := tr.Codec().RTPCodecCapability
+		generation := room.AddPublishedLayer(uid, trackID, rid, tr.Kind().String(), codec)
+		s.setPubSSRCGeneration(uid, sourceTrackID(trackID, rid), uint32(tr.SSRC()), generation)
+		s.emitMediaEvent(MediaEvent{Name: "track_published", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String(), Codec: codec.MimeType, RID: rid})
+		if tr.Kind() == webrtc.RTPCodecTypeAudio {
+			for _, sub := range room.Participants() {
+				if sub == uid {
+					continue
+				}
+				sink, err := s.factory.newDownlink(sub, uid, trackID, codec)
+				if err == nil {
+					room.Subscribe(sub, uid, trackID, sink)
+				}
+			}
+		} else {
+			for _, sub := range room.VideoSubscribers(uid) {
+				_ = s.reconcileVideoSubscription(roomID, sub, uid)
+			}
+		}
+		extensionID := uint8(0)
+		if tr.Kind() == webrtc.RTPCodecTypeAudio {
+			extensionID = audioLevelExtensionID(receiver.GetParameters())
+		}
+		go func() {
+			pump(room, uid, trackID, rid, generation, trackRemoteReader{t: tr}, extensionID, s.activeSpeakerLimit)
+			if !room.UnpublishLayerGeneration(uid, trackID, rid, generation) {
+				return
+			}
+			s.deletePubSSRCGeneration(uid, sourceTrackID(trackID, rid), generation)
+			if tr.Kind() == webrtc.RTPCodecTypeAudio {
+				room.speakers.Remove(uid)
+			} else {
+				for _, sub := range room.VideoSubscribers(uid) {
+					_ = s.reconcileVideoSubscription(roomID, sub, uid)
+				}
+			}
+			s.emitMediaEvent(MediaEvent{Name: "track_ended", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String(), RID: rid})
+		}()
+	})
+
+	return p, nil
+}
+
+// SubscribeExisting 为迟到入房者回填已有音频；视频由可见宫格显式订阅。
+func (s *SFU) SubscribeExisting(roomID, uid string) {
+	room := s.room(roomID)
+	for _, pt := range room.PublishedExcept(uid) {
+		if pt.Kind != webrtc.RTPCodecTypeAudio.String() {
+			continue
+		}
+		sink, err := s.factory.newDownlink(uid, pt.PubUID, pt.TrackID, pt.Codec)
+		if err != nil {
+			continue
+		}
+		room.Subscribe(uid, pt.PubUID, pt.TrackID, sink)
+	}
+}
+
+// SubscribeVideo 记录可见视频期望，并在发布轨已存在时创建唯一的下行轨。
+func (s *SFU) SubscribeVideo(roomID, subUID, pubUID string, preferredRID ...string) error {
+	room := s.room(roomID)
+	rid := "q"
+	if len(preferredRID) > 0 {
+		rid = preferredRID[0]
+	}
+	room.WantVideo(subUID, pubUID, rid)
+	return s.reconcileVideoSubscription(roomID, subUID, pubUID)
+}
+
+func (s *SFU) reconcileVideoSubscription(roomID, subUID, pubUID string) error {
+	s.subscriptionMu.Lock()
+	defer s.subscriptionMu.Unlock()
+	room := s.room(roomID)
+	preferredRID, wanted := room.VideoWant(subUID, pubUID)
+	if !wanted {
+		return nil
+	}
+	tracks := room.PublishedExcept(subUID)
+	available := make([]string, 0, 3)
+	for _, track := range tracks {
+		if track.PubUID == pubUID && track.Kind == webrtc.RTPCodecTypeVideo.String() {
+			available = append(available, track.RID)
+		}
+	}
+	selectedRID := selectVideoRID(preferredRID, available)
+	var selected *PublishedTrack
+	for _, track := range tracks {
+		if track.PubUID != pubUID || track.Kind != webrtc.RTPCodecTypeVideo.String() || track.RID != selectedRID {
+			continue
+		}
+		if selected == nil || track.Generation > selected.Generation {
+			candidate := track
+			selected = &candidate
+		}
+	}
+	if selected == nil {
+		return nil
+	}
+	if room.HasTrackSubscription(subUID, pubUID, selected.TrackID, selected.RID) {
+		room.RemoveVideoLayersExcept(subUID, pubUID, selected.TrackID, selected.RID)
+		return nil
+	}
+	sink, err := s.factory.newDownlink(subUID, pubUID, sourceTrackID(selected.TrackID, selected.RID), selected.Codec)
+	if err != nil {
+		return err
+	}
+	room.SubscribeLayer(subUID, pubUID, selected.TrackID, selected.RID, sink)
+	room.RemoveVideoLayersExcept(subUID, pubUID, selected.TrackID, selected.RID)
+	return nil
+}
+
+func selectVideoRID(preferred string, available []string) string {
+	present := make(map[string]bool, len(available))
+	for _, rid := range available {
+		present[rid] = true
+	}
+	if present[preferred] {
+		return preferred
+	}
+	if present[""] {
+		return ""
+	}
+	rank := map[string]int{"q": 0, "h": 1, "f": 2}
+	best, bestDistance := "", 4
+	for _, rid := range []string{"q", "h", "f"} {
+		if !present[rid] {
+			continue
+		}
+		distance := rank[rid] - rank[preferred]
+		if distance < 0 {
+			distance = -distance
+		}
+		if distance < bestDistance {
+			best, bestDistance = rid, distance
+		}
+	}
+	return best
+}
+
+// UnsubscribeVideo 移除期望及该发布者到订阅者的全部视频下行，保留音频。
+func (s *SFU) UnsubscribeVideo(roomID, subUID, pubUID string) {
+	s.subscriptionMu.Lock()
+	defer s.subscriptionMu.Unlock()
+	s.room(roomID).RemoveVideoSubscription(subUID, pubUID)
+}
+
+// Publish 处理客户端发布 offer（客户端作 offerer），返回 SFU answer；ICE candidate 单独 trickle。
+func (p *Peer) Publish(offerSDP string) (string, error) {
+	if err := p.pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: offerSDP}); err != nil {
+		return "", err
+	}
+	answer, err := p.pc.CreateAnswer(nil)
+	if err != nil {
+		return "", err
+	}
+	gatherComplete := webrtc.GatheringCompletePromise(p.pc)
+	if err := p.pc.SetLocalDescription(answer); err != nil {
+		return "", err
+	}
+	// ICE Lite 仅收集本机/NAT1To1 候选，等待开销很小；让初始 answer 自包含候选，
+	// 同时保留 OnICECandidate trickle 以兼容后续 ICE restart。
+	<-gatherComplete
+	return p.pc.LocalDescription().SDP, nil
+}
+
+// OnOffer 注册服务端发起的 renegotiation offer 回调（信令层把 sdp 送给客户端）。
+func (p *Peer) OnOffer(cb func(sdp string)) {
+	p.negMu.Lock()
+	p.onOffer = cb
+	p.negMu.Unlock()
+}
+
+// HandleAnswer 应用客户端对服务端 renegotiation offer 的 answer。
+func (p *Peer) HandleAnswer(sdp string) error {
+	return p.pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: sdp})
+}
+
+// RequestICERestart 请求由 SFU 发起一次 ICE restart，客户端仍只负责 answer，避免 renegotiation glare。
+func (p *Peer) RequestICERestart() {
+	p.negMu.Lock()
+	p.iceRestart = true
+	if p.negTimer == nil {
+		p.negTimer = time.AfterFunc(negotiationDebounce, p.doNegotiation)
+	}
+	p.negMu.Unlock()
+}
+
+// negotiationDebounce 去抖窗口：把一批 AddTrack（如迟到者回填 4 条轨）合并成一次 renegotiation，
+// 大幅减少重协商竞争与偶发丢轨（"少一个人的视频"的根因）。
+const negotiationDebounce = 120 * time.Millisecond
+
+// scheduleNegotiation 由 OnNegotiationNeeded 触发：去抖排程，多次触发合并成一次 offer。
+func (p *Peer) scheduleNegotiation() {
+	p.negMu.Lock()
+	defer p.negMu.Unlock()
+	if p.negTimer != nil {
+		return // 已排程，等它触发时会反映当时的全部 track 变化
+	}
+	p.negTimer = time.AfterFunc(negotiationDebounce, p.doNegotiation)
+}
+
+// doNegotiation 去抖窗口到期：stable 就发一次合并的 offer；有 offer 在途则标记待补。
+func (p *Peer) doNegotiation() {
+	p.negMu.Lock()
+	p.negTimer = nil
+	if p.pc.SignalingState() != webrtc.SignalingStateStable {
+		p.negPending = true // 有 offer 在途，待 answer 回 stable 后再补
+		p.negMu.Unlock()
+		return
+	}
+	sdp, ok := p.createOfferLocked()
+	cb := p.onOffer
+	p.negMu.Unlock()
+	if ok && cb != nil {
+		cb(sdp) // 锁外回调，避免重入死锁
+	}
+}
+
+// flushPendingNegotiation 信令回到 stable 时，若期间又有 track 变化则再排一次去抖协商。
+func (p *Peer) flushPendingNegotiation() {
+	p.negMu.Lock()
+	if !p.negPending || p.negTimer != nil {
+		p.negMu.Unlock()
+		return
+	}
+	p.negPending = false
+	p.negTimer = time.AfterFunc(negotiationDebounce, p.doNegotiation)
+	p.negMu.Unlock()
+}
+
+// createOfferLocked 生成并设置本端 offer，返回其 SDP（含已收集候选）。调用方须持 negMu。
+func (p *Peer) createOfferLocked() (string, bool) {
+	offer, err := p.pc.CreateOffer(&webrtc.OfferOptions{ICERestart: p.iceRestart})
+	if err != nil {
+		return "", false
+	}
+	if err := p.pc.SetLocalDescription(offer); err != nil {
+		return "", false
+	}
+	p.iceRestart = false
+	return p.pc.LocalDescription().SDP, true
+}
+
+// Close 关闭连接并从房间 + 注册表移除（触发订阅路由清理）。
+func (p *Peer) Close() error {
+	return p.close(false)
+}
+
+func (p *Peer) closeForReplacement() error {
+	return p.close(true)
+}
+
+func (p *Peer) close(preserveMembership bool) error {
+	p.closeOnce.Do(func() {
+		p.negMu.Lock()
+		if p.negTimer != nil {
+			p.negTimer.Stop()
+			p.negTimer = nil
+		}
+		p.negMu.Unlock()
+		p.sfu.detachPeer(p, preserveMembership)
+		p.closeErr = p.pc.Close()
+	})
+	return p.closeErr
+}
+
+// realDownlink 真实 pion 下行：为订阅者 PC 建下行本地轨并 AddTrack（触发其重协商）。
+type realDownlink struct{ sfu *SFU }
+
+type rtcpReader interface {
+	ReadRTCP() ([]rtcp.Packet, error)
+}
+
+type senderRTCPReader struct{ sender *webrtc.RTPSender }
+
+func (r senderRTCPReader) ReadRTCP() ([]rtcp.Packet, error) {
+	packets, _, err := r.sender.ReadRTCP()
+	return packets, err
+}
+
+type pionDownlink struct {
+	track  *webrtc.TrackLocalStaticRTP
+	peer   *Peer
+	sender *webrtc.RTPSender
+	once   sync.Once
+	err    error
+}
+
+func (d *pionDownlink) WriteRTP(pkt *rtp.Packet) error { return d.track.WriteRTP(pkt) }
+
+func (d *pionDownlink) Close() error {
+	d.once.Do(func() {
+		d.err = d.peer.pc.RemoveTrack(d.sender)
+	})
+	return d.err
+}
+
+func (d realDownlink) newDownlink(subUID, pubUID, trackID string, codec webrtc.RTPCodecCapability) (RTPSink, error) {
+	sub := d.sfu.getPeer(subUID)
+	if sub == nil {
+		return nil, fmt.Errorf("sfu: subscriber peer %s not found", subUID)
+	}
+	local, err := webrtc.NewTrackLocalStaticRTP(
+		codec,
+		pubUID+"_"+trackID, // 下行 track id（含发布者，便于订阅端区分来源）
+		pubUID,             // stream id = 发布者
+	)
+	if err != nil {
+		return nil, err
+	}
+	sender, err := sub.pc.AddTrack(local) // 触发 sub 的 OnNegotiationNeeded
+	if err != nil {
+		return nil, err
+	}
+	kind := webrtc.RTPCodecTypeAudio
+	if strings.HasPrefix(strings.ToLower(codec.MimeType), "video/") {
+		kind = webrtc.RTPCodecTypeVideo
+	}
+	video := kind == webrtc.RTPCodecTypeVideo
+	d.sfu.emitMediaEvent(MediaEvent{Name: "downlink_created", RoomID: sub.RoomID(), PubUID: pubUID, SubUID: subUID, TrackID: trackID, Kind: kind.String(), Codec: codec.MimeType, RID: sourceRID(trackID)})
+	// 每条 sender 都必须持续消费 RTCP，避免多路 receiver report/TWCC 堵塞 interceptor 缓冲。
+	go drainRTCP(senderRTCPReader{sender: sender}, video, func() {
+		d.sfu.requestKeyframe(pubUID, trackID, "subscriber_feedback")
+	})
+	if video {
+		d.sfu.requestKeyframe(pubUID, trackID, "downlink_created")
+	}
+	return &pionDownlink{track: local, peer: sub, sender: sender}, nil
+}
+
+// drainRTCP 持续消费下行 sender 的反馈；视频 PLI/FIR 转发给发布者，其余反馈由 interceptor 消费。
+func drainRTCP(reader rtcpReader, video bool, requestKeyframe func()) {
+	for {
+		packets, err := reader.ReadRTCP()
+		if err != nil {
+			return
+		}
+		for _, pkt := range packets {
+			switch pkt.(type) {
+			case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
+				if video {
+					requestKeyframe()
 				}
 			}
 		}
-		room.mu.Unlock()
 	}
+}
 
-	s.rooms = make(map[string]*RoomSFU)
+// trackRemoteReader 把 *webrtc.TrackRemote 适配成 rtpReader（丢弃 interceptor.Attributes）。
+type trackRemoteReader struct{ t *webrtc.TrackRemote }
 
-	zLog.Info("SFU closed")
-	return nil
+func (r trackRemoteReader) ReadRTP() (*rtp.Packet, error) {
+	pkt, _, err := r.t.ReadRTP()
+	return pkt, err
 }

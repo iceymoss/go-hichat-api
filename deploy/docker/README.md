@@ -97,7 +97,8 @@ Caddy (`deploy/docker/Caddyfile`) routes a single domain: `/ws → im-ws`, `/str
 ## Audio / video calls
 
 - Same machine / same LAN: the built-in public STUN servers are enough for direct calls.
-- **Across the public internet**: you need your own TURN server — add it to `WebRTC.IceServers` in `deploy/docker/etc/streaming.yaml`. Browsers also require **HTTPS** for camera/microphone access (localhost is exempt), so use the reverse proxy + domain HTTPS above for public deployments.
+- **Across the public internet**: set `PUBLIC_IP`, a random `TURN_SECRET`, and `TURN_URLS` in `.env`, then start with `docker compose --profile turn --profile proxy up -d --build`. Keep the SFU UDP range (`50000-50200/udp` by default) and coturn relay range (`49160-49200/udp`) open in the host firewall/security group. `TURN_URLS` should advertise both UDP and TCP, for example `turn:203.0.113.10:3478?transport=udp,turn:203.0.113.10:3478?transport=tcp`.
+- Browsers require **HTTPS** for camera/microphone access (localhost is exempt), so use the reverse proxy above. TURN over TLS is not enabled by the bundled compose service; strict `turns:` deployments must provide coturn certificates and expose 5349/TCP separately.
 
 ## FAQ
 

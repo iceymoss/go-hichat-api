@@ -34,8 +34,14 @@ WebRTC:
 SFU:
   MaxRooms: 1000
   MaxUsersPerRoom: 50
+  ActiveSpeakers: 4
   RoomTimeout: 3600
   UserTimeout: 300
+
+Diagnostics:
+  Enabled: true
+  Path: logs/sfu-diagnostics.jsonl
+  MaxMB: 20
 
 Signaling:
   WebSocket:
@@ -52,6 +58,18 @@ Ws:
 
 Call:
   RingTimeoutSeconds: 30
+
+# SFU 公网化（Phase 1）。Compose 部署由 PUBLIC_IP / SFU_UDP_* 环境变量覆盖。
+Public:
+  IP: ""
+  UDPPortMin: 50000
+  UDPPortMax: 50200
+
+# coturn 中继（Phase 1）。Compose 部署由 TURN_URLS / TURN_SECRET 环境变量覆盖。
+Turn:
+  URLs: []
+  Secret: ""
+  TTLSeconds: 3600
 
 SocialRpc:
   Etcd:

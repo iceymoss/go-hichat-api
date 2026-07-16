@@ -117,6 +117,13 @@ func TestGroupCallService_Full(t *testing.T) {
 	}
 }
 
+func Test_GroupCallService_DefaultLimit_IsFifty(t *testing.T) {
+	s := NewGroupCallService(0)
+	if s.maxPart != 50 {
+		t.Fatalf("default max participants = %d, want 50", s.maxPart)
+	}
+}
+
 func TestGroupCallService_Errors(t *testing.T) {
 	s := NewGroupCallService(4)
 	if _, _, err := s.Join("nope", "x"); err != ErrGroupCallNotFound {
