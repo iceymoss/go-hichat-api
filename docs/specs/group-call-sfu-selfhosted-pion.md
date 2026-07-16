@@ -2,7 +2,7 @@
 
 ## 状态
 - 创建日期: 2026-07-06
-- 状态: **已审批（2026-07-06）— 全量交付（Phase 0→4 全部完成，非仅 MVP）**
+- 状态: **实施中（2026-07-16 接手）— Phase 0 已完成；Phase 1 代码完成、待公网验收；Phase 2→4 待完成**
 - 分支: `feat-streaming-group-sfu-pion`（从 main 拉出）
 - 关联: `apps/streaming`、`web/src`（IM 通话）、`deploy/`（coturn）
 - 背景: 放弃"外挂 LiveKit server"路线（那让 streaming 退化成只签 token 的空壳），改为**核心媒体转发自己实现、跑在 streaming 进程内**，让开源项目的群聊音视频能力长在自己仓库里。
@@ -125,12 +125,12 @@ mesh 是两两一次性协商；SFU 里**每加/减一路订阅轨都改变 SDP*
 ## 实现步骤（分阶段，每阶段可用里程碑，走 `/tdd`）
 
 - **Phase 0 — SFU 数据面打通（最核心）**
-  1. [ ] 重写 `sfu/`：房间/参与者模型 + 每 PC 的发布(`OnTrack`)→收流泵→订阅者下行轨 fan-out。
-  2. [ ] renegotiation：`sfu_offer/answer/ice` 信令 + 服务端 offerer；PLI 关键帧。
-  3. [ ] 前端 `sfu-group-engine.ts`：一条 PC 连 SFU、发布、订阅、renegotiation；对齐现有回调契约。
+   1. [x] 重写 `sfu/`：房间/参与者模型 + 每 PC 的发布(`OnTrack`)→收流泵→订阅者下行轨 fan-out。
+   2. [x] renegotiation：`sfu_offer/answer/ice` 信令 + 服务端 offerer；PLI 关键帧。
+   3. [x] 前端 `sfu-group-engine.ts`：一条 PC 连 SFU、发布、订阅、renegotiation；对齐现有回调契约。
   4. [ ] 本地验证 ~8–12 人**全订阅**（音频 + 按需视频）双向通。
 - **Phase 1 — 公网可用**
-  5. [ ] `coturn` 部署（docker-compose）+ `iceserver.go` 下发 TURN；pion `SettingEngine` 公网 IP + UDP 端口范围；`wss`。跨 NAT 实测。
+   5. [ ] `coturn` 部署（docker-compose）+ `iceserver.go` 下发 TURN；pion `SettingEngine` 公网 IP + UDP 端口范围；`wss`。代码与 Compose 已完成，跨 NAT/TURN TLS 实测待验收。
 - **Phase 2 — 活跃发言人音频（方案 A）**
   6. [ ] audio-level 头扩展读取 + top-N 选路 + `active_speakers` 下发 + 前端高亮。
 - **Phase 3 — 视频 simulcast + 分页订阅**
