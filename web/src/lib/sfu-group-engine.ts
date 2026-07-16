@@ -78,11 +78,23 @@ const MEDIA_RECONNECT_COOLDOWN_MS = 30000;
 const VIDEO_STATS_INTERVAL_MS = 5000;
 const VIDEO_STALL_THRESHOLD_MS = 10000;
 
+/** Pion 的同一发布者音视频 ontrack 事件可能携带不同 MediaStream 实例，按 track 聚合后再交给 UI。 */
+export function mergeRemoteStream(target: MediaStream, incoming: MediaStream, eventTrack: MediaStreamTrack) {
+  const known = new Set(target.getTracks().map(track => track.id));
+  for (const track of [...incoming.getTracks(), eventTrack]) {
+    if (!known.has(track.id)) {
+      target.addTrack(track);
+      known.add(track.id);
+    }
+  }
+}
+
 export class SFUGroupEngine {
   private ws: WebSocket | null = null;
   private pc: RTCPeerConnection | null = null;
   private localStream: MediaStream | null = null;
   private remoteUids = new Set<string>();
+  private remoteStreams = new Map<string, MediaStream>();
   private hadPeer = false;
   private joinTimer: ReturnType<typeof setTimeout> | null = null;
   private callId = '';
@@ -423,6 +435,7 @@ export class SFUGroupEngine {
     this.negotiation = Promise.resolve();
     for (const uid of this.remoteUids) this.cb.onParticipantLeft(uid);
     this.remoteUids.clear();
+    this.remoteStreams.clear();
     this.stopVideoDiagnostics();
     this.diagnose('media_reconnect_requested', { reconnect_attempt: this.mediaReconnectAttempts });
     this.sendWs('sfu_reconnect', { call_id: this.callId });
@@ -474,7 +487,13 @@ export class SFUGroupEngine {
       this.cb.onPeerEvent(uid, 'joined');
       this.sendMediaState(); // 让新出现的参与者立即知道我当前的开关麦/摄像头状态
     }
-    this.cb.onParticipantStream(uid, stream);
+    let aggregate = this.remoteStreams.get(uid);
+    if (!aggregate) {
+      aggregate = new MediaStream();
+      this.remoteStreams.set(uid, aggregate);
+    }
+    mergeRemoteStream(aggregate, stream, ev.track);
+    this.cb.onParticipantStream(uid, aggregate);
     this.diagnose('remote_track', { peer_uid: uid, kind: ev.track.kind, track_state: ev.track.readyState });
     if (ev.track.kind === 'video') this.videoTrackOwners.set(ev.track.id, uid);
   }
@@ -544,6 +563,7 @@ export class SFUGroupEngine {
   /** 某参与者离开（服务端 sfu_peer_left）：只移除 tile；通话是否结束由服务端权威状态决定。 */
   private onParticipantGone(uid: string) {
     if (!this.remoteUids.delete(uid)) return;
+    this.remoteStreams.delete(uid);
     this.cb.onParticipantLeft(uid);
     this.cb.onPeerEvent(uid, 'left');
   }
@@ -664,6 +684,7 @@ export class SFUGroupEngine {
     this.pendingIce = [];
     this.negotiation = Promise.resolve();
     this.remoteUids.clear();
+    this.remoteStreams.clear();
     this.hadPeer = false;
     this.localStream?.getTracks().forEach(tr => tr.stop());
     this.diagnose('cleanup', { reason: 'engine_cleanup', phase: this.phase });

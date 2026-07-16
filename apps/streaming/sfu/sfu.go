@@ -30,6 +30,8 @@ type SFU struct {
 	api          *webrtc.API // 带接口过滤的 pion API（滤掉虚拟接口候选）
 	mediaEventMu sync.RWMutex
 	onMediaEvent func(MediaEvent)
+	keyframeMu   sync.Mutex
+	lastKeyframe map[string]time.Time
 }
 
 // MediaEvent 是不含 SSRC、地址和媒体内容的 SFU 数据面诊断事件。
@@ -55,6 +57,8 @@ type sfuConfig struct {
 // 过小会让 ICE 上层 mux 丢弃整包并持续报 io.ErrShortBuffer。
 const sfuReceiveMTU = 8192
 
+const keyframeRequestInterval = 500 * time.Millisecond
+
 // WithPublicIP 让 SFU 对外宣告公网 IP（NAT1To1），跨 NAT 时客户端才连得到。
 func WithPublicIP(ip string) Option { return func(c *sfuConfig) { c.publicIP = ip } }
 
@@ -69,14 +73,14 @@ func NewSFU(opts ...Option) *SFU {
 	for _, o := range opts {
 		o(&cfg)
 	}
-	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), api: buildAPI(cfg)}
+	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), lastKeyframe: make(map[string]time.Time), api: buildAPI(cfg)}
 	s.factory = realDownlink{sfu: s}
 	return s
 }
 
 // newSFUWithFactory 注入自定义下行工厂（测试用，隔离 pion 下行 I/O）。
 func newSFUWithFactory(f downlinkFactory) *SFU {
-	return &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), api: buildAPI(sfuConfig{}), factory: f}
+	return &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), lastKeyframe: make(map[string]time.Time), api: buildAPI(sfuConfig{}), factory: f}
 }
 
 // buildAPI 构造带 SettingEngine 的 pion API：注册默认编解码 + 拦截器（NACK/RTCP 等），
@@ -163,6 +167,9 @@ func (s *SFU) emitMediaEvent(event MediaEvent) {
 }
 
 func (s *SFU) requestKeyframe(pubUID, trackID, reason string) {
+	if !s.allowKeyframeRequest(pubUID, trackID, reason, time.Now()) {
+		return
+	}
 	pub := s.getPeer(pubUID)
 	ssrc, ok := s.getPubSSRC(pubUID, trackID)
 	if pub != nil && ok {
@@ -170,6 +177,20 @@ func (s *SFU) requestKeyframe(pubUID, trackID, reason string) {
 			s.emitMediaEvent(MediaEvent{Name: "keyframe_requested", RoomID: pub.RoomID(), PubUID: pubUID, TrackID: trackID, Kind: webrtc.RTPCodecTypeVideo.String(), Reason: reason})
 		}
 	}
+}
+
+func (s *SFU) allowKeyframeRequest(pubUID, trackID, reason string, now time.Time) bool {
+	if reason == "downlink_created" {
+		return true
+	}
+	key := ssrcKey(pubUID, trackID)
+	s.keyframeMu.Lock()
+	defer s.keyframeMu.Unlock()
+	if last := s.lastKeyframe[key]; !last.IsZero() && now.Sub(last) < keyframeRequestInterval {
+		return false
+	}
+	s.lastKeyframe[key] = now
+	return true
 }
 
 func (s *SFU) room(roomID string) *Room {
@@ -247,6 +268,13 @@ func (s *SFU) detachPeer(p *Peer) {
 		}
 	}
 	s.mu.Unlock()
+	s.keyframeMu.Lock()
+	for key := range s.lastKeyframe {
+		if strings.HasPrefix(key, p.uid+"|") {
+			delete(s.lastKeyframe, key)
+		}
+	}
+	s.keyframeMu.Unlock()
 
 	p.room.Leave(p.uid)
 	if !p.room.Empty() {
