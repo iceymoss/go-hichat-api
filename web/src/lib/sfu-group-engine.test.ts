@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { diffVideoSubscriptions, mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs } from './sfu-group-engine';
+import { diffVideoSubscriptions, mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs, videoSendEncodings } from './sfu-group-engine';
 
 class FakeTrack {
   constructor(public id: string, public kind: 'audio' | 'video') {}
@@ -79,5 +79,15 @@ describe('diffVideoSubscriptions', () => {
 
   test('does nothing for an unchanged page', () => {
     expect(diffVideoSubscriptions(new Set(['11']), new Set(['11']))).toEqual({ subscribe: [], unsubscribe: [] });
+  });
+});
+
+describe('videoSendEncodings', () => {
+  test('publishes q h f VP8 simulcast layers', () => {
+    expect(videoSendEncodings()).toEqual([
+      { rid: 'q', scaleResolutionDownBy: 4, maxBitrate: 150000 },
+      { rid: 'h', scaleResolutionDownBy: 2, maxBitrate: 500000 },
+      { rid: 'f', scaleResolutionDownBy: 1, maxBitrate: 1500000 },
+    ]);
   });
 });

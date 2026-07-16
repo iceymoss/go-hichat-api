@@ -182,6 +182,65 @@ func Test_Room_RouteRTP_ForwardsAudioWithoutLevelNegotiation(t *testing.T) {
 	}
 }
 
+func Test_Room_SimulcastLayersRemainDistinct(t *testing.T) {
+	r := NewRoom("call1")
+	codec := webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}
+	for _, rid := range []string{"q", "h", "f"} {
+		r.AddPublishedLayer("publisher", "video", rid, "video", codec)
+	}
+	if got := len(r.PublishedExcept("subscriber")); got != 3 {
+		t.Fatalf("published layers = %d, want 3", got)
+	}
+	q := &fakeSink{}
+	r.SubscribeLayer("subscriber", "publisher", "video", "q", q)
+	r.RouteRTPLayer("publisher", "video", "h", &rtp.Packet{})
+	r.RouteRTPLayer("publisher", "video", "q", &rtp.Packet{})
+	if got := q.count(); got != 1 {
+		t.Fatalf("selected q packets = %d, want 1", got)
+	}
+}
+
+func Test_Room_SimulcastLayerReplacementClosesPreviousLayer(t *testing.T) {
+	r := NewRoom("call1")
+	codec := webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}
+	r.AddPublishedLayer("publisher", "video", "q", "video", codec)
+	r.AddPublishedLayer("publisher", "video", "h", "video", codec)
+	q := &closableSink{}
+	h := &closableSink{}
+	r.SubscribeLayer("subscriber", "publisher", "video", "q", q)
+	r.SubscribeLayer("subscriber", "publisher", "video", "h", h)
+
+	r.RemoveVideoLayersExcept("subscriber", "publisher", "video", "h")
+
+	if q.closed != 1 || h.closed != 0 {
+		t.Fatalf("closed q/h = %d/%d, want 1/0", q.closed, h.closed)
+	}
+	if r.HasTrackSubscription("subscriber", "publisher", "video", "q") {
+		t.Fatal("q subscription remains after selecting h")
+	}
+	if !r.HasTrackSubscription("subscriber", "publisher", "video", "h") {
+		t.Fatal("h subscription missing after layer replacement")
+	}
+}
+
+func Test_SelectVideoRID_FallsBackToNearestAvailableLayer(t *testing.T) {
+	tests := []struct {
+		preferred string
+		available []string
+		want      string
+	}{
+		{preferred: "q", available: []string{"q", "h", "f"}, want: "q"},
+		{preferred: "q", available: []string{"h", "f"}, want: "h"},
+		{preferred: "f", available: []string{"q", "h"}, want: "h"},
+		{preferred: "h", available: []string{""}, want: ""},
+	}
+	for _, tt := range tests {
+		if got := selectVideoRID(tt.preferred, tt.available); got != tt.want {
+			t.Errorf("selectVideoRID(%q, %v) = %q, want %q", tt.preferred, tt.available, got, tt.want)
+		}
+	}
+}
+
 // Test_Room_Leave_CleansUpSubscriptions 离开时双向清理：
 // 离开者作为订阅者的下行 sink 被移除；作为发布者其 track 的路由被清空。
 func Test_Room_Leave_CleansUpSubscriptions(t *testing.T) {

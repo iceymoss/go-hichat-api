@@ -23,6 +23,7 @@ type RTPSink interface {
 type trackKey struct {
 	pubUID  string
 	trackID string
+	rid     string
 }
 
 // PublishedTrack 已发布轨的元信息（供迟到者回填订阅）。Kind 为 "audio"/"video"。
@@ -31,6 +32,7 @@ type PublishedTrack struct {
 	TrackID string
 	Kind    string
 	Codec   webrtc.RTPCodecCapability
+	RID     string
 }
 
 // Room 一通群通话的路由核心：维护参与者集合与「发布者 -> 订阅者下行 sink」路由表，
@@ -45,7 +47,7 @@ type Room struct {
 	activeAudio  map[string]struct{}             // 当前允许转发音频的发布者 uid
 	managedAudio map[string]struct{}             // 已协商 audio-level、可参与 top-N 的发布者
 	speakers     *ActiveSpeakers
-	videoWants   map[string]map[string]struct{} // 订阅者 -> 想看的视频发布者
+	videoWants   map[string]map[string]string // 订阅者 -> 视频发布者 -> 首选 RID
 }
 
 // NewRoom 创建空房间。
@@ -58,7 +60,7 @@ func NewRoom(id string) *Room {
 		activeAudio:  make(map[string]struct{}),
 		managedAudio: make(map[string]struct{}),
 		speakers:     NewActiveSpeakers(),
-		videoWants:   make(map[string]map[string]struct{}),
+		videoWants:   make(map[string]map[string]string),
 	}
 }
 
@@ -146,12 +148,12 @@ func (r *Room) Leave(uid string) {
 	closeSinks(removed)
 }
 
-func (r *Room) WantVideo(subUID, pubUID string) {
+func (r *Room) WantVideo(subUID, pubUID, rid string) {
 	r.mu.Lock()
 	if r.videoWants[subUID] == nil {
-		r.videoWants[subUID] = make(map[string]struct{})
+		r.videoWants[subUID] = make(map[string]string)
 	}
-	r.videoWants[subUID][pubUID] = struct{}{}
+	r.videoWants[subUID][pubUID] = rid
 	r.mu.Unlock()
 }
 
@@ -167,6 +169,13 @@ func (r *Room) VideoSubscribers(pubUID string) []string {
 	return out
 }
 
+func (r *Room) VideoWant(subUID, pubUID string) (string, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	rid, ok := r.videoWants[subUID][pubUID]
+	return rid, ok
+}
+
 func (r *Room) HasVideoSubscription(subUID, pubUID string) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -174,10 +183,10 @@ func (r *Room) HasVideoSubscription(subUID, pubUID string) bool {
 	return ok
 }
 
-func (r *Room) HasTrackSubscription(subUID, pubUID, trackID string) bool {
+func (r *Room) HasTrackSubscription(subUID, pubUID, trackID, rid string) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	_, ok := r.subs[trackKey{pubUID: pubUID, trackID: trackID}][subUID]
+	_, ok := r.subs[trackKey{pubUID: pubUID, trackID: trackID, rid: rid}][subUID]
 	return ok
 }
 
@@ -206,18 +215,45 @@ func (r *Room) RemoveVideoSubscription(subUID, pubUID string) {
 	closeSinks(removed)
 }
 
+func (r *Room) RemoveVideoLayersExcept(subUID, pubUID, trackID, keepRID string) {
+	r.mu.Lock()
+	removed := make([]RTPSink, 0)
+	for key, subs := range r.subs {
+		if key.pubUID != pubUID || key.trackID != trackID || key.rid == keepRID {
+			continue
+		}
+		if sink, ok := subs[subUID]; ok {
+			removed = append(removed, sink)
+			delete(subs, subUID)
+			if len(subs) == 0 {
+				delete(r.subs, key)
+			}
+		}
+	}
+	r.mu.Unlock()
+	closeSinks(removed)
+}
+
 // AddPublished 登记一条已发布轨（供迟到者回填订阅）。
 func (r *Room) AddPublished(pubUID, trackID, kind string, codec webrtc.RTPCodecCapability) {
+	r.AddPublishedLayer(pubUID, trackID, "", kind, codec)
+}
+
+func (r *Room) AddPublishedLayer(pubUID, trackID, rid, kind string, codec webrtc.RTPCodecCapability) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	key := trackKey{pubUID: pubUID, trackID: trackID}
-	r.published[key] = PublishedTrack{PubUID: pubUID, TrackID: trackID, Kind: kind, Codec: codec}
+	key := trackKey{pubUID: pubUID, trackID: trackID, rid: rid}
+	r.published[key] = PublishedTrack{PubUID: pubUID, TrackID: trackID, Kind: kind, Codec: codec, RID: rid}
 }
 
 // Unpublish 移除一条已发布轨及其订阅表（轨结束/关闭时）。
 func (r *Room) Unpublish(pubUID, trackID string) {
+	r.UnpublishLayer(pubUID, trackID, "")
+}
+
+func (r *Room) UnpublishLayer(pubUID, trackID, rid string) {
 	r.mu.Lock()
-	key := trackKey{pubUID: pubUID, trackID: trackID}
+	key := trackKey{pubUID: pubUID, trackID: trackID, rid: rid}
 	removed := make([]RTPSink, 0, len(r.subs[key]))
 	for _, sink := range r.subs[key] {
 		removed = append(removed, sink)
@@ -263,7 +299,11 @@ func (r *Room) Empty() bool {
 // Subscribe 登记：订阅者 subUID 订阅发布者 pubUID 的 trackID，下行经 sink 投递。
 // 订阅自己的轨会被记录但在 RouteRTP 时排除（不回声）。
 func (r *Room) Subscribe(subUID, pubUID, trackID string, sink RTPSink) {
-	key := trackKey{pubUID: pubUID, trackID: trackID}
+	r.SubscribeLayer(subUID, pubUID, trackID, "", sink)
+}
+
+func (r *Room) SubscribeLayer(subUID, pubUID, trackID, rid string, sink RTPSink) {
+	key := trackKey{pubUID: pubUID, trackID: trackID, rid: rid}
 	r.mu.Lock()
 	subs, ok := r.subs[key]
 	if !ok {
@@ -289,7 +329,11 @@ func closeSinks(sinks []RTPSink) {
 // RouteRTP 把发布者 pubUID 的 trackID 的一个 RTP 包 fan-out 给所有订阅者，
 // 但永不回给发布者自己。未知轨 / 无订阅者为 no-op。
 func (r *Room) RouteRTP(pubUID, trackID string, pkt *rtp.Packet) {
-	key := trackKey{pubUID: pubUID, trackID: trackID}
+	r.RouteRTPLayer(pubUID, trackID, "", pkt)
+}
+
+func (r *Room) RouteRTPLayer(pubUID, trackID, rid string, pkt *rtp.Packet) {
+	key := trackKey{pubUID: pubUID, trackID: trackID, rid: rid}
 	r.mu.RLock()
 	if published, ok := r.published[key]; ok && published.Kind == webrtc.RTPCodecTypeAudio.String() {
 		_, managed := r.managedAudio[pubUID]

@@ -608,7 +608,12 @@ func (s *SignalingServer) handleVideoSubscribe(c *clientConn, msg *types.Signali
 	if !ok {
 		return
 	}
-	if err := s.sfu.SubscribeVideo(callID, c.uid, publisherUID); err != nil {
+	rid := dataStr(msg.Data, "rid")
+	if rid != "q" && rid != "h" && rid != "f" {
+		s.sendError(c, "invalid video layer")
+		return
+	}
+	if err := s.sfu.SubscribeVideo(callID, c.uid, publisherUID, rid); err != nil {
 		zLog.Warn("sfu subscribe video failed", zap.String("uid", c.uid), zap.String("publisher_uid", publisherUID), zap.Error(err))
 		s.sendError(c, "video subscription failed")
 	}

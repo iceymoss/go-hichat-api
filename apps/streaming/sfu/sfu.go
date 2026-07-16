@@ -115,6 +115,11 @@ func buildAPI(cfg sfuConfig) *webrtc.API {
 	if err := me.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: sdp.AudioLevelURI}, webrtc.RTPCodecTypeAudio); err != nil {
 		panic(err)
 	}
+	for _, uri := range []string{sdp.SDESMidURI, sdp.SDESRTPStreamIDURI, "urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id"} {
+		if err := me.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: uri}, webrtc.RTPCodecTypeVideo); err != nil {
+			panic(err)
+		}
+	}
 	ir := &interceptor.Registry{}
 	if err := webrtc.RegisterDefaultInterceptors(me, ir); err != nil {
 		panic(err)
@@ -151,6 +156,13 @@ func usableInterface(name string) bool {
 
 func ssrcKey(pubUID, trackID string) string { return pubUID + "|" + trackID }
 
+func sourceTrackID(trackID, rid string) string {
+	if rid == "" {
+		return trackID
+	}
+	return trackID + "|" + rid
+}
+
 // STUNServers 构造 pion ICE 配置（服务端 PeerConnection 用）。给服务端也配 STUN 可增强候选，
 // 缓解 Chrome 把 host 候选藏成 mDNS 时只能靠反射候选连通的情况。
 func STUNServers(urls ...string) []webrtc.ICEServer {
@@ -171,6 +183,16 @@ func (s *SFU) getPubSSRC(pubUID, trackID string) (uint32, bool) {
 	defer s.mu.Unlock()
 	ssrc, ok := s.pubSSRC[ssrcKey(pubUID, trackID)]
 	return ssrc, ok
+}
+
+func (s *SFU) deletePubSSRC(pubUID, trackID string) {
+	key := ssrcKey(pubUID, trackID)
+	s.mu.Lock()
+	delete(s.pubSSRC, key)
+	s.mu.Unlock()
+	s.keyframeMu.Lock()
+	delete(s.lastKeyframe, key)
+	s.keyframeMu.Unlock()
 }
 
 // OnMediaEvent 注册轻量媒体数据面诊断回调。
@@ -466,9 +488,10 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 	})
 	pc.OnTrack(func(tr *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		trackID := tr.ID()
-		s.setPubSSRC(uid, trackID, uint32(tr.SSRC())) // 记录上行 SSRC（PLI 转发用）
+		rid := tr.RID()
+		s.setPubSSRC(uid, sourceTrackID(trackID, rid), uint32(tr.SSRC())) // 记录每个 RID 上行 SSRC（PLI 转发用）
 		codec := tr.Codec().RTPCodecCapability
-		room.AddPublished(uid, trackID, tr.Kind().String(), codec)
+		room.AddPublishedLayer(uid, trackID, rid, tr.Kind().String(), codec)
 		s.emitMediaEvent(MediaEvent{Name: "track_published", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String(), Codec: codec.MimeType})
 		if tr.Kind() == webrtc.RTPCodecTypeAudio {
 			for _, sub := range room.Participants() {
@@ -490,10 +513,15 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 			extensionID = audioLevelExtensionID(receiver.GetParameters())
 		}
 		go func() {
-			pump(room, uid, trackID, trackRemoteReader{t: tr}, extensionID, s.activeSpeakerLimit)
-			room.Unpublish(uid, trackID) // 轨结束：从注册表 + 订阅表清理
+			pump(room, uid, trackID, rid, trackRemoteReader{t: tr}, extensionID, s.activeSpeakerLimit)
+			room.UnpublishLayer(uid, trackID, rid) // 轨结束：从注册表 + 订阅表清理
+			s.deletePubSSRC(uid, sourceTrackID(trackID, rid))
 			if tr.Kind() == webrtc.RTPCodecTypeAudio {
 				room.speakers.Remove(uid)
+			} else {
+				for _, sub := range room.VideoSubscribers(uid) {
+					_ = s.reconcileVideoSubscription(roomID, sub, uid)
+				}
 			}
 			s.emitMediaEvent(MediaEvent{Name: "track_ended", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String()})
 		}()
@@ -518,9 +546,13 @@ func (s *SFU) SubscribeExisting(roomID, uid string) {
 }
 
 // SubscribeVideo 记录可见视频期望，并在发布轨已存在时创建唯一的下行轨。
-func (s *SFU) SubscribeVideo(roomID, subUID, pubUID string) error {
+func (s *SFU) SubscribeVideo(roomID, subUID, pubUID string, preferredRID ...string) error {
 	room := s.room(roomID)
-	room.WantVideo(subUID, pubUID)
+	rid := "q"
+	if len(preferredRID) > 0 {
+		rid = preferredRID[0]
+	}
+	room.WantVideo(subUID, pubUID, rid)
 	return s.reconcileVideoSubscription(roomID, subUID, pubUID)
 }
 
@@ -528,20 +560,58 @@ func (s *SFU) reconcileVideoSubscription(roomID, subUID, pubUID string) error {
 	s.subscriptionMu.Lock()
 	defer s.subscriptionMu.Unlock()
 	room := s.room(roomID)
-	if !room.HasVideoSubscription(subUID, pubUID) {
+	preferredRID, wanted := room.VideoWant(subUID, pubUID)
+	if !wanted {
 		return nil
 	}
-	for _, track := range room.PublishedExcept(subUID) {
-		if track.PubUID != pubUID || track.Kind != webrtc.RTPCodecTypeVideo.String() || room.HasTrackSubscription(subUID, pubUID, track.TrackID) {
+	tracks := room.PublishedExcept(subUID)
+	available := make([]string, 0, 3)
+	for _, track := range tracks {
+		if track.PubUID == pubUID && track.Kind == webrtc.RTPCodecTypeVideo.String() {
+			available = append(available, track.RID)
+		}
+	}
+	selectedRID := selectVideoRID(preferredRID, available)
+	for _, track := range tracks {
+		if track.PubUID != pubUID || track.Kind != webrtc.RTPCodecTypeVideo.String() || track.RID != selectedRID || room.HasTrackSubscription(subUID, pubUID, track.TrackID, track.RID) {
 			continue
 		}
-		sink, err := s.factory.newDownlink(subUID, pubUID, track.TrackID, track.Codec)
+		sink, err := s.factory.newDownlink(subUID, pubUID, sourceTrackID(track.TrackID, track.RID), track.Codec)
 		if err != nil {
 			return err
 		}
-		room.Subscribe(subUID, pubUID, track.TrackID, sink)
+		room.SubscribeLayer(subUID, pubUID, track.TrackID, track.RID, sink)
+		room.RemoveVideoLayersExcept(subUID, pubUID, track.TrackID, track.RID)
 	}
 	return nil
+}
+
+func selectVideoRID(preferred string, available []string) string {
+	present := make(map[string]bool, len(available))
+	for _, rid := range available {
+		present[rid] = true
+	}
+	if present[preferred] {
+		return preferred
+	}
+	if present[""] {
+		return ""
+	}
+	rank := map[string]int{"q": 0, "h": 1, "f": 2}
+	best, bestDistance := "", 4
+	for _, rid := range []string{"q", "h", "f"} {
+		if !present[rid] {
+			continue
+		}
+		distance := rank[rid] - rank[preferred]
+		if distance < 0 {
+			distance = -distance
+		}
+		if distance < bestDistance {
+			best, bestDistance = rid, distance
+		}
+	}
+	return best
 }
 
 // UnsubscribeVideo 移除期望及该发布者到订阅者的全部视频下行，保留音频。

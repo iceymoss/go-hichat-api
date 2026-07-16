@@ -108,6 +108,14 @@ export function diffVideoSubscriptions(current: Set<string>, next: Set<string>) 
   };
 }
 
+export function videoSendEncodings(): RTCRtpEncodingParameters[] {
+  return [
+    { rid: 'q', scaleResolutionDownBy: 4, maxBitrate: 150000 },
+    { rid: 'h', scaleResolutionDownBy: 2, maxBitrate: 500000 },
+    { rid: 'f', scaleResolutionDownBy: 1, maxBitrate: 1500000 },
+  ];
+}
+
 export class SFUGroupEngine {
   private ws: WebSocket | null = null;
   private pc: RTCPeerConnection | null = null;
@@ -242,7 +250,7 @@ export class SFUGroupEngine {
       this.sentVideoSubscriptions.delete(publisherUid);
     }
     for (const publisherUid of diff.subscribe) {
-      this.sendWs('subscribe', { call_id: this.callId, publisher_uid: publisherUid });
+      this.sendWs('subscribe', { call_id: this.callId, publisher_uid: publisherUid, rid: 'q' });
       this.sentVideoSubscriptions.add(publisherUid);
     }
   }
@@ -422,12 +430,19 @@ export class SFUGroupEngine {
     };
 
     this.localStream?.getTracks().forEach(track => {
-      const sender = pc.addTrack(track, this.localStream!);
-      if (track.kind !== 'video') return;
+      if (track.kind !== 'video') {
+        pc.addTrack(track, this.localStream!);
+        return;
+      }
+      const transceiver = pc.addTransceiver(track, {
+        direction: 'sendonly',
+        streams: [this.localStream!],
+        sendEncodings: videoSendEncodings(),
+      });
       const codecs = RTCRtpSender.getCapabilities?.('video')?.codecs ?? [];
       const preferred = preferredVideoCodecs(codecs);
       if (preferred.length > 0) {
-        pc.getTransceivers().find(transceiver => transceiver.sender === sender)?.setCodecPreferences(preferred);
+        transceiver.setCodecPreferences(preferred);
       }
     });
     this.diagnose('publish_started', {
