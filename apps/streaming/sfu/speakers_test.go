@@ -1,7 +1,11 @@
 package sfu
 
 import (
+	"reflect"
 	"testing"
+	"time"
+
+	"github.com/pion/rtp"
 )
 
 // Test_ActiveSpeakers_TopByLoudness 活跃发言人 top-N：
@@ -46,5 +50,53 @@ func Test_ActiveSpeakers_TopByLoudness(t *testing.T) {
 	}
 	if got := as.Top(0); len(got) != 0 {
 		t.Errorf("Top(0) = %v, want empty", got)
+	}
+}
+
+func Test_AudioLevel_ParsesNegotiatedRFC6464Extension(t *testing.T) {
+	tests := []struct {
+		name  string
+		id    uint8
+		value []byte
+		want  uint8
+		ok    bool
+	}{
+		{name: "voice sample", id: 3, value: []byte{0x80 | 17}, want: 17, ok: true},
+		{name: "non voice sample", id: 3, value: []byte{17}},
+		{name: "missing extension", id: 3},
+		{name: "malformed extension", id: 3, value: []byte{0x80, 0x01}},
+		{name: "unnegotiated id", id: 0, value: []byte{0x80 | 17}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pkt := &rtp.Packet{}
+			if tt.value != nil {
+				if err := pkt.Header.SetExtension(tt.id, tt.value); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, ok := audioLevel(pkt, tt.id)
+			if got != tt.want || ok != tt.ok {
+				t.Fatalf("audioLevel() = (%d, %v), want (%d, %v)", got, ok, tt.want, tt.ok)
+			}
+		})
+	}
+}
+
+func Test_ActiveSpeakers_ExcludesSilentAndStalePublishers(t *testing.T) {
+	now := time.Unix(100, 0)
+	as := newActiveSpeakers(func() time.Time { return now })
+
+	as.Observe("loud", 12)
+	as.Observe("quiet", 100)
+	as.Observe("silent", 127)
+	if got, want := as.Top(4), []string{"loud", "quiet"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Top(4) = %v, want %v", got, want)
+	}
+
+	now = now.Add(activeSpeakerStaleAfter + time.Millisecond)
+	if got := as.Top(4); len(got) != 0 {
+		t.Fatalf("Top(4) after expiry = %v, want empty", got)
 	}
 }

@@ -3,21 +3,36 @@ package sfu
 import (
 	"sort"
 	"sync"
+	"time"
+
+	"github.com/pion/rtp"
 )
 
 // speakerAlpha EMA 平滑系数：越大越跟手（新样本权重高），越小越平滑。
 const speakerAlpha = 0.2
 
+const activeSpeakerStaleAfter = time.Second
+
 // ActiveSpeakers 按 RFC6464 音量的指数滑动平均维护各发言人响度，供 top-N 选路 + 高亮。
 // 音量输入 0..127（0=最响，127=静音）；内部转成响度 = 127-level（越大越响）。并发安全。
 type ActiveSpeakers struct {
-	mu  sync.Mutex
-	ema map[string]float64
+	mu       sync.Mutex
+	ema      map[string]float64
+	lastSeen map[string]time.Time
+	now      func() time.Time
 }
 
 // NewActiveSpeakers 创建空追踪器。
 func NewActiveSpeakers() *ActiveSpeakers {
-	return &ActiveSpeakers{ema: make(map[string]float64)}
+	return newActiveSpeakers(time.Now)
+}
+
+func newActiveSpeakers(now func() time.Time) *ActiveSpeakers {
+	return &ActiveSpeakers{
+		ema:      make(map[string]float64),
+		lastSeen: make(map[string]time.Time),
+		now:      now,
+	}
 }
 
 // Observe 喂入 uid 的一个音量样本（0..127，0=最响）。
@@ -29,6 +44,7 @@ func (a *ActiveSpeakers) Observe(uid string, level uint8) {
 	} else {
 		a.ema[uid] = loud
 	}
+	a.lastSeen[uid] = a.now()
 	a.mu.Unlock()
 }
 
@@ -36,6 +52,7 @@ func (a *ActiveSpeakers) Observe(uid string, level uint8) {
 func (a *ActiveSpeakers) Remove(uid string) {
 	a.mu.Lock()
 	delete(a.ema, uid)
+	delete(a.lastSeen, uid)
 	a.mu.Unlock()
 }
 
@@ -50,7 +67,11 @@ func (a *ActiveSpeakers) Top(n int) []string {
 		loud float64
 	}
 	items := make([]kv, 0, len(a.ema))
+	now := a.now()
 	for uid, loud := range a.ema {
+		if loud <= 0 || now.Sub(a.lastSeen[uid]) > activeSpeakerStaleAfter {
+			continue
+		}
 		items = append(items, kv{uid, loud})
 	}
 	a.mu.Unlock()
@@ -69,4 +90,20 @@ func (a *ActiveSpeakers) Top(n int) []string {
 		out = append(out, items[i].uid)
 	}
 	return out
+}
+
+// audioLevel 读取已协商 ID 的 RFC 6464 SSRC audio-level。只采纳 V 位标记为语音的样本。
+func audioLevel(pkt *rtp.Packet, extensionID uint8) (uint8, bool) {
+	if pkt == nil || extensionID == 0 {
+		return 0, false
+	}
+	raw := pkt.Header.GetExtension(extensionID)
+	if len(raw) != 1 {
+		return 0, false
+	}
+	var level rtp.AudioLevelExtension
+	if err := level.Unmarshal(raw); err != nil || !level.Voice {
+		return 0, false
+	}
+	return level.Level, true
 }
