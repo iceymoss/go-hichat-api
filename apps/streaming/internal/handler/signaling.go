@@ -125,6 +125,9 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 		if event.Reason != "" {
 			fields["reason"] = event.Reason
 		}
+		if event.RID != "" {
+			fields["rid"] = event.RID
+		}
 		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: event.PubUID, CallID: event.RoomID, Name: event.Name, Fields: fields})
 	})
 	s.sfu.OnActiveSpeakers(s.broadcastActiveSpeakers)

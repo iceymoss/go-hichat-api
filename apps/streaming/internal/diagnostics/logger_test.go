@@ -87,7 +87,7 @@ func Test_Logger_Write_PersistsVideoDiagnosticFields(t *testing.T) {
 	defer logger.Close()
 
 	logger.Write(Event{Source: "client", Name: "video_inbound_stats", Fields: map[string]any{
-		"peer_uid": "user-2", "codec": "video/VP8", "frame_width": 1280,
+		"peer_uid": "user-2", "codec": "video/VP8", "rid": "q", "frame_width": 1280,
 		"frame_height": 720, "frames_decoded": 120, "frames_dropped": 3,
 		"frames_per_second": 30, "key_frames_decoded": 2, "jitter_ms": 4,
 		"packets_lost": 1, "freeze_count": 0, "stalled_ms": 0,
@@ -102,7 +102,7 @@ func Test_Logger_Write_PersistsVideoDiagnosticFields(t *testing.T) {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	for _, field := range []string{
-		"codec", "frame_width", "frame_height", "frames_decoded", "frames_dropped",
+		"codec", "rid", "frame_width", "frame_height", "frames_decoded", "frames_dropped",
 		"frames_per_second", "key_frames_decoded", "jitter_ms", "packets_lost", "freeze_count", "stalled_ms",
 	} {
 		if _, ok := got.Fields[field]; !ok {

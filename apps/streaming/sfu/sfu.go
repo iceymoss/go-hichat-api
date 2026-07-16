@@ -51,6 +51,7 @@ type MediaEvent struct {
 	TrackID string
 	Kind    string
 	Codec   string
+	RID     string
 	Reason  string
 }
 
@@ -161,6 +162,14 @@ func sourceTrackID(trackID, rid string) string {
 		return trackID
 	}
 	return trackID + "|" + rid
+}
+
+func sourceRID(trackID string) string {
+	parts := strings.Split(trackID, "|")
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[len(parts)-1]
 }
 
 // STUNServers 构造 pion ICE 配置（服务端 PeerConnection 用）。给服务端也配 STUN 可增强候选，
@@ -492,7 +501,7 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 		s.setPubSSRC(uid, sourceTrackID(trackID, rid), uint32(tr.SSRC())) // 记录每个 RID 上行 SSRC（PLI 转发用）
 		codec := tr.Codec().RTPCodecCapability
 		room.AddPublishedLayer(uid, trackID, rid, tr.Kind().String(), codec)
-		s.emitMediaEvent(MediaEvent{Name: "track_published", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String(), Codec: codec.MimeType})
+		s.emitMediaEvent(MediaEvent{Name: "track_published", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String(), Codec: codec.MimeType, RID: rid})
 		if tr.Kind() == webrtc.RTPCodecTypeAudio {
 			for _, sub := range room.Participants() {
 				if sub == uid {
@@ -523,7 +532,7 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 					_ = s.reconcileVideoSubscription(roomID, sub, uid)
 				}
 			}
-			s.emitMediaEvent(MediaEvent{Name: "track_ended", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String()})
+			s.emitMediaEvent(MediaEvent{Name: "track_ended", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String(), RID: rid})
 		}()
 	})
 
@@ -786,7 +795,7 @@ func (d realDownlink) newDownlink(subUID, pubUID, trackID string, codec webrtc.R
 		kind = webrtc.RTPCodecTypeVideo
 	}
 	video := kind == webrtc.RTPCodecTypeVideo
-	d.sfu.emitMediaEvent(MediaEvent{Name: "downlink_created", RoomID: sub.RoomID(), PubUID: pubUID, SubUID: subUID, TrackID: trackID, Kind: kind.String(), Codec: codec.MimeType})
+	d.sfu.emitMediaEvent(MediaEvent{Name: "downlink_created", RoomID: sub.RoomID(), PubUID: pubUID, SubUID: subUID, TrackID: trackID, Kind: kind.String(), Codec: codec.MimeType, RID: sourceRID(trackID)})
 	// 每条 sender 都必须持续消费 RTCP，避免多路 receiver report/TWCC 堵塞 interceptor 缓冲。
 	go drainRTCP(senderRTCPReader{sender: sender}, video, func() {
 		d.sfu.requestKeyframe(pubUID, trackID, "subscriber_feedback")
