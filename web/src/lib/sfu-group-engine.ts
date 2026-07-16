@@ -44,6 +44,9 @@ export class SFUGroupEngine {
   private mediaType: CallMediaType = 'voice';
   private phase: CallPhase = 'idle';
   private iceServers: RTCIceServer[] = DEFAULT_ICE;
+  private remoteDescSet = false;
+  private pendingIce: RTCIceCandidateInit[] = [];
+  private negotiation = Promise.resolve();
 
   constructor(
     private opts: { wsUrl: string; httpBase: string; token: string; selfId: string },
@@ -173,16 +176,22 @@ export class SFUGroupEngine {
       case 'group_roster':
         // 服务端已建好本端 SFU peer；开始发布本地轨
         this.callId = (data.call_id as string) || this.callId;
-        this.setPhase('connected');
         this.publish().catch(() => this.cb.onError('call.err.connect'));
         break;
       case 'sfu_publish_answer':
-        this.pc?.setRemoteDescription({ type: 'answer', sdp: String(data.sdp ?? '') })
-          .catch(() => { /* ignore */ });
+        this.queueNegotiation(async () => {
+          if (!this.pc) return;
+          await this.pc.setRemoteDescription({ type: 'answer', sdp: String(data.sdp ?? '') });
+          this.remoteDescSet = true;
+          await this.flushPendingIce();
+        });
         break;
       case 'sfu_offer':
         // 服务端发起的 renegotiation（新增/移除下行轨）：应答回去
-        this.handleServerOffer(String(data.sdp ?? '')).catch(() => { /* ignore */ });
+        this.queueNegotiation(() => this.handleServerOffer(String(data.sdp ?? '')));
+        break;
+      case 'sfu_ice':
+        void this.handleRemoteIce(data);
         break;
       case 'sfu_peer_left': {
         const uid = data.uid as string;
@@ -216,18 +225,30 @@ export class SFUGroupEngine {
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     this.pc = pc;
     pc.ontrack = (ev) => this.onRemoteTrack(ev);
+    pc.onicecandidate = (ev) => {
+      if (!ev.candidate) return;
+      this.sendWs('sfu_ice', {
+        call_id: this.callId,
+        candidate: ev.candidate.candidate,
+        sdpMid: ev.candidate.sdpMid,
+        sdpMLineIndex: ev.candidate.sdpMLineIndex,
+      });
+    };
     pc.oniceconnectionstatechange = () => this.log('ice:', pc.iceConnectionState);
     pc.onicegatheringstatechange = () => this.log('gather:', pc.iceGatheringState);
     pc.onconnectionstatechange = () => {
       this.log('conn:', pc.connectionState);
-      if (pc.connectionState === 'failed') this.cb.onError('call.err.connect');
+      if (pc.connectionState === 'connected') this.setPhase('connected');
+      if (pc.connectionState === 'failed') {
+        this.cb.onError('call.err.connect');
+        this.hangup();
+      }
     };
 
     this.localStream?.getTracks().forEach(tr => pc.addTrack(tr, this.localStream!));
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    await this.waitIceGathering(pc);
     this.sendWs('sfu_publish', { call_id: this.callId, sdp: pc.localDescription?.sdp ?? '' });
   }
 
@@ -235,9 +256,10 @@ export class SFUGroupEngine {
   private async handleServerOffer(sdp: string) {
     if (!this.pc || !sdp) return;
     await this.pc.setRemoteDescription({ type: 'offer', sdp });
+    this.remoteDescSet = true;
+    await this.flushPendingIce();
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
-    await this.waitIceGathering(this.pc);
     this.sendWs('sfu_answer', { call_id: this.callId, sdp: this.pc.localDescription?.sdp ?? '' });
   }
 
@@ -268,14 +290,32 @@ export class SFUGroupEngine {
     }
   }
 
-  private waitIceGathering(pc: RTCPeerConnection): Promise<void> {
-    if (pc.iceGatheringState === 'complete') return Promise.resolve();
-    return new Promise(resolve => {
-      const done = () => { pc.removeEventListener('icegatheringstatechange', check); resolve(); };
-      const check = () => { if (pc.iceGatheringState === 'complete') done(); };
-      pc.addEventListener('icegatheringstatechange', check);
-      setTimeout(done, 3000); // 兜底：本地/局域网通常秒级完成
+  private queueNegotiation(task: () => Promise<void>) {
+    this.negotiation = this.negotiation.then(task).catch(() => {
+      this.cb.onError('call.err.connect');
     });
+  }
+
+  private async handleRemoteIce(data: Record<string, unknown>) {
+    const candidate: RTCIceCandidateInit = {
+      candidate: String(data.candidate ?? ''),
+      sdpMid: (data.sdpMid as string) ?? null,
+      sdpMLineIndex: (data.sdpMLineIndex as number) ?? null,
+    };
+    if (!this.pc || !this.remoteDescSet) {
+      this.pendingIce.push(candidate);
+      return;
+    }
+    try { await this.pc.addIceCandidate(candidate); } catch { /* ignore individual candidate */ }
+  }
+
+  private async flushPendingIce() {
+    if (!this.pc) return;
+    const pending = this.pendingIce;
+    this.pendingIce = [];
+    for (const candidate of pending) {
+      try { await this.pc.addIceCandidate(candidate); } catch { /* ignore individual candidate */ }
+    }
   }
 
   private async loadIceServers() {
@@ -323,6 +363,9 @@ export class SFUGroupEngine {
     if (this.joinTimer) { clearTimeout(this.joinTimer); this.joinTimer = null; }
     try { this.pc?.close(); } catch { /* ignore */ }
     this.pc = null;
+    this.remoteDescSet = false;
+    this.pendingIce = [];
+    this.negotiation = Promise.resolve();
     this.remoteUids.clear();
     this.hadPeer = false;
     this.localStream?.getTracks().forEach(tr => tr.stop());

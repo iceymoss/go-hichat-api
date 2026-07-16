@@ -14,6 +14,16 @@ type fakeSink struct {
 	pkts []*rtp.Packet
 }
 
+type closableSink struct {
+	fakeSink
+	closed int
+}
+
+func (s *closableSink) Close() error {
+	s.closed++
+	return nil
+}
+
 func (f *fakeSink) WriteRTP(p *rtp.Packet) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -167,6 +177,60 @@ func Test_Room_PublishedRegistry_ExceptAndCleanup(t *testing.T) {
 	r.Leave("a")
 	if got := r.PublishedExcept("b"); len(got) != 0 {
 		t.Errorf("after 'a' leaves, PublishedExcept(b) = %v, want empty", got)
+	}
+}
+
+func Test_Room_SubscriptionRemoval_ClosesDownlinks(t *testing.T) {
+	tests := []struct {
+		name string
+		act  func(r *Room, first, second *closableSink)
+		want [2]int
+	}{
+		{
+			name: "publisher leaves",
+			act: func(r *Room, _, _ *closableSink) {
+				r.Leave("publisher")
+			},
+			want: [2]int{1, 0},
+		},
+		{
+			name: "subscriber leaves",
+			act: func(r *Room, _, _ *closableSink) {
+				r.Leave("subscriber")
+			},
+			want: [2]int{1, 0},
+		},
+		{
+			name: "track ends",
+			act: func(r *Room, _, _ *closableSink) {
+				r.Unpublish("publisher", "video")
+			},
+			want: [2]int{1, 0},
+		},
+		{
+			name: "subscription replaced",
+			act: func(r *Room, _, second *closableSink) {
+				r.Subscribe("subscriber", "publisher", "video", second)
+			},
+			want: [2]int{1, 0},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := NewRoom("call1")
+			r.Join("publisher")
+			r.Join("subscriber")
+			first := &closableSink{}
+			second := &closableSink{}
+			r.Subscribe("subscriber", "publisher", "video", first)
+
+			tt.act(r, first, second)
+
+			if got := [2]int{first.closed, second.closed}; got != tt.want {
+				t.Fatalf("closed counts = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

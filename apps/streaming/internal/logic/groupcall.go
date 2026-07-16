@@ -13,8 +13,7 @@ var (
 	ErrGroupCallFull     = errors.New("group call is full")
 )
 
-// GroupCall 一通群组（Mesh）通话的会话状态。
-// Mesh：参与者两两 P2P 直连；本结构只管成员/邀请状态，媒体连接在前端按成员两两建立。
+// GroupCall 一通群组 SFU 通话的会话状态；媒体连接由 streaming 进程内 SFU 管理。
 type GroupCall struct {
 	ID          string
 	Type        CallType
@@ -36,10 +35,10 @@ type GroupCallService struct {
 	idSeq    uint64
 }
 
-// NewGroupCallService 创建群通话服务，maxParticipants<=0 时默认 4（Mesh 上限）。
+// NewGroupCallService 创建群通话服务，maxParticipants<=0 时默认 50。
 func NewGroupCallService(maxParticipants int) *GroupCallService {
 	if maxParticipants <= 0 {
-		maxParticipants = 4
+		maxParticipants = 50
 	}
 	return &GroupCallService{
 		calls:    make(map[string]*GroupCall),

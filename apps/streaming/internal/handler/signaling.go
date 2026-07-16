@@ -12,12 +12,13 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/streaming/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/streaming/sfu"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 
+	"github.com/gorilla/websocket"
 	imws "github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	wsframe "github.com/iceymoss/go-hichat-api/apps/im/ws/ws"
-	"github.com/gorilla/websocket"
+	"github.com/pion/webrtc/v3"
 	"go.uber.org/zap"
 )
 
@@ -79,7 +80,7 @@ func NewSignalingServer(svcCtx *svc.ServiceContext) *SignalingServer {
 		svc:    svcCtx,
 		auth:   NewJwtAuth(svcCtx),
 		calls:  logic.NewCallService(ring),
-		groups: logic.NewGroupCallService(50), // SFU 上限（Phase 4 落配置）
+		groups: logic.NewGroupCallService(svcCtx.Config.SFU.MaxUsersPerRoom),
 		sfu: sfu.NewSFU(
 			sfu.WithPublicIP(svcCtx.Config.Public.IP),
 			sfu.WithUDPPortRange(svcCtx.Config.Public.UDPPortMin, svcCtx.Config.Public.UDPPortMax),
@@ -220,6 +221,8 @@ func (s *SignalingServer) route(c *clientConn, msg *types.SignalingMessage) {
 		s.handleSFUPublish(c, msg)
 	case types.MessageTypeSFUAnswer:
 		s.handleSFUAnswer(c, msg)
+	case types.MessageTypeSFUIce:
+		s.handleSFUIce(c, msg)
 	case types.MessageTypeSFUMediaState:
 		s.handleSFUMediaState(c, msg)
 	case types.MessageTypeOffer, types.MessageTypeAnswer, types.MessageTypeIceCandidate, types.MessageTypeMediaState:
@@ -358,6 +361,7 @@ func (s *SignalingServer) handleGroupInvite(c *clientConn, msg *types.SignalingM
 	// 为发起人建 SFU peer（服务端 PeerConnection），接好 renegotiation offer 下发
 	if err := s.setupSFUPeer(c, callID); err != nil {
 		zLog.Error("sfu setup peer failed", zap.String("uid", c.uid), zap.Error(err))
+		_, _, _ = s.groups.Leave(callID, c.uid)
 		s.sendError(c, "sfu setup failed")
 		return
 	}
@@ -405,6 +409,18 @@ func (s *SignalingServer) setupSFUPeer(c *clientConn, callID string) error {
 			Data:   map[string]any{"call_id": callID, "sdp": sdp},
 		})
 	})
+	peer.OnICECandidate(func(candidate webrtc.ICECandidateInit) {
+		s.send(c, &types.SignalingMessage{
+			Type:   types.MessageTypeSFUIce,
+			RoomID: callID,
+			Data: map[string]any{
+				"call_id":       callID,
+				"candidate":     candidate.Candidate,
+				"sdpMid":        candidate.SDPMid,
+				"sdpMLineIndex": candidate.SDPMLineIndex,
+			},
+		})
+	})
 	return nil
 }
 
@@ -412,8 +428,8 @@ func (s *SignalingServer) setupSFUPeer(c *clientConn, callID string) error {
 func (s *SignalingServer) handleSFUPublish(c *clientConn, msg *types.SignalingMessage) {
 	callID := msgCallID(msg)
 	peer := s.sfu.GetPeer(c.uid)
-	if peer == nil {
-		s.sendError(c, "sfu peer not found")
+	if peer == nil || peer.RoomID() != callID || !s.groups.HasParticipant(callID, c.uid) {
+		s.sendError(c, "not a group participant")
 		return
 	}
 	answer, err := peer.Publish(dataStr(msg.Data, "sdp"))
@@ -433,8 +449,9 @@ func (s *SignalingServer) handleSFUPublish(c *clientConn, msg *types.SignalingMe
 
 // handleSFUAnswer 客户端对服务端 renegotiation offer 的 answer。
 func (s *SignalingServer) handleSFUAnswer(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
 	peer := s.sfu.GetPeer(c.uid)
-	if peer == nil {
+	if peer == nil || peer.RoomID() != callID || !s.groups.HasParticipant(callID, c.uid) {
 		return
 	}
 	if err := peer.HandleAnswer(dataStr(msg.Data, "sdp")); err != nil {
@@ -442,11 +459,36 @@ func (s *SignalingServer) handleSFUAnswer(c *clientConn, msg *types.SignalingMes
 	}
 }
 
+// handleSFUIce 把客户端 trickle candidate 加到其 SFU PeerConnection。
+func (s *SignalingServer) handleSFUIce(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	peer := s.sfu.GetPeer(c.uid)
+	if peer == nil || peer.RoomID() != callID || !s.groups.HasParticipant(callID, c.uid) {
+		s.sendError(c, "not a group participant")
+		return
+	}
+	data, ok := msg.Data.(map[string]any)
+	if !ok {
+		return
+	}
+	candidate := webrtc.ICECandidateInit{Candidate: dataStr(data, "candidate")}
+	if mid, ok := data["sdpMid"].(string); ok {
+		candidate.SDPMid = &mid
+	}
+	if index, ok := data["sdpMLineIndex"].(float64); ok {
+		i := uint16(index)
+		candidate.SDPMLineIndex = &i
+	}
+	if err := peer.AddICECandidate(candidate); err != nil {
+		zLog.Warn("sfu add ice candidate failed", zap.String("uid", c.uid), zap.Error(err))
+	}
+}
+
 // handleSFUMediaState 广播开关麦/摄像头状态给同一通话内其余参与者（SFU 不经手媒体，状态经控制面同步）。
 func (s *SignalingServer) handleSFUMediaState(c *clientConn, msg *types.SignalingMessage) {
 	callID := msgCallID(msg)
 	participants, ok := s.groups.Participants(callID)
-	if !ok {
+	if !ok || !s.groups.HasParticipant(callID, c.uid) {
 		return
 	}
 	data, _ := msg.Data.(map[string]any)
@@ -469,6 +511,11 @@ func (s *SignalingServer) handleSFUMediaState(c *clientConn, msg *types.Signalin
 // handleGroupJoin 加入群通话：建 SFU peer -> 回执当前名单。媒体由 SFU 转发，无需两两建连。
 func (s *SignalingServer) handleGroupJoin(c *clientConn, msg *types.SignalingMessage) {
 	callID := msgCallID(msg)
+	groupID, _, _, ok := s.groups.Info(callID)
+	if !ok || !s.isGroupMember(c.uid, groupID) {
+		s.sendError(c, "not a group member")
+		return
+	}
 	others, callType, err := s.groups.Join(callID, c.uid)
 	if err != nil {
 		s.sendError(c, err.Error())
@@ -477,6 +524,7 @@ func (s *SignalingServer) handleGroupJoin(c *clientConn, msg *types.SignalingMes
 	// 为新加入者建 SFU peer（收 sfu_publish 前需就绪）
 	if err := s.setupSFUPeer(c, callID); err != nil {
 		zLog.Error("sfu setup peer failed", zap.String("uid", c.uid), zap.Error(err))
+		_, _, _ = s.groups.Leave(callID, c.uid)
 		s.sendError(c, "sfu setup failed")
 		return
 	}
@@ -497,11 +545,15 @@ func (s *SignalingServer) handleGroupJoin(c *clientConn, msg *types.SignalingMes
 func (s *SignalingServer) handleGroupLeave(c *clientConn, msg *types.SignalingMessage) {
 	callID := msgCallID(msg)
 	groupID, _, _, _ := s.groups.Info(callID) // 结束前捕获 groupID（结束后会话被删）
-	remaining, _, err := s.groups.Leave(callID, c.uid)
+	remaining, ended, err := s.groups.Leave(callID, c.uid)
 	if err != nil {
 		return
 	}
-	s.sfu.RemovePeer(c.uid) // 关连接：其上行轨与下行订阅经房间路由清理
+	if ended {
+		s.sfu.RemoveRoom(callID)
+	} else {
+		s.sfu.RemovePeer(c.uid)
+	}
 	s.broadcastSFUPeerLeft(callID, c.uid, remaining)
 	s.broadcastGroupState(groupID)
 }
@@ -539,12 +591,8 @@ func (s *SignalingServer) relayToPeer(c *clientConn, msg *types.SignalingMessage
 	to := dataStr(msg.Data, "to")
 	var target string
 	if to != "" {
-		// 群组 Mesh：校验 from/to 均为该群通话参与者
-		if !s.groups.HasParticipant(callID, c.uid) || !s.groups.HasParticipant(callID, to) {
-			s.sendError(c, "not a group participant")
-			return
-		}
-		target = to
+		s.sendError(c, "group media uses sfu signaling")
+		return
 	} else {
 		// 1:1：按会话推导对端（保持原行为）
 		sess, ok := s.calls.Get(callID)
@@ -587,8 +635,12 @@ func (s *SignalingServer) cleanupCall(uid string) {
 	// 群组：离开并关 SFU peer（其上行轨与下行订阅经房间路由清理）
 	if callID, ok := s.groups.ActiveCallID(uid); ok {
 		groupID, _, _, _ := s.groups.Info(callID) // 结束前捕获 groupID
-		if remaining, _, err := s.groups.Leave(callID, uid); err == nil {
-			s.sfu.RemovePeer(uid)
+		if remaining, ended, err := s.groups.Leave(callID, uid); err == nil {
+			if ended {
+				s.sfu.RemoveRoom(callID)
+			} else {
+				s.sfu.RemovePeer(uid)
+			}
 			s.broadcastSFUPeerLeft(callID, uid, remaining)
 			s.broadcastGroupState(groupID)
 		}

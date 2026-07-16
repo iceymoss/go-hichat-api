@@ -125,6 +125,14 @@ func (s *SFU) getPubSSRC(pubUID, trackID string) (uint32, bool) {
 	return ssrc, ok
 }
 
+func (s *SFU) requestKeyframe(pubUID, trackID string) {
+	pub := s.getPeer(pubUID)
+	ssrc, ok := s.getPubSSRC(pubUID, trackID)
+	if pub != nil && ok {
+		_ = pub.pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: ssrc}})
+	}
+}
+
 func (s *SFU) room(roomID string) *Room {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -148,13 +156,57 @@ func (s *SFU) GetPeer(uid string) *Peer { return s.getPeer(uid) }
 // RemovePeer 关闭并移除某参与者的 peer（离开/断线时调用）：从注册表删除并关闭其 PeerConnection，
 // 触发房间路由清理（其上行轨与作为订阅者的下行订阅一并移除）。
 func (s *SFU) RemovePeer(uid string) {
-	s.mu.Lock()
-	p := s.peers[uid]
-	delete(s.peers, uid)
-	s.mu.Unlock()
+	p := s.getPeer(uid)
 	if p != nil {
 		_ = p.Close()
 	}
+}
+
+// RemoveRoom 关闭并移除一通群通话中的全部 peer。
+func (s *SFU) RemoveRoom(roomID string) {
+	s.mu.Lock()
+	peers := make([]*Peer, 0)
+	for uid, p := range s.peers {
+		if p.room.ID() != roomID {
+			continue
+		}
+		peers = append(peers, p)
+		delete(s.peers, uid)
+		for key := range s.pubSSRC {
+			if strings.HasPrefix(key, uid+"|") {
+				delete(s.pubSSRC, key)
+			}
+		}
+	}
+	delete(s.rooms, roomID)
+	s.mu.Unlock()
+
+	for _, p := range peers {
+		_ = p.Close()
+	}
+}
+
+func (s *SFU) detachPeer(p *Peer) {
+	s.mu.Lock()
+	if s.peers[p.uid] == p {
+		delete(s.peers, p.uid)
+	}
+	for key := range s.pubSSRC {
+		if strings.HasPrefix(key, p.uid+"|") {
+			delete(s.pubSSRC, key)
+		}
+	}
+	s.mu.Unlock()
+
+	p.room.Leave(p.uid)
+	if !p.room.Empty() {
+		return
+	}
+	s.mu.Lock()
+	if s.rooms[p.room.ID()] == p.room && p.room.Empty() {
+		delete(s.rooms, p.room.ID())
+	}
+	s.mu.Unlock()
 }
 
 // Peer 一个参与者在房间内的 pion 连接（含服务端发起 renegotiation 的能力）。
@@ -162,6 +214,10 @@ type Peer struct {
 	uid  string
 	room *Room
 	pc   *webrtc.PeerConnection
+	sfu  *SFU
+
+	closeOnce sync.Once
+	closeErr  error
 
 	negMu      sync.Mutex
 	negPending bool             // 有 offer 在途、期间又有 track 变化时标记待补
@@ -169,16 +225,54 @@ type Peer struct {
 	onOffer    func(sdp string) // 服务端发起的 renegotiation offer -> 客户端（由信令层接线）
 }
 
+// RoomID 返回 peer 所属的群通话 ID。
+func (p *Peer) RoomID() string { return p.room.ID() }
+
+// OnICECandidate 注册本端 trickle ICE candidate 回调。
+func (p *Peer) OnICECandidate(cb func(webrtc.ICECandidateInit)) {
+	p.pc.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+		if candidate != nil {
+			cb(candidate.ToJSON())
+		}
+	})
+}
+
+// AddICECandidate 应用客户端 trickle 过来的 ICE candidate。
+func (p *Peer) AddICECandidate(candidate webrtc.ICECandidateInit) error {
+	return p.pc.AddICECandidate(candidate)
+}
+
 // AddPeer 为 uid 建一条新 PeerConnection 加入房间；OnTrack 里为其余人建下行订阅并起收流泵；
 // AddTrack 触发的重协商由服务端作为 offerer 驱动（避 glare）。
 func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer, error) {
+	if peer := s.getPeer(uid); peer != nil {
+		if peer.RoomID() == roomID {
+			return peer, nil
+		}
+		return nil, fmt.Errorf("sfu: peer %s already belongs to room %s", uid, peer.RoomID())
+	}
 	pc, err := s.api.NewPeerConnection(webrtc.Configuration{ICEServers: iceServers})
 	if err != nil {
 		return nil, err
 	}
-	room := s.room(roomID)
+	s.mu.Lock()
+	if existing := s.peers[uid]; existing != nil {
+		s.mu.Unlock()
+		_ = pc.Close()
+		if existing.RoomID() == roomID {
+			return existing, nil
+		}
+		return nil, fmt.Errorf("sfu: peer %s already belongs to room %s", uid, existing.RoomID())
+	}
+	room := s.rooms[roomID]
+	if room == nil {
+		room = NewRoom(roomID)
+		s.rooms[roomID] = room
+	}
 	room.Join(uid)
-	p := &Peer{uid: uid, room: room, pc: pc}
+	p := &Peer{uid: uid, room: room, pc: pc, sfu: s}
+	s.peers[uid] = p
+	s.mu.Unlock()
 
 	pc.OnNegotiationNeeded(p.scheduleNegotiation)
 	pc.OnSignalingStateChange(func(st webrtc.SignalingState) {
@@ -206,9 +300,6 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 		}()
 	})
 
-	s.mu.Lock()
-	s.peers[uid] = p
-	s.mu.Unlock()
 	return p, nil
 }
 
@@ -233,7 +324,7 @@ func kindFromString(s string) webrtc.RTPCodecType {
 	return webrtc.RTPCodecTypeVideo
 }
 
-// Publish 处理客户端发布 offer（客户端作 offerer），返回 SFU answer（非 trickle）。
+// Publish 处理客户端发布 offer（客户端作 offerer），返回 SFU answer；ICE candidate 单独 trickle。
 func (p *Peer) Publish(offerSDP string) (string, error) {
 	if err := p.pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: offerSDP}); err != nil {
 		return "", err
@@ -242,11 +333,9 @@ func (p *Peer) Publish(offerSDP string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	gatherComplete := webrtc.GatheringCompletePromise(p.pc)
 	if err := p.pc.SetLocalDescription(answer); err != nil {
 		return "", err
 	}
-	<-gatherComplete
 	return p.pc.LocalDescription().SDP, nil
 }
 
@@ -319,18 +408,38 @@ func (p *Peer) createOfferLocked() (string, bool) {
 
 // Close 关闭连接并从房间 + 注册表移除（触发订阅路由清理）。
 func (p *Peer) Close() error {
-	p.negMu.Lock()
-	if p.negTimer != nil {
-		p.negTimer.Stop()
-		p.negTimer = nil
-	}
-	p.negMu.Unlock()
-	p.room.Leave(p.uid)
-	return p.pc.Close()
+	p.closeOnce.Do(func() {
+		p.negMu.Lock()
+		if p.negTimer != nil {
+			p.negTimer.Stop()
+			p.negTimer = nil
+		}
+		p.negMu.Unlock()
+		p.sfu.detachPeer(p)
+		p.closeErr = p.pc.Close()
+	})
+	return p.closeErr
 }
 
 // realDownlink 真实 pion 下行：为订阅者 PC 建下行本地轨并 AddTrack（触发其重协商）。
 type realDownlink struct{ sfu *SFU }
+
+type pionDownlink struct {
+	track  *webrtc.TrackLocalStaticRTP
+	peer   *Peer
+	sender *webrtc.RTPSender
+	once   sync.Once
+	err    error
+}
+
+func (d *pionDownlink) WriteRTP(pkt *rtp.Packet) error { return d.track.WriteRTP(pkt) }
+
+func (d *pionDownlink) Close() error {
+	d.once.Do(func() {
+		d.err = d.peer.pc.RemoveTrack(d.sender)
+	})
+	return d.err
+}
 
 func (d realDownlink) newDownlink(subUID, pubUID, trackID string, kind webrtc.RTPCodecType) (RTPSink, error) {
 	sub := d.sfu.getPeer(subUID)
@@ -352,8 +461,9 @@ func (d realDownlink) newDownlink(subUID, pubUID, trackID string, kind webrtc.RT
 	// 视频：转发订阅者的关键帧请求(PLI/FIR)给发布者，避免新订阅者黑屏等待下一个关键帧
 	if kind == webrtc.RTPCodecTypeVideo {
 		go d.forwardKeyframeRequests(sender, pubUID, trackID)
+		d.sfu.requestKeyframe(pubUID, trackID)
 	}
-	return local, nil
+	return &pionDownlink{track: local, peer: sub, sender: sender}, nil
 }
 
 // forwardKeyframeRequests 读订阅者下行 sender 的 RTCP，遇 PLI/FIR 就向发布者 PC 发 PLI 请关键帧。
@@ -371,12 +481,7 @@ func (d realDownlink) forwardKeyframeRequests(sender *webrtc.RTPSender, pubUID, 
 		for _, pkt := range pkts {
 			switch pkt.(type) {
 			case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
-				pub := d.sfu.getPeer(pubUID)
-				ssrc, ok := d.sfu.getPubSSRC(pubUID, trackID)
-				if pub == nil || !ok {
-					continue
-				}
-				_ = pub.pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: ssrc}})
+				d.sfu.requestKeyframe(pubUID, trackID)
 			}
 		}
 	}

@@ -6,6 +6,7 @@
 package sfu
 
 import (
+	"io"
 	"sync"
 
 	"github.com/pion/rtp"
@@ -36,7 +37,7 @@ type Room struct {
 	id string
 
 	mu           sync.RWMutex
-	participants map[string]struct{}            // uid 集合
+	participants map[string]struct{}             // uid 集合
 	subs         map[trackKey]map[string]RTPSink // 已发布轨 -> (订阅者 uid -> 下行 sink)
 	published    map[trackKey]PublishedTrack     // 当前已发布轨注册表（供回填）
 }
@@ -65,14 +66,20 @@ func (r *Room) Join(uid string) {
 // 作为发布者——移除其所有已发布轨的订阅表；作为订阅者——从其余轨的订阅表里移除自己。
 func (r *Room) Leave(uid string) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	removed := make([]RTPSink, 0)
 	delete(r.participants, uid)
 	for key, subs := range r.subs {
 		if key.pubUID == uid {
+			for _, sink := range subs {
+				removed = append(removed, sink)
+			}
 			delete(r.subs, key) // 作为发布者：整条轨的订阅表清掉
 			continue
 		}
-		delete(subs, uid) // 作为订阅者：从别人轨的订阅表里移除自己
+		if sink, ok := subs[uid]; ok {
+			removed = append(removed, sink)
+			delete(subs, uid) // 作为订阅者：从别人轨的订阅表里移除自己
+		}
 		if len(subs) == 0 {
 			delete(r.subs, key)
 		}
@@ -82,6 +89,8 @@ func (r *Room) Leave(uid string) {
 			delete(r.published, key) // 作为发布者：从已发布注册表移除
 		}
 	}
+	r.mu.Unlock()
+	closeSinks(removed)
 }
 
 // AddPublished 登记一条已发布轨（供迟到者回填订阅）。
@@ -95,10 +104,15 @@ func (r *Room) AddPublished(pubUID, trackID, kind string) {
 // Unpublish 移除一条已发布轨及其订阅表（轨结束/关闭时）。
 func (r *Room) Unpublish(pubUID, trackID string) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	key := trackKey{pubUID: pubUID, trackID: trackID}
+	removed := make([]RTPSink, 0, len(r.subs[key]))
+	for _, sink := range r.subs[key] {
+		removed = append(removed, sink)
+	}
 	delete(r.published, key)
 	delete(r.subs, key)
+	r.mu.Unlock()
+	closeSinks(removed)
 }
 
 // PublishedExcept 返回除 uid 外的全部已发布轨（迟到者 uid 入房时据此回填订阅）。
@@ -126,18 +140,37 @@ func (r *Room) Participants() []string {
 	return out
 }
 
+// Empty 报告房间当前是否没有参与者。
+func (r *Room) Empty() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.participants) == 0
+}
+
 // Subscribe 登记：订阅者 subUID 订阅发布者 pubUID 的 trackID，下行经 sink 投递。
 // 订阅自己的轨会被记录但在 RouteRTP 时排除（不回声）。
 func (r *Room) Subscribe(subUID, pubUID, trackID string, sink RTPSink) {
 	key := trackKey{pubUID: pubUID, trackID: trackID}
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	subs, ok := r.subs[key]
 	if !ok {
 		subs = make(map[string]RTPSink)
 		r.subs[key] = subs
 	}
+	old := subs[subUID]
 	subs[subUID] = sink
+	r.mu.Unlock()
+	if old != nil && old != sink {
+		closeSinks([]RTPSink{old})
+	}
+}
+
+func closeSinks(sinks []RTPSink) {
+	for _, sink := range sinks {
+		if closer, ok := sink.(io.Closer); ok {
+			_ = closer.Close()
+		}
+	}
 }
 
 // RouteRTP 把发布者 pubUID 的 trackID 的一个 RTP 包 fan-out 给所有订阅者，
