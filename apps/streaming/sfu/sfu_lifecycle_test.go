@@ -73,6 +73,8 @@ func Test_SFU_ReplacePeer_RebuildsConnectionWithoutDuplicatingMembership(t *test
 	if err != nil {
 		t.Fatalf("AddPeer: %v", err)
 	}
+	s.rooms["call1"].Join("bob")
+	s.rooms["call1"].WantVideo("bob", "alice", "q")
 
 	replacement, err := s.ReplacePeer("call1", "alice", nil)
 	if err != nil {
@@ -89,7 +91,10 @@ func Test_SFU_ReplacePeer_RebuildsConnectionWithoutDuplicatingMembership(t *test
 	if s.GetPeer("alice") != replacement {
 		t.Fatal("replacement peer is not registered")
 	}
-	if got := len(s.rooms["call1"].Participants()); got != 1 {
-		t.Fatalf("participants = %d, want 1", got)
+	if got := len(s.rooms["call1"].Participants()); got != 2 {
+		t.Fatalf("participants = %d, want 2", got)
+	}
+	if _, ok := s.rooms["call1"].VideoWant("bob", "alice"); !ok {
+		t.Fatal("ReplacePeer deleted subscriber video intent")
 	}
 }

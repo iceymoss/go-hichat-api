@@ -25,8 +25,8 @@ type downlinkFactory interface {
 type SFU struct {
 	mu                 sync.Mutex
 	rooms              map[string]*Room
-	peers              map[string]*Peer  // uid -> peer（单会话，uid 全局唯一）
-	pubSSRC            map[string]uint32 // "pubUID|trackID" -> 上行轨 SSRC（PLI 转发用）
+	peers              map[string]*Peer         // uid -> peer（单会话，uid 全局唯一）
+	pubSSRC            map[string]publishedSSRC // "pubUID|trackID" -> 当前上行轨 SSRC（PLI 转发用）
 	factory            downlinkFactory
 	api                *webrtc.API // 带接口过滤的 pion API（滤掉虚拟接口候选）
 	mediaEventMu       sync.RWMutex
@@ -53,6 +53,11 @@ type MediaEvent struct {
 	Codec   string
 	RID     string
 	Reason  string
+}
+
+type publishedSSRC struct {
+	ssrc       uint32
+	generation uint64
 }
 
 // Option 配置 SFU 的 pion 网络参数（Phase 1 公网化）。
@@ -92,7 +97,7 @@ func NewSFU(opts ...Option) *SFU {
 	if cfg.activeSpeakerLimit <= 0 {
 		cfg.activeSpeakerLimit = defaultActiveSpeakerLimit
 	}
-	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), lastKeyframe: make(map[string]time.Time), api: buildAPI(cfg), activeSpeakerLimit: cfg.activeSpeakerLimit, lastSpeakers: make(map[string][]string), stopSpeakers: make(chan struct{})}
+	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]publishedSSRC), lastKeyframe: make(map[string]time.Time), api: buildAPI(cfg), activeSpeakerLimit: cfg.activeSpeakerLimit, lastSpeakers: make(map[string][]string), stopSpeakers: make(chan struct{})}
 	s.factory = realDownlink{sfu: s}
 	go s.runActiveSpeakers()
 	return s
@@ -100,7 +105,7 @@ func NewSFU(opts ...Option) *SFU {
 
 // newSFUWithFactory 注入自定义下行工厂（测试用，隔离 pion 下行 I/O）。
 func newSFUWithFactory(f downlinkFactory) *SFU {
-	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]uint32), lastKeyframe: make(map[string]time.Time), api: buildAPI(sfuConfig{}), factory: f, activeSpeakerLimit: defaultActiveSpeakerLimit, lastSpeakers: make(map[string][]string), stopSpeakers: make(chan struct{})}
+	s := &SFU{rooms: make(map[string]*Room), peers: make(map[string]*Peer), pubSSRC: make(map[string]publishedSSRC), lastKeyframe: make(map[string]time.Time), api: buildAPI(sfuConfig{}), factory: f, activeSpeakerLimit: defaultActiveSpeakerLimit, lastSpeakers: make(map[string][]string), stopSpeakers: make(chan struct{})}
 	return s
 }
 
@@ -182,23 +187,38 @@ func STUNServers(urls ...string) []webrtc.ICEServer {
 }
 
 func (s *SFU) setPubSSRC(pubUID, trackID string, ssrc uint32) {
+	s.setPubSSRCGeneration(pubUID, trackID, ssrc, 0)
+}
+
+func (s *SFU) setPubSSRCGeneration(pubUID, trackID string, ssrc uint32, generation uint64) {
 	s.mu.Lock()
-	s.pubSSRC[ssrcKey(pubUID, trackID)] = ssrc
+	s.pubSSRC[ssrcKey(pubUID, trackID)] = publishedSSRC{ssrc: ssrc, generation: generation}
 	s.mu.Unlock()
 }
 
 func (s *SFU) getPubSSRC(pubUID, trackID string) (uint32, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	ssrc, ok := s.pubSSRC[ssrcKey(pubUID, trackID)]
-	return ssrc, ok
+	published, ok := s.pubSSRC[ssrcKey(pubUID, trackID)]
+	return published.ssrc, ok
 }
 
 func (s *SFU) deletePubSSRC(pubUID, trackID string) {
+	s.deletePubSSRCGeneration(pubUID, trackID, 0)
+}
+
+func (s *SFU) deletePubSSRCGeneration(pubUID, trackID string, generation uint64) {
 	key := ssrcKey(pubUID, trackID)
 	s.mu.Lock()
-	delete(s.pubSSRC, key)
+	deleted := false
+	if published, ok := s.pubSSRC[key]; ok && (generation == 0 || published.generation == generation) {
+		delete(s.pubSSRC, key)
+		deleted = true
+	}
 	s.mu.Unlock()
+	if !deleted {
+		return
+	}
 	s.keyframeMu.Lock()
 	delete(s.lastKeyframe, key)
 	s.keyframeMu.Unlock()
@@ -351,7 +371,7 @@ func (s *SFU) ReplacePeer(roomID, uid string, iceServers []webrtc.ICEServer) (*P
 		if current.RoomID() != roomID {
 			return nil, fmt.Errorf("sfu: peer %s belongs to room %s", uid, current.RoomID())
 		}
-		_ = current.Close()
+		_ = current.closeForReplacement()
 	}
 	return s.AddPeer(roomID, uid, iceServers)
 }
@@ -383,7 +403,7 @@ func (s *SFU) RemoveRoom(roomID string) {
 	}
 }
 
-func (s *SFU) detachPeer(p *Peer) {
+func (s *SFU) detachPeer(p *Peer, preserveMembership bool) {
 	s.mu.Lock()
 	if s.peers[p.uid] == p {
 		delete(s.peers, p.uid)
@@ -402,7 +422,11 @@ func (s *SFU) detachPeer(p *Peer) {
 	}
 	s.keyframeMu.Unlock()
 
-	p.room.Leave(p.uid)
+	if preserveMembership {
+		p.room.ResetParticipantMedia(p.uid)
+	} else {
+		p.room.Leave(p.uid)
+	}
 	if !p.room.Empty() {
 		return
 	}
@@ -498,9 +522,9 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 	pc.OnTrack(func(tr *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		trackID := tr.ID()
 		rid := tr.RID()
-		s.setPubSSRC(uid, sourceTrackID(trackID, rid), uint32(tr.SSRC())) // 记录每个 RID 上行 SSRC（PLI 转发用）
 		codec := tr.Codec().RTPCodecCapability
-		room.AddPublishedLayer(uid, trackID, rid, tr.Kind().String(), codec)
+		generation := room.AddPublishedLayer(uid, trackID, rid, tr.Kind().String(), codec)
+		s.setPubSSRCGeneration(uid, sourceTrackID(trackID, rid), uint32(tr.SSRC()), generation)
 		s.emitMediaEvent(MediaEvent{Name: "track_published", RoomID: roomID, PubUID: uid, TrackID: trackID, Kind: tr.Kind().String(), Codec: codec.MimeType, RID: rid})
 		if tr.Kind() == webrtc.RTPCodecTypeAudio {
 			for _, sub := range room.Participants() {
@@ -522,9 +546,11 @@ func (s *SFU) AddPeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer,
 			extensionID = audioLevelExtensionID(receiver.GetParameters())
 		}
 		go func() {
-			pump(room, uid, trackID, rid, trackRemoteReader{t: tr}, extensionID, s.activeSpeakerLimit)
-			room.UnpublishLayer(uid, trackID, rid) // 轨结束：从注册表 + 订阅表清理
-			s.deletePubSSRC(uid, sourceTrackID(trackID, rid))
+			pump(room, uid, trackID, rid, generation, trackRemoteReader{t: tr}, extensionID, s.activeSpeakerLimit)
+			if !room.UnpublishLayerGeneration(uid, trackID, rid, generation) {
+				return
+			}
+			s.deletePubSSRCGeneration(uid, sourceTrackID(trackID, rid), generation)
 			if tr.Kind() == webrtc.RTPCodecTypeAudio {
 				room.speakers.Remove(uid)
 			} else {
@@ -581,17 +607,29 @@ func (s *SFU) reconcileVideoSubscription(roomID, subUID, pubUID string) error {
 		}
 	}
 	selectedRID := selectVideoRID(preferredRID, available)
+	var selected *PublishedTrack
 	for _, track := range tracks {
-		if track.PubUID != pubUID || track.Kind != webrtc.RTPCodecTypeVideo.String() || track.RID != selectedRID || room.HasTrackSubscription(subUID, pubUID, track.TrackID, track.RID) {
+		if track.PubUID != pubUID || track.Kind != webrtc.RTPCodecTypeVideo.String() || track.RID != selectedRID {
 			continue
 		}
-		sink, err := s.factory.newDownlink(subUID, pubUID, sourceTrackID(track.TrackID, track.RID), track.Codec)
-		if err != nil {
-			return err
+		if selected == nil || track.Generation > selected.Generation {
+			candidate := track
+			selected = &candidate
 		}
-		room.SubscribeLayer(subUID, pubUID, track.TrackID, track.RID, sink)
-		room.RemoveVideoLayersExcept(subUID, pubUID, track.TrackID, track.RID)
 	}
+	if selected == nil {
+		return nil
+	}
+	if room.HasTrackSubscription(subUID, pubUID, selected.TrackID, selected.RID) {
+		room.RemoveVideoLayersExcept(subUID, pubUID, selected.TrackID, selected.RID)
+		return nil
+	}
+	sink, err := s.factory.newDownlink(subUID, pubUID, sourceTrackID(selected.TrackID, selected.RID), selected.Codec)
+	if err != nil {
+		return err
+	}
+	room.SubscribeLayer(subUID, pubUID, selected.TrackID, selected.RID, sink)
+	room.RemoveVideoLayersExcept(subUID, pubUID, selected.TrackID, selected.RID)
 	return nil
 }
 
@@ -729,6 +767,14 @@ func (p *Peer) createOfferLocked() (string, bool) {
 
 // Close 关闭连接并从房间 + 注册表移除（触发订阅路由清理）。
 func (p *Peer) Close() error {
+	return p.close(false)
+}
+
+func (p *Peer) closeForReplacement() error {
+	return p.close(true)
+}
+
+func (p *Peer) close(preserveMembership bool) error {
 	p.closeOnce.Do(func() {
 		p.negMu.Lock()
 		if p.negTimer != nil {
@@ -736,7 +782,7 @@ func (p *Peer) Close() error {
 			p.negTimer = nil
 		}
 		p.negMu.Unlock()
-		p.sfu.detachPeer(p)
+		p.sfu.detachPeer(p, preserveMembership)
 		p.closeErr = p.pc.Close()
 	})
 	return p.closeErr

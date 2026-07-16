@@ -223,6 +223,71 @@ func Test_Room_SimulcastLayerReplacementClosesPreviousLayer(t *testing.T) {
 	}
 }
 
+func Test_Room_VideoReplacementClosesPreviousTrackID(t *testing.T) {
+	r := NewRoom("call1")
+	old := &closableSink{}
+	current := &closableSink{}
+	r.SubscribeLayer("subscriber", "publisher", "old-video", "q", old)
+	r.SubscribeLayer("subscriber", "publisher", "new-video", "q", current)
+
+	r.RemoveVideoLayersExcept("subscriber", "publisher", "new-video", "q")
+
+	if old.closed != 1 || current.closed != 0 {
+		t.Fatalf("closed old/current = %d/%d, want 1/0", old.closed, current.closed)
+	}
+}
+
+func Test_Room_PublicationGenerationRejectsStaleRTPAndCleanup(t *testing.T) {
+	r := NewRoom("call1")
+	codec := webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}
+	first := r.AddPublishedLayer("publisher", "video", "q", "video", codec)
+	sink := &closableSink{}
+	r.SubscribeLayer("subscriber", "publisher", "video", "q", sink)
+	second := r.AddPublishedLayer("publisher", "video", "q", "video", codec)
+
+	if first == second {
+		t.Fatal("replacement publication reused generation")
+	}
+	if sink.closed != 1 {
+		t.Fatalf("old downlink closed = %d, want 1", sink.closed)
+	}
+	replacement := &fakeSink{}
+	r.SubscribeLayer("subscriber", "publisher", "video", "q", replacement)
+	r.RouteRTPLayerGeneration("publisher", "video", "q", first, &rtp.Packet{})
+	r.RouteRTPLayerGeneration("publisher", "video", "q", second, &rtp.Packet{})
+	if got := replacement.count(); got != 1 {
+		t.Fatalf("replacement packets = %d, want only current generation", got)
+	}
+	if r.UnpublishLayerGeneration("publisher", "video", "q", first) {
+		t.Fatal("stale generation removed replacement publication")
+	}
+	if !r.HasTrackSubscription("subscriber", "publisher", "video", "q") {
+		t.Fatal("stale generation removed replacement downlink")
+	}
+}
+
+func Test_Room_ResetParticipantMediaPreservesVideoWants(t *testing.T) {
+	r := NewRoom("call1")
+	r.Join("publisher")
+	r.Join("subscriber")
+	r.WantVideo("subscriber", "publisher", "q")
+	r.AddPublishedLayer("publisher", "video", "q", "video", webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8})
+	sink := &closableSink{}
+	r.SubscribeLayer("subscriber", "publisher", "video", "q", sink)
+
+	r.ResetParticipantMedia("publisher")
+
+	if _, ok := r.VideoWant("subscriber", "publisher"); !ok {
+		t.Fatal("publisher media reset deleted subscriber video intent")
+	}
+	if sink.closed != 1 {
+		t.Fatalf("old media sink closed = %d, want 1", sink.closed)
+	}
+	if got := len(r.Participants()); got != 2 {
+		t.Fatalf("participants = %d, want 2", got)
+	}
+}
+
 func Test_SelectVideoRID_FallsBackToNearestAvailableLayer(t *testing.T) {
 	tests := []struct {
 		preferred string
@@ -324,6 +389,8 @@ func Test_Room_SubscriptionRemoval_ClosesDownlinks(t *testing.T) {
 		{
 			name: "track ends",
 			act: func(r *Room, _, _ *closableSink) {
+				r.AddPublished("publisher", "video", "video", webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8})
+				// AddPublished replaces any existing downlink for this logical publication.
 				r.Unpublish("publisher", "video")
 			},
 			want: [2]int{1, 0},

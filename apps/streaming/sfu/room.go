@@ -28,11 +28,12 @@ type trackKey struct {
 
 // PublishedTrack 已发布轨的元信息（供迟到者回填订阅）。Kind 为 "audio"/"video"。
 type PublishedTrack struct {
-	PubUID  string
-	TrackID string
-	Kind    string
-	Codec   webrtc.RTPCodecCapability
-	RID     string
+	PubUID     string
+	TrackID    string
+	Kind       string
+	Codec      webrtc.RTPCodecCapability
+	RID        string
+	Generation uint64
 }
 
 // Room 一通群通话的路由核心：维护参与者集合与「发布者 -> 订阅者下行 sink」路由表，
@@ -40,14 +41,15 @@ type PublishedTrack struct {
 type Room struct {
 	id string
 
-	mu           sync.RWMutex
-	participants map[string]struct{}             // uid 集合
-	subs         map[trackKey]map[string]RTPSink // 已发布轨 -> (订阅者 uid -> 下行 sink)
-	published    map[trackKey]PublishedTrack     // 当前已发布轨注册表（供回填）
-	activeAudio  map[string]struct{}             // 当前允许转发音频的发布者 uid
-	managedAudio map[string]struct{}             // 已协商 audio-level、可参与 top-N 的发布者
-	speakers     *ActiveSpeakers
-	videoWants   map[string]map[string]string // 订阅者 -> 视频发布者 -> 首选 RID
+	mu             sync.RWMutex
+	participants   map[string]struct{}             // uid 集合
+	subs           map[trackKey]map[string]RTPSink // 已发布轨 -> (订阅者 uid -> 下行 sink)
+	published      map[trackKey]PublishedTrack     // 当前已发布轨注册表（供回填）
+	activeAudio    map[string]struct{}             // 当前允许转发音频的发布者 uid
+	managedAudio   map[string]struct{}             // 已协商 audio-level、可参与 top-N 的发布者
+	speakers       *ActiveSpeakers
+	videoWants     map[string]map[string]string // 订阅者 -> 视频发布者 -> 首选 RID
+	nextGeneration uint64
 }
 
 // NewRoom 创建空房间。
@@ -148,6 +150,38 @@ func (r *Room) Leave(uid string) {
 	closeSinks(removed)
 }
 
+// ResetParticipantMedia removes a peer connection's media routes while preserving membership
+// and video subscription intent so a replacement connection can resume in place.
+func (r *Room) ResetParticipantMedia(uid string) {
+	r.mu.Lock()
+	removed := make([]RTPSink, 0)
+	delete(r.managedAudio, uid)
+	delete(r.activeAudio, uid)
+	for key, subs := range r.subs {
+		if key.pubUID == uid {
+			for _, sink := range subs {
+				removed = append(removed, sink)
+			}
+			delete(r.subs, key)
+			continue
+		}
+		if sink, ok := subs[uid]; ok {
+			removed = append(removed, sink)
+			delete(subs, uid)
+		}
+		if len(subs) == 0 {
+			delete(r.subs, key)
+		}
+	}
+	for key := range r.published {
+		if key.pubUID == uid {
+			delete(r.published, key)
+		}
+	}
+	r.mu.Unlock()
+	closeSinks(removed)
+}
+
 func (r *Room) WantVideo(subUID, pubUID, rid string) {
 	r.mu.Lock()
 	if r.videoWants[subUID] == nil {
@@ -219,7 +253,7 @@ func (r *Room) RemoveVideoLayersExcept(subUID, pubUID, trackID, keepRID string) 
 	r.mu.Lock()
 	removed := make([]RTPSink, 0)
 	for key, subs := range r.subs {
-		if key.pubUID != pubUID || key.trackID != trackID || key.rid == keepRID {
+		if key.pubUID != pubUID || (key.trackID == trackID && key.rid == keepRID) {
 			continue
 		}
 		if sink, ok := subs[subUID]; ok {
@@ -239,11 +273,20 @@ func (r *Room) AddPublished(pubUID, trackID, kind string, codec webrtc.RTPCodecC
 	r.AddPublishedLayer(pubUID, trackID, "", kind, codec)
 }
 
-func (r *Room) AddPublishedLayer(pubUID, trackID, rid, kind string, codec webrtc.RTPCodecCapability) {
+func (r *Room) AddPublishedLayer(pubUID, trackID, rid, kind string, codec webrtc.RTPCodecCapability) uint64 {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	key := trackKey{pubUID: pubUID, trackID: trackID, rid: rid}
-	r.published[key] = PublishedTrack{PubUID: pubUID, TrackID: trackID, Kind: kind, Codec: codec, RID: rid}
+	r.nextGeneration++
+	generation := r.nextGeneration
+	removed := make([]RTPSink, 0, len(r.subs[key]))
+	for _, sink := range r.subs[key] {
+		removed = append(removed, sink)
+	}
+	delete(r.subs, key)
+	r.published[key] = PublishedTrack{PubUID: pubUID, TrackID: trackID, Kind: kind, Codec: codec, RID: rid, Generation: generation}
+	r.mu.Unlock()
+	closeSinks(removed)
+	return generation
 }
 
 // Unpublish 移除一条已发布轨及其订阅表（轨结束/关闭时）。
@@ -252,8 +295,17 @@ func (r *Room) Unpublish(pubUID, trackID string) {
 }
 
 func (r *Room) UnpublishLayer(pubUID, trackID, rid string) {
+	r.UnpublishLayerGeneration(pubUID, trackID, rid, 0)
+}
+
+func (r *Room) UnpublishLayerGeneration(pubUID, trackID, rid string, generation uint64) bool {
 	r.mu.Lock()
 	key := trackKey{pubUID: pubUID, trackID: trackID, rid: rid}
+	published, ok := r.published[key]
+	if !ok || (generation != 0 && published.Generation != generation) {
+		r.mu.Unlock()
+		return false
+	}
 	removed := make([]RTPSink, 0, len(r.subs[key]))
 	for _, sink := range r.subs[key] {
 		removed = append(removed, sink)
@@ -262,6 +314,7 @@ func (r *Room) UnpublishLayer(pubUID, trackID, rid string) {
 	delete(r.subs, key)
 	r.mu.Unlock()
 	closeSinks(removed)
+	return true
 }
 
 // PublishedExcept 返回除 uid 外的全部已发布轨（迟到者 uid 入房时据此回填订阅）。
@@ -333,9 +386,18 @@ func (r *Room) RouteRTP(pubUID, trackID string, pkt *rtp.Packet) {
 }
 
 func (r *Room) RouteRTPLayer(pubUID, trackID, rid string, pkt *rtp.Packet) {
+	r.RouteRTPLayerGeneration(pubUID, trackID, rid, 0, pkt)
+}
+
+func (r *Room) RouteRTPLayerGeneration(pubUID, trackID, rid string, generation uint64, pkt *rtp.Packet) {
 	key := trackKey{pubUID: pubUID, trackID: trackID, rid: rid}
 	r.mu.RLock()
-	if published, ok := r.published[key]; ok && published.Kind == webrtc.RTPCodecTypeAudio.String() {
+	published, ok := r.published[key]
+	if generation != 0 && (!ok || published.Generation != generation) {
+		r.mu.RUnlock()
+		return
+	}
+	if ok && published.Kind == webrtc.RTPCodecTypeAudio.String() {
 		_, managed := r.managedAudio[pubUID]
 		_, active := r.activeAudio[pubUID]
 		if managed && !active {

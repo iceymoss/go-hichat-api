@@ -10,7 +10,7 @@ type rtpReader interface {
 
 // pump 收流泵：不断从上行源 src 读 RTP 包，按 (pubUID, trackID) 路由进房间做 fan-out，
 // 直到 src 返回错误（EOF / 连接关闭）才退出。生产中每个 OnTrack 起一个 goroutine 跑它。
-func pump(room *Room, pubUID, trackID, rid string, src rtpReader, audioLevelExtensionID uint8, activeSpeakerLimit int) {
+func pump(room *Room, pubUID, trackID, rid string, generation uint64, src rtpReader, audioLevelExtensionID uint8, activeSpeakerLimit int) {
 	if audioLevelExtensionID > 0 {
 		room.ManageAudio(pubUID)
 	}
@@ -22,6 +22,6 @@ func pump(room *Room, pubUID, trackID, rid string, src rtpReader, audioLevelExte
 		if level, ok := audioLevel(pkt, audioLevelExtensionID); ok {
 			room.ObserveAudioLevel(pubUID, level, activeSpeakerLimit)
 		}
-		room.RouteRTPLayer(pubUID, trackID, rid, pkt)
+		room.RouteRTPLayerGeneration(pubUID, trackID, rid, generation, pkt)
 	}
 }

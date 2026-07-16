@@ -38,7 +38,7 @@ func Test_pump_ForwardsAllPacketsUntilEOF(t *testing.T) {
 		{Header: rtp.Header{SequenceNumber: 3}},
 	}}
 
-	pump(r, "a", "a-video", "", src, 0, defaultActiveSpeakerLimit) // 同步跑到 EOF（生产中在 goroutine 里）
+	pump(r, "a", "a-video", "", 0, src, 0, defaultActiveSpeakerLimit) // 同步跑到 EOF（生产中在 goroutine 里）
 
 	if got := sinkB.count(); got != 3 {
 		t.Errorf("pump forwarded %d packets, want 3", got)
@@ -57,7 +57,7 @@ func Test_pump_ObservesAudioLevelBeforeRouting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pump(r, "speaker", "audio", "", &fakeReader{pkts: []*rtp.Packet{pkt}}, 3, defaultActiveSpeakerLimit)
+	pump(r, "speaker", "audio", "", 0, &fakeReader{pkts: []*rtp.Packet{pkt}}, 3, defaultActiveSpeakerLimit)
 
 	if got := sink.count(); got != 1 {
 		t.Fatalf("forwarded audio packets = %d, want 1", got)
