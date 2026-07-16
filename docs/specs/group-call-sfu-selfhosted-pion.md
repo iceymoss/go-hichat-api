@@ -2,7 +2,7 @@
 
 ## 状态
 - 创建日期: 2026-07-06
-- 状态: **实施中（2026-07-16 接手）— Phase 0 已完成；Phase 1 代码完成、待公网验收；Phase 2→4 待完成**
+- 状态: **实施中（2026-07-16）— Phase 0 已完成（5 人浏览器实测）；Phase 1 代码完成、待公网验收；Phase 2/3 代码完成、待多人浏览器验收；Phase 4 路由压测完成、真实 30–50 PeerConnection 压测待完成**
 - 分支: `feat-streaming-group-sfu-pion`（从 main 拉出）
 - 关联: `apps/streaming`、`web/src`（IM 通话）、`deploy/`（coturn）
 - 背景: 放弃"外挂 LiveKit server"路线（那让 streaming 退化成只签 token 的空壳），改为**核心媒体转发自己实现、跑在 streaming 进程内**，让开源项目的群聊音视频能力长在自己仓库里。
@@ -132,11 +132,11 @@ mesh 是两两一次性协商；SFU 里**每加/减一路订阅轨都改变 SDP*
 - **Phase 1 — 公网可用**
    5. [ ] `coturn` 部署（docker-compose）+ `iceserver.go` 下发 TURN；pion `SettingEngine` 公网 IP + UDP 端口范围；`wss`。代码与 Compose 已完成，跨 NAT/TURN TLS 实测待验收。
 - **Phase 2 — 活跃发言人音频（方案 A）**
-  6. [ ] audio-level 头扩展读取 + top-N 选路 + `active_speakers` 下发 + 前端高亮。
+  6. [x] audio-level 头扩展读取 + top-N 选路 + `active_speakers` 下发 + 前端高亮。代码与单元/race 测试完成，待真实多人持续说话切换验收。
 - **Phase 3 — 视频 simulcast + 分页订阅**
-  7. [ ] 发布端 simulcast；服务端按 rid 选层；`subscribe/unsubscribe` 分页；前端按可见宫格订阅。
+  7. [x] 发布端 VP8 `q/h/f` simulcast；服务端按 RID 选层/降级；`subscribe/unsubscribe` 分页；前端每页本地 + 8 路远端视频，音频跨页持续播放。代码与单元/race 测试完成，待真实多浏览器翻页和 RID 验收。
 - **Phase 4 — 压测到 30–50 + 调优**
-  8. [ ] 多端/压测脚本，带宽/CPU/丢包/PLI 治理达标；上限落到房间层。
+  8. [ ] 路由热路径 2→8→16→30→50 阶梯脚本已完成；真实多 PeerConnection 的带宽/CPU/丢包/PLI 与 TURN 压测待完成。房间上限已落到可配 `MaxUsersPerRoom`（默认 50）。
 
 **MVP = Phase 0 + Phase 1**：SFU 打通 + 公网可用（全订阅、默认语音+按需视频，验证到中等规模）。30–50 人 + active-speaker + simulcast + 分页是 Phase 2–4。
 
@@ -156,6 +156,22 @@ mesh 是两两一次性协商；SFU 里**每加/减一路订阅轨都改变 SDP*
 - [ ] 公网：无公网 IP 环境经 coturn 中继成功。
 - [ ] 前端 `bun run tsc` / eslint 无新增错误。
 - [ ] 后端 `go test ./... -count=1` 全绿、`go build ./...` 无死引用。
+
+### 2026-07-16 路由热路径基准
+
+命令：`./apps/streaming/loadtest.sh`。模型为每个参与者发布一路音频和一路视频，服务端只转发 top-4 音频，每个视频发布者仅有 8 个可见订阅者；测试同时断言 50 人每媒体周期恰好产生 `4×49 + 50×8 = 596` 次下行写入，防止策略回退为全订阅。
+
+Apple M1 Pro / darwin arm64 实测：
+
+| 参与者 | 约 ns/op | B/op | allocs/op |
+|-------:|----------:|-----:|----------:|
+| 2 | 662–674 | 6 | 2 |
+| 8 | 3,438–3,699 | 1,370 | 20 |
+| 16 | 7,123–7,485 | 3,060 | 36 |
+| 30 | 13,006–13,529 | 5,858 | 64 |
+| 50 | 21,596–22,863 | 10,148 | 104 |
+
+该结果仅证明 Room RTP 路由、top-N 和分页 fan-out 随人数近似线性，不能替代真实 DTLS/SRTP、ICE/TURN、浏览器编解码、网络丢包和 30–50 条 PeerConnection 的端到端验收。
 
 ## 风险
 - 自建 SFU 的 renegotiation glare、simulcast 层选择、PLI 风暴、带宽自适应是硬难点，Phase 3/4 存在返工风险。
