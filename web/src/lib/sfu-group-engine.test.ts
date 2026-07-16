@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { addVideoTransceiver, disableVideoTrack, diffVideoSubscriptions, mediaState, mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs, replaceEndedVideoTrack, videoSendEncodings } from './sfu-group-engine';
+import { addVideoTransceiver, disableVideoTrack, diffVideoSubscriptions, mediaState, mergeRemoteStream, parseActiveSpeakers, preferredVideoCodecs, replaceEndedVideoTrack } from './sfu-group-engine';
 
 class FakeTrack {
   enabled = true;
@@ -89,18 +89,8 @@ describe('diffVideoSubscriptions', () => {
   });
 });
 
-describe('videoSendEncodings', () => {
-  test('publishes q h f VP8 simulcast layers', () => {
-    expect(videoSendEncodings()).toEqual([
-      { rid: 'q', scaleResolutionDownBy: 4, maxBitrate: 150000 },
-      { rid: 'h', scaleResolutionDownBy: 2, maxBitrate: 500000 },
-      { rid: 'f', scaleResolutionDownBy: 1, maxBitrate: 1500000 },
-    ]);
-  });
-});
-
 describe('addVideoTransceiver', () => {
-  test('keeps the shared SFU connection bidirectional', () => {
+  test('keeps the shared SFU connection bidirectional with one video encoding', () => {
     let init: RTCRtpTransceiverInit | undefined;
     const transceiver = { sender: {} } as RTCRtpTransceiver;
     const pc = {
@@ -112,6 +102,7 @@ describe('addVideoTransceiver', () => {
 
     expect(addVideoTransceiver(pc, {} as MediaStreamTrack, {} as MediaStream)).toBe(transceiver);
     expect(init?.direction).toBe('sendrecv');
+    expect(init?.sendEncodings).toBeUndefined();
   });
 
   test('falls back to a single video track when simulcast is rejected', () => {

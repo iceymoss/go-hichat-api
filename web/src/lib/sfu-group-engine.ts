@@ -108,20 +108,11 @@ export function diffVideoSubscriptions(current: Set<string>, next: Set<string>) 
   };
 }
 
-export function videoSendEncodings(): RTCRtpEncodingParameters[] {
-  return [
-    { rid: 'q', scaleResolutionDownBy: 4, maxBitrate: 150000 },
-    { rid: 'h', scaleResolutionDownBy: 2, maxBitrate: 500000 },
-    { rid: 'f', scaleResolutionDownBy: 1, maxBitrate: 1500000 },
-  ];
-}
-
 export function addVideoTransceiver(pc: RTCPeerConnection, track: MediaStreamTrack, stream: MediaStream) {
   try {
     return pc.addTransceiver(track, {
       direction: 'sendrecv',
       streams: [stream],
-      sendEncodings: videoSendEncodings(),
     });
   } catch {
     const sender = pc.addTrack(track, stream);
