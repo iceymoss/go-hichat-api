@@ -119,7 +119,7 @@ export function videoSendEncodings(): RTCRtpEncodingParameters[] {
 export function addVideoTransceiver(pc: RTCPeerConnection, track: MediaStreamTrack, stream: MediaStream) {
   try {
     return pc.addTransceiver(track, {
-      direction: 'sendonly',
+      direction: 'sendrecv',
       streams: [stream],
       sendEncodings: videoSendEncodings(),
     });

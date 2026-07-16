@@ -93,6 +93,20 @@ describe('videoSendEncodings', () => {
 });
 
 describe('addVideoTransceiver', () => {
+  test('keeps the shared SFU connection bidirectional', () => {
+    let init: RTCRtpTransceiverInit | undefined;
+    const transceiver = { sender: {} } as RTCRtpTransceiver;
+    const pc = {
+      addTransceiver: (_track: MediaStreamTrack, value: RTCRtpTransceiverInit) => {
+        init = value;
+        return transceiver;
+      },
+    } as unknown as RTCPeerConnection;
+
+    expect(addVideoTransceiver(pc, {} as MediaStreamTrack, {} as MediaStream)).toBe(transceiver);
+    expect(init?.direction).toBe('sendrecv');
+  });
+
   test('falls back to a single video track when simulcast is rejected', () => {
     const fallback = { sender: {} } as RTCRtpTransceiver;
     const pc = {
