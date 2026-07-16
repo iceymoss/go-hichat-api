@@ -1,10 +1,64 @@
 package config
 
 import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
 	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/zrpc"
 )
+
+// ApplyEnvironment 用部署环境变量覆盖公网 WebRTC 配置，避免 coturn 与 streaming 分别维护密钥。
+func (c *Config) ApplyEnvironment() error {
+	if value := strings.TrimSpace(os.Getenv("PUBLIC_IP")); value != "" {
+		c.Public.IP = value
+	}
+	var err error
+	if c.Public.UDPPortMin, err = envInt("SFU_UDP_MIN_PORT", c.Public.UDPPortMin); err != nil {
+		return err
+	}
+	if c.Public.UDPPortMax, err = envInt("SFU_UDP_MAX_PORT", c.Public.UDPPortMax); err != nil {
+		return err
+	}
+	if (c.Public.UDPPortMin > 0 || c.Public.UDPPortMax > 0) &&
+		(c.Public.UDPPortMin < 1 || c.Public.UDPPortMax > 65535 || c.Public.UDPPortMin > c.Public.UDPPortMax) {
+		return fmt.Errorf("invalid SFU UDP port range %d-%d", c.Public.UDPPortMin, c.Public.UDPPortMax)
+	}
+	if value := strings.TrimSpace(os.Getenv("TURN_URLS")); value != "" {
+		c.Turn.URLs = nil
+		for _, raw := range strings.Split(value, ",") {
+			if url := strings.TrimSpace(raw); url != "" {
+				c.Turn.URLs = append(c.Turn.URLs, url)
+			}
+		}
+	}
+	if value := os.Getenv("TURN_SECRET"); value != "" {
+		c.Turn.Secret = value
+	}
+	if value := strings.TrimSpace(os.Getenv("TURN_TTL_SECONDS")); value != "" {
+		ttl, parseErr := strconv.ParseInt(value, 10, 64)
+		if parseErr != nil || ttl <= 0 {
+			return fmt.Errorf("invalid TURN_TTL_SECONDS %q", value)
+		}
+		c.Turn.TTLSeconds = ttl
+	}
+	return nil
+}
+
+func envInt(name string, fallback int) (int, error) {
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s %q", name, value)
+	}
+	return parsed, nil
+}
 
 type Config struct {
 	service.ServiceConf

@@ -81,7 +81,7 @@ Public:
 
 # coturn 中继（Phase 1）。本地留空不下发 TURN；公网填 coturn 地址 + static-auth-secret。
 Turn:
-  URLs: []          # 如 ["turn:turn.example.com:3478?transport=udp"]
+  URLs: []          # 公网建议同时配置 UDP 与 TCP；TLS 用 turns: URL + coturn 证书单独部署
   Secret: ""        # coturn static-auth-secret，签发短期凭证用
   TTLSeconds: 3600  # 短期凭证有效期
 

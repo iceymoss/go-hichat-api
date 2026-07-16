@@ -53,16 +53,16 @@ Ws:
 Call:
   RingTimeoutSeconds: 30
 
-# SFU 公网化（Phase 1）。公网部署时填公网 IP + 放行的 UDP 端口范围（与 docker-compose coturn 一致）。
+# SFU 公网化（Phase 1）。Compose 部署由 PUBLIC_IP / SFU_UDP_* 环境变量覆盖。
 Public:
-  IP: ""            # 公网 IP，如 "203.0.113.10"
-  UDPPortMin: 0     # 如 50000（需宿主/防火墙放行 UDP 该范围）
-  UDPPortMax: 0     # 如 50200
+  IP: ""
+  UDPPortMin: 50000
+  UDPPortMax: 50200
 
-# coturn 中继（Phase 1）。填 coturn 地址 + 与 docker-compose 一致的 static-auth-secret。
+# coturn 中继（Phase 1）。Compose 部署由 TURN_URLS / TURN_SECRET 环境变量覆盖。
 Turn:
-  URLs: []          # 如 ["turn:203.0.113.10:3478?transport=udp"]
-  Secret: ""        # = docker-compose 的 TURN_SECRET
+  URLs: []
+  Secret: ""
   TTLSeconds: 3600
 
 SocialRpc:
