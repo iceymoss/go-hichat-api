@@ -167,6 +167,17 @@ func (s *SFU) RemovePeer(uid string) {
 	}
 }
 
+// ReplacePeer 原地替换参与者的媒体连接，不改变上层群通话成员状态。
+func (s *SFU) ReplacePeer(roomID, uid string, iceServers []webrtc.ICEServer) (*Peer, error) {
+	if current := s.getPeer(uid); current != nil {
+		if current.RoomID() != roomID {
+			return nil, fmt.Errorf("sfu: peer %s belongs to room %s", uid, current.RoomID())
+		}
+		_ = current.Close()
+	}
+	return s.AddPeer(roomID, uid, iceServers)
+}
+
 // RemoveRoom 关闭并移除一通群通话中的全部 peer。
 func (s *SFU) RemoveRoom(roomID string) {
 	s.mu.Lock()

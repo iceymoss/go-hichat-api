@@ -1,6 +1,10 @@
 package sfu
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/pion/webrtc/v3"
+)
 
 func Test_SFU_AddPeer_DuplicateReturnsExistingPeer(t *testing.T) {
 	s := NewSFU()
@@ -60,5 +64,32 @@ func Test_SFU_RemoveRoom_ClosesAllParticipants(t *testing.T) {
 		if s.GetPeer(uid) != nil {
 			t.Fatalf("peer %s still registered after RemoveRoom", uid)
 		}
+	}
+}
+
+func Test_SFU_ReplacePeer_RebuildsConnectionWithoutDuplicatingMembership(t *testing.T) {
+	s := NewSFU()
+	old, err := s.AddPeer("call1", "alice", nil)
+	if err != nil {
+		t.Fatalf("AddPeer: %v", err)
+	}
+
+	replacement, err := s.ReplacePeer("call1", "alice", nil)
+	if err != nil {
+		t.Fatalf("ReplacePeer: %v", err)
+	}
+	defer replacement.Close()
+
+	if replacement == old {
+		t.Fatal("ReplacePeer returned the old peer")
+	}
+	if old.pc.ConnectionState() != webrtc.PeerConnectionStateClosed {
+		t.Fatalf("old peer state = %s, want closed", old.pc.ConnectionState())
+	}
+	if s.GetPeer("alice") != replacement {
+		t.Fatal("replacement peer is not registered")
+	}
+	if got := len(s.rooms["call1"].Participants()); got != 1 {
+		t.Fatalf("participants = %d, want 1", got)
 	}
 }

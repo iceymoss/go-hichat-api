@@ -35,6 +35,7 @@ const DEFAULT_ICE: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
 const ICE_RESTART_DELAY_MS = 1500;
 const ICE_RESTART_RETRY_MS = 5000;
 const MAX_ICE_RESTARTS = 2;
+const MAX_MEDIA_RECONNECTS = 1;
 
 export class SFUGroupEngine {
   private ws: WebSocket | null = null;
@@ -52,6 +53,7 @@ export class SFUGroupEngine {
   private negotiation = Promise.resolve();
   private iceRestartTimer: ReturnType<typeof setTimeout> | null = null;
   private iceRestartAttempts = 0;
+  private mediaReconnectAttempts = 0;
   private readonly sessionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -218,6 +220,12 @@ export class SFUGroupEngine {
         this.diagnose('ice_candidate_received', this.candidateSummary(data));
         void this.handleRemoteIce(data);
         break;
+      case 'sfu_reconnect_ready':
+        this.diagnose('media_reconnect_ready', { reconnect_attempt: this.mediaReconnectAttempts });
+        this.publish().catch((error) => {
+          this.diagnose('negotiation_error', { error: this.errorSummary(error), stage: 'media_reconnect_publish' });
+        });
+        break;
       case 'sfu_peer_left': {
         const uid = data.uid as string;
         this.diagnose('peer_left', { peer_uid: uid || '', ended: data.ended === true });
@@ -331,8 +339,7 @@ export class SFUGroupEngine {
       if (!this.pc || (this.pc.connectionState !== 'disconnected' && this.pc.connectionState !== 'failed')) return;
       if (this.iceRestartAttempts >= MAX_ICE_RESTARTS) {
         this.diagnose('ice_restart_exhausted', { attempts: this.iceRestartAttempts });
-        this.cb.onError('call.err.connect');
-        this.hangup();
+        this.rebuildMediaConnection();
         return;
       }
       this.iceRestartAttempts += 1;
@@ -341,6 +348,26 @@ export class SFUGroupEngine {
       this.sendWs('sfu_restart', { call_id: this.callId });
       this.scheduleIceRestart();
     }, delay);
+  }
+
+  private rebuildMediaConnection() {
+    if (this.mediaReconnectAttempts >= MAX_MEDIA_RECONNECTS) {
+      this.cb.onError('call.err.connect');
+      this.hangup();
+      return;
+    }
+    this.mediaReconnectAttempts += 1;
+    this.clearIceRestartTimer();
+    this.iceRestartAttempts = 0;
+    try { this.pc?.close(); } catch { /* ignore */ }
+    this.pc = null;
+    this.remoteDescSet = false;
+    this.pendingIce = [];
+    this.negotiation = Promise.resolve();
+    for (const uid of this.remoteUids) this.cb.onParticipantLeft(uid);
+    this.remoteUids.clear();
+    this.diagnose('media_reconnect_requested', { reconnect_attempt: this.mediaReconnectAttempts });
+    this.sendWs('sfu_reconnect', { call_id: this.callId });
   }
 
   private clearIceRestartTimer() {
@@ -478,6 +505,7 @@ export class SFUGroupEngine {
     if (this.joinTimer) { clearTimeout(this.joinTimer); this.joinTimer = null; }
     this.clearIceRestartTimer();
     this.iceRestartAttempts = 0;
+    this.mediaReconnectAttempts = 0;
     try { this.pc?.close(); } catch { /* ignore */ }
     this.pc = null;
     this.remoteDescSet = false;

@@ -44,15 +44,17 @@ const (
 	MessageTypePeerLeft     SignalingMessageType = "peer_left"     // 通知房间内其他人：有人离开（关连接）
 
 	// 群组 SFU 媒体协商（客户端与 streaming 内 SFU 建一条 PeerConnection）
-	MessageTypeSFUPublish       SignalingMessageType = "sfu_publish"        // C->S：发布 offer
-	MessageTypeSFUPublishAnswer SignalingMessageType = "sfu_publish_answer" // S->C：对发布的 answer
-	MessageTypeSFUOffer         SignalingMessageType = "sfu_offer"          // S->C：服务端发起的 renegotiation offer
-	MessageTypeSFUAnswer        SignalingMessageType = "sfu_answer"         // C->S：对 renegotiation 的 answer
-	MessageTypeSFUIce           SignalingMessageType = "sfu_ice"            // 双向：trickle ICE candidate
-	MessageTypeSFURestart       SignalingMessageType = "sfu_restart"        // C->S：请求 SFU 发起 ICE restart offer
-	MessageTypeSFUDiagnostic    SignalingMessageType = "sfu_diagnostic"     // C->S：浏览器 SFU 状态诊断事件
-	MessageTypeSFUPeerLeft      SignalingMessageType = "sfu_peer_left"      // S->C：某参与者离开（移除 tile）
-	MessageTypeSFUMediaState    SignalingMessageType = "sfu_media_state"    // 双向：开关麦/摄像头状态同步
+	MessageTypeSFUPublish        SignalingMessageType = "sfu_publish"         // C->S：发布 offer
+	MessageTypeSFUPublishAnswer  SignalingMessageType = "sfu_publish_answer"  // S->C：对发布的 answer
+	MessageTypeSFUOffer          SignalingMessageType = "sfu_offer"           // S->C：服务端发起的 renegotiation offer
+	MessageTypeSFUAnswer         SignalingMessageType = "sfu_answer"          // C->S：对 renegotiation 的 answer
+	MessageTypeSFUIce            SignalingMessageType = "sfu_ice"             // 双向：trickle ICE candidate
+	MessageTypeSFURestart        SignalingMessageType = "sfu_restart"         // C->S：请求 SFU 发起 ICE restart offer
+	MessageTypeSFUDiagnostic     SignalingMessageType = "sfu_diagnostic"      // C->S：浏览器 SFU 状态诊断事件
+	MessageTypeSFUReconnect      SignalingMessageType = "sfu_reconnect"       // C->S：原地替换失效的 SFU PeerConnection
+	MessageTypeSFUReconnectReady SignalingMessageType = "sfu_reconnect_ready" // S->C：替换完成，客户端可重新 publish
+	MessageTypeSFUPeerLeft       SignalingMessageType = "sfu_peer_left"       // S->C：某参与者离开（移除 tile）
+	MessageTypeSFUMediaState     SignalingMessageType = "sfu_media_state"     // 双向：开关麦/摄像头状态同步
 
 	// 会议功能
 	MessageTypeMeetingCreate  SignalingMessageType = "meeting_create"

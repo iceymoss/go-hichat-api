@@ -21,7 +21,8 @@ var sensitiveFields = map[string]struct{}{
 var allowedFields = map[string]struct{}{
 	"attempt": {}, "attempts": {}, "audio_tracks": {}, "candidate_type": {}, "ended": {},
 	"error": {}, "kind": {}, "message_type": {}, "participant_count": {}, "peer_uid": {},
-	"phase": {}, "protocol": {}, "reason": {}, "remaining_count": {}, "replaced": {}, "sdp_bytes": {}, "signaling_state": {},
+	"reconnect_attempt": {},
+	"phase":             {}, "protocol": {}, "reason": {}, "remaining_count": {}, "replaced": {}, "sdp_bytes": {}, "signaling_state": {},
 	"stage": {}, "state": {}, "tcp_type": {}, "track_state": {}, "video_tracks": {},
 }
 

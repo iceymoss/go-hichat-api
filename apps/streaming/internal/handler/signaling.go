@@ -250,6 +250,8 @@ func (s *SignalingServer) route(c *clientConn, msg *types.SignalingMessage) {
 		s.handleSFURestart(c, msg)
 	case types.MessageTypeSFUDiagnostic:
 		s.handleSFUDiagnostic(c, msg)
+	case types.MessageTypeSFUReconnect:
+		s.handleSFUReconnect(c, msg)
 	case types.MessageTypeSFUMediaState:
 		s.handleSFUMediaState(c, msg)
 	case types.MessageTypeOffer, types.MessageTypeAnswer, types.MessageTypeIceCandidate, types.MessageTypeMediaState:
@@ -430,6 +432,11 @@ func (s *SignalingServer) setupSFUPeer(c *clientConn, callID string) error {
 	if err != nil {
 		return err
 	}
+	s.wireSFUPeer(c, callID, peer)
+	return nil
+}
+
+func (s *SignalingServer) wireSFUPeer(c *clientConn, callID string, peer *sfu.Peer) {
 	peer.OnOffer(func(sdp string) {
 		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "sfu_offer_sent", Fields: map[string]any{"sdp_bytes": len(sdp)}})
 		s.send(c, &types.SignalingMessage{
@@ -464,6 +471,15 @@ func (s *SignalingServer) setupSFUPeer(c *clientConn, callID string) error {
 		s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "peer_state", Fields: map[string]any{"state": state.String()}})
 		zLog.Info("sfu peer state changed", zap.String("uid", c.uid), zap.String("call_id", callID), zap.String("state", state.String()))
 	})
+}
+
+func (s *SignalingServer) replaceSFUPeer(c *clientConn, callID string) error {
+	iceServers := sfu.STUNServers("stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302")
+	peer, err := s.sfu.ReplacePeer(callID, c.uid, iceServers)
+	if err != nil {
+		return err
+	}
+	s.wireSFUPeer(c, callID, peer)
 	return nil
 }
 
@@ -549,10 +565,26 @@ func (s *SignalingServer) handleSFURestart(c *clientConn, msg *types.SignalingMe
 	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "ice_restart_requested"})
 }
 
+func (s *SignalingServer) handleSFUReconnect(c *clientConn, msg *types.SignalingMessage) {
+	callID := msgCallID(msg)
+	if !s.groups.HasParticipant(callID, c.uid) {
+		s.sendError(c, "not a group participant")
+		return
+	}
+	if err := s.replaceSFUPeer(c, callID); err != nil {
+		zLog.Warn("replace sfu peer failed", zap.String("uid", c.uid), zap.String("call_id", callID), zap.Error(err))
+		s.sendError(c, "sfu reconnect failed")
+		return
+	}
+	s.writeDiagnostic(diagnostics.Event{Source: "server", UID: c.uid, CallID: callID, Name: "media_reconnect_ready"})
+	s.send(c, &types.SignalingMessage{Type: types.MessageTypeSFUReconnectReady, RoomID: callID, Data: map[string]any{"call_id": callID}})
+}
+
 var allowedDiagnosticEvents = map[string]struct{}{
 	"cleanup": {}, "group_ready": {}, "ice_candidate_error": {}, "ice_candidate_received": {},
 	"ice_candidate_sent": {}, "ice_gathering_state": {}, "ice_restart_exhausted": {},
 	"ice_restart_requested": {}, "ice_state": {}, "negotiation_error": {}, "peer_left": {},
+	"media_reconnect_requested": {}, "media_reconnect_ready": {},
 	"peer_state": {}, "publish_started": {}, "remote_track": {}, "sfu_answer_received": {},
 	"sfu_offer_received": {}, "ws_closed": {}, "ws_error": {}, "ws_opened": {},
 }
