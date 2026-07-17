@@ -282,8 +282,14 @@ message FriendPutInReq {
   string reqMsg = 4;
   int64  reqTime = 5;
   string remark = 6; // 申请人为对方预设的备注（对方通过后写入申请人侧好友关系）
+  string actorUid = 7; // 当前操作者；公开 API 只能从 JWT 填充
 }
-message FriendPutInResp {}
+message FriendPutInResp {
+  int64 requestId = 1;
+  int32 status = 2; // 0=pending, 1=accepted, 2=rejected
+  bool alreadyPending = 3;
+  bool alreadyFriend = 4;
+}
 
 message FriendPutInHandleReq {
   int32  friendReqId = 1;
@@ -292,8 +298,13 @@ message FriendPutInHandleReq {
   string remark = 4;       // [新增] 备注
   repeated string tags = 5; // [新增] 标签
   string handleMsg = 6;    // 处理附言/回复
+  string actorUid = 7;     // 当前操作者；公开 API 只能从 JWT 填充
 }
-message FriendPutInHandleResp {}
+message FriendPutInHandleResp {
+  int64 requestId = 1;
+  int32 handleResult = 2;
+  bool idempotent = 3;
+}
 
 message FriendPutInReadReq {
   string userId = 1;

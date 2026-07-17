@@ -1,19 +1,29 @@
 package svc
 
 import (
+	"context"
+
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	mq_client "github.com/iceymoss/go-hichat-api/apps/task/mq/mq_client"
+	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/userclient"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"github.com/zeromicro/go-zero/zrpc"
+	"google.golang.org/grpc"
+	"gorm.io/gorm"
 )
+
+type UserLookup interface {
+	GetUserById(ctx context.Context, in *user.GetUserByIdRequest, opts ...grpc.CallOption) (*user.GetUserByIdResponse, error)
+}
 
 type ServiceContext struct {
 	Config config.Config
+	DB     *gorm.DB
 
 	socialmodels.FriendsModel        //好友关系表
 	socialmodels.FriendRequestsModel //好友申请表
@@ -30,7 +40,7 @@ type ServiceContext struct {
 	// RelationCache 关系缓存：变更后 best-effort 同步，让闸门即时生效
 	RelationCache *relationcache.Cache
 
-	User userclient.User
+	User UserLookup
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -39,6 +49,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 	return &ServiceContext{
 		Config:              c,
+		DB:                  db.GetMysqlConn(db.MYSQL_DB_HICHAT2),
 		FriendsModel:        socialmodels.NewFriendsModel(sqlConn, c.Cache),
 		FriendRequestsModel: socialmodels.NewFriendRequestsModel(sqlConn, c.Cache),
 		GroupsModel:         socialmodels.NewGroupsModel(sqlConn, c.Cache),

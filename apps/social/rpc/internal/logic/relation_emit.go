@@ -2,16 +2,15 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 
+	"github.com/zeromicro/go-zero/core/jsonx"
 	"gorm.io/gorm"
 )
 
@@ -25,7 +24,7 @@ func emitRelationChange(ctx context.Context, svcCtx *svc.ServiceContext, eventTy
 		ev.Timestamp = time.Now().UnixMilli()
 	}
 
-	tx := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).Begin()
+	tx := svcCtx.DB.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -35,7 +34,7 @@ func emitRelationChange(ctx context.Context, svcCtx *svc.ServiceContext, eventTy
 		return err
 	}
 
-	body, err := json.Marshal(ev)
+	body, err := jsonx.Marshal(ev)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -62,11 +61,14 @@ func emitRelationChangeInTx(tx *gorm.DB, svcCtx *svc.ServiceContext, eventType, 
 	if ev.Timestamp == 0 {
 		ev.Timestamp = time.Now().UnixMilli()
 	}
-	body, err := json.Marshal(ev)
+	body, err := jsonx.Marshal(ev)
 	if err != nil {
 		return err
 	}
 	row := &objects.RelationOutbox{EventType: eventType, GroupID: groupId, Payload: string(body), Status: 0}
+	if svcCtx.RelationOutboxModel == nil {
+		return tx.Create(row).Error
+	}
 	return svcCtx.RelationOutboxModel.InsertTx(tx, row)
 }
 

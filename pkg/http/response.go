@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
 	zrpcErr "github.com/zeromicro/x/errors"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -57,6 +58,31 @@ func ErrHandler(name string) func(ctx context.Context, err error) (int, any) {
 		// 日志记录
 		logx.WithContext(ctx).Errorf("【%s】 err %v", name, err)
 
-		return http.StatusBadRequest, Fail(errcode, errmsg)
+		return errorHTTPStatus(causeErr), Fail(errcode, errmsg)
+	}
+}
+
+func errorHTTPStatus(err error) int {
+	switch status.Code(err) {
+	case codes.InvalidArgument:
+		return http.StatusBadRequest
+	case codes.Unauthenticated:
+		return http.StatusUnauthorized
+	case codes.PermissionDenied:
+		return http.StatusForbidden
+	case codes.NotFound:
+		return http.StatusNotFound
+	case codes.AlreadyExists, codes.Aborted, codes.FailedPrecondition:
+		return http.StatusConflict
+	case codes.ResourceExhausted:
+		return http.StatusTooManyRequests
+	case codes.DeadlineExceeded:
+		return http.StatusGatewayTimeout
+	case codes.Unavailable:
+		return http.StatusServiceUnavailable
+	case codes.Internal, codes.DataLoss:
+		return http.StatusInternalServerError
+	default:
+		return http.StatusBadRequest
 	}
 }

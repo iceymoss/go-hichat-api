@@ -59,12 +59,15 @@ type (
 		Id              string `json:"id,omitempty"`
 		Name            string `json:"name,omitempty"`
 		Icon            string `json:"icon,omitempty"`
+		Description     string `json:"description,omitempty"` // 群描述
 		Status          int64  `json:"status,omitempty"`
 		GroupType       int64  `json:"group_type,omitempty"`
 		IsVerify        bool   `json:"is_verify,omitempty"`
 		Notification    string `json:"notification,omitempty"`
 		NotificationUid string `json:"notification_uid,omitempty"`
 		CreateUid       string `json:"create_uid,omitempty"`
+		GroupNickname   string `json:"group_nickname,omitempty"`
+		GroupRemark     string `json:"group_remark,omitempty"`
 	}
 	User {
 		Id            string `json:"id,omitempty"`
@@ -80,9 +83,11 @@ type (
 		UserId        string `json:"user_id,omitempty"`
 		Nickname      string `json:"nickname,omitempty"`
 		UserAvatarUrl string `json:"user_avatar_url,omitempty"`
-		RoleLevel     int    `json:"role_level,omitempty"`
+		RoleLevel     int    `json:"role_level"`
 		InviterUid    string `json:"inviter_uid,omitempty"`
 		OperatorUid   string `json:"operator_uid,omitempty"`
+		GroupNickname string `json:"group_nickname,omitempty"`
+		GroupRemark   string `json:"group_remark,omitempty"`
 		User          User   `json:"user,omitempty"`
 	}
 	GroupRequests {
@@ -111,7 +116,12 @@ type (
 		UserId  string `json:"user_uid"`
 		Remark  string `json:"remark,optional"` // 申请人为对方预设的备注
 	}
-	FriendPutInResp  {}
+	FriendPutInResp {
+		RequestId      int64 `json:"request_id"`
+		Status         int32 `json:"status"`
+		AlreadyPending bool  `json:"already_pending"`
+		AlreadyFriend  bool  `json:"already_friend"`
+	}
 )
 
 // 好友管理：备注/删除/拉黑/朋友圈权限/分享/通知/置顶/静音/标签/举报
@@ -171,10 +181,15 @@ type (
 	FriendPutInHandleReq {
 		FriendReqId  int32    `json:"friend_req_id,omitempty"`
 		HandleResult int32    `json:"handle_result,omitempty"` // 处理结果
+		HandleMsg    string   `json:"handle_msg,optional"` // 处理附言/回复
 		Remark       string   `json:"remark,omitempty"` // 备注
 		Tags         []string `json:"tags,omitempty"` // 标签
 	}
-	FriendPutInHandleResp  {}
+	FriendPutInHandleResp {
+		RequestId    int64 `json:"request_id"`
+		HandleResult int32 `json:"handle_result"`
+		Idempotent   bool  `json:"idempotent"`
+	}
 )
 
 type (
@@ -198,7 +213,7 @@ type (
 	FriendPutInDeleteResp  {}
 	FriendPutInMessageCountReq  {}
 	FriendPutInMessageCountResp {
-		Count int32 `json:"count,omitempty"` // 消息数量
+		Count int32 `json:"count"` // 未读消息数量（确保 0 也返回）
 	}
 )
 
@@ -211,8 +226,9 @@ type (
 
 type (
 	GroupCreateReq {
-		Name string `json:"name,omitempty"`
-		Icon string `json:"icon,omitempty"`
+		Name        string `json:"name,omitempty"`
+		Icon        string `json:"icon,omitempty"`
+		Description string `json:"description,optional"`
 	}
 	GroupCreateResp {
 		GroupId string `json:"group_id"`
@@ -246,9 +262,9 @@ type (
 
 type (
 	GroupPutInListReq {
-		GroupId string  `json:"group_id,omitempty"`
-		Type    []int32 `json:"type,optional"`
-		Class   int32   `json:"class,optional"`
+		GroupId string  `form:"group_id,optional"`
+		Type    []int32 `form:"type,optional"`
+		Class   int32   `form:"class,optional"`
 	}
 	GroupPutInListResp {
 		List []*GroupRequests `json:"list,omitempty"`
@@ -257,9 +273,9 @@ type (
 
 type (
 	GetGroupPutListByUidReq {
-		Ids   []string `json:"ids,optional"` // 用户id列表
-		Class string   `json:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
-		Type  string   `json:"type,optional"` // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
+		Ids   []string `form:"ids,optional"` // 用户id列表
+		Class string   `form:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
+		Type  string   `form:"type,optional"` // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
 	}
 	GetGroupPutListByUidResp {
 		List []*GroupRequests `json:"list,omitempty"`
@@ -275,7 +291,7 @@ type (
 
 type (
 	GroupUserListReq {
-		GroupId string `json:"group_id,omitempty"`
+		GroupId string `form:"group_id,optional"`
 	}
 	GroupUserListResp {
 		List []*GroupMembers `json:"List,omitempty"`
@@ -310,6 +326,7 @@ type (
 		GroupId      string `json:"group_id"`
 		Name         string `json:"name,optional"`
 		Icon         string `json:"icon,optional"`
+		Description  string `json:"description,optional"`
 		Notification string `json:"notification,optional"`
 		IsVerify     int32  `json:"is_verify,optional"` // -1不修改 0不需要验证 1需要验证
 	}
@@ -473,7 +490,7 @@ type (
 
 type (
 	GroupUserOnlineReq {
-		GroupId string `json:"group_id,omitempty"`
+		GroupId string `form:"group_id,optional"`
 	}
 	GroupUserOnlineResp {
 		OnlineList map[string]bool `json:"onLineList"`
