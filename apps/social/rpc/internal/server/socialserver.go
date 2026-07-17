@@ -257,3 +257,18 @@ func (s *SocialServer) GroupAnnouncementPin(ctx context.Context, in *social.Grou
 	l := logic.NewGroupAnnouncementPinLogic(ctx, s.svcCtx)
 	return l.GroupAnnouncementPin(in)
 }
+
+func (s *SocialServer) GroupInvitationCreate(ctx context.Context, in *social.GroupInvitationCreateReq) (*social.GroupInvitationCreateResp, error) {
+	l := logic.NewGroupInvitationCreateLogic(ctx, s.svcCtx)
+	return l.GroupInvitationCreate(in)
+}
+
+func (s *SocialServer) GroupInvitationList(ctx context.Context, in *social.GroupInvitationListReq) (*social.GroupInvitationListResp, error) {
+	l := logic.NewGroupInvitationListLogic(ctx, s.svcCtx)
+	return l.GroupInvitationList(in)
+}
+
+func (s *SocialServer) GroupInvitationHandle(ctx context.Context, in *social.GroupInvitationHandleReq) (*social.GroupInvitationHandleResp, error) {
+	l := logic.NewGroupInvitationHandleLogic(ctx, s.svcCtx)
+	return l.GroupInvitationHandle(in)
+}

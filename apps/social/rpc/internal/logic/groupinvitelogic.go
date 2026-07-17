@@ -2,59 +2,113 @@ package logic
 
 import (
 	"context"
-
+	"strconv"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 
-	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 type GroupInviteLogic struct {
-	ctx    context.Context
-	svcCtx *svc.ServiceContext
+	ctx context.Context
+	*svc.ServiceContext
 	logx.Logger
 }
 
 func NewGroupInviteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GroupInviteLogic {
-	return &GroupInviteLogic{
-		ctx:    ctx,
-		svcCtx: svcCtx,
-		Logger: logx.WithContext(ctx),
-	}
+	return &GroupInviteLogic{ctx: ctx, ServiceContext: svcCtx, Logger: logx.WithContext(ctx)}
 }
 
 func (l *GroupInviteLogic) GroupInvite(in *social.GroupInviteReq) (*social.GroupInviteResp, error) {
-	// 说明：邀请入群在业务上属于 GroupPutin 的一个分支（joinSource=邀请）。
-	// 这里保留 GroupInvite 只是为了 API/前端兼容，内部统一走 GroupPutin，避免两套逻辑不一致。
-
-	// inviter 必须是群成员（否则不允许“替别人申请入群”）
-	_, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.UserId, in.GroupId)
+	actorText := in.ActorUid
+	if actorText == "" {
+		actorText = in.UserId
+	}
+	if in.ActorUid == "" {
+		return nil, status.Error(codes.Unauthenticated, "actor uid is required")
+	}
+	if in.UserId != "" && in.UserId != in.ActorUid {
+		return nil, status.Error(codes.PermissionDenied, "actor uid does not match user id")
+	}
+	actor, err := parsePositiveID(actorText, "actor uid")
 	if err != nil {
-		return nil, errors.Wrapf(xerr.NewMsg("inviter not in group"), "inviter not in group")
+		return nil, err
 	}
-
-	putin := NewGroupPutinLogic(l.ctx, l.svcCtx)
-	now := time.Now().Unix()
-
-	for _, friendId := range in.FriendIds {
-		_, err := putin.GroupPutin(&social.GroupPutinReq{
-			GroupId:    in.GroupId,
-			ReqId:      friendId, // 被邀请者
-			ReqMsg:     "invited",
-			ReqTime:    now,
-			JoinSource: int32(constants.InviteGroupJoinSource),
-			InviterUid: in.UserId, // 邀请者
-		})
+	if err := requireNormalUser(l.ctx, l.User, actorText); err != nil {
+		return nil, err
+	}
+	groupID, err := parsePositiveID(in.GroupId, "group id")
+	if err != nil {
+		return nil, err
+	}
+	invitees := make([]uint64, 0, len(in.FriendIds))
+	seen := make(map[uint64]struct{}, len(in.FriendIds))
+	for _, id := range in.FriendIds {
+		invitee, err := parsePositiveID(id, "invitee uid")
 		if err != nil {
-			// 不阻塞其它邀请，记录日志即可
-			l.Logger.Errorf("GroupInvite->GroupPutin failed: groupId=%s inviter=%s friend=%s err=%v", in.GroupId, in.UserId, friendId, err)
+			return nil, err
 		}
+		if invitee == actor {
+			return nil, status.Error(codes.InvalidArgument, "cannot invite yourself")
+		}
+		if _, duplicate := seen[invitee]; duplicate {
+			return nil, status.Error(codes.InvalidArgument, "duplicate invitee uid")
+		}
+		seen[invitee] = struct{}{}
+		if err := requireNormalUser(l.ctx, l.User, id); err != nil {
+			return nil, err
+		}
+		invitees = append(invitees, invitee)
+	}
+	if len(invitees) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "at least one invitee is required")
 	}
 
-	return &social.GroupInviteResp{}, nil
+	invitations := make([]objects.GroupInvitation, 0, len(invitees))
+	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
+		if _, err := loadNormalGroup(tx, groupID); err != nil {
+			return err
+		}
+		member, err := loadGroupMember(tx, groupID, actor)
+		if err != nil {
+			return err
+		}
+		if member == nil {
+			return status.Error(codes.PermissionDenied, "inviter must be a current group member")
+		}
+		for _, invitee := range invitees {
+			existing, err := loadGroupMember(tx, groupID, invitee)
+			if err != nil {
+				return err
+			}
+			if existing != nil {
+				return status.Error(codes.AlreadyExists, "invitee is already a group member")
+			}
+			now := time.Now()
+			invitations = append(invitations, objects.GroupInvitation{
+				GroupID: groupID, InviterUID: actor, InviteeUID: invitee, InviterRoleSnapshot: member.RoleLevel,
+				Message: "", Status: groupInvitationPending, CreatedAt: now, ExpiresAt: now.Add(7 * 24 * time.Hour),
+			})
+		}
+		return tx.Create(&invitations).Error
+	})
+	if err != nil {
+		return nil, normalizeGroupWriteError(err, "failed to create group invitations")
+	}
+	ids := make([]uint64, len(invitations))
+	for i := range invitations {
+		ids[i] = invitations[i].ID
+		emitCommonNotify(l.ctx, l.ServiceContext, &mq.CommonNotify{
+			NotifyType: NotifyGroupInvite, ReceiverId: strconv.FormatUint(invitations[i].InviteeUID, 10), ActorId: actorText,
+			BizId: "group.invite:" + strconv.FormatUint(invitations[i].ID, 10), GroupId: in.GroupId,
+		})
+	}
+	return &social.GroupInviteResp{InvitationIds: ids}, nil
 }

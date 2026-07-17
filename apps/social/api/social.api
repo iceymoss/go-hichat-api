@@ -237,27 +237,32 @@ type (
 
 type (
 	GroupPutInReq {
-		GroupId    string `json:"group_id,optional"` // 群ID（普通申请/邀请入群时必传，token入群时可为空）
-		ReqId      string `json:"req_id,optional"` // 申请者/被邀请者ID（邀请入群时必传，普通申请时为空则使用当前用户ID）
-		ReqMsg     string `json:"req_msg,optional"` // 申请消息
-		ReqTime    int64  `json:"req_time,optional"` // 请求时间
-		JoinSource int64  `json:"join_source,optional"` // 1=申请入群, 2=邀请入群, 3=邀请链接/二维码入群
-		InviterUid string `json:"inviter_uid,optional"` // 邀请人UID（邀请入群/token入群时必传）
-		Token      string `json:"token,optional"` // 邀请链接token（token入群时必传，此时groupId可为空）
+		GroupId string `json:"group_id,optional"` // 群ID（普通申请时必传，token入群时可为空）
+		ReqMsg  string `json:"req_msg,optional"` // 申请消息
+		Token   string `json:"token,optional"` // 邀请链接token
 	}
 	GroupPutInResp {
-		GroupId int `json:"group_id,omitempty"`
-		IsPass  int `json:"is_pass,omitempty"` // 1=直接进群, 0=进入申请流程
+		GroupId        int    `json:"group_id,omitempty"`
+		GroupIdString  string `json:"group_id_string,omitempty"`
+		IsPass         int    `json:"is_pass,omitempty"` // 1=直接进群, 0=进入申请流程
+		RequestId      uint64 `json:"request_id,omitempty"`
+		Status         int32  `json:"status"`
+		AlreadyPending bool   `json:"already_pending,omitempty"`
+		AlreadyMember  bool   `json:"already_member,omitempty"`
 	}
 )
 
 type (
 	GroupPutInHandleReq {
-		GroupReqId   int32  `json:"group_req_id,omitempty"`
-		GroupId      string `json:"group_id,omitempty"`
+		GroupReqId   uint64 `json:"group_req_id"`
 		HandleResult int32  `json:"handle_result,omitempty"` // 处理结果
+		HandleMsg    string `json:"handle_msg,optional"`
 	}
-	GroupPutInHandleResp  {}
+	GroupPutInHandleResp {
+		RequestId    uint64 `json:"request_id,omitempty"`
+		HandleResult int32  `json:"handle_result"`
+		Idempotent   bool   `json:"idempotent,omitempty"`
+	}
 )
 
 type (
@@ -273,9 +278,8 @@ type (
 
 type (
 	GetGroupPutListByUidReq {
-		Ids   []string `form:"ids,optional"` // 用户id列表
-		Class string   `form:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
-		Type  string   `form:"type,optional"` // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
+		Class string `form:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
+		Type  string `form:"type,optional"` // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
 	}
 	GetGroupPutListByUidResp {
 		List []*GroupRequests `json:"list,omitempty"`
@@ -319,6 +323,52 @@ type (
 		FriendIds []string `json:"friend_ids"`
 	}
 	GroupInviteResp  {}
+)
+
+type (
+	GroupInvitation {
+		Id                  uint64 `json:"id"`
+		GroupId             string `json:"group_id"`
+		InviterUid          string `json:"inviter_uid"`
+		InviteeUid          string `json:"invitee_uid"`
+		InviterRoleSnapshot int32  `json:"inviter_role_snapshot"`
+		Message             string `json:"message,omitempty"`
+		Status              int32  `json:"status"` // 0=pending, 1=accepted, 2=rejected, 3=expired, 4=invalidated
+		RejectReason        string `json:"reject_reason,omitempty"`
+		CreatedAt           int64  `json:"created_at"`
+		HandledAt           int64  `json:"handled_at,omitempty"`
+		ExpiresAt           int64  `json:"expires_at"`
+	}
+	GroupInvitationCreateReq {
+		GroupId    string `json:"group_id"`
+		InviteeUid string `json:"invitee_uid"`
+		Message    string `json:"message,optional"`
+	}
+	GroupInvitationCreateResp {
+		Invitation GroupInvitation `json:"invitation"`
+	}
+	GroupInvitationListReq {
+		Status *int32 `form:"status,optional"`
+		Page   int32  `form:"page,optional"`
+		Size   int32  `form:"size,optional"`
+	}
+	GroupInvitationListResp {
+		List  []GroupInvitation `json:"list"`
+		Total int64             `json:"total"`
+	}
+	GroupInvitationHandleReq {
+		Id        uint64 `path:"id"`
+		Result    int32  `json:"result"`
+		HandleMsg string `json:"handle_msg,optional"`
+	}
+	GroupInvitationHandleResp {
+		InvitationId   uint64 `json:"invitation_id"`
+		Status         int32  `json:"status"`
+		JoinState      string `json:"join_state"`
+		GroupRequestId uint64 `json:"group_request_id,omitempty"`
+		Idempotent     bool   `json:"idempotent,omitempty"`
+		GroupId        string `json:"group_id"`
+	}
 )
 
 type (
@@ -653,6 +703,18 @@ service social {
 	@doc "邀请群成员"
 	@handler groupInvite
 	post /group/invite (GroupInviteReq) returns (GroupInviteResp)
+
+	@doc "创建群邀请"
+	@handler groupInvitationCreate
+	post /group/invitations (GroupInvitationCreateReq) returns (GroupInvitationCreateResp)
+
+	@doc "收到的群邀请"
+	@handler groupInvitationList
+	get /group/invitations (GroupInvitationListReq) returns (GroupInvitationListResp)
+
+	@doc "处理群邀请"
+	@handler groupInvitationHandle
+	put /group/invitations/:id (GroupInvitationHandleReq) returns (GroupInvitationHandleResp)
 
 	@doc "更新群信息"
 	@handler groupUpdate

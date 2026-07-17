@@ -2,239 +2,378 @@ package logic
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
+	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 
-	libErr "github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
-	Group_Members  = "group_members"
-	Group_Requests = "group_requests"
+	groupRequestPending  = 0
+	groupRequestAccepted = 1
+	groupRequestRejected = 2
+
+	groupInvitationPending     = 0
+	groupInvitationAccepted    = 1
+	groupInvitationRejected    = 2
+	groupInvitationExpired     = 3
+	groupInvitationInvalidated = 4
 )
 
 type GroupPutinLogic struct {
-	ctx    context.Context
-	svcCtx *svc.ServiceContext
+	ctx context.Context
+	*svc.ServiceContext
 	logx.Logger
 }
 
 func NewGroupPutinLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GroupPutinLogic {
-	return &GroupPutinLogic{
-		ctx:    ctx,
-		svcCtx: svcCtx,
-		Logger: logx.WithContext(ctx),
-	}
+	return &GroupPutinLogic{ctx: ctx, ServiceContext: svcCtx, Logger: logx.WithContext(ctx)}
 }
 
-// GroupPutin 加入群聊
 func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPutinResp, error) {
-	//  1. 普通用户申请 ： 如果群无验证直接进入
-	//  2. 群成员邀请： 如果群无验证直接进入
-	//  3. 群管理员/群创建者邀请：直接进入群
-
-	var (
-		inviteGroupMember socialmodels.GroupMembers
-		userGroupMember   socialmodels.GroupMembers
-		groupInfo         *socialmodels.Groups
-		err               error
-	)
-
-	//查询用户是否已加入群
-	userGroupMember, err = l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.ReqId, in.GroupId)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, libErr.Wrapf(xerr.NewDBErr(), "find group member by groud id and  req id err %v, req %v, %v", err, in.GroupId, in.ReqId)
-	}
-
-	// 如果已经加入
-	if userGroupMember.Id != 0 {
-		return &social.GroupPutinResp{}, nil
-	}
-
-	//查询用户是否已经申请过加入群聊
-	groupReq, err := l.svcCtx.GroupRequestsModel.FindByGroupIdAndReqId(l.ctx, in.GroupId, in.ReqId)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, libErr.Wrapf(xerr.NewDBErr(), "find group req by groud id and user id err %v, req %v, %v", err,
-			in.GroupId, in.ReqId)
-	}
-
-	// 如果已经申请过
-	if groupReq.Id != 0 {
-		// 删除之前的记录，重新创建申请：删除之前的记录，重新创建申请
-		err = l.svcCtx.GroupRequestsModel.Delete(l.ctx, groupReq.Id)
-	}
-
-	// 构建申请
-	groupReqTemp := &socialmodels.GroupRequests{
-		ReqId:   in.ReqId,   // 申请用户id
-		GroupId: in.GroupId, // 请求加入的群id
-		ReqMsg: sql.NullString{ // 请求消息
-			String: in.ReqMsg,
-			Valid:  true,
-		},
-		ReqTime: sql.NullTime{ //请求时间
-			Time:  time.Unix(in.ReqTime, 0),
-			Valid: true,
-		},
-		JoinSource: sql.NullInt64{ //请求来源
-			Int64: int64(in.JoinSource),
-			Valid: true,
-		},
-		InviterUserId: sql.NullString{ //要求人，如果是群主和管理员，可以直接进入群聊
-			String: in.InviterUid,
-			// inviter_user_id 是 INT 列：主动申请无邀请人时写 NULL，不能写空串（否则 Error 1366）
-			Valid: in.InviterUid != "",
-		},
-		HandleResult: sql.NullInt64{ //处理结果：0未处理
-			Int64: int64(constants.NoHandlerResult),
-			Valid: true,
-		},
-	}
-
-	tx := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).Begin()
-	defer tx.Commit()
-
-	// 回调处理
-	createGroupMember := func() {
-		if err != nil {
-			return
-		}
-		err = l.createGroupMember(in, tx)
-	}
-
-	//获取群信息
-	groupInfo, err = l.svcCtx.GroupsModel.FindOne(l.ctx, in.GroupId)
+	actor, groupID, err := validateDirectGroupRequest(in)
 	if err != nil {
-		return nil, libErr.Wrapf(xerr.NewDBErr(), "find group by groud id err %v, req %v", err, in.GroupId)
+		return nil, err
+	}
+	if err := requireNormalUser(l.ctx, l.User, in.ActorUid); err != nil {
+		return nil, err
 	}
 
-	// 不需要验证，直接加入群聊
-	if groupInfo.IsVerify == 0 {
-		// 不需要，直接通过，加入群聊成员
-		defer createGroupMember()
-
-		groupReqTemp.HandleResult = sql.NullInt64{
-			Int64: int64(constants.PassHandlerResult),
-			Valid: true,
-		}
-
-		//创建请求
-		return l.createGroupReq(groupReqTemp, true, tx)
-	}
-
-	// 主动申请：验证进群方式
-	if constants.GroupJoinSource(in.JoinSource) == constants.PutInGroupJoinSource {
-		// 申请
-		return l.createGroupReq(groupReqTemp, false, tx)
-	}
-
-	// 获取邀请人的群成员信息
-	inviteGroupMember, err = l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.InviterUid, in.GroupId)
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return nil, libErr.Wrapf(xerr.NewDBErr(), "inviter uid not find: %v, groupid: %v", in.InviterUid, in.GroupId)
-	}
-
-	//验证是否为管理员或者群主
-	if constants.GroupRoleLevel(inviteGroupMember.RoleLevel) == constants.CreatorGroupRoleLevel ||
-		constants.GroupRoleLevel(inviteGroupMember.RoleLevel) == constants.ManagerGroupRoleLevel {
-		// 是管理者或创建者邀请
-		defer createGroupMember()
-
-		groupReqTemp.HandleResult = sql.NullInt64{
-			Int64: int64(constants.PassHandlerResult),
-			Valid: true,
-		}
-		groupReqTemp.HandleUserId = sql.NullString{
-			String: in.InviterUid,
-			Valid:  true,
-		}
-		return l.createGroupReq(groupReqTemp, true, tx)
-	}
-
-	// 其他情况走创建申请，都走审核流程
-	return l.createGroupReq(groupReqTemp, false, tx)
-
-}
-
-// createGroupReq 创建加群申请， isPass是否直接加群
-func (l *GroupPutinLogic) createGroupReq(groupReq *socialmodels.GroupRequests, isPass bool, tx *gorm.DB) (*social.GroupPutinResp, error) {
-
-	groupReq.HandleTime = time.Now()
-
-	// 申请入库
-	res := tx.Table(Group_Requests).Create(&groupReq)
-	if res.Error != nil || res.RowsAffected == 0 {
-		return nil, errors.New(fmt.Sprintf("groupid: %s create group req failed: err or rows = 0: %s", groupReq.GroupId, res.Error.Error()))
-	}
-
-	// 加入群聊，返回群id
-	if isPass {
-		groupIdInt, err := strconv.Atoi(groupReq.GroupId)
+	var response *social.GroupPutinResp
+	createdPending := false
+	joined := false
+	var groupCreator uint64
+	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
+		group, err := loadNormalGroup(tx, groupID)
 		if err != nil {
-			return nil, libErr.Wrapf(xerr.NewMsg("群id不合法"), "find group by groud id err %v, req %v", err, groupReq)
+			return err
 		}
-		return &social.GroupPutinResp{GroupId: int32(groupIdInt), IsPass: 1}, nil
+		groupCreator = group.CreatorUID
+		member, err := loadGroupMember(tx, groupID, actor)
+		if err != nil {
+			return err
+		}
+		if member != nil {
+			now := time.Now()
+			if err := resolvePendingGroupRequests(tx, groupID, actor, now, 1); err != nil {
+				return err
+			}
+			if err := invalidatePendingGroupInvitations(tx, groupID, actor, now); err != nil {
+				return err
+			}
+			response = groupPutinResponse(groupID, 0, groupRequestAccepted, true, false)
+			return nil
+		}
+
+		now := time.Now()
+		if group.IsVerify == 0 {
+			request := objects.GroupRequest{
+				ReqID: strconv.FormatUint(actor, 10), GroupID: groupID, ReqMsg: in.ReqMsg, ReqTime: &now,
+				JoinSource: intPtr(1), HandleResult: intPtr(groupRequestAccepted), HandleTime: &now,
+				SourceType: 1, ActualJoinSource: intPtr(1),
+			}
+			if err := tx.Create(&request).Error; err != nil {
+				return err
+			}
+			memberCreated, err := createGroupMemberAndOutbox(tx, l.ServiceContext, groupID, actor, 0, 1, nil, actor)
+			if err != nil {
+				return err
+			}
+			joined = memberCreated
+			if err := resolvePendingGroupRequests(tx, groupID, actor, now, 1); err != nil {
+				return err
+			}
+			if err := invalidatePendingGroupInvitations(tx, groupID, actor, now); err != nil {
+				return err
+			}
+			response = groupPutinResponse(groupID, request.ID, groupRequestAccepted, false, false)
+			return nil
+		}
+
+		activeKey := fmt.Sprintf("group:direct:%d:%d", groupID, actor)
+		var existing objects.GroupRequest
+		if err := tx.Where("active_key = ?", activeKey).First(&existing).Error; err == nil {
+			response = groupPutinResponse(groupID, existing.ID, groupRequestPending, false, true)
+			return nil
+		} else if err != gorm.ErrRecordNotFound {
+			return err
+		}
+		var latest objects.GroupRequest
+		if err := tx.Where("group_id = ? AND req_id = ? AND source_type = ? AND handle_result <> ?", groupID, strconv.FormatUint(actor, 10), 1, groupRequestPending).
+			Order("req_time DESC").First(&latest).Error; err == nil && latest.ReqTime != nil && now.Sub(*latest.ReqTime) < time.Minute {
+			return status.Error(codes.ResourceExhausted, "group request may only be submitted once per 60 seconds")
+		} else if err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+
+		request := objects.GroupRequest{
+			ReqID: strconv.FormatUint(actor, 10), GroupID: groupID, ReqMsg: in.ReqMsg, ReqTime: &now,
+			JoinSource: intPtr(1), HandleResult: intPtr(groupRequestPending), ActiveKey: &activeKey, SourceType: 1,
+		}
+		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&request)
+		if result.Error != nil {
+			return result.Error
+		}
+		createdPending = result.RowsAffected == 1
+		if !createdPending {
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("active_key = ?", activeKey).First(&request).Error; err != nil {
+				return err
+			}
+		}
+		response = groupPutinResponse(groupID, request.ID, groupRequestPending, false, !createdPending)
+		return nil
+	})
+	if err != nil {
+		return nil, normalizeGroupWriteError(err, "failed to submit group request")
 	}
 
-	id, _ := strconv.Atoi(groupReq.GroupId)
-	// 公共通知：入群申请待审核 -> 扇出通知群主 + 管理员
-	notifyGroupAdmins(l.ctx, l.svcCtx, groupReq.GroupId, groupReq.ReqId,
-		fmt.Sprintf("group.apply:%s:%s:%d", groupReq.GroupId, groupReq.ReqId, groupReq.ReqTime.Time.Unix()),
-		groupReq.ReqMsg.String)
-	return &social.GroupPutinResp{
-		GroupId: int32(id),
-	}, nil
+	if createdPending {
+		notifyGroupAdminsFromDB(l.ctx, l.ServiceContext, groupID, actor, response.RequestId, in.ReqMsg)
+	}
+	if joined {
+		emitCommonNotify(l.ctx, l.ServiceContext, &mq.CommonNotify{
+			NotifyType: NotifyGroupAccept, ReceiverId: in.ActorUid, ActorId: strconv.FormatUint(groupCreator, 10),
+			BizId: fmt.Sprintf("group.direct:%d", response.RequestId), GroupId: response.GroupIdString,
+		})
+	}
+	return response, nil
 }
 
-// createGroupMember 加入群
-func (l *GroupPutinLogic) createGroupMember(in *social.GroupPutinReq, tx *gorm.DB) error {
-	groupMember := &socialmodels.GroupMembers{
-		GroupId:     in.GroupId,
-		UserId:      in.ReqId,
-		RoleLevel:   int(constants.AtLargeGroupRoleLevel),
-		OperatorUid: in.InviterUid,
-		JoinTime:    time.Now(),
-		JoinSource:  int(in.JoinSource),
-		InviterUid:  in.InviterUid,
+// groupPutInByToken preserves the existing invite-link flow without reopening public
+// GroupPutin's legacy source and inviter controls.
+func (l *GroupPutinLogic) groupPutinByToken(in *social.GroupPutinReq) (*social.GroupPutinResp, error) {
+	actor, groupID, err := validateDirectGroupRequest(in)
+	if err != nil {
+		return nil, err
 	}
-	normalizeGroupMemberUid(groupMember)
-	res := tx.Table(Group_Members).Create(&groupMember)
-	if res.Error != nil || res.RowsAffected == 0 {
-		tx.Rollback()
-		return libErr.Wrapf(xerr.NewDBErr(), "insert friend err %v req %v", res.Error, groupMember)
+	inviter, err := parsePositiveID(in.InviterUid, "inviter uid")
+	if err != nil {
+		return nil, err
 	}
-
-	// 同事务写 outbox（群成员新增事件），覆盖直接入群/邀请/邀请链接三条路（均汇流于此）
-	if err := emitRelationChangeInTx(tx, l.svcCtx, constants.RelationEventGroupMemberAdded, in.GroupId,
-		&mq.RelationChangeTransfer{GroupId: in.GroupId, UserId: in.ReqId, OperatorId: in.InviterUid}); err != nil {
-		tx.Rollback()
-		return libErr.Wrapf(xerr.NewDBErr(), "emit group member added err %v req %v", err, groupMember)
+	var response *social.GroupPutinResp
+	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
+		group, err := loadNormalGroup(tx, groupID)
+		if err != nil {
+			return err
+		}
+		member, err := loadGroupMember(tx, groupID, actor)
+		if err != nil {
+			return err
+		}
+		if member != nil {
+			response = groupPutinResponse(groupID, 0, groupRequestAccepted, true, false)
+			return nil
+		}
+		inviterMember, err := loadGroupMember(tx, groupID, inviter)
+		if err != nil {
+			return err
+		}
+		now := time.Now()
+		accepted := group.IsVerify == 0 || (inviterMember != nil && (inviterMember.RoleLevel == 1 || inviterMember.RoleLevel == 2))
+		result := groupRequestPending
+		if accepted {
+			result = groupRequestAccepted
+		}
+		joinSource := int(in.JoinSource)
+		request := objects.GroupRequest{
+			ReqID: strconv.FormatUint(actor, 10), GroupID: groupID, ReqMsg: in.ReqMsg, ReqTime: &now,
+			JoinSource: &joinSource, InviterUserID: &inviter, HandleResult: &result, SourceType: 2,
+		}
+		if accepted {
+			request.HandleTime = &now
+			request.ActualJoinSource = &joinSource
+		}
+		if err := tx.Create(&request).Error; err != nil {
+			return err
+		}
+		if accepted {
+			if _, err := createGroupMemberAndOutbox(tx, l.ServiceContext, groupID, actor, 0, joinSource, &inviter, inviter); err != nil {
+				return err
+			}
+		}
+		response = groupPutinResponse(groupID, request.ID, result, false, false)
+		return nil
+	})
+	if err != nil {
+		return nil, normalizeGroupWriteError(err, "failed to join group by token")
 	}
+	return response, nil
+}
 
-	//为新成员添加会话
-	//_, err := l.svcCtx.IM.CreateGroupConversation(l.ctx, &im.CreateGroupConversationReq{
-	//	GroupId:  in.GroupId,
-	//	CreateId: in.ReqId,
-	//})
-	//if err != nil {
-	//	tx.Rollback()
-	//	zLog.Error("GroupCreate.CreateGroupConversation: create group conversation failed", zap.Any("uid", in.ReqId), zap.Error(err))
-	//	tx.Rollback()
-	//	return err
-	//}
+func validateDirectGroupRequest(in *social.GroupPutinReq) (uint64, uint64, error) {
+	if in.ActorUid == "" {
+		return 0, 0, status.Error(codes.Unauthenticated, "actor uid is required")
+	}
+	if in.ReqId != "" && in.ReqId != in.ActorUid {
+		return 0, 0, status.Error(codes.PermissionDenied, "actor uid does not match request uid")
+	}
+	actor, err := parsePositiveID(in.ActorUid, "actor uid")
+	if err != nil {
+		return 0, 0, err
+	}
+	groupID, err := parsePositiveID(in.GroupId, "group id")
+	return actor, groupID, err
+}
 
+func groupPutinResponse(groupID, requestID uint64, requestStatus int, alreadyMember, alreadyPending bool) *social.GroupPutinResp {
+	legacyID := int32(0)
+	if groupID <= uint64(^uint32(0)>>1) {
+		legacyID = int32(groupID)
+	}
+	return &social.GroupPutinResp{
+		GroupId: legacyID, GroupIdString: strconv.FormatUint(groupID, 10), RequestId: requestID,
+		IsPass: boolInt32(requestStatus == groupRequestAccepted), Status: int32(requestStatus),
+		AlreadyMember: alreadyMember, AlreadyPending: alreadyPending,
+	}
+}
+
+func boolInt32(value bool) int32 {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+func parsePositiveID(value, name string) (uint64, error) {
+	id, err := strconv.ParseUint(value, 10, 64)
+	if err != nil || id == 0 {
+		return 0, status.Errorf(codes.InvalidArgument, "%s must be a positive integer", name)
+	}
+	return id, nil
+}
+
+func requireNormalUser(ctx context.Context, lookup svc.UserLookup, id string) error {
+	resp, err := lookup.GetUserById(ctx, &user.GetUserByIdRequest{Id: id})
+	if err != nil {
+		return normalizeUserLookupError(err)
+	}
+	if resp == nil || resp.User == nil || resp.User.Status != 1 {
+		return status.Error(codes.NotFound, "user does not exist or is unavailable")
+	}
 	return nil
+}
+
+func loadNormalGroup(tx *gorm.DB, id uint64) (*objects.Group, error) {
+	var group objects.Group
+	if err := tx.First(&group, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, status.Error(codes.NotFound, "group not found")
+		}
+		return nil, err
+	}
+	if group.Status != nil && *group.Status != 0 {
+		return nil, status.Error(codes.FailedPrecondition, "group is unavailable")
+	}
+	return &group, nil
+}
+
+func loadGroupMember(tx *gorm.DB, groupID, userID uint64) (*objects.GroupMember, error) {
+	return loadGroupMemberWithLock(tx, groupID, userID, false)
+}
+
+func loadGroupMemberLocked(tx *gorm.DB, groupID, userID uint64) (*objects.GroupMember, error) {
+	return loadGroupMemberWithLock(tx, groupID, userID, true)
+}
+
+func loadGroupMemberWithLock(tx *gorm.DB, groupID, userID uint64, locked bool) (*objects.GroupMember, error) {
+	var member objects.GroupMember
+	query := tx
+	if locked && tx.Dialector.Name() != "sqlite" {
+		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	err := query.Where("group_id = ? AND user_id = ?", groupID, userID).First(&member).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &member, err
+}
+
+func createGroupMemberAndOutbox(tx *gorm.DB, svcCtx *svc.ServiceContext, groupID, userID uint64, role, joinSource int, inviter *uint64, operator uint64) (bool, error) {
+	now := time.Now()
+	member := objects.GroupMember{
+		GroupID: groupID, UserID: userID, RoleLevel: role, JoinTime: &now,
+		JoinSource: &joinSource, InviterUID: inviter, OperatorUID: &operator,
+	}
+	result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&member)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	var count int64
+	if err := tx.Model(&objects.GroupMember{}).Where("group_id = ? AND user_id = ?", groupID, userID).Count(&count).Error; err != nil {
+		return false, err
+	}
+	if count != 1 {
+		return false, status.Error(codes.Internal, "failed to establish group membership")
+	}
+	if result.RowsAffected == 0 {
+		return false, nil
+	}
+	groupText, userText, operatorText := strconv.FormatUint(groupID, 10), strconv.FormatUint(userID, 10), strconv.FormatUint(operator, 10)
+	if err := emitRelationChangeInTx(tx, svcCtx, constants.RelationEventGroupMemberAdded, groupText, &mq.RelationChangeTransfer{
+		GroupId: groupText, UserId: userText, OperatorId: operatorText,
+	}); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func resolvePendingGroupRequests(tx *gorm.DB, groupID, userID uint64, now time.Time, actualSource int) error {
+	return tx.Model(&objects.GroupRequest{}).
+		Where("group_id = ? AND req_id = ? AND handle_result = ?", groupID, strconv.FormatUint(userID, 10), groupRequestPending).
+		Updates(map[string]any{"handle_result": groupRequestAccepted, "handle_time": now, "active_key": nil, "actual_join_source": actualSource}).Error
+}
+
+func invalidatePendingGroupInvitations(tx *gorm.DB, groupID, userID uint64, now time.Time) error {
+	return tx.Model(&objects.GroupInvitation{}).
+		Where("group_id = ? AND invitee_uid = ? AND status = ?", groupID, userID, groupInvitationPending).
+		Updates(map[string]any{"status": groupInvitationInvalidated, "handled_at": now}).Error
+}
+
+func transactionWithSQLiteRetry(ctx context.Context, db *gorm.DB, fn func(*gorm.DB) error) error {
+	for attempt := 0; ; attempt++ {
+		err := db.WithContext(ctx).Transaction(fn)
+		if err == nil || db.Dialector.Name() != "sqlite" || attempt >= 9 || !isSQLiteLockError(err) {
+			return err
+		}
+		time.Sleep(time.Duration(attempt+1) * 10 * time.Millisecond)
+	}
+}
+
+func isSQLiteLockError(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "database is locked") || strings.Contains(message, "database table is locked") || strings.Contains(message, "sqlite_busy")
+}
+
+func normalizeGroupWriteError(err error, fallback string) error {
+	if status.Code(err) != codes.Unknown {
+		return err
+	}
+	return status.Error(codes.Internal, fallback)
+}
+
+func notifyGroupAdminsFromDB(ctx context.Context, svcCtx *svc.ServiceContext, groupID, actor, requestID uint64, content string) {
+	var members []objects.GroupMember
+	if err := svcCtx.DB.WithContext(ctx).Where("group_id = ? AND role_level IN ?", groupID, []int{1, 2}).Find(&members).Error; err != nil {
+		logx.WithContext(ctx).Errorf("notify group admins failed: %v", err)
+		return
+	}
+	for _, member := range members {
+		emitCommonNotify(ctx, svcCtx, &mq.CommonNotify{
+			NotifyType: NotifyGroupApply, ReceiverId: strconv.FormatUint(member.UserID, 10), ActorId: strconv.FormatUint(actor, 10),
+			BizId: fmt.Sprintf("group.apply:%d", requestID), GroupId: strconv.FormatUint(groupID, 10), Content: content,
+		})
+	}
 }

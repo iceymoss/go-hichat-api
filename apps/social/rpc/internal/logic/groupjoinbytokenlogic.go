@@ -91,13 +91,14 @@ func (l *GroupJoinByTokenLogic) GroupJoinByToken(in *social.GroupJoinByTokenReq)
 
 	// 统一走 GroupPutin 逻辑（joinSource=InviteLink），由群配置/邀请人角色决定是否直入群
 	putin := NewGroupPutinLogic(l.ctx, l.svcCtx)
-	putinResp, err := putin.GroupPutin(&social.GroupPutinReq{
+	putinResp, err := putin.groupPutinByToken(&social.GroupPutinReq{
 		GroupId:    groupIdStr,
 		ReqId:      in.UserId,
 		ReqMsg:     in.ReqMsg,
 		ReqTime:    time.Now().Unix(),
 		JoinSource: int32(constants.InviteLinkGroupJoinSource),
 		InviterUid: link.CreatedBy, // 链接创建人作为 inviter（用于“管理员/群主邀请可直入群”规则）
+		ActorUid:   in.UserId,
 	})
 	if err != nil {
 		tx.Rollback()

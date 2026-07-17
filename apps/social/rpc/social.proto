@@ -89,8 +89,11 @@ message GroupInviteReq {
   string userId = 1; // Operator/Inviter
   string groupId = 2;
   repeated string friendIds = 3;
+  string actorUid = 4; // 当前操作者；公开 API 只能从 JWT 填充
 }
-message GroupInviteResp {}
+message GroupInviteResp {
+  repeated uint64 invitationIds = 1;
+}
 
 message GroupUpdateReq {
   string userId = 1; // Operator
@@ -433,10 +436,16 @@ message GroupPutinReq {
   int64  reqTime = 5;
   int32  joinSource = 6;
   string inviterUid = 7;
+  string actorUid = 8; // 当前操作者；主动申请必须与 reqId 一致
 }
 message GroupPutinResp {
   int32 groupId = 1;
   int32 isPass = 2;
+  uint64 requestId = 3;
+  int32 status = 4; // 0=pending, 1=accepted, 2=rejected
+  bool alreadyPending = 5;
+  bool alreadyMember = 6;
+  string groupIdString = 7;
 }
 
 message GroupPutinListReq {
@@ -457,10 +466,66 @@ message GroupPutInHandleReq {
 
   string username = 6;
   string userAvatarUrl = 7;
+  string actorUid = 8; // 当前操作者；公开 API 只能从 JWT 填充
+  string handleMsg = 9;
+  uint64 requestId = 10; // 新客户端使用；groupReqId 仅兼容旧客户端
 }
 message GroupPutInHandleResp {
   string groupId = 1;
   string reqId = 2; // 被处理的入群申请用户ID（通过后需要用它建立群会话）
+  uint64 requestId = 3;
+  int32 handleResult = 4;
+  bool idempotent = 5;
+}
+
+message GroupInvitation {
+  uint64 id = 1;
+  string groupId = 2;
+  string inviterUid = 3;
+  string inviteeUid = 4;
+  int32 inviterRoleSnapshot = 5;
+  string message = 6;
+  int32 status = 7; // 0=pending, 1=accepted, 2=rejected, 3=expired, 4=invalidated
+  string rejectReason = 8;
+  int64 createdAt = 9;
+  int64 handledAt = 10;
+  int64 expiresAt = 11;
+}
+
+message GroupInvitationCreateReq {
+  string actorUid = 1;
+  string groupId = 2;
+  string inviteeUid = 3;
+  string message = 4;
+}
+message GroupInvitationCreateResp {
+  GroupInvitation invitation = 1;
+}
+
+message GroupInvitationListReq {
+  string actorUid = 1;
+  int32 status = 2; // -1=all, 0..4=具体状态
+  int32 page = 3;
+  int32 size = 4;
+}
+message GroupInvitationListResp {
+  repeated GroupInvitation list = 1;
+  int64 total = 2;
+}
+
+message GroupInvitationHandleReq {
+  uint64 id = 1;
+  string actorUid = 2;
+  int32 result = 3; // 1=accept, 2=reject
+  string handleMsg = 4;
+}
+message GroupInvitationHandleResp {
+  uint64 invitationId = 1;
+  int32 status = 2;
+  string joinState = 3; // joined|pending_approval|rejected|expired|invalidated
+  uint64 groupRequestId = 4;
+  bool idempotent = 5;
+  string groupId = 6;
 }
 
 message GroupListReq{
@@ -575,4 +640,7 @@ service social {
   rpc GroupAnnouncementCreate(GroupAnnouncementCreateReq) returns (GroupAnnouncementCreateResp); // 创建群公告
   rpc GroupAnnouncementList(GroupAnnouncementListReq) returns (GroupAnnouncementListResp); // 获取群公告
   rpc GroupAnnouncementPin(GroupAnnouncementPinReq) returns (GroupAnnouncementPinResp); // 置顶群公告
+  rpc GroupInvitationCreate(GroupInvitationCreateReq) returns (GroupInvitationCreateResp); // 创建独立群邀请
+  rpc GroupInvitationList(GroupInvitationListReq) returns (GroupInvitationListResp); // 查询当前用户收到的邀请
+  rpc GroupInvitationHandle(GroupInvitationHandleReq) returns (GroupInvitationHandleResp); // 接受或拒绝群邀请
 }

@@ -213,9 +213,8 @@ type FriendsOnlineResp struct {
 }
 
 type GetGroupPutListByUidReq struct {
-	Ids   []string `form:"ids,optional"`   // 用户id列表
-	Class string   `form:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
-	Type  string   `form:"type,optional"`  // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
+	Class string `form:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
+	Type  string `form:"type,optional"`  // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
 }
 
 type GetGroupPutListByUidResp struct {
@@ -300,6 +299,56 @@ type GroupDisbandReq struct {
 }
 
 type GroupDisbandResp struct {
+}
+
+type GroupInvitation struct {
+	Id                  uint64 `json:"id"`
+	GroupId             string `json:"group_id"`
+	InviterUid          string `json:"inviter_uid"`
+	InviteeUid          string `json:"invitee_uid"`
+	InviterRoleSnapshot int32  `json:"inviter_role_snapshot"`
+	Message             string `json:"message,omitempty"`
+	Status              int32  `json:"status"` // 0=pending, 1=accepted, 2=rejected, 3=expired, 4=invalidated
+	RejectReason        string `json:"reject_reason,omitempty"`
+	CreatedAt           int64  `json:"created_at"`
+	HandledAt           int64  `json:"handled_at,omitempty"`
+	ExpiresAt           int64  `json:"expires_at"`
+}
+
+type GroupInvitationCreateReq struct {
+	GroupId    string `json:"group_id"`
+	InviteeUid string `json:"invitee_uid"`
+	Message    string `json:"message,optional"`
+}
+
+type GroupInvitationCreateResp struct {
+	Invitation GroupInvitation `json:"invitation"`
+}
+
+type GroupInvitationHandleReq struct {
+	Id        uint64 `path:"id"`
+	Result    int32  `json:"result"`
+	HandleMsg string `json:"handle_msg,optional"`
+}
+
+type GroupInvitationHandleResp struct {
+	InvitationId   uint64 `json:"invitation_id"`
+	Status         int32  `json:"status"`
+	JoinState      string `json:"join_state"`
+	GroupRequestId uint64 `json:"group_request_id,omitempty"`
+	Idempotent     bool   `json:"idempotent,omitempty"`
+	GroupId        string `json:"group_id"`
+}
+
+type GroupInvitationListReq struct {
+	Status *int32 `form:"status,optional"`
+	Page   int32  `form:"page,optional"`
+	Size   int32  `form:"size,optional"`
+}
+
+type GroupInvitationListResp struct {
+	List  []GroupInvitation `json:"list"`
+	Total int64             `json:"total"`
 }
 
 type GroupInviteLink struct {
@@ -397,12 +446,15 @@ type GroupMembers struct {
 }
 
 type GroupPutInHandleReq struct {
-	GroupReqId   int32  `json:"group_req_id,omitempty"`
-	GroupId      string `json:"group_id,omitempty"`
+	GroupReqId   uint64 `json:"group_req_id"`
 	HandleResult int32  `json:"handle_result,omitempty"` // 处理结果
+	HandleMsg    string `json:"handle_msg,optional"`
 }
 
 type GroupPutInHandleResp struct {
+	RequestId    uint64 `json:"request_id,omitempty"`
+	HandleResult int32  `json:"handle_result"`
+	Idempotent   bool   `json:"idempotent,omitempty"`
 }
 
 type GroupPutInListReq struct {
@@ -416,18 +468,19 @@ type GroupPutInListResp struct {
 }
 
 type GroupPutInReq struct {
-	GroupId    string `json:"group_id,optional"`    // 群ID（普通申请/邀请入群时必传，token入群时可为空）
-	ReqId      string `json:"req_id,optional"`      // 申请者/被邀请者ID（邀请入群时必传，普通申请时为空则使用当前用户ID）
-	ReqMsg     string `json:"req_msg,optional"`     // 申请消息
-	ReqTime    int64  `json:"req_time,optional"`    // 请求时间
-	JoinSource int64  `json:"join_source,optional"` // 1=申请入群, 2=邀请入群, 3=邀请链接/二维码入群
-	InviterUid string `json:"inviter_uid,optional"` // 邀请人UID（邀请入群/token入群时必传）
-	Token      string `json:"token,optional"`       // 邀请链接token（token入群时必传，此时groupId可为空）
+	GroupId string `json:"group_id,optional"` // 群ID（普通申请时必传，token入群时可为空）
+	ReqMsg  string `json:"req_msg,optional"`  // 申请消息
+	Token   string `json:"token,optional"`    // 邀请链接token
 }
 
 type GroupPutInResp struct {
-	GroupId int `json:"group_id,omitempty"`
-	IsPass  int `json:"is_pass,omitempty"` // 1=直接进群, 0=进入申请流程
+	GroupId        int    `json:"group_id,omitempty"`
+	GroupIdString  string `json:"group_id_string,omitempty"`
+	IsPass         int    `json:"is_pass,omitempty"` // 1=直接进群, 0=进入申请流程
+	RequestId      uint64 `json:"request_id,omitempty"`
+	Status         int32  `json:"status"`
+	AlreadyPending bool   `json:"already_pending,omitempty"`
+	AlreadyMember  bool   `json:"already_member,omitempty"`
 }
 
 type GroupPutInsReadReq struct {

@@ -6,10 +6,12 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
+	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"strconv"
 )
 
 type GroupInviteLogic struct {
@@ -28,14 +30,17 @@ func NewGroupInviteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Group
 }
 
 func (l *GroupInviteLogic) GroupInvite(req *types.GroupInviteReq) (resp *types.GroupInviteResp, err error) {
-	uid := l.ctx.Value(Identify).(string)
+	uid := ctxdata.GetUId(l.ctx)
+	if id, parseErr := strconv.ParseUint(uid, 10, 64); parseErr != nil || id == 0 {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user identity")
+	}
 	_, err = l.svcCtx.Social.GroupInvite(l.ctx, &social.GroupInviteReq{
 		GroupId:   req.GroupId,
 		UserId:    uid,
 		FriendIds: req.FriendIds,
+		ActorUid:  uid,
 	})
 	if err != nil {
-		zLog.Error("group invite err", zap.Error(err))
 		return nil, err
 	}
 	return

@@ -174,6 +174,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: group.GroupDisbandHandler(serverCtx),
 			},
 			{
+				// 创建群邀请
+				Method:  http.MethodPost,
+				Path:    "/group/invitations",
+				Handler: group.GroupInvitationCreateHandler(serverCtx),
+			},
+			{
+				// 收到的群邀请
+				Method:  http.MethodGet,
+				Path:    "/group/invitations",
+				Handler: group.GroupInvitationListHandler(serverCtx),
+			},
+			{
+				// 处理群邀请
+				Method:  http.MethodPut,
+				Path:    "/group/invitations/:id",
+				Handler: group.GroupInvitationHandleHandler(serverCtx),
+			},
+			{
 				// 邀请群成员
 				Method:  http.MethodPost,
 				Path:    "/group/invite",
@@ -240,16 +258,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: group.GroupPutInListHandler(serverCtx),
 			},
 			{
-				// 用户角度的群申请列表
-				Method:  http.MethodGet,
-				Path:    "/group/putInsByUid",
-				Handler: group.GetGroupPutListByUidHandler(serverCtx),
-			},
-			{
 				// 把我管理的群收到的入群申请全部标记已读
 				Method:  http.MethodPut,
 				Path:    "/group/putIns/read",
 				Handler: group.GroupPutInsReadHandler(serverCtx),
+			},
+			{
+				// 用户角度的群申请列表
+				Method:  http.MethodGet,
+				Path:    "/group/putInsByUid",
+				Handler: group.GetGroupPutListByUidHandler(serverCtx),
 			},
 			{
 				// 退出群组
