@@ -12,6 +12,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const socialRequestReliabilityMigrationVersion = "20260717_social_req"
+
 var migrationLogger *zap.Logger
 
 func init() {
@@ -60,8 +62,52 @@ func RunAutoMigrate(dbName string) error {
 		return err
 	}
 
-	// 定义所有需要迁移的表结构
-	tables := []interface{}{
+	return runAutoMigrate(mysqlConn)
+}
+
+func runAutoMigrate(conn *gorm.DB) error {
+	if err := requireSocialReliabilityMigration(conn); err != nil {
+		return err
+	}
+	return autoMigrateTables(conn)
+}
+
+// requireSocialReliabilityMigration prevents generic AutoMigrate from creating
+// unique indexes over unclean legacy social data. A database with none of the
+// core social tables is fresh and may create the complete schema directly.
+func requireSocialReliabilityMigration(conn *gorm.DB) error {
+	legacySchema := conn.Migrator().HasTable(&objects.Friend{}) ||
+		conn.Migrator().HasTable(&objects.FriendRequest{}) ||
+		conn.Migrator().HasTable(&objects.GroupRequest{})
+	if !legacySchema {
+		return nil
+	}
+	if !conn.Migrator().HasTable(&MigrationRecord{}) {
+		return fmt.Errorf("social schema upgrade requires deploy/socialmigration version %s before generic AutoMigrate", socialRequestReliabilityMigrationVersion)
+	}
+	var count int64
+	if err := conn.Model(&MigrationRecord{}).Where("version = ?", socialRequestReliabilityMigrationVersion).Count(&count).Error; err != nil {
+		return fmt.Errorf("check social reliability migration version: %w", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("social schema upgrade requires deploy/socialmigration version %s before generic AutoMigrate", socialRequestReliabilityMigrationVersion)
+	}
+	return nil
+}
+
+func autoMigrateTables(conn *gorm.DB) error {
+	for _, table := range migrationTables() {
+		tableName := getTableName(table)
+		migrationLogger.Info("Migrating table", zap.String("table", tableName))
+		if err := conn.AutoMigrate(table); err != nil {
+			return fmt.Errorf("failed to migrate table %s: %w", tableName, err)
+		}
+	}
+	return nil
+}
+
+func migrationTables() []interface{} {
+	return []interface{}{
 		// 用户模块
 		&objects.User{},
 		&objects.UserSettings{},
@@ -82,6 +128,9 @@ func RunAutoMigrate(dbName string) error {
 		&objects.Group{},
 		&objects.GroupMember{},
 		&objects.GroupRequest{},
+		&objects.GroupInvitation{},
+		&objects.SocialRequestReceipt{},
+		&objects.SocialNotificationOutbox{},
 		&objects.GroupInviteLink{},
 		&objects.GroupMemberSetting{},
 		&objects.GroupAnnouncement{},
@@ -95,24 +144,6 @@ func RunAutoMigrate(dbName string) error {
 
 		// 可以在这里添加更多表结构
 	}
-
-	// 执行 AutoMigrate
-	for _, table := range tables {
-		tableName := getTableName(table)
-		migrationLogger.Info("Migrating table", zap.String("table", tableName))
-
-		if err := mysqlConn.AutoMigrate(table); err != nil {
-			migrationLogger.Error("Failed to migrate table",
-				zap.String("table", tableName),
-				zap.Error(err))
-			return fmt.Errorf("failed to migrate table %s: %w", tableName, err)
-		}
-
-		migrationLogger.Info("Table migrated successfully", zap.String("table", tableName))
-	}
-
-	migrationLogger.Info("All tables migrated successfully")
-	return nil
 }
 
 // RunAutoMigrateWithVersion 执行带版本记录的 AutoMigrate
@@ -195,51 +226,10 @@ func RunAutoMigrateWithVersion(dbName string, version string, description string
 
 // RunAutoMigrateInTx 在事务中执行 AutoMigrate
 func RunAutoMigrateInTx(tx *gorm.DB) error {
-	// 定义所有需要迁移的表结构
-	tables := []interface{}{
-		// 用户模块
-		&objects.User{},
-		&objects.UserSettings{},
-		&objects.Favorite{},
-		&objects.UserEmoji{},
-
-		// 动态模块
-		&objects.Trend{},
-		&objects.TrendAgree{},
-		&objects.TrendDiscuss{},
-		&objects.TrendDraft{},
-		&objects.TrendMessage{},
-
-		// 社交模块
-		&objects.Friend{},
-		&objects.FriendRequest{},
-		&objects.FriendReport{},
-		&objects.Group{},
-		&objects.GroupMember{},
-		&objects.GroupRequest{},
-		&objects.GroupInviteLink{},
-		&objects.GroupMemberSetting{},
-		&objects.GroupAnnouncement{},
-		&objects.RelationOutbox{},
-
-		// IM 模块
-		&objects.Notification{},
-
-		// 系统级配置
-		&objects.SystemSetting{},
-
-		// 可以在这里添加更多表结构
+	if err := requireSocialReliabilityMigration(tx); err != nil {
+		return err
 	}
-
-	// 执行 AutoMigrate
-	for _, table := range tables {
-		tableName := getTableName(table)
-		if err := tx.AutoMigrate(table); err != nil {
-			return fmt.Errorf("failed to migrate table %s: %w", tableName, err)
-		}
-	}
-
-	return nil
+	return autoMigrateTables(tx)
 }
 
 // GetAppliedMigrations 获取已执行的迁移列表
@@ -297,9 +287,17 @@ func main() {
 	pkcCfg.InitConfig("local", "", "config")
 	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	tx := mysqlConn.Begin()
-	err := RunAutoMigrateInTx(tx)
-	if err != nil {
+	if tx.Error != nil {
+		panic(fmt.Errorf("begin migration transaction: %w", tx.Error))
+	}
+	if err := RunAutoMigrateInTx(tx); err != nil {
+		if rollbackErr := tx.Rollback().Error; rollbackErr != nil {
+			panic(fmt.Errorf("auto migrate: %w; rollback: %v", err, rollbackErr))
+		}
 		panic(err)
+	}
+	if err := tx.Commit().Error; err != nil {
+		panic(fmt.Errorf("commit migration transaction: %w", err))
 	}
 	fmt.Println("迁移成功")
 }

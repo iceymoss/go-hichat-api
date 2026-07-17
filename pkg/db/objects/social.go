@@ -7,8 +7,8 @@ import (
 // Friend 好友关系表
 type Friend struct {
 	ID                uint64     `gorm:"primaryKey;column:id;type:INT UNSIGNED;autoIncrement;comment:自增主键"`
-	UserID            uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;index:idx_user;comment:用户ID"`
-	FriendUID         uint64     `gorm:"column:friend_uid;type:INT UNSIGNED;not null;comment:好友的用户ID"`
+	UserID            uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;index:idx_user;uniqueIndex:uk_friends_user_friend,priority:1;comment:用户ID"`
+	FriendUID         uint64     `gorm:"column:friend_uid;type:INT UNSIGNED;not null;uniqueIndex:uk_friends_user_friend,priority:2;comment:好友的用户ID"`
 	Remark            string     `gorm:"column:remark;type:VARCHAR(255);comment:好友备注名（用户自定义）"`
 	AddSource         *int       `gorm:"column:add_source;type:TINYINT;comment:添加来源（0:未知 1:搜索 2:群组 3:二维码...）"`
 	Blacklisted       bool       `gorm:"column:blacklisted;type:TINYINT(1);default:0;not null;comment:是否拉黑 0否 1是"`
@@ -39,6 +39,7 @@ type FriendRequest struct {
 	ReceiverRead int        `gorm:"column:receiver_read;type:TINYINT;default:0;not null;comment:接收方已读（0:未读 1:已读）"`
 	SenderRead   int        `gorm:"column:sender_read;type:TINYINT;default:0;not null;comment:发起方已读处理结果（0:未读 1:已读）"`
 	Remark       string     `gorm:"column:remark;type:VARCHAR(64);default:'';not null;comment:申请人为对方预设的备注"`
+	ActiveKey    *string    `gorm:"column:active_key;size:160;uniqueIndex:uk_friend_requests_active_key;comment:待处理申请唯一键"`
 }
 
 func (FriendRequest) TableName() string {
@@ -85,21 +86,86 @@ func (GroupMember) TableName() string {
 
 // GroupRequest 加群请求表
 type GroupRequest struct {
-	ID            uint64     `gorm:"primaryKey;column:id;type:INT UNSIGNED;autoIncrement;comment:自增主键"`
-	ReqID         string     `gorm:"column:req_id;type:VARCHAR(64);not null;comment:业务请求ID（唯一标识）"`
-	GroupID       uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;index:idx_group;comment:目标群ID"`
-	ReqMsg        string     `gorm:"column:req_msg;type:VARCHAR(255);comment:入群申请留言"`
-	ReqTime       *time.Time `gorm:"column:req_time;type:TIMESTAMP;comment:申请时间"`
-	JoinSource    *int       `gorm:"column:join_source;type:TINYINT;comment:申请来源（1:扫码 2:邀请 3:搜索...）"`
-	InviterUserID *uint64    `gorm:"column:inviter_user_id;type:INT UNSIGNED;comment:邀请人ID"`
-	HandleUserID  *uint64    `gorm:"column:handle_user_id;type:INT UNSIGNED;comment:请求处理人ID"`
-	HandleTime    *time.Time `gorm:"column:handle_time;type:TIMESTAMP;comment:处理时间"`
-	HandleResult  *int       `gorm:"column:handle_result;type:TINYINT;comment:处理结果（0:待处理 1:同意 2:拒绝）"`
-	ReceiverRead  int        `gorm:"column:receiver_read;type:TINYINT;default:0;not null;comment:接收方(群主/管理员)已读 0未读 1已读"`
+	ID                 uint64     `gorm:"primaryKey;column:id;type:INT UNSIGNED;autoIncrement;comment:自增主键"`
+	ReqID              string     `gorm:"column:req_id;type:VARCHAR(64);not null;index:idx_group_request_lookup,priority:2;comment:业务请求ID（唯一标识）"`
+	GroupID            uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;index:idx_group;index:idx_group_request_lookup,priority:1;comment:目标群ID"`
+	ReqMsg             string     `gorm:"column:req_msg;type:VARCHAR(255);comment:入群申请留言"`
+	ReqTime            *time.Time `gorm:"column:req_time;type:TIMESTAMP;comment:申请时间"`
+	JoinSource         *int       `gorm:"column:join_source;type:TINYINT;comment:申请来源（1:扫码 2:邀请 3:搜索...）"`
+	InviterUserID      *uint64    `gorm:"column:inviter_user_id;type:INT UNSIGNED;comment:邀请人ID"`
+	HandleUserID       *uint64    `gorm:"column:handle_user_id;type:INT UNSIGNED;comment:请求处理人ID"`
+	HandleTime         *time.Time `gorm:"column:handle_time;type:TIMESTAMP;comment:处理时间"`
+	HandleResult       *int       `gorm:"column:handle_result;type:TINYINT;index:idx_group_request_lookup,priority:3;comment:处理结果（0:待处理 1:同意 2:拒绝）"`
+	ReceiverRead       int        `gorm:"column:receiver_read;type:TINYINT;default:0;not null;comment:接收方(群主/管理员)已读 0未读 1已读"`
+	ActiveKey          *string    `gorm:"column:active_key;size:160;uniqueIndex:uk_group_requests_active_key;comment:主动待处理申请唯一键"`
+	SourceType         int        `gorm:"column:source_type;not null;default:1;comment:来源类型 1主动申请 2成员邀请"`
+	SourceInvitationID *uint64    `gorm:"column:source_invitation_id;uniqueIndex:uk_group_requests_source_invitation;comment:来源邀请ID"`
+	ActualJoinSource   *int       `gorm:"column:actual_join_source;comment:最终实际入群来源"`
+	InvalidReason      string     `gorm:"column:invalid_reason;size:128;not null;default:'';comment:系统失效原因"`
 }
 
 func (GroupRequest) TableName() string {
 	return "group_requests"
+}
+
+// GroupInvitation 独立的成员邀请记录。Social 服务的用户和群主键均为 uint64，
+// 因此邀请双方继续使用数值 UID，不在迁移层引入字符串身份类型。
+type GroupInvitation struct {
+	ID                  uint64     `gorm:"primaryKey;column:id"`
+	GroupID             uint64     `gorm:"column:group_id;not null;index:idx_group_invitation_group_invitee,priority:1"`
+	InviterUID          uint64     `gorm:"column:inviter_uid;not null"`
+	InviteeUID          uint64     `gorm:"column:invitee_uid;not null;index:idx_group_invitation_invitee,priority:2;index:idx_group_invitation_group_invitee,priority:2"`
+	InviterRoleSnapshot int        `gorm:"column:inviter_role_snapshot;not null;default:0"`
+	Message             string     `gorm:"column:message;size:255;not null;default:''"`
+	Status              int        `gorm:"column:status;not null;default:0;index:idx_group_invitation_invitee,priority:3;index:idx_group_invitation_group_invitee,priority:3;index:idx_group_invitation_expiry,priority:1"`
+	RejectReason        string     `gorm:"column:reject_reason;size:255;not null;default:''"`
+	CreatedAt           time.Time  `gorm:"column:created_at;not null;index:idx_group_invitation_invitee,priority:4"`
+	HandledAt           *time.Time `gorm:"column:handled_at"`
+	ExpiresAt           time.Time  `gorm:"column:expires_at;not null;index:idx_group_invitation_expiry,priority:2"`
+}
+
+func (GroupInvitation) TableName() string {
+	return "group_invitations"
+}
+
+// SocialRequestReceipt stores per-user read and action state for social requests.
+type SocialRequestReceipt struct {
+	ID           uint64     `gorm:"primaryKey;column:id"`
+	RequestType  string     `gorm:"column:request_type;size:16;not null;uniqueIndex:uk_social_request_receipt,priority:1;index:idx_social_receipt_request,priority:1;index:idx_social_receipt_unread,priority:3;index:idx_social_receipt_actionable,priority:3"`
+	RequestID    uint64     `gorm:"column:request_id;not null;uniqueIndex:uk_social_request_receipt,priority:2;index:idx_social_receipt_request,priority:2"`
+	ReceiverID   string     `gorm:"column:receiver_id;size:64;not null;uniqueIndex:uk_social_request_receipt,priority:3;index:idx_social_receipt_unread,priority:1;index:idx_social_receipt_actionable,priority:1"`
+	ReceiptKind  string     `gorm:"column:receipt_kind;size:16;not null;uniqueIndex:uk_social_request_receipt,priority:4"`
+	IsRead       int        `gorm:"column:is_read;not null;default:0;index:idx_social_receipt_unread,priority:2"`
+	IsActionable int        `gorm:"column:is_actionable;not null;default:0;index:idx_social_receipt_actionable,priority:2"`
+	Result       int        `gorm:"column:result;not null;default:0"`
+	CreatedAt    time.Time  `gorm:"column:created_at;not null"`
+	ReadAt       *time.Time `gorm:"column:read_at"`
+	ResolvedAt   *time.Time `gorm:"column:resolved_at"`
+}
+
+func (SocialRequestReceipt) TableName() string {
+	return "social_request_receipts"
+}
+
+// SocialNotificationOutbox stores notifications in the same transaction as request changes.
+type SocialNotificationOutbox struct {
+	ID          uint64     `gorm:"primaryKey;column:id"`
+	NotifyType  string     `gorm:"column:notify_type;size:64;not null;uniqueIndex:uk_social_notification,priority:1"`
+	ReceiverID  string     `gorm:"column:receiver_id;size:64;not null;uniqueIndex:uk_social_notification,priority:2"`
+	ActorID     string     `gorm:"column:actor_id;size:64;not null"`
+	BizID       string     `gorm:"column:biz_id;size:128;not null;uniqueIndex:uk_social_notification,priority:3"`
+	GroupID     string     `gorm:"column:group_id;size:64;not null;default:''"`
+	Payload     string     `gorm:"column:payload;type:TEXT;not null"`
+	Status      int        `gorm:"column:status;not null;default:0;index:idx_social_notification_retry,priority:1"`
+	Attempts    int        `gorm:"column:attempts;not null;default:0"`
+	NextRetryAt *time.Time `gorm:"column:next_retry_at;index:idx_social_notification_retry,priority:2"`
+	LastError   string     `gorm:"column:last_error;size:512;not null;default:''"`
+	CreatedAt   time.Time  `gorm:"column:created_at;not null"`
+	SentAt      *time.Time `gorm:"column:sent_at"`
+}
+
+func (SocialNotificationOutbox) TableName() string {
+	return "social_notification_outbox"
 }
 
 // GroupInviteLink 群邀请链接表（链接/二维码统一）
@@ -122,12 +188,12 @@ func (GroupInviteLink) TableName() string {
 
 // GroupMemberSetting 群成员资料/设置
 type GroupMemberSetting struct {
-	ID           uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
-	GroupID      uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:1;comment:群ID"`
-	UserID       uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:2;index:idx_user;comment:用户ID"`
-	GroupNick    string     `gorm:"column:group_nickname;type:VARCHAR(64);comment:我在本群的昵称"`
-	GroupRemark  string     `gorm:"column:group_remark;type:VARCHAR(255);comment:群备注（仅自己可见）"`
-	UpdatedAt    *time.Time `gorm:"column:updated_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;comment:更新时间"`
+	ID          uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键"`
+	GroupID     uint64     `gorm:"column:group_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:1;comment:群ID"`
+	UserID      uint64     `gorm:"column:user_id;type:INT UNSIGNED;not null;uniqueIndex:uk_group_user,priority:2;index:idx_user;comment:用户ID"`
+	GroupNick   string     `gorm:"column:group_nickname;type:VARCHAR(64);comment:我在本群的昵称"`
+	GroupRemark string     `gorm:"column:group_remark;type:VARCHAR(255);comment:群备注（仅自己可见）"`
+	UpdatedAt   *time.Time `gorm:"column:updated_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;comment:更新时间"`
 }
 
 func (GroupMemberSetting) TableName() string {
