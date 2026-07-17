@@ -2,9 +2,32 @@
   <img src="assets/brand/hichat-green-lockup.svg" alt="HiChat" width="320" />
 </p>
 
-# go-hichat-api
+<h1 align="center">go-hichat-api</h1>
 
-[English](README.md) | [简体中文](docs/README.zh-CN.md)
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go 1.25+" />
+  <img src="https://img.shields.io/badge/go--zero-1.8.2-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="go-zero 1.8.2" />
+  <img src="https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js 16" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/Bun-1.x-000000?style=for-the-badge&logo=bun&logoColor=white" alt="Bun 1.x" />
+  <img src="https://img.shields.io/badge/License-Apache_2.0-green?style=for-the-badge" alt="Apache License 2.0" />
+  <img src="https://img.shields.io/badge/Status-Active_Development-orange?style=for-the-badge" alt="Active Development" />
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> | <a href="docs/README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">
+  <a href="#highlights">Highlights</a> •
+  <a href="#core-capabilities">Core Capabilities</a> •
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#getting-started">Getting Started</a> •
+  <a href="#license">License</a>
+</p>
+
+---
 
 go-hichat-api is the backend and web client repository for HiChat 2.0, a go-zero based instant messaging and social platform. It combines REST APIs, zRPC services, WebSocket long connections, Kafka async pipelines, MongoDB chat storage, MySQL business data, Redis runtime state, and an independent WebRTC streaming service.
 
@@ -18,7 +41,7 @@ The repository is intended as a practical reference for building a modern IM sys
 - Kafka pipeline for chat delivery, read events, message recall, activity notifications, and background processing.
 - MongoDB for chat logs, MySQL for business data, Redis for sessions, cache, online state, and runtime coordination.
 - Independent WebRTC streaming service for calls, meetings, screen sharing, live streaming, rooms, and SFU workflows.
-- Full web client under `web/` using Next.js 16, React 19, Bun, TypeScript, Tailwind CSS, and Semi UI.
+- Full web client under `web/` using Next.js 16, React 19, Bun, TypeScript, Tailwind CSS, and Radix UI.
 
 ## Core Capabilities
 
@@ -32,7 +55,7 @@ The repository is intended as a practical reference for building a modern IM sys
 | Activity feed | Trend publishing, visibility control, media resources, comments, replies, likes, drafts, unread counters, message notifications, and online push. |
 | Async tasks | Kafka consumers for chat, read, recall, and trend notification events, plus cron task extension points. |
 | Streaming | WebRTC one-to-one calls, group calls, meetings, screen sharing, live streaming, signaling, rooms, and SFU components. |
-| Web client | Next.js application with Bun scripts, TypeScript, Tailwind CSS, Semi UI, and a development server on port `3001`. |
+| Web client | Next.js application with Bun scripts, TypeScript, Tailwind CSS, Radix UI, and a development server on port `3001`. |
 
 ## Screenshots
 
@@ -346,7 +369,7 @@ sequenceDiagram
 - Realtime: WebSocket, Kafka, WebRTC, Pion.
 - Storage: MySQL, MongoDB, Redis.
 - Service discovery: Etcd.
-- Frontend: Next.js 16, React 19, Bun, TypeScript, Tailwind CSS, Semi UI.
+- Frontend: Next.js 16, React 19, Bun, TypeScript, Tailwind CSS, Radix UI.
 
 ## Repository Layout
 

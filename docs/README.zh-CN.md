@@ -2,9 +2,32 @@
   <img src="../assets/brand/hichat-green-lockup.svg" alt="HiChat" width="320" />
 </p>
 
-# go-hichat-api
+<h1 align="center">go-hichat-api</h1>
 
-[English](../README.md) | [简体中文](README.zh-CN.md)
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go 1.25+" />
+  <img src="https://img.shields.io/badge/go--zero-1.8.2-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="go-zero 1.8.2" />
+  <img src="https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js 16" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/Bun-1.x-000000?style=for-the-badge&logo=bun&logoColor=white" alt="Bun 1.x" />
+  <img src="https://img.shields.io/badge/License-Apache_2.0-green?style=for-the-badge" alt="Apache License 2.0" />
+  <img src="https://img.shields.io/badge/Status-Active_Development-orange?style=for-the-badge" alt="Active Development" />
+</p>
+
+<p align="center">
+  <a href="../README.md">English</a> | <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">
+  <a href="#项目亮点">项目亮点</a> •
+  <a href="#核心能力">核心能力</a> •
+  <a href="#产品截图">产品截图</a> •
+  <a href="#架构">架构</a> •
+  <a href="#快速开始">快速开始</a> •
+  <a href="#许可证">许可证</a>
+</p>
+
+---
 
 go-hichat-api 是 HiChat 2.0 的后端与 Web 客户端仓库，是一个基于 go-zero 的微服务即时通讯与社交平台。项目整合 REST API、zRPC 服务、WebSocket 长连接、Kafka 异步链路、MongoDB 聊天记录、MySQL 业务数据、Redis 运行时状态，以及独立的 WebRTC 流媒体服务。
 
@@ -18,7 +41,7 @@ go-hichat-api 是 HiChat 2.0 的后端与 Web 客户端仓库，是一个基于 
 - Kafka 链路处理聊天投递、已读事件、消息撤回、动态通知和后台任务。
 - MongoDB 存储聊天记录，MySQL 存储业务数据，Redis 存储会话、缓存、在线状态和运行时协调数据。
 - 独立 WebRTC 流媒体服务，支持通话、会议、屏幕共享、直播、房间和 SFU 流程。
-- `web/` 下提供完整 Web 客户端，技术栈为 Next.js 16、React 19、Bun、TypeScript、Tailwind CSS 和 Semi UI。
+- `web/` 下提供完整 Web 客户端，技术栈为 Next.js 16、React 19、Bun、TypeScript、Tailwind CSS 和 Radix UI。
 
 ## 核心能力
 
@@ -32,7 +55,7 @@ go-hichat-api 是 HiChat 2.0 的后端与 Web 客户端仓库，是一个基于 
 | 动态空间 | 动态发布、可见范围、媒体资源、评论、回复、点赞、草稿、未读计数、动态消息通知和在线推送。 |
 | 异步任务 | 聊天、已读、撤回和动态通知事件的 Kafka 消费，以及 cron 任务扩展点。 |
 | 流媒体 | WebRTC 单聊通话、群组通话、会议、屏幕共享、直播、信令、房间和 SFU 组件。 |
-| Web 客户端 | Next.js 应用、Bun 脚本、TypeScript、Tailwind CSS、Semi UI，开发服务默认运行在 `3001` 端口。 |
+| Web 客户端 | Next.js 应用、Bun 脚本、TypeScript、Tailwind CSS、Radix UI，开发服务默认运行在 `3001` 端口。 |
 
 ## 产品截图
 
@@ -346,7 +369,7 @@ sequenceDiagram
 - 实时通信：WebSocket、Kafka、WebRTC、Pion。
 - 存储：MySQL、MongoDB、Redis。
 - 服务发现：Etcd。
-- 前端：Next.js 16、React 19、Bun、TypeScript、Tailwind CSS、Semi UI。
+- 前端：Next.js 16、React 19、Bun、TypeScript、Tailwind CSS、Radix UI。
 
 ## 仓库结构
 
