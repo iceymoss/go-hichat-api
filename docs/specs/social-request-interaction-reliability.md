@@ -528,11 +528,69 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - 创建唯一索引后回滚旧写逻辑会重新产生冲突，因此后端不能单独回滚到先查后插版本；需同时关闭写入口或保持兼容写服务。
 - Kafka 新旧 topic 在观察期双消费但不能双生产；以 event ID/通知唯一键兜底。
 
+## 当前实施状态（2026-07-17）
+
+### 分支与提交
+
+- 当前分支：`feat-social-request-reliability`。
+- `33bcd65 docs(social): specify request reliability fixes`：创建本 Spec。
+- `b1fc5ad feat(deploy): add social migration audit`：步骤 1，只读迁移审计工具。
+- `3570bd5 feat(deploy): migrate social request schema`：步骤 2，显式 schema/data/index 分阶段迁移。
+- `1b74e21 fix(social): harden friend request state machine`：步骤 3，好友申请授权、并发和 CAS 状态机。
+- `36d0c4e feat(social): add group request state machines`：步骤 4 checkpoint，尚不能视为步骤 4 完成。
+
+### 已完成
+
+- 步骤 1 已完成：审计重复好友申请、重复/单向好友关系、旧群邀请和群成员唯一索引；SQLite 测试与 vet 通过。
+- 步骤 2 已完成：增加申请 active key、独立群邀请、个人 receipt、notification outbox 和好友有向唯一索引；迁移支持失败续跑、旧邀请分类和完整清理报告。
+- 步骤 2 的 SQLite legacy upgrade、幂等、约束和故障恢复测试通过；MySQL/PostgreSQL 测试入口存在，但当前未配置 DSN，因此尚未实跑。
+- 步骤 3 已完成：好友申请只允许目标用户审批，结果仅允许 accept/reject；发起使用 active key 并发裁决；审批使用事务 CAS；双向好友、反向 pending 收口和 relation outbox 原子提交。
+- 步骤 3 覆盖 self、用户不存在/停用、重复与并发申请、越权审批、同结果幂等、不同结果冲突、accept/reject 并发、字段方向和 outbox 回滚；Social 全量、race 和目标 vet 通过。
+
+### 步骤 4 Checkpoint
+
+`36d0c4e` 已实现并通过当前测试的内容：
+
+- 主动群申请绑定 JWT actor，RPC 校验 actor；使用 `active_key` 防止并发重复，不再物理删除历史，并实现 60 秒 terminal 冷却。
+- 免验证群直接入群时，accepted 申请、群成员和 relation outbox 位于同一事务。
+- 群申请审批使用 CAS；同结果幂等、不同结果冲突；accept 收口同群同用户其他 pending，reject 只处理当前申请。
+- 新增独立群邀请 create/list/handle RPC 和 HTTP 入口；旧批量邀请入口改为创建独立 invitation，不再无确认直接拉人。
+- 只有 invitee 可处理邀请；邀请接受时重新读取邀请人当前角色；管理角色邀请直入群，普通成员邀请生成带 `source_invitation_id` 的独立管理员审批。
+- 接受一条邀请会使同群同 invitee 的其他 active 邀请失效；已有主动 pending 不会阻止普通成员邀请生成第二条审批。
+- 已新增真实文件 SQLite 测试，覆盖群申请重复/并发、邀请授权与角色变化、多邀请并发、审批 CAS、成员幂等和 relation outbox 故障回滚。
+- checkpoint 提交前 `go test ./apps/social/... -count=1` 和 `go test -race ./apps/social/... -count=1` 通过。
+
+### 明日恢复入口
+
+新会话应先读取本节，从 `36d0c4e` 后继续步骤 4，不要直接进入步骤 5。按以下顺序修复并追加独立 fix commit：
+
+1. 邀请确认读取 inviter、群审批读取 approver 时锁定对应 `group_members` 行；同时让设/撤管理员、转让群主、退群和踢人修改同一成员行时使用兼容事务锁，避免确认或审批与角色撤销并发越权。SQLite 跳过不支持的 `FOR UPDATE`，MySQL/PostgreSQL 启用。
+2. 单条邀请、旧批量邀请均重新校验 inviter 为正常用户；邀请确认前重新校验 invitee/actor，禁止停用用户创建或接受邀请。
+3. 修复 accepted invitation 的幂等响应：已是成员返回 `joined`；来源审批仍 pending 才返回 `pending_approval`；审批已拒绝返回稳定冲突/拒绝状态；不能仅因来源申请存在就固定返回 pending。
+4. 收紧 HTTP 契约：普通群申请移除公开 `req_id/req_time/join_source/inviter_uid`；审批移除公开 `group_id`；按用户列表移除公开 `ids`。RPC 保留旧字段号兼容，但继续校验 actor 和旧身份字段一致。
+5. 群审批 ID 改为 HTTP `uint64`；proto 保留旧 `int32 groupReqId` 并追加新的 `uint64 requestId`，服务端优先新字段且拒绝两个字段冲突。
+6. 使用固定生成工具重新生成：`goctl 1.8.2`、`protoc 5.28.3`、`protoc-gen-go 1.35.2`。恢复所有无关 GET `form` 标签和零值 count 契约，删除自动生成的 `apps/social/rpc/etc/social.yaml`，检查生成 diff。
+7. 补角色降级/撤权并发、禁用用户、管理员批准后邀请重试、管理员拒绝后邀请重试测试，再运行 Social 全量、race、目标 vet 和 diff check。
+
+步骤 4 暂不提前实现：
+
+- 个人 receipt 和 read/unread API 属于步骤 5。
+- `social_notification_outbox`、relay 和可靠通知属于步骤 6；当前群通知仍是提交后 best-effort `CommonNotify`。
+- `group.member.added` 可靠创建 IM 会话属于步骤 8；步骤 4 已移除群申请/审批 API 的 800ms IM goroutine。
+- 邀请过期 cron 和管理员角色变更后的 receipt 补发/收口属于步骤 16；确认接口已经阻止过期邀请。
+
+### 工作区注意事项
+
+- 当前数据库未上线且仅含 mock 数据，迁移无需为真实生产历史扩大兼容路径，但仍保留显式、安全和可重跑迁移。
+- 不得提交或修改用户已有的 sample 配置、`apps/im/api/im.go`、`docker-compose.dependencies.yaml`、`hichat2.sh`、`docs/specs/auth-pages-redesign.md`、`test.md`。
+- `pkg/2fa/totp/totp_qr.png` 是全仓测试生成的工作区副作用，不属于本功能，禁止暂存。
+- MySQL/PostgreSQL 群状态机测试入口为 `SOCIAL_GROUP_TEST_MYSQL_DSN` 和 `SOCIAL_GROUP_TEST_POSTGRES_DSN`；当前环境未配置，实际只运行了 SQLite。
+
 ## 实现步骤（每步可独立 commit）
-1. [ ] 增加迁移审计工具或版本化迁移：识别并清理重复申请、重复好友关系，输出报告。
-2. [ ] 增加 `active_key`、`group_invitations`、`social_request_receipts`、`social_notification_outbox` 和好友唯一索引，完成三库迁移测试。
-3. [ ] 修复好友发起/审批授权、self-check、目标校验、结果枚举和 CAS 状态机。
-4. [ ] 修复群发起身份伪造、列表越权、结果枚举、事务提交和 CAS 状态机。
+1. [x] 增加迁移审计工具或版本化迁移：识别并清理重复申请、重复好友关系，输出报告。
+2. [x] 增加 `active_key`、`group_invitations`、`social_request_receipts`、`social_notification_outbox` 和好友唯一索引，完成迁移实现与 SQLite 测试；MySQL/PostgreSQL 实跑留待步骤 17。
+3. [x] 修复好友发起/审批授权、self-check、目标校验、结果枚举和 CAS 状态机。
+4. [ ] 修复群发起身份伪造、列表越权、结果枚举、事务提交和 CAS 状态机。`36d0c4e` 为 checkpoint，完成前必须处理上述复审项。
 5. [ ] 好友和群申请事务接入个人 receipt，切换 unread/read API，保留旧字段兼容读取窗口。
 6. [ ] 实现 notification outbox relay、新 Kafka topic、幂等消费、backoff/dead 状态和监控指标。
 7. [ ] 完善好友/群申请 RPC 与 HTTP 字段、分页、稳定错误码和通知业务筛选标读。
