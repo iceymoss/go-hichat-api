@@ -402,6 +402,7 @@ Generated with `tree -L 2`.
 │   ├── README.zh-CN.md
 │   ├── api.md
 │   ├── development-guide.md
+│   ├── development-guide.zh-CN.md
 │   ├── imgs
 │   ├── screenshots
 │   └── specs
@@ -526,7 +527,7 @@ Then open **http://localhost:2470** and sign in as the protagonist:
 - MySQL, Redis, Etcd, MongoDB, and Kafka.
 - go-zero tooling: `goctl`, `protoc`, `protoc-gen-go`, and `protoc-gen-go-grpc`.
 
-See [Developer Guide](docs/development-guide.md) for local dependency setup and code generation notes.
+See the [English Developer Guide](docs/development-guide.md) for local dependency setup and code generation notes.
 
 ### Start Backend Services
 
@@ -562,7 +563,7 @@ The web development server runs on port `3001` by default.
 
 ## Development
 
-- [Developer Guide](docs/development-guide.md): local middleware setup, go-zero tooling, code generation, startup notes, and Docker examples.
+- [English Developer Guide](docs/development-guide.md): local middleware setup, go-zero tooling, code generation, startup notes, and Docker examples.
 - [API Reference](docs/api.md): generated REST and gRPC contract summary.
 - [Feature Specs](docs/specs): feature analysis, design notes, and implementation records.
 

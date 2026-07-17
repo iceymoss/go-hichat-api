@@ -1,94 +1,73 @@
-# go-hichat-api Development Guide
+# go-hichat-api
 
 [English](development-guide.md) | [简体中文](development-guide.zh-CN.md)
 
-go-hichat-api is HiChat 2.0. It splits the application into a microservice architecture, improves the social module, restructures chat storage, tracks user presence and message read state, and adds an activity feed.
+go-hichat-api是HiChat的2.0版本，其模块拆分，使用微服务架构，功能点：优化社交模块、记录重构聊天存储项目、添加用户在线/离线，消息已读/未读状态、添加动态空间模块。
+### 调整点
+* 调整为微服务架构
+* 项目前后端分离
 
-### Architectural Changes
+### 优化点
+* 优化社交模块，添加或者好友申请，管理员，以及相应消息实时通知
+* 优化文件消息存储方式
+* 重构聊天模块，修复内存泄漏问题，优化消息流，解耦和异步话聊天模块
+* 优化心跳检查，添加消息可靠性ack确认机制
+* 完善聊天记录持久化
 
-* Migrated to a microservice architecture
-* Separated the frontend and backend
+### 新增功能点
+* 添加消息已读/未读功能
+* 添加好友在线状态
+* 添加动态空间模块，点赞，评论，屏蔽动态等
 
-### Improvements
 
-* Improved the social module with friend requests, administrators, and real-time notifications
-* Improved file message storage
-* Refactored the chat module to fix memory leaks, improve message flows, and decouple chat processing through asynchronous operations
-* Improved heartbeat checks and added reliable message delivery through ACK confirmation
-* Improved chat history persistence
-
-### New Features
-
-* Message read and unread state
-* Friend online status
-* Activity feeds with likes, comments, and content blocking
-
-## Set Up the go-zero Toolchain
-
-```shell
-# Install the core go-zero tool
+## GO-ZERO框架配置搭建
+```sql
+# 安装 Go-Zero 核心工具
 go install github.com/zeromicro/go-zero/tools/goctl@latest
 
-# Install the protoc compiler on macOS
+# 安装 protoc 编译器 (macOS)
 brew install protobuf
 
-# Install the protoc compiler on Ubuntu
+# 安装 protoc 编译器 (Ubuntu)
 sudo apt install -y protobuf-compiler
 
-# Install the Go plugins
+# 安装 Go 插件
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
-# Verify the installation
+# 验证安装
 goctl -v
 protoc --version
 ```
 
-## Develop a Module
+## 如何快速进行模块开发
+生成代码模块rpc/api/model(user为例)
 
-The following examples generate the RPC, API, and model code for the user service.
+1. 创建proto
+2. 生成代码
+> goctl rpc protoc ./user.proto --go_out=. --go-grpc_out=. --zrpc_out=.
+>
+3. 生成数据库crud(mysql)
+> goctl model mysql ddl -src="./deploy/sql/user.sql" -dir="./apps/user/models/" -c
 
-1. Create the `.proto` file.
-2. Generate the RPC code:
+4. 生成数据库模型(mongo)
+> goctl model mongo --type chatLog --dir ./apps/im/models/
 
-   ```shell
-   goctl rpc protoc ./user.proto --go_out=. --go-grpc_out=. --zrpc_out=.
-   ```
+5. 生成api
+> goctl api go -api apps/user/api/user.api -dir apps/user/api -style gozero
+6. token验证方式
+> 通过http header传递
+> 例如：
+> GET /v1/user/detail HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
-3. Generate MySQL CRUD code:
-
-   ```shell
-   goctl model mysql ddl -src="./deploy/sql/user.sql" -dir="./apps/user/models/" -c
-   ```
-
-4. Generate a MongoDB model:
-
-   ```shell
-   goctl model mongo --type chatLog --dir ./apps/im/models/
-   ```
-
-5. Generate API code:
-
-   ```shell
-   goctl api go -api apps/user/api/user.api -dir apps/user/api -style gozero
-   ```
-
-6. Pass the access token through the HTTP `Authorization` header:
-
-   ```http
-   GET /v1/user/detail HTTP/1.1
-   Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-   ```
-
-## Required Services
-
-#### MySQL
-
-```shell
-# Create persistent storage
+## 需要的配置
+#### mysql
+```
+# 创建一个持久化目录
 mkdir -p /docker/mysql/data
 
-# Write the configuration
+# 写入配置
 mkdir -p /docker/mysql/conf
 cat > /docker/mysql/conf/my.cnf <<EOF
 [mysqld]
@@ -99,7 +78,8 @@ max_connections=200
 innodb_buffer_pool_size=512M
 EOF
 
-# Start the service
+
+# 启动服务
 docker run -d \
   --name mysql-hichat2 \
   -p 3306:3306 \
@@ -111,37 +91,36 @@ docker run -d \
   mysql:8.0
 ```
 
-#### Redis
-
-```shell
-# Create persistent storage
+#### redis
+```
+# 创建持久化目录
 mkdir -p /docker/redis/data
 
-# Add the configuration
+# 添加配置
 mkdir -p /docker/redis/conf
 cat > /docker/redis/conf/redis.conf <<EOF
-# Basic settings
+# 基本配置
 bind 0.0.0.0
 port 6379
 timeout 0
 tcp-keepalive 300
 
-# Persistence
+# 持久化配置
 save 60 1000
 appendonly yes
 appendfilename "appendonly.aof"
 appendfsync everysec
 dir /data
 
-# Memory management
+# 内存管理
 maxmemory 1gb
 maxmemory-policy allkeys-lru
 
-# Security
-# requirepass yourpassword  # Uncomment to set a password
+# 安全设置
+# requirepass yourpassword  # 取消注释设置密码
 EOF
 
-# Start the service
+# 启动服务
 docker run -d \
   --name redis-hichat \
   -p 6379:6379 \
@@ -151,13 +130,12 @@ docker run -d \
   redis:7.0 redis-server /usr/local/etc/redis/redis.conf
 ```
 
-#### Etcd
-
-```shell
-# Create persistent storage
+#### etcd
+```
+# 持久化目录
 mkdir -p /docker/etcd/data
 
-# Start the service
+# 启动服务
 docker run -d \
   --name etcd-hichat \
   -p 2379:2379 \
@@ -173,15 +151,14 @@ docker run -d \
   --listen-client-urls=http://0.0.0.0:2379 \
   --advertise-client-urls=http://127.0.0.1:2379 \
   --initial-cluster=etcd-single=http://127.0.0.1:2380
+
 ```
-
-#### Kafka
-
-```shell
-# Create the directory
+#### kafka
+```
+# 创建目录
 mkdir -p /docker/kafka
 
-# Create docker-compose.yml
+# 创建 docker-compose.yml
 cat > /docker/kafka/docker-compose.yml <<EOF
 version: '3.8'
 
@@ -204,10 +181,8 @@ services:
     environment:
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
-      # Do not configure KAFKA_CFG_LISTENERS when the broker is not externally accessible
-      # - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092
-      # Replace the IP address when exposing the broker externally
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092
+      # - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092 不对外使用不配置
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092 # 对外配置填写对应的ip
     volumes:
       - kafka_data:/bitnami/kafka
     depends_on:
@@ -218,21 +193,19 @@ volumes:
   kafka_data:
 EOF
 
-# Start the services
+# 启动服务
 cd /docker/kafka
 docker compose up -d
 ```
 
-#### MongoDB
-
-Use the following commands:
-
-```shell
-# Create persistent storage
+#### mongo
+使用以下命令：
+```
+# 创建持久化
 sudo mkdir -p /docker/mongodb/data
-sudo chmod 777 /docker/mongodb/data  # Simplified permissions for this example
+sudo chmod 777 /docker/mongodb/data  # 简化权限
 
-# Write the configuration
+# 写配置
 sudo mkdir -p /docker/mongodb/conf
 sudo tee /docker/mongodb/conf/mongod.conf <<EOF
 storage:
@@ -253,7 +226,7 @@ security:
   authorization: enabled
 EOF
 
-# Start the service
+# 启动服务
 docker run -d \
   --name mongodb-hichat \
   -p 27017:27017 \
@@ -266,8 +239,8 @@ docker run -d \
   --config /etc/mongodb/mongod.conf
 ```
 
-For reference, the following shorter command also starts MongoDB:
-
+仅做参考：
+MongoDB：
 ```shell
 docker run -d \
   --name mongo \
@@ -279,26 +252,21 @@ docker run -d \
   mongo:4.0
 ```
 
-## Start the Services
-
-Run `hichat2.sh` directly:
-
+## 如何启动
+直接运行hichat2.sh启动
 ```shell
 ./hichat2.sh
 ```
 
-## Deploy a Docker Image
+## docker镜像部署
+这里以user-rpc服务为例
 
-The following example uses the `user-rpc` service.
-
-Build the image:
-
-```shell
+构建镜像
+```
 docker build -t hichat2/user-rpc:v1.0 -f deploy/dockerfile/user-rpc.Dockerfile .
 ```
 
-Start the container:
-
-```shell
-docker run -d --name user-rpc --network host -e ENV_MODE=production hichat2/user-rpc:v1.0
+启动镜像
+```
+docker run -d   --name user-rpc   --network host   -e ENV_MODE=production   hichat2/user-rpc:v1.0
 ```

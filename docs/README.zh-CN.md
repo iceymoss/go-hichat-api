@@ -402,6 +402,7 @@ sequenceDiagram
 │   ├── README.zh-CN.md
 │   ├── api.md
 │   ├── development-guide.md
+│   ├── development-guide.zh-CN.md
 │   ├── imgs
 │   ├── screenshots
 │   └── specs
@@ -526,7 +527,7 @@ go run ./scripts/mockdata -trends-only # 只重灌动态/评论/点赞
 - MySQL、Redis、Etcd、MongoDB 和 Kafka。
 - go-zero 工具链：`goctl`、`protoc`、`protoc-gen-go` 和 `protoc-gen-go-grpc`。
 
-本地依赖安装和代码生成说明见 [开发指南](development-guide.md)。
+本地依赖安装和代码生成说明见 [中文开发指南](development-guide.zh-CN.md)。
 
 ### 启动后端服务
 
@@ -562,7 +563,7 @@ Web 开发服务默认运行在 `3001` 端口。
 
 ## 开发
 
-- [开发指南](development-guide.md)：本地中间件配置、go-zero 工具链、代码生成、启动说明和 Docker 示例。
+- [中文开发指南](development-guide.zh-CN.md)：本地中间件配置、go-zero 工具链、代码生成、启动说明和 Docker 示例。
 - [API 文档](api.md)：生成的 REST 和 gRPC 契约汇总。
 - [功能规格](specs)：功能分析、设计说明和实现记录。
 
