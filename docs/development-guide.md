@@ -82,6 +82,28 @@ The following examples generate the RPC, API, and model code for the user servic
 
 ## Required Services
 
+For local development, start MySQL, Redis, Etcd, MongoDB, and Kafka with the standalone Compose file:
+
+```shell
+docker compose -f docker-compose.dependencies.yaml up -d --wait
+```
+
+This command creates the dependency network and persistent volumes, exposes the services on `localhost`, and waits for every health check to pass. It does not start the application services.
+
+```shell
+docker compose -f docker-compose.dependencies.yaml ps      # Show status
+docker compose -f docker-compose.dependencies.yaml logs -f # Follow logs
+docker compose -f docker-compose.dependencies.yaml down    # Stop and preserve data
+```
+
+The default host ports are MySQL `3306`, Redis `6379`, Etcd `2379`, MongoDB `27017`, and Kafka `9092`. Override a port if needed, and use the same port in your local service configuration:
+
+```shell
+MYSQL_PORT=3307 docker compose -f docker-compose.dependencies.yaml up -d --wait
+```
+
+The individual Docker commands below are retained as reference for custom installations.
+
 #### MySQL
 
 ```shell

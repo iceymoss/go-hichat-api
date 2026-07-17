@@ -62,6 +62,29 @@ protoc --version
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ## 需要的配置
+
+本地开发时，可以使用独立的 Compose 文件一键启动 MySQL、Redis、Etcd、MongoDB 和 Kafka：
+
+```shell
+docker compose -f docker-compose.dependencies.yaml up -d --wait
+```
+
+该命令会创建依赖网络和持久卷，将各组件端口映射到 `localhost`，并等待所有健康检查通过。它不会启动项目业务服务。
+
+```shell
+docker compose -f docker-compose.dependencies.yaml ps      # 查看状态
+docker compose -f docker-compose.dependencies.yaml logs -f # 持续查看日志
+docker compose -f docker-compose.dependencies.yaml down    # 停止并保留数据
+```
+
+默认映射到宿主机的端口为 MySQL `3306`、Redis `6379`、Etcd `2379`、MongoDB `27017` 和 Kafka `9092`。如有需要，可以覆盖对应端口，并在本地服务配置中使用相同端口：
+
+```shell
+MYSQL_PORT=3307 docker compose -f docker-compose.dependencies.yaml up -d --wait
+```
+
+下面的独立 Docker 命令保留作为自定义安装参考。
+
 #### mysql
 ```
 # 创建一个持久化目录
