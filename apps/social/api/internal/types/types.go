@@ -74,6 +74,7 @@ type FriendPutInDeleteResp struct {
 
 type FriendPutInHandleReq struct {
 	FriendReqId  int32    `json:"friend_req_id,omitempty"`
+	RequestId    uint64   `json:"request_id,optional"`
 	HandleResult int32    `json:"handle_result,omitempty"` // 处理结果
 	HandleMsg    string   `json:"handle_msg,optional"`     // 处理附言/回复
 	Remark       string   `json:"remark,omitempty"`        // 备注
@@ -87,12 +88,16 @@ type FriendPutInHandleResp struct {
 }
 
 type FriendPutInListReq struct {
-	Type  int32  `form:"type,optional"`  // 处理类型：0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
-	Class string `form:"class,optional"` // 申请列表类型：0-我发起的申请, 1-我收到的申请
+	Type   int32  `form:"type,optional"`  // 处理类型：0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
+	Class  string `form:"class,optional"` // 申请列表类型：0-我发起的申请, 1-我收到的申请
+	Status *int32 `form:"status,optional"`
+	Page   int32  `form:"page,optional"`
+	Size   int32  `form:"size,optional"`
 }
 
 type FriendPutInListResp struct {
-	List []*FriendRequests `json:"list"`
+	List  []*FriendRequests `json:"list"`
+	Total int64             `json:"total"`
 }
 
 type FriendPutInMessageCountReq struct {
@@ -156,7 +161,10 @@ type FriendRequests struct {
 	Status        string `json:"status,omitempty"`      // 状态文本: pending-待处理, accepted-已同意, rejected-已拒绝, ignored-已忽略
 	StatusText    string `json:"status_text,omitempty"` // 状态中文文本: 待处理, 已同意, 已拒绝, 已忽略
 	HandleMsg     string `json:"handle_msg,omitempty"`
-	ReadState     int    `json:"read_state,omitempty"`   // 读取状态 0未读 1已读
+	ReadState     int    `json:"read_state,omitempty"` // 读取状态 0未读 1已读
+	RequestId     uint64 `json:"request_id"`
+	PeerUid       string `json:"peer_uid"`
+	HandledAt     int64  `json:"handled_at,omitempty"`
 	Nickname      string `json:"nickname,omitempty"`     // 昵称
 	Avatar        string `json:"avatar,omitempty"`       // 头像
 	Sex           int32  `json:"sex,omitempty"`          // 性别（0-未知 1-男 2-女）
@@ -219,12 +227,16 @@ type FriendsOnlineResp struct {
 }
 
 type GetGroupPutListByUidReq struct {
-	Class string `form:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
-	Type  string `form:"type,optional"`  // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
+	Class  string `form:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
+	Type   string `form:"type,optional"`  // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
+	Status *int32 `form:"status,optional"`
+	Page   int32  `form:"page,optional"`
+	Size   int32  `form:"size,optional"`
 }
 
 type GetGroupPutListByUidResp struct {
-	List []*GroupRequests `json:"list,omitempty"`
+	List  []*GroupRequests `json:"list,omitempty"`
+	Total int64            `json:"total"`
 }
 
 type GetMyGroupMemberSettingReq struct {
@@ -483,7 +495,8 @@ type GroupPutInListReq struct {
 }
 
 type GroupPutInListResp struct {
-	List []*GroupRequests `json:"list,omitempty"`
+	List  []*GroupRequests `json:"list,omitempty"`
+	Total int64            `json:"total"`
 }
 
 type GroupPutInReq struct {
@@ -531,19 +544,28 @@ type GroupRequestMessageCountResp struct {
 }
 
 type GroupRequests struct {
-	Id            int64  `json:"id,omitempty"`
-	UserId        string `json:"user_id,omitempty"`
-	GroupId       string `json:"group_id,omitempty"`
-	ReqMsg        string `json:"req_msg,omitempty"`
-	ReqTime       int64  `json:"req_time,omitempty"`
-	JoinSource    int64  `json:"join_source,omitempty"`
-	InviterUserId string `json:"inviter_user_id,omitempty"`
-	HandleUserId  string `json:"handle_user_id,omitempty"`
-	HandleTime    int64  `json:"handle_time,omitempty"`
-	HandleResult  int64  `json:"handle_result,omitempty"`
-	ReceiverRead  int64  `json:"receiver_read,omitempty"`
-	User          User   `json:"user,omitempty"`
-	Group         Groups `json:"group,omitempty"`
+	Id                 int64  `json:"id,omitempty"`
+	UserId             string `json:"user_id,omitempty"`
+	GroupId            string `json:"group_id,omitempty"`
+	ReqMsg             string `json:"req_msg,omitempty"`
+	ReqTime            int64  `json:"req_time,omitempty"`
+	JoinSource         int64  `json:"join_source,omitempty"`
+	InviterUserId      string `json:"inviter_user_id,omitempty"`
+	HandleUserId       string `json:"handle_user_id,omitempty"`
+	HandleTime         int64  `json:"handle_time,omitempty"`
+	HandleResult       int64  `json:"handle_result,omitempty"`
+	ReceiverRead       int64  `json:"receiver_read,omitempty"`
+	RequestId          uint64 `json:"request_id"`
+	ApplicantUid       string `json:"applicant_uid"`
+	HandleMsg          string `json:"handle_msg,omitempty"`
+	InvalidReason      string `json:"invalid_reason,omitempty"`
+	ActualJoinSource   int32  `json:"actual_join_source,omitempty"`
+	SourceType         int32  `json:"source_type"`
+	SourceInvitationId uint64 `json:"source_invitation_id,omitempty"`
+	ReadState          int32  `json:"read_state"`
+	Actionable         bool   `json:"actionable"`
+	User               User   `json:"user,omitempty"`
+	Group              Groups `json:"group,omitempty"`
 }
 
 type GroupSearchItem struct {

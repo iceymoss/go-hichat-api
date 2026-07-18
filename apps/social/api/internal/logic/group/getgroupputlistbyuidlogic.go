@@ -44,9 +44,12 @@ func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(req *types.GetGroupPutL
 
 	// 调用RPC
 	res, err := l.svcCtx.Social.GetGroupPutListByUid(l.ctx, &social.GetGroupPutListByUidReq{
-		Ids:   ids,
-		Class: req.Class,
-		Type:  req.Type,
+		Ids:    ids,
+		Class:  req.Class,
+		Type:   req.Type,
+		Status: req.Status,
+		Page:   req.Page,
+		Size:   req.Size,
 	})
 	if err != nil {
 		return nil, err
@@ -112,24 +115,33 @@ func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(req *types.GetGroupPutL
 			CreateUid: groupInfo.CreatorUid,
 		}
 		list = append(list, &types.GroupRequests{
-			Id:            int64(v.Id),
-			UserId:        v.ReqId, // 请求用户ID
-			GroupId:       v.GroupId,
-			User:          user,
-			Group:         group,
-			ReqMsg:        v.ReqMsg,
-			ReqTime:       v.ReqTime,
-			JoinSource:    int64(v.JoinSource),
-			InviterUserId: v.InviterUid,
-			HandleUserId:  v.HandleUid,
-			HandleTime:    v.HandleResultTime,
-			HandleResult:  int64(v.HandleResult),
-			ReceiverRead:  int64(v.ReceiverRead),
+			Id:                 int64(v.Id),
+			UserId:             v.ReqId, // 请求用户ID
+			GroupId:            v.GroupId,
+			User:               user,
+			Group:              group,
+			ReqMsg:             v.ReqMsg,
+			ReqTime:            v.ReqTime,
+			JoinSource:         int64(v.JoinSource),
+			InviterUserId:      v.InviterUid,
+			HandleUserId:       v.HandleUid,
+			HandleTime:         v.HandleResultTime,
+			HandleResult:       int64(v.HandleResult),
+			ReceiverRead:       int64(v.ReceiverRead),
+			RequestId:          v.RequestId,
+			ApplicantUid:       v.ApplicantUid,
+			HandleMsg:          v.HandleMsg,
+			InvalidReason:      v.InvalidReason,
+			ActualJoinSource:   v.ActualJoinSource,
+			SourceType:         v.SourceType,
+			SourceInvitationId: v.SourceInvitationId,
+			ReadState:          v.ReadState,
+			Actionable:         v.Actionable,
 		})
 	}
 
 	resp = &types.GetGroupPutListByUidResp{
-		List: list,
+		List: list, Total: res.Total,
 	}
 
 	return

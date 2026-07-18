@@ -101,6 +101,7 @@ CREATE TABLE `group_requests` (
                                    `source_invitation_id` bigint unsigned DEFAULT NULL COMMENT '来源邀请ID',
                                    `actual_join_source` tinyint DEFAULT NULL COMMENT '最终实际入群来源',
                                    `invalid_reason` varchar(128) NOT NULL DEFAULT '' COMMENT '系统失效原因',
+                                   `handle_msg` varchar(255) NOT NULL DEFAULT '' COMMENT '审批附言或拒绝原因',
                                    PRIMARY KEY (`id`),
                                    KEY `idx_group` (`group_id`) COMMENT '群组维度查询索引',
                                    KEY `idx_group_request_lookup` (`group_id`,`req_id`,`handle_result`),

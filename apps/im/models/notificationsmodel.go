@@ -48,6 +48,7 @@ type (
 		CountUnread(ctx context.Context, receiverId string) (int64, error)
 		// MarkRead 标记已读；ids 为空表示标记该接收者全部未读为已读。返回受影响行数。
 		MarkRead(ctx context.Context, receiverId string, ids []uint64) (int64, error)
+		MarkReadByBusiness(ctx context.Context, receiverId string, notifyTypes, bizIds []string) (int64, error)
 	}
 
 	customNotificationModel struct {
@@ -122,4 +123,13 @@ func (m *customNotificationModel) MarkRead(ctx context.Context, receiverId strin
 		return 0, res.Error
 	}
 	return res.RowsAffected, nil
+}
+
+func (m *customNotificationModel) MarkReadByBusiness(ctx context.Context, receiverId string, notifyTypes, bizIds []string) (int64, error) {
+	now := time.Now()
+	res := m.conn().WithContext(ctx).Table(m.table).
+		Where("receiver_id = ? AND is_read = ?", receiverId, 0).
+		Where("notify_type IN ? AND biz_id IN ?", notifyTypes, bizIds).
+		Updates(map[string]interface{}{"is_read": 1, "read_at": now})
+	return res.RowsAffected, res.Error
 }

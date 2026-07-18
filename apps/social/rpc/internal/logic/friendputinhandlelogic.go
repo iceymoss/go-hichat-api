@@ -36,7 +36,11 @@ func NewFriendPutInHandleLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 
 // FriendPutInHandle changes a pending request exactly once.
 func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleReq) (*social.FriendPutInHandleResp, error) {
-	if in.FriendReqId <= 0 {
+	requestID := in.RequestId
+	if requestID == 0 && in.FriendReqId > 0 {
+		requestID = uint64(in.FriendReqId)
+	}
+	if requestID == 0 || (in.FriendReqId > 0 && in.RequestId > 0 && uint64(in.FriendReqId) != in.RequestId) {
 		return nil, status.Error(codes.InvalidArgument, "friend request id must be positive")
 	}
 	if in.HandleResult != 1 && in.HandleResult != 2 {
@@ -48,7 +52,7 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 	}
 
 	var request objects.FriendRequest
-	if err := l.DB.WithContext(l.ctx).First(&request, uint64(in.FriendReqId)).Error; err != nil {
+	if err := l.DB.WithContext(l.ctx).First(&request, requestID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Error(codes.NotFound, "friend request not found")
 		}
@@ -188,7 +192,11 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 			if latest.HandleResult != nil && *latest.HandleResult == int(in.HandleResult) {
 				return &social.FriendPutInHandleResp{RequestId: int64(request.ID), HandleResult: in.HandleResult, Idempotent: true}, nil
 			}
-			return nil, status.Error(codes.FailedPrecondition, "friend request already handled with a different result")
+			current := "unknown"
+			if latest.HandleResult != nil {
+				current = strconv.Itoa(*latest.HandleResult)
+			}
+			return nil, alreadyHandledError("friend request already handled with a different result", current)
 		}
 		if status.Code(err) != codes.Unknown {
 			return nil, err

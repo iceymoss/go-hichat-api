@@ -27,7 +27,7 @@ func init() {
 // MigrationRecord 迁移记录
 type MigrationRecord struct {
 	ID          uint      `gorm:"primaryKey"`
-	Version     string    `gorm:"uniqueIndex;not null;size:20"`
+	Version     string    `gorm:"uniqueIndex;not null;size:64"`
 	Description string    `gorm:"not null;size:255"`
 	AppliedAt   time.Time `gorm:"not null"`
 }

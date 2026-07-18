@@ -84,7 +84,9 @@ type ListNotificationsResp struct {
 }
 
 type MarkNotificationsReadReq struct {
-	Ids []uint64 `json:"ids,optional"` // 为空表示全部已读
+	Ids         []uint64 `json:"ids,optional"` // 为空表示全部已读
+	NotifyTypes []string `json:"notify_types,optional"`
+	BizIds      []string `json:"biz_ids,optional"`
 }
 
 type MarkNotificationsReadResp struct {

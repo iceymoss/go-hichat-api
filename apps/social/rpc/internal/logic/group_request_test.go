@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"sync"
@@ -45,6 +46,34 @@ func newGroupTestContext(t *testing.T) (*svc.ServiceContext, *notifyRecorder) {
 	return &svc.ServiceContext{DB: database, User: &userLookupStub{users: users}, CommonNotifyClient: recorder}, recorder
 }
 
+func TestGroupRequestListPaginationAndFields(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	group := testGroup(1, false)
+	require.NoError(t, svcCtx.DB.Create(group).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	now := time.Now()
+	for i, result := range []int{0, 1, 3} {
+		id := uint64(math.MaxInt32) + uint64(i) + 1
+		reqTime := now.Add(time.Duration(i) * time.Second)
+		sourceInvitation := id + 100
+		req := objects.GroupRequest{ID: id, ReqID: "3", GroupID: 1, ReqMsg: "join", ReqTime: &reqTime, JoinSource: intPtr(2), HandleResult: intPtr(result), SourceType: 2, SourceInvitationID: &sourceInvitation, HandleMsg: "handled", InvalidReason: "reason"}
+		require.NoError(t, svcCtx.DB.Create(&req).Error)
+		require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroup, id, "1", receiptKindApply, 1, result, now, true, nil))
+	}
+	statusFilter := int32(0)
+	filtered, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, Class: "2", Status: &statusFilter, Page: 1, Size: 20})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), filtered.Total)
+	require.Greater(t, filtered.List[0].RequestId, uint64(math.MaxInt32))
+	require.Equal(t, "3", filtered.List[0].ApplicantUid)
+	require.True(t, filtered.List[0].Actionable)
+	require.Equal(t, int32(2), filtered.List[0].SourceType)
+	all, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, Class: "2", Page: 2, Size: 2})
+	require.NoError(t, err)
+	require.Equal(t, int64(3), all.Total)
+	require.Len(t, all.List, 1)
+}
+
 func createGroupSQLiteSchema(t *testing.T, database *gorm.DB) {
 	t.Helper()
 	statements := []string{
@@ -66,6 +95,7 @@ func createGroupSQLiteSchema(t *testing.T, database *gorm.DB) {
 			handle_user_id INTEGER, handle_time DATETIME, handle_result INTEGER, receiver_read INTEGER NOT NULL DEFAULT 0,
 			active_key TEXT UNIQUE, source_type INTEGER NOT NULL DEFAULT 1, source_invitation_id INTEGER UNIQUE,
 			actual_join_source INTEGER, invalid_reason TEXT NOT NULL DEFAULT ''
+			, handle_msg TEXT NOT NULL DEFAULT ''
 		)`,
 		`CREATE TABLE group_invitations (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, group_id INTEGER NOT NULL, inviter_uid INTEGER NOT NULL,

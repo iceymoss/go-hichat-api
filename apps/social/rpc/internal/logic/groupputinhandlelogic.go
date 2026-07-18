@@ -65,7 +65,7 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		if *request.HandleResult == int(in.HandleResult) {
 			return groupHandleResponse(&request, true), nil
 		}
-		return nil, status.Error(codes.FailedPrecondition, "group request already handled with a different result")
+		return nil, alreadyHandledError("group request already handled with a different result", strconv.Itoa(*request.HandleResult))
 	}
 
 	changed := false
@@ -115,7 +115,7 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		now := time.Now()
 		updates := map[string]any{
 			"handle_result": in.HandleResult, "handle_user_id": actor, "handle_time": now,
-			"active_key": nil,
+			"active_key": nil, "handle_msg": in.HandleMsg,
 		}
 		if in.HandleResult == groupRequestAccepted {
 			actualSource := 1
@@ -179,7 +179,11 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 			if latest.HandleResult != nil && *latest.HandleResult == groupRequestInvalidated {
 				return groupHandleResponse(&latest, true), nil
 			}
-			return nil, status.Error(codes.FailedPrecondition, "group request already handled with a different result")
+			current := "unknown"
+			if latest.HandleResult != nil {
+				current = strconv.Itoa(*latest.HandleResult)
+			}
+			return nil, alreadyHandledError("group request already handled with a different result", current)
 		}
 		return nil, normalizeGroupWriteError(err, "failed to handle group request")
 	}

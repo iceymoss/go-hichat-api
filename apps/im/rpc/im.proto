@@ -172,6 +172,8 @@ message ListNotificationsResp {
 message MarkNotificationsReadReq {
   string receiverId = 1;
   repeated uint64 ids = 2; // 为空表示标记该接收者全部未读为已读
+  repeated string notifyTypes = 3;
+  repeated string bizIds = 4;
 }
 message MarkNotificationsReadResp {
   int64 affected = 1;
@@ -221,4 +223,3 @@ service Im {
   // 公共通知通道：接收者未读数
   rpc GetUnreadNotificationCount(GetUnreadNotificationCountReq) returns(GetUnreadNotificationCountResp);
 }
-

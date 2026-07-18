@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"sync"
@@ -29,6 +30,29 @@ import (
 type userLookupStub struct {
 	users  map[string]*user.UserEntity
 	errors map[string]error
+}
+
+func TestFriendRequestListPaginationAndFields(t *testing.T) {
+	svcCtx, _ := newFriendTestContext(t)
+	now := time.Now()
+	for i, result := range []int{0, 1, 2} {
+		id := uint64(math.MaxInt32) + uint64(i) + 1
+		handled := now.Add(time.Duration(i) * time.Second)
+		req := objects.FriendRequest{ID: id, UserID: 1, ReqUID: 2, ReqMsg: fmt.Sprintf("message-%d", i), ReqTime: now, HandleResult: intPtr(result), Status: intPtr(1), HandleMsg: "handled", HandledAt: &handled}
+		require.NoError(t, svcCtx.DB.Create(&req).Error)
+		require.NoError(t, createReceipt(svcCtx.DB, receiptTypeFriend, id, "2", receiptKindApply, 1, result, now, false, nil))
+	}
+	statusFilter := int32(0)
+	filtered, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{UserId: "2", Class: "1", Status: &statusFilter, Page: 1, Size: 20})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), filtered.Total)
+	require.Greater(t, filtered.List[0].RequestId, uint64(math.MaxInt32))
+	require.Equal(t, "1", filtered.List[0].PeerUid)
+	require.Equal(t, "handled", filtered.List[0].HandleMsg)
+	all, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{UserId: "2", Class: "1", Type: -1, Page: 2, Size: 2})
+	require.NoError(t, err)
+	require.Equal(t, int64(3), all.Total)
+	require.Len(t, all.List, 1)
 }
 
 func (s *userLookupStub) GetUserById(_ context.Context, in *user.GetUserByIdRequest, _ ...grpc.CallOption) (*user.GetUserByIdResponse, error) {

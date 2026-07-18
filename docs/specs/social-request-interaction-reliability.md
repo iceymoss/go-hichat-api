@@ -540,6 +540,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - `36d0c4e feat(social): add group request state machines`：步骤 4 checkpoint。
 - `940aadb fix(social): complete group request reliability`：完成步骤 4 复审修复。
 - `aa05ad1 feat(social): add personal request receipts`：完成步骤 5 个人回执与 unread/read 切换。
+- `7268dcf feat(social): add reliable notification outbox`：完成步骤 6 notification outbox、relay、幂等消费和监控。
 
 ### 已完成
 
@@ -573,7 +574,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 6 已完成。下一会话从步骤 7 开始：完善好友/群申请 RPC 与 HTTP 字段、分页、稳定错误码和通知业务筛选标读。
+步骤 7 已完成。下一会话从步骤 8 开始：修复 WebSocket 在线定位与多实例路由基础能力。
 
 ### 步骤 5 实施结果
 
@@ -614,7 +615,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 4. [x] 修复群发起身份伪造、列表越权、结果枚举、事务提交和 CAS 状态机；完成 checkpoint 复审修复与 SQLite 并发测试。
 5. [x] 好友和群申请事务接入个人 receipt，切换 unread/read API，保留旧字段兼容读取窗口。
 6. [x] 实现 notification outbox relay、新 Kafka topic、幂等消费、backoff/dead 状态和监控指标。
-7. [ ] 完善好友/群申请 RPC 与 HTTP 字段、分页、稳定错误码和通知业务筛选标读。
+7. [x] 完善好友/群申请 RPC 与 HTTP 字段、分页、稳定错误码和通知业务筛选标读。
 8. [ ] 将 `group.member.added` 会话创建迁移到可靠消费者，删除 API best-effort goroutine；补关系新增事件。
 9. [ ] 修复 WS 当前节点内多连接广播，并明确 WS 失败为 best-effort。
 10. [ ] 前端 store 增加好友/群申请/邀请及群列表版本和统一 unread actions，所有相关通知触发重拉。

@@ -102,6 +102,7 @@ type GroupRequest struct {
 	SourceInvitationID *uint64    `gorm:"column:source_invitation_id;uniqueIndex:uk_group_requests_source_invitation;comment:来源邀请ID"`
 	ActualJoinSource   *int       `gorm:"column:actual_join_source;comment:最终实际入群来源"`
 	InvalidReason      string     `gorm:"column:invalid_reason;size:128;not null;default:'';comment:系统失效原因"`
+	HandleMsg          string     `gorm:"column:handle_msg;size:255;not null;default:'';comment:审批附言或拒绝原因"`
 }
 
 func (GroupRequest) TableName() string {

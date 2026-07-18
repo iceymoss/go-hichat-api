@@ -81,7 +81,7 @@ type OneWayPendingFinding struct {
 
 type migrationRecord struct {
 	ID          uint64    `gorm:"primaryKey"`
-	Version     string    `gorm:"size:20;not null;uniqueIndex"`
+	Version     string    `gorm:"size:64;not null;uniqueIndex"`
 	Description string    `gorm:"size:255;not null"`
 	AppliedAt   time.Time `gorm:"not null"`
 }
@@ -102,6 +102,7 @@ type groupRequestColumns struct {
 	SourceInvitationID *uint64 `gorm:"column:source_invitation_id"`
 	ActualJoinSource   *int    `gorm:"column:actual_join_source"`
 	InvalidReason      string  `gorm:"column:invalid_reason;size:128;not null;default:''"`
+	HandleMsg          string  `gorm:"column:handle_msg;size:255;not null;default:''"`
 }
 
 func (groupRequestColumns) TableName() string { return "group_requests" }
@@ -133,6 +134,9 @@ func Migrate(ctx context.Context, db *gorm.DB, driver string, now time.Time) (Re
 	if count > 0 {
 		report.AlreadyApplied = true
 		if err := repairInvitationReceiptResults(db, now); err != nil {
+			return report, err
+		}
+		if err := ensureGroupHandleMsg(db, now); err != nil {
 			return report, err
 		}
 		return report, validateSchema(db)
@@ -170,6 +174,9 @@ func Migrate(ctx context.Context, db *gorm.DB, driver string, now time.Time) (Re
 	if err := repairInvitationReceiptResults(db, now); err != nil {
 		return report, err
 	}
+	if err := ensureGroupHandleMsg(db, now); err != nil {
+		return report, err
+	}
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		record := migrationRecord{Version: migrationVersion, Description: "social request interaction reliability schema", AppliedAt: now}
 		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&record).Error; err != nil {
@@ -180,6 +187,22 @@ func Migrate(ctx context.Context, db *gorm.DB, driver string, now time.Time) (Re
 		return report, err
 	}
 	return report, validateSchema(db)
+}
+
+func ensureGroupHandleMsg(db *gorm.DB, now time.Time) error {
+	var applied int64
+	if err := db.Model(&migrationRecord{}).Where("version = ?", groupHandleMsgVersion).Count(&applied).Error; err != nil {
+		return err
+	}
+	if applied > 0 {
+		return nil
+	}
+	if !db.Migrator().HasColumn(&groupRequestColumns{}, "HandleMsg") {
+		if err := db.Migrator().AddColumn(&groupRequestColumns{}, "HandleMsg"); err != nil {
+			return fmt.Errorf("add group_requests.handle_msg: %w", err)
+		}
+	}
+	return db.Clauses(clause.OnConflict{DoNothing: true}).Create(&migrationRecord{Version: groupHandleMsgVersion, Description: "add group request handle message", AppliedAt: now}).Error
 }
 
 func repairInvitationReceiptResults(db *gorm.DB, now time.Time) error {
@@ -221,7 +244,7 @@ func ensureSchema(db *gorm.DB) error {
 			}
 		}
 	}
-	for _, field := range []string{"ActiveKey", "SourceType", "SourceInvitationID", "ActualJoinSource", "InvalidReason"} {
+	for _, field := range []string{"ActiveKey", "SourceType", "SourceInvitationID", "ActualJoinSource", "InvalidReason", "HandleMsg"} {
 		if !db.Migrator().HasColumn(&groupRequestColumns{}, field) {
 			if err := db.Migrator().AddColumn(&groupRequestColumns{}, field); err != nil {
 				return fmt.Errorf("add group_requests.%s: %w", field, err)

@@ -28,6 +28,10 @@ message FriendRequests { //好友请求
   int64  reqTime = 5; //请求时间
   int32  handleResult = 6; // 处理结果
   int32  readState = 8; // [新增] 读取状态 0未读 1已读
+  uint64 requestId = 9;
+  string peerUid = 10;
+  string handleMsg = 11;
+  int64 handledAt = 12;
 }
 
 message Groups { //群
@@ -70,6 +74,15 @@ message GroupRequests { //
   int32  handleResult = 9; // 处理结果
   int64  handleResultTime = 10; // 处理时间
   int32  receiverRead = 11; // 接收方(群主/管理员)已读 0未读 1已读
+  uint64 requestId = 12;
+  string applicantUid = 13;
+  string handleMsg = 14;
+  string invalidReason = 15;
+  int32 actualJoinSource = 16;
+  int32 sourceType = 17;
+  uint64 sourceInvitationId = 18;
+  int32 readState = 19;
+  bool actionable = 20;
 }
 
 message GroupQuitReq {
@@ -302,6 +315,7 @@ message FriendPutInHandleReq {
   repeated string tags = 5; // [新增] 标签
   string handleMsg = 6;    // 处理附言/回复
   string actorUid = 7;     // 当前操作者；公开 API 只能从 JWT 填充
+  uint64 requestId = 8;
 }
 message FriendPutInHandleResp {
   int64 requestId = 1;
@@ -330,10 +344,14 @@ message FriendPutInListReq{
   string userId = 1;
   int32  type = 2; //获取什么类型：已拒绝；已通过，未处理
   string class = 3; //申请列表类型：0我发起的申请列表；1我接受到的好友申请列表
+  optional int32 status = 4;
+  int32 page = 5;
+  int32 size = 6;
 }
 
 message FriendPutInListResp{
   repeated FriendRequests list = 1;
+  int64 total = 2;
 }
 
 message FriendPutInMessageCountReq{
@@ -463,6 +481,7 @@ message GroupPutinListReq {
 }
 message GroupPutinListResp {
   repeated GroupRequests list = 1;
+  int64 total = 2;
 }
 
 message GroupPutInHandleReq {
@@ -582,6 +601,9 @@ message GetGroupPutListByUidReq {
   repeated string ids = 1;  // 用户id
   string class = 2;         // 类别： 1：我发起的申请， 2：我接受到的申请
   string type = 3;          // 状态： 0未处理，1已通过，2已拒绝，3忽略
+  optional int32 status = 4;
+  int32 page = 5;
+  int32 size = 6;
 }
 
 // 群搜索（群号精确 + 群名模糊，分页）

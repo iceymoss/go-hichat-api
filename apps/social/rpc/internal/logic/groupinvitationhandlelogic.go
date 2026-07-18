@@ -289,7 +289,7 @@ func (l *GroupInvitationHandleLogic) invitationTerminalResponse(db *gorm.DB, inv
 		*response = invitationHandleResponse(invitation, invitation.Status, "invalidated", 0, true)
 		return nil
 	}
-	return status.Error(codes.FailedPrecondition, "group invitation already handled with a different result")
+	return alreadyHandledError("group invitation already handled with a different result", strconv.Itoa(invitation.Status))
 }
 
 func invitationHandleResponse(invitation *objects.GroupInvitation, invitationStatus int, joinState string, requestID uint64, idempotent bool) *social.GroupInvitationHandleResp {

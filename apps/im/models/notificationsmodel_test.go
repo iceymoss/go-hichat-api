@@ -101,6 +101,15 @@ func Test_Notification_Insert_Idempotent_MultiReceiver(t *testing.T) {
 	if cnt, _ := m.CountUnread(ctx, receiverA); cnt != 1 {
 		t.Fatalf("A unread after mark-one = %d, want 1", cnt)
 	}
+	if ins, err := m.Insert(ctx, newRow(receiverA, "biz3")); err != nil || !ins {
+		t.Fatalf("insert biz3: %v", err)
+	}
+	if aff, err := m.MarkReadByBusiness(ctx, receiverA, []string{marker}, []string{"biz3"}); err != nil || aff != 1 {
+		t.Fatalf("MarkReadByBusiness affected=%d err=%v", aff, err)
+	}
+	if cnt, _ := m.CountUnread(ctx, receiverA); cnt != 1 {
+		t.Fatalf("business filter cleared unrelated rows: %d", cnt)
+	}
 
 	// MarkRead 全部（ids 空）：A 未读清零，且不影响 B
 	if _, err := m.MarkRead(ctx, receiverA, nil); err != nil {

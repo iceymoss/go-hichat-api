@@ -37,7 +37,7 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(req *types.FriendPutInHandleR
 	if parseErr != nil || uid == 0 {
 		return nil, status.Error(codes.Unauthenticated, "missing or invalid user identity")
 	}
-	if req.FriendReqId <= 0 {
+	if req.RequestId == 0 && req.FriendReqId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "friend request id must be positive")
 	}
 	if req.HandleResult != 1 && req.HandleResult != 2 {
@@ -45,6 +45,7 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(req *types.FriendPutInHandleR
 	}
 	rpcResp, err := l.svcCtx.Social.FriendPutInHandle(l.ctx, &social.FriendPutInHandleReq{
 		FriendReqId:  req.FriendReqId,
+		RequestId:    req.RequestId,
 		UserId:       curUid,
 		ActorUid:     curUid,
 		HandleResult: req.HandleResult,

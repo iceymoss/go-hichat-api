@@ -2,10 +2,12 @@ package logic
 
 import (
 	"context"
+	"math"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/pkg/errors"
@@ -59,9 +61,60 @@ func (l *GroupPutinListLogic) GroupPutinList(in *social.GroupPutinListReq) (*soc
 	}
 
 	respList := make([]*social.GroupRequests, 0, len(list))
+	ids := make([]uint64, 0, len(list))
 	for _, v := range list {
+		if v.Id > 0 {
+			ids = append(ids, uint64(v.Id))
+		}
+	}
+	canonical := map[uint64]objects.GroupRequest{}
+	if len(ids) > 0 {
+		var rows []objects.GroupRequest
+		if findErr := l.svcCtx.DB.WithContext(l.ctx).Where("id IN ?", ids).Find(&rows).Error; findErr != nil {
+			return nil, findErr
+		}
+		for _, row := range rows {
+			canonical[row.ID] = row
+		}
+	}
+	receipts := map[uint64]objects.SocialRequestReceipt{}
+	if len(ids) > 0 {
+		kind := receiptKindApply
+		if in.GetClass() == 1 {
+			kind = receiptKindResult
+		}
+		var rows []objects.SocialRequestReceipt
+		if findErr := l.svcCtx.DB.WithContext(l.ctx).Where("request_type=? AND request_id IN ? AND receiver_id=? AND receipt_kind=?", receiptTypeGroup, ids, in.UserId, kind).Find(&rows).Error; findErr != nil {
+			return nil, findErr
+		}
+		for _, row := range rows {
+			receipts[row.RequestID] = row
+		}
+	}
+	for _, v := range list {
+		id := uint64(v.Id)
+		row := canonical[id]
+		legacyID := int32(0)
+		if id <= math.MaxInt32 {
+			legacyID = int32(id)
+		}
+		read := int32(v.ReceiverRead)
+		actionable := false
+		if receipt, ok := receipts[id]; ok {
+			read = int32(receipt.IsRead)
+			actionable = receipt.IsActionable == 1
+		}
+		sourceInvitation := uint64(0)
+		if row.SourceInvitationID != nil {
+			sourceInvitation = *row.SourceInvitationID
+		}
+		actual := int32(0)
+		if row.ActualJoinSource != nil {
+			actual = int32(*row.ActualJoinSource)
+		}
 		respList = append(respList, &social.GroupRequests{
-			Id:               int32(v.Id),
+			Id:               legacyID,
+			RequestId:        id,
 			GroupId:          v.GroupId,
 			ReqId:            v.ReqId,
 			ReqMsg:           v.ReqMsg.String,
@@ -71,9 +124,11 @@ func (l *GroupPutinListLogic) GroupPutinList(in *social.GroupPutinListReq) (*soc
 			HandleUid:        v.HandleUserId.String,
 			HandleResult:     int32(v.HandleResult.Int64),
 			HandleResultTime: v.HandleTime.Unix(),
+			ApplicantUid:     v.ReqId, HandleMsg: row.HandleMsg, InvalidReason: row.InvalidReason, ActualJoinSource: actual, SourceType: int32(row.SourceType), SourceInvitationId: sourceInvitation, ReadState: read, ReceiverRead: read, Actionable: actionable,
 		})
 	}
 	return &social.GroupPutinListResp{
-		List: respList,
+		List:  respList,
+		Total: int64(len(respList)),
 	}, err
 }
