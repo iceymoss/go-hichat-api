@@ -2,13 +2,15 @@ package websocket
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/iceymoss/go-hichat-api/pkg/db"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/gorilla/websocket"
@@ -16,9 +18,6 @@ import (
 	"github.com/zeromicro/go-zero/core/threading"
 	"go.uber.org/zap"
 )
-
-const onlineKeyPrefix = "user:online:"
-const onlineTTL = 5 * time.Minute
 
 type AckType int
 
@@ -45,6 +44,7 @@ func (t AckType) ToString() string {
 type Server struct {
 	// 并发安全处理
 	sync.RWMutex
+	presenceMu [256]sync.Mutex
 
 	// 监听地址
 	addr string
@@ -77,7 +77,7 @@ type Server struct {
 // NewServer 初始化一个websocket服务实例
 func NewServer(addr string, opt ...Options) *Server {
 	return &Server{
-		addr:           addr,
+		addr: addr,
 		upGrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
@@ -367,10 +367,14 @@ func (s *Server) AddRoutes(rs []Route) {
 // addConn 添加连接和用户的映射
 func (s *Server) addConn(conn *Conn, req *http.Request) {
 	uid := s.authentication.UserId(req)
-
-	fmt.Println("连接池:", len(s.user2Conn))
+	if uid == "" {
+		conn.Close()
+		return
+	}
+	presenceLock := s.presenceLock(uid)
+	presenceLock.Lock()
+	defer presenceLock.Unlock()
 	s.RWMutex.Lock()
-	defer s.RWMutex.Unlock()
 
 	// 原有已经存在了连接, 就旧连接关闭，加入新连接
 	if c := s.user2Conn[uid]; c != nil {
@@ -383,25 +387,68 @@ func (s *Server) addConn(conn *Conn, req *http.Request) {
 
 	s.user2Conn[uid] = conn
 	s.conn2User[conn] = uid
+	s.RWMutex.Unlock()
+	if s.opt.presence != nil && uid != "101" {
+		tokenBytes := make([]byte, 16)
+		if _, err := rand.Read(tokenBytes); err != nil {
+			s.Errorf("generate presence token uid=%s: %v", uid, err)
+			return
+		}
+		conn.presenceToken = hex.EncodeToString(tokenBytes)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		err := s.opt.presence.Claim(ctx, uid, s.opt.nodeID, conn.presenceToken, s.opt.presenceTTL)
+		cancel()
+		claimed := err == nil
+		if err != nil {
+			s.Errorf("claim websocket presence uid=%s: %v", uid, err)
+		}
+		go s.refreshPresence(conn, uid, claimed)
+	}
+}
 
-	// 标记用户在线到 Redis，并启动心跳续期
-	rdb := db.GetRedisConn()
-	rdb.Set(context.Background(), onlineKeyPrefix+uid, "1", onlineTTL)
-	go func(userId string) {
-		ticker := time.NewTicker(2 * time.Minute)
-		defer ticker.Stop()
-		for range ticker.C {
+func (s *Server) refreshPresence(conn *Conn, uid string, claimed bool) {
+	ticker := time.NewTicker(s.opt.presenceRefresh)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-conn.done:
+			return
+		case <-ticker.C:
+			presenceLock := s.presenceLock(uid)
+			presenceLock.Lock()
 			s.RWMutex.RLock()
-			_, still := s.user2Conn[userId]
+			current := s.user2Conn[uid] == conn
 			s.RWMutex.RUnlock()
-			if !still {
+			if !current {
+				presenceLock.Unlock()
 				return
 			}
-			rdb.Set(context.Background(), onlineKeyPrefix+userId, "1", onlineTTL)
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			if !claimed {
+				err := s.opt.presence.Claim(ctx, uid, s.opt.nodeID, conn.presenceToken, s.opt.presenceTTL)
+				cancel()
+				if err != nil {
+					s.Errorf("claim websocket presence uid=%s: %v", uid, err)
+					presenceLock.Unlock()
+					continue
+				}
+				claimed = true
+				presenceLock.Unlock()
+				continue
+			}
+			owned, err := s.opt.presence.Refresh(ctx, uid, conn.presenceToken, s.opt.presenceTTL)
+			cancel()
+			if err != nil {
+				s.Errorf("refresh websocket presence uid=%s: %v", uid, err)
+				presenceLock.Unlock()
+				continue
+			}
+			if !owned {
+				claimed = false
+			}
+			presenceLock.Unlock()
 		}
-	}(uid)
-
-	fmt.Println("连接池变化:", len(s.user2Conn))
+	}
 }
 
 func (s *Server) GetConn(uids []string) []*Conn {
@@ -462,27 +509,42 @@ func (s *Server) Stop() {
 
 // Close 关闭连接
 func (s *Server) Close(conn *Conn) {
+	presenceLock := s.presenceLock(conn.Uid)
+	presenceLock.Lock()
+	defer presenceLock.Unlock()
 	s.RWMutex.Lock()
-	defer s.RWMutex.Unlock()
 
 	// 避免出现重复关闭问题
 	uid := s.conn2User[conn]
 	fmt.Println("关闭旧连接1:", s.user2Conn, "conn2User:", s.conn2User)
 	fmt.Println("conn:", conn, "uid:", uid)
 	if uid == "" {
+		s.RWMutex.Unlock()
 		return
 	}
 
 	fmt.Println("退出连接池:", len(s.user2Conn))
 
 	delete(s.conn2User, conn)
-	delete(s.user2Conn, uid)
+	if s.user2Conn[uid] == conn {
+		delete(s.user2Conn, uid)
+	}
+	s.RWMutex.Unlock()
 
 	conn.Close()
+	if s.opt.presence != nil && uid != "101" {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		_, err := s.opt.presence.DeleteIfOwner(ctx, uid, conn.presenceToken)
+		cancel()
+		if err != nil {
+			s.Errorf("delete websocket presence uid=%s: %v", uid, err)
+		}
+	}
 
-	// 从 Redis 移除在线状态
-	rdb := db.GetRedisConn()
-	rdb.Del(context.Background(), onlineKeyPrefix+uid)
+}
 
-	fmt.Println("退出连接池变化", len(s.conn2User))
+func (s *Server) presenceLock(uid string) *sync.Mutex {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(uid))
+	return &s.presenceMu[h.Sum32()%uint32(len(s.presenceMu))]
 }

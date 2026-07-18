@@ -3,12 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/handler"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/svc"
 	websocketServer "github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/presence"
 
 	"github.com/zeromicro/go-zero/core/conf"
 )
@@ -31,10 +34,17 @@ func main() {
 	ctx := svc.NewServiceContext(c)
 
 	option := websocketServer.WithAuthentication(handler.NewJwtAuto(ctx))
+	nodeID := c.Presence.NodeId
+	if nodeID == "" {
+		host, _ := os.Hostname()
+		nodeID = host + "@" + c.ListenOn
+	}
+	presenceOption := websocketServer.WithPresence(nodeID, presence.New(db.GetRedisConn()), c.Presence.TTL, c.Presence.Refresh)
+	heartbeatOption := websocketServer.WithMaxConnectionIdle(c.Presence.HeartbeatTimeout)
 	//option = websocketServer.WithAck(websocketServer.RigorAck)
 
 	// 实例化websocket服务
-	srv := websocketServer.NewServer(c.ListenOn, option)
+	srv := websocketServer.NewServer(c.ListenOn, option, presenceOption, heartbeatOption)
 	defer srv.Stop()
 
 	// 处理处理方法

@@ -574,7 +574,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 7 已完成。下一会话从步骤 8 开始：修复 WebSocket 在线定位与多实例路由基础能力。
+WebSocket 在线定位基础修复已完成。下一会话从步骤 8 的业务清单项开始：可靠消费 `group.member.added` 并幂等创建群会话；当前节点多连接广播仍为步骤 9。
 
 ### 步骤 5 实施结果
 
@@ -593,6 +593,15 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - payload 固定包含 requestType/requestId/groupId/result/content，并校验 notify type、biz phase 和结果枚举一致性；坏数据直接 dead。
 - 增加 pending/dead/delivery latency/failure 指标和显式 ID dead replay 命令；配置支持显式覆盖并兼容旧配置派生。
 - Social/task 目标测试、relay 状态机和事务回滚测试、race、目标 vet 与 diff check 通过。Kafka E2E 及 MySQL/PostgreSQL 实跑留待步骤 17。
+
+### WebSocket 在线定位基础实施结果
+
+- `user:online:<uid>` 写入 WS node ID，并用 connection owner token companion key 实现原子续租和清理；跨节点及同节点旧连接均不能删除新 locator。
+- claim/refresh/delete 使用按 UID 分片生命周期锁；Redis 故障不会阻塞其他用户，初始 claim 失败会随当前连接重试。
+- 客户端入站消息和 pong control frame 更新 liveness，超时统一走幂等连接清理；连接写串行化，`chat.ping` pong 回原连接并保留 method。
+- FriendsOnline 使用共享配置 Redis，不再硬编码 localhost；Redis 故障时返回完整离线 map。
+- 外部 WS client 测试改为 `HICHAT_WS_TEST_HOST` 显式启用；相关 package、race、目标 vet 和 diff check 通过。
+- 本项仅建立 locator 基础，不宣称已完成跨节点消息传输；当前节点多连接广播仍按步骤 9 实施。
 
 步骤 4 暂不提前实现：
 

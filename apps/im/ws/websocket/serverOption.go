@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"github.com/iceymoss/go-hichat-api/pkg/presence"
 	"time"
 )
 
@@ -24,7 +25,11 @@ type option struct {
 	// 最大并发数
 	maxConnectionIdle time.Duration
 
-	concurrency int
+	concurrency     int
+	nodeID          string
+	presence        *presence.Store
+	presenceTTL     time.Duration
+	presenceRefresh time.Duration
 }
 
 func newOption(opts ...Options) option {
@@ -34,6 +39,8 @@ func newOption(opts ...Options) option {
 		sendErrCount:      sendErrCount,
 		maxConnectionIdle: defaultMaxConnectionIdle,
 		concurrency:       defaultConcurrency,
+		presenceTTL:       5 * time.Minute,
+		presenceRefresh:   2 * time.Minute,
 	}
 
 	for _, opt := range opts {
@@ -41,6 +48,36 @@ func newOption(opts ...Options) option {
 	}
 
 	return o
+}
+
+func WithPresence(nodeID string, store *presence.Store, ttl, refresh time.Duration) Options {
+	return func(opt *option) {
+		opt.nodeID = nodeID
+		opt.presence = store
+		if ttl > 0 {
+			opt.presenceTTL = ttl
+		}
+		if opt.presenceTTL < time.Second {
+			opt.presenceTTL = time.Second
+		}
+		if refresh > 0 {
+			opt.presenceRefresh = refresh
+		}
+		if opt.presenceRefresh >= opt.presenceTTL {
+			opt.presenceRefresh = opt.presenceTTL / 2
+		}
+		if opt.presenceRefresh < time.Millisecond {
+			opt.presenceRefresh = time.Millisecond
+		}
+	}
+}
+
+func WithMaxConnectionIdle(timeout time.Duration) Options {
+	return func(opt *option) {
+		if timeout > 0 {
+			opt.maxConnectionIdle = timeout
+		}
+	}
 }
 
 // WithAck 设置ack相关属性

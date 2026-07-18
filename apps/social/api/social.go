@@ -8,6 +8,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/handler"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/middleware"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
+	pkgConfig "github.com/iceymoss/go-hichat-api/pkg/config"
 	httpPkg "github.com/iceymoss/go-hichat-api/pkg/http"
 
 	"github.com/zeromicro/go-zero/core/conf"
@@ -19,6 +20,7 @@ var configFile = flag.String("f", "apps/social/api/etc/social-sample.yaml", "the
 
 func main() {
 	flag.Parse()
+	pkgConfig.InitConfig("local", "", "config")
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
