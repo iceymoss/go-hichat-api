@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -105,6 +104,13 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 		if err := createResultReceipt(tx, receiptTypeFriend, request.ID, strconv.FormatUint(request.UserID, 10), int(in.HandleResult), request.ReqTime, now, false); err != nil {
 			return err
 		}
+		notifyType := NotifyFriendReject
+		if in.HandleResult == 1 {
+			notifyType = NotifyFriendAccept
+		}
+		if err := emitRequestNotificationInTx(tx, l.ServiceContext, notifyType, receiptTypeFriend, request.ID, strconv.FormatUint(request.UserID, 10), in.ActorUid, 0, int(in.HandleResult), in.HandleMsg); err != nil {
+			return err
+		}
 
 		if in.HandleResult == 2 {
 			return nil
@@ -199,14 +205,6 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 	if l.FriendRequestsModel != nil {
 		l.FriendRequestsModel.InvalidateCountCache(l.ctx, strconv.FormatUint(request.UserID, 10), strconv.FormatUint(request.ReqUID, 10))
 	}
-	notifyType := NotifyFriendReject
-	if in.HandleResult == 1 {
-		notifyType = NotifyFriendAccept
-	}
-	emitCommonNotify(l.ctx, l.ServiceContext, &mq.CommonNotify{
-		NotifyType: notifyType, ReceiverId: strconv.FormatUint(request.UserID, 10), ActorId: in.ActorUid,
-		BizId: fmt.Sprintf("friend.handle:%d:%d", request.ID, in.HandleResult), Content: in.HandleMsg,
-	})
 	return &social.FriendPutInHandleResp{RequestId: int64(request.ID), HandleResult: in.HandleResult}, nil
 }
 

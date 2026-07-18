@@ -539,6 +539,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - `1b74e21 fix(social): harden friend request state machine`：步骤 3，好友申请授权、并发和 CAS 状态机。
 - `36d0c4e feat(social): add group request state machines`：步骤 4 checkpoint。
 - `940aadb fix(social): complete group request reliability`：完成步骤 4 复审修复。
+- `aa05ad1 feat(social): add personal request receipts`：完成步骤 5 个人回执与 unread/read 切换。
 
 ### 已完成
 
@@ -572,7 +573,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 5 已完成。下一会话从步骤 6 开始：实现 `social_notification_outbox` relay、新 Kafka topic、幂等消费、退避重试/dead 状态与监控；不得将 receipt 事务重新退化为旧 read 字段写入。
+步骤 6 已完成。下一会话从步骤 7 开始：完善好友/群申请 RPC 与 HTTP 字段、分页、稳定错误码和通知业务筛选标读。
 
 ### 步骤 5 实施结果
 
@@ -582,6 +583,15 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - 好友申请隐藏只关闭当前用户 receipt，不再删除共享历史或复用取消语义。
 - 新增邀请 receipt 枚举修复迁移版本，升级已执行旧迁移的数据库时可幂等修正 expired/invalidated。
 - 固定工具重新生成 API/RPC；Social 全量、receipt/migration 测试、race、目标 vet 和 diff check 通过。MySQL/PostgreSQL DSN 未配置，仍只实跑 SQLite。
+
+### 步骤 6 实施结果
+
+- 好友、群申请、审批、自动收口和邀请通知均与业务状态、receipt、关系 outbox 在同一 Social 事务写入 `social_notification_outbox`。
+- 独立 relay 投递 `social.request.notification.v1`，稳定使用 outbox ID 作为 event ID，支持指数退避、dead、owner-safe Redis 锁及续租丢锁停止。
+- task/mq 同时消费旧/新 topic；通知持久化失败触发 Kafka 重试，持久化成功后的 WebSocket 失败只记录错误，不再无效重投。
+- payload 固定包含 requestType/requestId/groupId/result/content，并校验 notify type、biz phase 和结果枚举一致性；坏数据直接 dead。
+- 增加 pending/dead/delivery latency/failure 指标和显式 ID dead replay 命令；配置支持显式覆盖并兼容旧配置派生。
+- Social/task 目标测试、relay 状态机和事务回滚测试、race、目标 vet 与 diff check 通过。Kafka E2E 及 MySQL/PostgreSQL 实跑留待步骤 17。
 
 步骤 4 暂不提前实现：
 
@@ -603,7 +613,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 3. [x] 修复好友发起/审批授权、self-check、目标校验、结果枚举和 CAS 状态机。
 4. [x] 修复群发起身份伪造、列表越权、结果枚举、事务提交和 CAS 状态机；完成 checkpoint 复审修复与 SQLite 并发测试。
 5. [x] 好友和群申请事务接入个人 receipt，切换 unread/read API，保留旧字段兼容读取窗口。
-6. [ ] 实现 notification outbox relay、新 Kafka topic、幂等消费、backoff/dead 状态和监控指标。
+6. [x] 实现 notification outbox relay、新 Kafka topic、幂等消费、backoff/dead 状态和监控指标。
 7. [ ] 完善好友/群申请 RPC 与 HTTP 字段、分页、稳定错误码和通知业务筛选标读。
 8. [ ] 将 `group.member.added` 会话创建迁移到可靠消费者，删除 API best-effort goroutine；补关系新增事件。
 9. [ ] 修复 WS 当前节点内多连接广播，并明确 WS 失败为 best-effort。

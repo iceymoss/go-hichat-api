@@ -85,12 +85,13 @@ func newFriendTestContext(t *testing.T) (*svc.ServiceContext, *notifyRecorder) {
 			created_at DATETIME NOT NULL, read_at DATETIME, resolved_at DATETIME,
 			UNIQUE(request_type, request_id, receiver_id, receipt_kind)
 		)`).Error)
+		require.NoError(t, db.AutoMigrate(&objects.SocialNotificationOutbox{}))
 	} else if db.Dialector.Name() == "postgres" {
 		require.NoError(t, db.AutoMigrate(&objects.FriendRequest{}))
 		require.NoError(t, db.Migrator().DropIndex(&objects.FriendRequest{}, "idx_user"))
-		require.NoError(t, db.AutoMigrate(&objects.Friend{}, &objects.RelationOutbox{}, &objects.SocialRequestReceipt{}))
+		require.NoError(t, db.AutoMigrate(&objects.Friend{}, &objects.RelationOutbox{}, &objects.SocialRequestReceipt{}, &objects.SocialNotificationOutbox{}))
 	} else {
-		require.NoError(t, db.AutoMigrate(&objects.FriendRequest{}, &objects.Friend{}, &objects.RelationOutbox{}, &objects.SocialRequestReceipt{}))
+		require.NoError(t, db.AutoMigrate(&objects.FriendRequest{}, &objects.Friend{}, &objects.RelationOutbox{}, &objects.SocialRequestReceipt{}, &objects.SocialNotificationOutbox{}))
 	}
 	recorder := &notifyRecorder{}
 	users := map[string]*user.UserEntity{
@@ -149,7 +150,7 @@ func TestFriendPutInValidationAndState(t *testing.T) {
 			require.Equal(t, first.RequestId, second.RequestId)
 			require.True(t, second.AlreadyPending)
 			require.Equal(t, int64(1), countRows(t, db, &objects.FriendRequest{}))
-			require.Equal(t, 1, recorder.count())
+			require.Zero(t, recorder.count())
 			var request objects.FriendRequest
 			require.NoError(t, db.First(&request, uint64(first.RequestId)).Error)
 			require.Nil(t, request.HandledAt)
@@ -207,7 +208,7 @@ func TestFriendPutInConcurrentActive(t *testing.T) {
 		require.Equal(t, stable, id)
 	}
 	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.FriendRequest{}))
-	require.Equal(t, 1, recorder.count())
+	require.Zero(t, recorder.count())
 }
 
 func TestFriendRequestReceiptsAndReadCount(t *testing.T) {
@@ -220,6 +221,7 @@ func TestFriendRequestReceiptsAndReadCount(t *testing.T) {
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeFriend, created.RequestId, "2", receiptKindApply).First(&apply).Error)
 	require.Zero(t, apply.IsRead)
 	require.Equal(t, 1, apply.IsActionable)
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
 
 	count, err := NewFriendPutInMessageCountLogic(context.Background(), svcCtx).FriendPutInMessageCount(&social.FriendPutInMessageCountReq{UserId: "2"})
 	require.NoError(t, err)
@@ -239,6 +241,7 @@ func TestFriendRequestReceiptsAndReadCount(t *testing.T) {
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeFriend, created.RequestId, "1", receiptKindResult).First(&result).Error)
 	require.Zero(t, result.IsRead)
 	require.Equal(t, receiptRejected, result.Result)
+	require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
 
 	read, err := NewFriendPutInReadLogic(context.Background(), svcCtx).FriendPutInRead(&social.FriendPutInReadReq{UserId: "1", RequestIds: []uint64{uint64(created.RequestId)}})
 	require.NoError(t, err)
@@ -258,6 +261,18 @@ func TestFriendReceiptFailureRollsBackRequest(t *testing.T) {
 	})
 	require.Equal(t, codes.Internal, status.Code(err))
 	require.Zero(t, countRows(t, svcCtx.DB, &objects.FriendRequest{}))
+}
+
+func TestFriendNotificationOutboxFailureRollsBackRequest(t *testing.T) {
+	svcCtx, _ := newFriendTestContext(t)
+	if svcCtx.DB.Dialector.Name() != "sqlite" {
+		t.Skip("SQLite trigger injects failure")
+	}
+	require.NoError(t, svcCtx.DB.Exec(`CREATE TRIGGER fail_friend_notification BEFORE INSERT ON social_notification_outbox BEGIN SELECT RAISE(ABORT, 'notification failure'); END`).Error)
+	_, err := NewFriendPutInLogic(context.Background(), svcCtx).FriendPutIn(&social.FriendPutInReq{ActorUid: "1", UserId: "1", ReqUid: "2", ReqTime: time.Now().Unix()})
+	require.Equal(t, codes.Internal, status.Code(err))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.FriendRequest{}))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.SocialRequestReceipt{}))
 }
 
 func TestFriendDeletePreservesSharedHistory(t *testing.T) {
@@ -317,7 +332,7 @@ func TestFriendPutInHandleAuthorizationAndResults(t *testing.T) {
 				require.Equal(t, int64(0), countRows(t, svcCtx.DB, &objects.Friend{}))
 				require.Equal(t, int64(0), countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
 			}
-			require.Equal(t, 1, recorder.count())
+			require.Zero(t, recorder.count())
 		})
 	}
 }
@@ -346,7 +361,7 @@ func TestFriendPutInHandleIdempotencyAndReversePending(t *testing.T) {
 			} else {
 				assertRequestState(t, svcCtx.DB, reverse.ID, 0)
 			}
-			require.Equal(t, 1, recorder.count())
+			require.Zero(t, recorder.count())
 		})
 	}
 }
@@ -377,7 +392,7 @@ func TestFriendPutInHandleConcurrentInvariant(t *testing.T) {
 			} else {
 				require.Zero(t, relations)
 			}
-			require.Equal(t, 1, recorder.count())
+			require.Zero(t, recorder.count())
 		})
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 
 	"gorm.io/gorm"
@@ -47,13 +48,16 @@ func createReceipt(tx *gorm.DB, requestType string, requestID uint64, receiverID
 	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&receipt).Error
 }
 
-func createGroupApplyReceipts(tx *gorm.DB, groupID, requestID uint64, createdAt time.Time) error {
+func createGroupApplyReceipts(tx *gorm.DB, svcCtx *svc.ServiceContext, groupID, requestID uint64, actorID, content string, createdAt time.Time) error {
 	var members []objects.GroupMember
 	if err := tx.Where("group_id = ? AND role_level IN ?", groupID, []int{1, 2}).Find(&members).Error; err != nil {
 		return err
 	}
 	for _, member := range members {
 		if err := createReceipt(tx, receiptTypeGroup, requestID, strconv.FormatUint(member.UserID, 10), receiptKindApply, 1, receiptPending, createdAt, false, nil); err != nil {
+			return err
+		}
+		if err := emitRequestNotificationInTx(tx, svcCtx, NotifyGroupApply, receiptTypeGroup, requestID, strconv.FormatUint(member.UserID, 10), actorID, groupID, receiptPending, content); err != nil {
 			return err
 		}
 	}

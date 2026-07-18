@@ -23,9 +23,10 @@ import (
 )
 
 const (
-	groupRequestPending  = 0
-	groupRequestAccepted = 1
-	groupRequestRejected = 2
+	groupRequestPending     = 0
+	groupRequestAccepted    = 1
+	groupRequestRejected    = 2
+	groupRequestInvalidated = 3
 
 	groupInvitationPending     = 0
 	groupInvitationAccepted    = 1
@@ -55,25 +56,20 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 
 	var response *social.GroupPutinResp
 	createdPending := false
-	joined := false
-	var groupCreator uint64
 	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
 		response = nil
 		createdPending = false
-		joined = false
-		groupCreator = 0
 		group, err := loadNormalGroup(tx, groupID)
 		if err != nil {
 			return err
 		}
-		groupCreator = group.CreatorUID
 		member, err := loadGroupMember(tx, groupID, actor)
 		if err != nil {
 			return err
 		}
 		if member != nil {
 			now := time.Now()
-			if err := resolvePendingGroupRequests(tx, groupID, actor, now, 1, true); err != nil {
+			if err := resolvePendingGroupRequests(tx, l.ServiceContext, groupID, actor, now, 1, true, in.ActorUid); err != nil {
 				return err
 			}
 			if err := invalidatePendingGroupInvitations(tx, groupID, actor, now); err != nil {
@@ -96,12 +92,15 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 			if err := createResultReceipt(tx, receiptTypeGroup, request.ID, in.ActorUid, receiptAccepted, now, now, true); err != nil {
 				return err
 			}
+			if err := emitRequestNotificationInTx(tx, l.ServiceContext, NotifyGroupAccept, receiptTypeGroup, request.ID, in.ActorUid, strconv.FormatUint(group.CreatorUID, 10), groupID, receiptAccepted); err != nil {
+				return err
+			}
 			memberCreated, err := createGroupMemberAndOutbox(tx, l.ServiceContext, groupID, actor, 0, 1, nil, actor)
 			if err != nil {
 				return err
 			}
-			joined = memberCreated
-			if err := resolvePendingGroupRequests(tx, groupID, actor, now, 1, true); err != nil {
+			_ = memberCreated
+			if err := resolvePendingGroupRequests(tx, l.ServiceContext, groupID, actor, now, 1, true, in.ActorUid); err != nil {
 				return err
 			}
 			if err := invalidatePendingGroupInvitations(tx, groupID, actor, now); err != nil {
@@ -142,7 +141,7 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 			}
 		}
 		if createdPending {
-			if err := createGroupApplyReceipts(tx, groupID, request.ID, now); err != nil {
+			if err := createGroupApplyReceipts(tx, l.ServiceContext, groupID, request.ID, in.ActorUid, in.ReqMsg, now); err != nil {
 				return err
 			}
 		}
@@ -153,15 +152,6 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 		return nil, normalizeGroupWriteError(err, "failed to submit group request")
 	}
 
-	if createdPending {
-		notifyGroupAdminsFromDB(l.ctx, l.ServiceContext, groupID, actor, response.RequestId, in.ReqMsg)
-	}
-	if joined {
-		emitCommonNotify(l.ctx, l.ServiceContext, &mq.CommonNotify{
-			NotifyType: NotifyGroupAccept, ReceiverId: in.ActorUid, ActorId: strconv.FormatUint(groupCreator, 10),
-			BizId: fmt.Sprintf("group.direct:%d", response.RequestId), GroupId: response.GroupIdString,
-		})
-	}
 	return response, nil
 }
 
@@ -220,13 +210,16 @@ func (l *GroupPutinLogic) groupPutinByToken(in *social.GroupPutinReq) (*social.G
 			if err := createResultReceipt(tx, receiptTypeGroup, request.ID, in.ActorUid, receiptAccepted, now, now, true); err != nil {
 				return err
 			}
-			if err := resolvePendingGroupRequests(tx, groupID, actor, now, joinSource, true); err != nil {
+			if err := emitRequestNotificationInTx(tx, l.ServiceContext, NotifyGroupAccept, receiptTypeGroup, request.ID, in.ActorUid, strconv.FormatUint(inviter, 10), groupID, receiptAccepted); err != nil {
+				return err
+			}
+			if err := resolvePendingGroupRequests(tx, l.ServiceContext, groupID, actor, now, joinSource, true, in.ActorUid); err != nil {
 				return err
 			}
 			if err := invalidatePendingGroupInvitations(tx, groupID, actor, now); err != nil {
 				return err
 			}
-		} else if err := createGroupApplyReceipts(tx, groupID, request.ID, now); err != nil {
+		} else if err := createGroupApplyReceipts(tx, l.ServiceContext, groupID, request.ID, in.ActorUid, in.ReqMsg, now); err != nil {
 			return err
 		}
 		response = groupPutinResponse(groupID, request.ID, result, false, false)
@@ -372,7 +365,7 @@ func createGroupMemberAndOutbox(tx *gorm.DB, svcCtx *svc.ServiceContext, groupID
 	return true, nil
 }
 
-func resolvePendingGroupRequests(tx *gorm.DB, groupID, userID uint64, now time.Time, actualSource int, readResults bool) error {
+func resolvePendingGroupRequests(tx *gorm.DB, svcCtx *svc.ServiceContext, groupID, userID uint64, now time.Time, actualSource int, readResults bool, actorID string) error {
 	var requests []objects.GroupRequest
 	if err := tx.Where("group_id = ? AND req_id = ? AND handle_result = ?", groupID, strconv.FormatUint(userID, 10), groupRequestPending).Find(&requests).Error; err != nil {
 		return err
@@ -395,6 +388,11 @@ func resolvePendingGroupRequests(tx *gorm.DB, groupID, userID uint64, now time.T
 		}
 		if err := createResultReceipt(tx, receiptTypeGroup, request.ID, request.ReqID, receiptAccepted, createdAt, now, readResults); err != nil {
 			return err
+		}
+		if !readResults {
+			if err := emitRequestNotificationInTx(tx, svcCtx, NotifyGroupAccept, receiptTypeGroup, request.ID, request.ReqID, actorID, groupID, receiptAccepted); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -445,18 +443,4 @@ func normalizeGroupWriteError(err error, fallback string) error {
 		return err
 	}
 	return status.Error(codes.Internal, fallback)
-}
-
-func notifyGroupAdminsFromDB(ctx context.Context, svcCtx *svc.ServiceContext, groupID, actor, requestID uint64, content string) {
-	var members []objects.GroupMember
-	if err := svcCtx.DB.WithContext(ctx).Where("group_id = ? AND role_level IN ?", groupID, []int{1, 2}).Find(&members).Error; err != nil {
-		logx.WithContext(ctx).Errorf("notify group admins failed: %v", err)
-		return
-	}
-	for _, member := range members {
-		emitCommonNotify(ctx, svcCtx, &mq.CommonNotify{
-			NotifyType: NotifyGroupApply, ReceiverId: strconv.FormatUint(member.UserID, 10), ActorId: strconv.FormatUint(actor, 10),
-			BizId: fmt.Sprintf("group.apply:%d", requestID), GroupId: strconv.FormatUint(groupID, 10), Content: content,
-		})
-	}
 }

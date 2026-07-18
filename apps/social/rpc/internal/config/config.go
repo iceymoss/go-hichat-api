@@ -29,4 +29,9 @@ type Config struct {
 		Addrs []string
 		Topic string
 	}
+
+	SocialRequestNotification struct {
+		Addrs []string `json:",optional"`
+		Topic string   `json:",optional"`
+	}
 }

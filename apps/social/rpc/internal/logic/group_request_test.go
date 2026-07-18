@@ -32,7 +32,7 @@ func newGroupTestContext(t *testing.T) (*svc.ServiceContext, *notifyRecorder) {
 	} else {
 		require.NoError(t, database.AutoMigrate(
 			&objects.Group{}, &objects.GroupMember{}, &objects.GroupRequest{},
-			&objects.GroupInvitation{}, &objects.RelationOutbox{}, &objects.SocialRequestReceipt{},
+			&objects.GroupInvitation{}, &objects.RelationOutbox{}, &objects.SocialRequestReceipt{}, &objects.SocialNotificationOutbox{},
 		))
 	}
 	recorder := &notifyRecorder{}
@@ -91,6 +91,7 @@ func createGroupSQLiteSchema(t *testing.T, database *gorm.DB) {
 	for _, statement := range statements {
 		require.NoError(t, database.Exec(statement).Error)
 	}
+	require.NoError(t, database.AutoMigrate(&objects.SocialNotificationOutbox{}))
 }
 
 func openGroupTestDB(t *testing.T) *gorm.DB {
@@ -154,7 +155,7 @@ func TestGroupPutInValidationAndState(t *testing.T) {
 				require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
 			}
 			if tt.accepted {
-				require.Equal(t, 1, recorder.count())
+				require.Zero(t, recorder.count())
 			} else {
 				require.Zero(t, recorder.count())
 			}
@@ -183,7 +184,7 @@ func TestGroupPutInIgnoresForgedPublicFieldsAndDeduplicates(t *testing.T) {
 	require.Equal(t, 1, *request.JoinSource)
 	require.Nil(t, request.InviterUserID)
 	require.Nil(t, request.HandleTime)
-	require.Equal(t, 1, recorder.count())
+	require.Zero(t, recorder.count())
 }
 
 func TestGroupPutInConcurrentAndCooldown(t *testing.T) {
@@ -240,6 +241,7 @@ func TestGroupRequestReceiptsArePersonal(t *testing.T) {
 	var receipts []objects.SocialRequestReceipt
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receipt_kind = ?", receiptTypeGroup, created.RequestId, receiptKindApply).Order("receiver_id").Find(&receipts).Error)
 	require.Len(t, receipts, 2)
+	require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
 	require.Equal(t, []string{"1", "2"}, []string{receipts[0].ReceiverID, receipts[1].ReceiverID})
 
 	read, err := NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: "1", RequestIds: []uint64{created.RequestId}})
@@ -257,6 +259,7 @@ func TestGroupRequestReceiptsArePersonal(t *testing.T) {
 	require.Equal(t, 1, receipts[0].IsRead)
 	require.Zero(t, receipts[1].IsRead)
 	require.Equal(t, receiptAccepted, receipts[1].Result)
+	require.Equal(t, int64(3), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
 
 	var applicantResult objects.SocialRequestReceipt
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeGroup, created.RequestId, "3", receiptKindResult).First(&applicantResult).Error)
@@ -275,6 +278,7 @@ func TestGroupInvitationReceiptLifecycle(t *testing.T) {
 	count, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "3"})
 	require.NoError(t, err)
 	require.Equal(t, int32(1), count.Invite)
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
 
 	read, err := NewGroupInvitationReadLogic(context.Background(), svcCtx).GroupInvitationRead(&social.GroupInvitationReadReq{ActorUid: "3", InvitationIds: []uint64{created.Invitation.Id}})
 	require.NoError(t, err)
@@ -285,6 +289,20 @@ func TestGroupInvitationReceiptLifecycle(t *testing.T) {
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ?", receiptTypeGroupInvite, created.Invitation.Id).First(&receipt).Error)
 	require.Zero(t, receipt.IsActionable)
 	require.Equal(t, receiptRejected, receipt.Result)
+}
+
+func TestGroupNotificationOutboxFailureRollsBackApplication(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	if svcCtx.DB.Dialector.Name() != "sqlite" {
+		t.Skip("SQLite trigger injects failure")
+	}
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	require.NoError(t, svcCtx.DB.Exec(`CREATE TRIGGER fail_group_notification BEFORE INSERT ON social_notification_outbox BEGIN SELECT RAISE(ABORT, 'notification failure'); END`).Error)
+	_, err := NewGroupPutinLogic(context.Background(), svcCtx).GroupPutin(groupPutInReq("3", "3", "1"))
+	require.Equal(t, codes.Internal, status.Code(err))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.GroupRequest{}))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.SocialRequestReceipt{}))
 }
 
 func TestGroupInvitationReadRequiresDisplayedIDs(t *testing.T) {
@@ -322,7 +340,7 @@ func TestGroupInvitationCreateAuthorizationAndIndependence(t *testing.T) {
 			}
 			require.Equal(t, int32(0), resp.Invitation.Status)
 			require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.GroupInvitation{}))
-			require.Equal(t, 1, recorder.count())
+			require.Zero(t, recorder.count())
 		})
 	}
 
@@ -602,7 +620,7 @@ func TestGroupRequestHandleCASClosureAndRollback(t *testing.T) {
 	require.NoError(t, svcCtx.DB.First(&latestInvitation, invitation.ID).Error)
 	require.Equal(t, groupInvitationInvalidated, latestInvitation.Status)
 	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
-	require.Equal(t, 1, recorder.count())
+	require.Zero(t, recorder.count())
 
 	retry, err := NewGroupPutInHandleLogic(context.Background(), svcCtx).GroupPutInHandle(&social.GroupPutInHandleReq{GroupReqId: int32(first.ID), ActorUid: "1", HandleUid: "1", HandleResult: 1})
 	require.NoError(t, err)
@@ -861,6 +879,24 @@ func TestGroupRequestRejectOnlyCurrentAndOutboxRollback(t *testing.T) {
 	require.Zero(t, countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
 }
 
+func TestGroupRequestUnavailableBecomesInvalidated(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	group := testGroup(1, true)
+	require.NoError(t, svcCtx.DB.Create(group).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	now := time.Now()
+	request := objects.GroupRequest{ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}
+	require.NoError(t, svcCtx.DB.Create(&request).Error)
+	require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroup, request.ID, "1", receiptKindApply, 1, 0, now, false, nil))
+	require.NoError(t, svcCtx.DB.Model(&objects.Group{}).Where("id = ?", 1).Update("status", 1).Error)
+	resp, err := NewGroupPutInHandleLogic(context.Background(), svcCtx).GroupPutInHandle(&social.GroupPutInHandleReq{RequestId: request.ID, ActorUid: "1", HandleResult: 1})
+	require.NoError(t, err)
+	require.Equal(t, int32(groupRequestInvalidated), resp.HandleResult)
+	var outbox objects.SocialNotificationOutbox
+	require.NoError(t, svcCtx.DB.Where("notify_type = ?", NotifyGroupInvalidated).First(&outbox).Error)
+	require.Equal(t, "group:1:invalidated", outbox.BizID)
+}
+
 func TestGroupRequestConcurrentResultsAndExistingMember(t *testing.T) {
 	t.Run("accept reject invariant", func(t *testing.T) {
 		svcCtx, recorder := newGroupTestContext(t)
@@ -891,7 +927,7 @@ func TestGroupRequestConcurrentResultsAndExistingMember(t *testing.T) {
 			require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.GroupMember{}))
 			require.Zero(t, countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
 		}
-		require.Equal(t, 1, recorder.count())
+		require.Zero(t, recorder.count())
 	})
 
 	t.Run("existing member creates no outbox", func(t *testing.T) {

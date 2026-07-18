@@ -34,7 +34,7 @@ func (m *CommonNotifyTransfer) Consume(ctx context.Context, key, value string) e
 	var in mq.CommonNotify
 	if err := json.Unmarshal([]byte(value), &in); err != nil {
 		// 不可重试错误（脏数据）：打日志后丢弃，不阻塞消费组
-		logx.WithContext(ctx).Errorf("CommonNotifyTransfer bad message: %s err=%v", value, err)
+		logx.WithContext(ctx).Errorf("CommonNotifyTransfer bad message: err=%v", err)
 		return nil
 	}
 
@@ -72,7 +72,7 @@ func (m *CommonNotifyTransfer) Consume(ctx context.Context, key, value string) e
 		return nil
 	}
 
-	return m.svcCtx.WsClient.Send(websocket.Message{
+	if err := m.svcCtx.WsClient.Send(websocket.Message{
 		FrameType: websocket.FrameNoAck,
 		Method:    "push.notify",
 		FormId:    constants.SYSTEM_ROOT_UID,
@@ -87,5 +87,8 @@ func (m *CommonNotifyTransfer) Consume(ctx context.Context, key, value string) e
 			Payload:    in.Payload,
 			CreateTime: createTime,
 		},
-	})
+	}); err != nil {
+		logx.WithContext(ctx).Errorf("CommonNotifyTransfer websocket delivery failed: event=%d type=%s receiver=%s err=%v", in.EventId, in.NotifyType, in.ReceiverId, err)
+	}
+	return nil
 }

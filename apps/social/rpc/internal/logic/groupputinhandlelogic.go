@@ -3,13 +3,11 @@ package logic
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -61,6 +59,9 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		if err := l.requireCurrentGroupApprover(request.GroupID, actor); err != nil {
 			return nil, err
 		}
+		if *request.HandleResult == groupRequestInvalidated {
+			return groupHandleResponse(&request, true), nil
+		}
 		if *request.HandleResult == int(in.HandleResult) {
 			return groupHandleResponse(&request, true), nil
 		}
@@ -71,7 +72,37 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
 		changed = false
 		if _, err := loadNormalGroup(tx, request.GroupID); err != nil {
-			return err
+			if status.Code(err) != codes.FailedPrecondition && status.Code(err) != codes.NotFound {
+				return err
+			}
+			member, memberErr := loadGroupMemberLocked(tx, request.GroupID, actor)
+			if memberErr != nil {
+				return memberErr
+			}
+			if member == nil || (member.RoleLevel != 1 && member.RoleLevel != 2) {
+				return status.Error(codes.PermissionDenied, "only a current group owner or administrator may invalidate requests")
+			}
+			now := time.Now()
+			updated := tx.Model(&objects.GroupRequest{}).Where("id = ? AND handle_result = ?", request.ID, groupRequestPending).
+				Updates(map[string]any{"handle_result": groupRequestInvalidated, "handle_time": now, "active_key": nil, "invalid_reason": "group unavailable"})
+			if updated.Error != nil {
+				return updated.Error
+			}
+			if updated.RowsAffected == 0 {
+				return errGroupRequestCASMiss
+			}
+			changed = true
+			if err := resolveApplyReceipts(tx, receiptTypeGroup, []uint64{request.ID}, receiptInvalidated, now, ""); err != nil {
+				return err
+			}
+			createdAt := now
+			if request.ReqTime != nil {
+				createdAt = *request.ReqTime
+			}
+			if err := createResultReceipt(tx, receiptTypeGroup, request.ID, request.ReqID, receiptInvalidated, createdAt, now, false); err != nil {
+				return err
+			}
+			return emitRequestNotificationInTx(tx, l.ServiceContext, NotifyGroupInvalidated, receiptTypeGroup, request.ID, request.ReqID, in.ActorUid, request.GroupID, receiptInvalidated, "group unavailable")
 		}
 		member, err := loadGroupMemberLocked(tx, request.GroupID, actor)
 		if err != nil {
@@ -113,6 +144,13 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		if err := createResultReceipt(tx, receiptTypeGroup, request.ID, request.ReqID, int(in.HandleResult), createdAt, now, false); err != nil {
 			return err
 		}
+		notifyType := NotifyGroupReject
+		if in.HandleResult == groupRequestAccepted {
+			notifyType = NotifyGroupAccept
+		}
+		if err := emitRequestNotificationInTx(tx, l.ServiceContext, notifyType, receiptTypeGroup, request.ID, request.ReqID, in.ActorUid, request.GroupID, int(in.HandleResult), in.HandleMsg); err != nil {
+			return err
+		}
 		if in.HandleResult == groupRequestRejected {
 			return nil
 		}
@@ -124,7 +162,7 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		if _, err := createGroupMemberAndOutbox(tx, l.ServiceContext, request.GroupID, applicant, 0, actualSource, request.InviterUserID, actor); err != nil {
 			return err
 		}
-		if err := resolvePendingGroupRequests(tx, request.GroupID, applicant, now, actualSource, false); err != nil {
+		if err := resolvePendingGroupRequests(tx, l.ServiceContext, request.GroupID, applicant, now, actualSource, false, in.ActorUid); err != nil {
 			return err
 		}
 		return invalidatePendingGroupInvitations(tx, request.GroupID, applicant, now)
@@ -138,22 +176,23 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 			if latest.HandleResult != nil && *latest.HandleResult == int(in.HandleResult) {
 				return groupHandleResponse(&latest, true), nil
 			}
+			if latest.HandleResult != nil && *latest.HandleResult == groupRequestInvalidated {
+				return groupHandleResponse(&latest, true), nil
+			}
 			return nil, status.Error(codes.FailedPrecondition, "group request already handled with a different result")
 		}
 		return nil, normalizeGroupWriteError(err, "failed to handle group request")
+	}
+	if changed {
+		var latest objects.GroupRequest
+		if loadErr := l.DB.WithContext(l.ctx).First(&latest, request.ID).Error; loadErr == nil && latest.HandleResult != nil && *latest.HandleResult == groupRequestInvalidated {
+			return groupHandleResponse(&latest, false), nil
+		}
 	}
 	if !changed {
 		return groupHandleResponse(&request, true), nil
 	}
 
-	notifyType := NotifyGroupReject
-	if in.HandleResult == groupRequestAccepted {
-		notifyType = NotifyGroupAccept
-	}
-	emitCommonNotify(l.ctx, l.ServiceContext, &mq.CommonNotify{
-		NotifyType: notifyType, ReceiverId: request.ReqID, ActorId: in.ActorUid,
-		BizId: fmt.Sprintf("group.handle:%d:%d", request.ID, in.HandleResult), GroupId: strconv.FormatUint(request.GroupID, 10), Content: in.HandleMsg,
-	})
 	request.HandleResult = intPtr(int(in.HandleResult))
 	return groupHandleResponse(&request, false), nil
 }
@@ -174,7 +213,9 @@ func groupHandleRequestID(in *social.GroupPutInHandleReq) (uint64, error) {
 
 func (l *GroupPutInHandleLogic) requireCurrentGroupApprover(groupID, actor uint64) error {
 	if _, err := loadNormalGroup(l.DB.WithContext(l.ctx), groupID); err != nil {
-		return normalizeGroupWriteError(err, "failed to validate group")
+		if status.Code(err) != codes.FailedPrecondition && status.Code(err) != codes.NotFound {
+			return normalizeGroupWriteError(err, "failed to validate group")
+		}
 	}
 	member, err := loadGroupMember(l.DB.WithContext(l.ctx), groupID, actor)
 	if err != nil {

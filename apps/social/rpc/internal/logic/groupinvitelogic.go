@@ -7,7 +7,6 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -105,6 +104,9 @@ func (l *GroupInviteLogic) GroupInvite(in *social.GroupInviteReq) (*social.Group
 			if err := createReceipt(tx, receiptTypeGroupInvite, invitations[i].ID, strconv.FormatUint(invitations[i].InviteeUID, 10), receiptKindInvite, 1, receiptPending, invitations[i].CreatedAt, false, nil); err != nil {
 				return err
 			}
+			if err := emitRequestNotificationInTx(tx, l.ServiceContext, NotifyGroupInvite, receiptTypeGroupInvite, invitations[i].ID, strconv.FormatUint(invitations[i].InviteeUID, 10), actorText, groupID, receiptPending); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -114,10 +116,6 @@ func (l *GroupInviteLogic) GroupInvite(in *social.GroupInviteReq) (*social.Group
 	ids := make([]uint64, len(invitations))
 	for i := range invitations {
 		ids[i] = invitations[i].ID
-		emitCommonNotify(l.ctx, l.ServiceContext, &mq.CommonNotify{
-			NotifyType: NotifyGroupInvite, ReceiverId: strconv.FormatUint(invitations[i].InviteeUID, 10), ActorId: actorText,
-			BizId: "group.invite:" + strconv.FormatUint(invitations[i].ID, 10), GroupId: in.GroupId,
-		})
 	}
 	return &social.GroupInviteResp{InvitationIds: ids}, nil
 }

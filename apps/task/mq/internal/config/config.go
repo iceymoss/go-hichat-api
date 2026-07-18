@@ -32,6 +32,8 @@ type Config struct {
 	// CommonNotifyTransfer 公共通知 topic（落库 + 在线推送，承载好友/群申请等实时通知）
 	CommonNotifyTransfer kq.KqConf
 
+	SocialRequestNotification kq.KqConf `json:",optional"`
+
 	// AuthzGate 发送鉴权灰度开关（默认全 false = 现状行为，fail-open）
 	AuthzGate struct {
 		Enabled    bool

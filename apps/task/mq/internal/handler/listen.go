@@ -28,6 +28,20 @@ func (l *Listen) Services() []service.Service {
 	trendNotifyConsumeHandle := msgTransfer.NewTrendNotifyTransfer(l.svc)
 	relationChangeConsumeHandle := msgTransfer.NewRelationChangeTransfer(l.svc)
 	commonNotifyConsumeHandle := msgTransfer.NewCommonNotifyTransfer(l.svc)
+	socialRequestNotification := l.svc.Config.SocialRequestNotification
+	if socialRequestNotification.Topic == "" {
+		socialRequestNotification = l.svc.Config.CommonNotifyTransfer
+		socialRequestNotification.Topic = "social.request.notification.v1"
+	}
+	if len(socialRequestNotification.Brokers) == 0 {
+		socialRequestNotification.Brokers = l.svc.Config.CommonNotifyTransfer.Brokers
+	}
+	if socialRequestNotification.Name == "" {
+		socialRequestNotification.Name = "socialRequestNotificationV1"
+	}
+	if socialRequestNotification.Group == "" {
+		socialRequestNotification.Group = "socialRequestNotificationV1"
+	}
 	// 注册处理逻辑
 	return []service.Service{
 		kq.MustNewQueue(l.svc.Config.MsgChatTransfer, msgChatConsumeHandle),
@@ -36,5 +50,6 @@ func (l *Listen) Services() []service.Service {
 		kq.MustNewQueue(l.svc.Config.TrendNotifyTransfer, trendNotifyConsumeHandle),
 		kq.MustNewQueue(l.svc.Config.RelationChangeTransfer, relationChangeConsumeHandle),
 		kq.MustNewQueue(l.svc.Config.CommonNotifyTransfer, commonNotifyConsumeHandle),
+		kq.MustNewQueue(socialRequestNotification, commonNotifyConsumeHandle),
 	}
 }

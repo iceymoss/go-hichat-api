@@ -8,7 +8,6 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	"github.com/iceymoss/go-hichat-api/pkg/utils"
@@ -77,7 +76,10 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 		if !created {
 			return tx.Where("active_key = ?", activeKey).First(request).Error
 		}
-		return createReceipt(tx, receiptTypeFriend, request.ID, in.ReqUid, receiptKindApply, 1, receiptPending, reqTime, false, nil)
+		if err := createReceipt(tx, receiptTypeFriend, request.ID, in.ReqUid, receiptKindApply, 1, receiptPending, reqTime, false, nil); err != nil {
+			return err
+		}
+		return emitRequestNotificationInTx(tx, l.ServiceContext, NotifyFriendApply, receiptTypeFriend, request.ID, in.ReqUid, in.ActorUid, 0, receiptPending, in.ReqMsg)
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to create friend request")
@@ -87,10 +89,6 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 		if l.FriendRequestsModel != nil {
 			l.FriendRequestsModel.InvalidateCountCache(l.ctx, in.ReqUid)
 		}
-		emitCommonNotify(l.ctx, l.ServiceContext, &mq.CommonNotify{
-			NotifyType: NotifyFriendApply, ReceiverId: in.ReqUid, ActorId: in.ActorUid,
-			BizId: fmt.Sprintf("friend.apply:%d", request.ID), Content: in.ReqMsg,
-		})
 	}
 	return &social.FriendPutInResp{RequestId: int64(request.ID), Status: 0, AlreadyPending: !created}, nil
 }

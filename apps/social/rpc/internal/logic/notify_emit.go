@@ -14,13 +14,14 @@ import (
 
 // 公共通知 notifyType 常量（与前端 ws.on('notify') 分发的 type 一一对应）。
 const (
-	NotifyFriendApply  = "friend.apply"  // 收到好友申请 -> 通知被申请人
-	NotifyFriendAccept = "friend.accept" // 好友申请通过 -> 通知申请人
-	NotifyFriendReject = "friend.reject" // 好友申请拒绝 -> 通知申请人
-	NotifyGroupApply   = "group.apply"   // 收到入群申请 -> 通知群主/管理员
-	NotifyGroupAccept  = "group.accept"  // 入群申请通过 -> 通知申请人
-	NotifyGroupReject  = "group.reject"  // 入群申请拒绝 -> 通知申请人
-	NotifyGroupInvite  = "group.invite"  // 收到独立群邀请 -> 通知被邀请人
+	NotifyFriendApply      = "friend.apply"  // 收到好友申请 -> 通知被申请人
+	NotifyFriendAccept     = "friend.accept" // 好友申请通过 -> 通知申请人
+	NotifyFriendReject     = "friend.reject" // 好友申请拒绝 -> 通知申请人
+	NotifyGroupApply       = "group.apply"   // 收到入群申请 -> 通知群主/管理员
+	NotifyGroupAccept      = "group.accept"  // 入群申请通过 -> 通知申请人
+	NotifyGroupReject      = "group.reject"  // 入群申请拒绝 -> 通知申请人
+	NotifyGroupInvalidated = "group.invalidated"
+	NotifyGroupInvite      = "group.invite" // 收到独立群邀请 -> 通知被邀请人
 
 	NotifyGroupRemoved          = "group.removed"           // 被移出群 -> 通知被移出者
 	NotifyGroupAdminSet         = "group.admin.set"         // 被设为管理员 -> 通知本人

@@ -2,13 +2,11 @@ package logic
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -81,15 +79,14 @@ func (l *GroupInvitationCreateLogic) GroupInvitationCreate(in *social.GroupInvit
 		if err := tx.Create(&invitation).Error; err != nil {
 			return err
 		}
-		return createReceipt(tx, receiptTypeGroupInvite, invitation.ID, in.InviteeUid, receiptKindInvite, 1, receiptPending, now, false, nil)
+		if err := createReceipt(tx, receiptTypeGroupInvite, invitation.ID, in.InviteeUid, receiptKindInvite, 1, receiptPending, now, false, nil); err != nil {
+			return err
+		}
+		return emitRequestNotificationInTx(tx, l.ServiceContext, NotifyGroupInvite, receiptTypeGroupInvite, invitation.ID, in.InviteeUid, in.ActorUid, groupID, receiptPending, in.Message)
 	})
 	if err != nil {
 		return nil, normalizeGroupWriteError(err, "failed to create group invitation")
 	}
-	emitCommonNotify(l.ctx, l.ServiceContext, &mq.CommonNotify{
-		NotifyType: NotifyGroupInvite, ReceiverId: in.InviteeUid, ActorId: in.ActorUid,
-		BizId: fmt.Sprintf("group.invite:%d", invitation.ID), GroupId: in.GroupId, Content: in.Message,
-	})
 	return &social.GroupInvitationCreateResp{Invitation: invitationProto(&invitation)}, nil
 }
 

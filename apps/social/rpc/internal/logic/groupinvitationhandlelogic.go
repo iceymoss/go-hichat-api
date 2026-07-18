@@ -137,7 +137,7 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 			return err
 		}
 		if currentMember != nil {
-			if err := resolvePendingGroupRequests(tx, invitation.GroupID, actor, now, 2, true); err != nil {
+			if err := resolvePendingGroupRequests(tx, l.ServiceContext, invitation.GroupID, actor, now, 2, true, in.ActorUid); err != nil {
 				return err
 			}
 			response = invitationHandleResponse(&invitation, groupInvitationAccepted, "joined", 0, false)
@@ -147,7 +147,7 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 			if _, err := createGroupMemberAndOutbox(tx, l.ServiceContext, invitation.GroupID, actor, 0, 2, &invitation.InviterUID, invitation.InviterUID); err != nil {
 				return err
 			}
-			if err := resolvePendingGroupRequests(tx, invitation.GroupID, actor, now, 2, true); err != nil {
+			if err := resolvePendingGroupRequests(tx, l.ServiceContext, invitation.GroupID, actor, now, 2, true, in.ActorUid); err != nil {
 				return err
 			}
 			response = invitationHandleResponse(&invitation, groupInvitationAccepted, "joined", 0, false)
@@ -172,7 +172,7 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 		}
 		createdApproval = result.RowsAffected == 1
 		if createdApproval {
-			if err := createGroupApplyReceipts(tx, invitation.GroupID, request.ID, now); err != nil {
+			if err := createGroupApplyReceipts(tx, l.ServiceContext, invitation.GroupID, request.ID, in.ActorUid, invitation.Message, now); err != nil {
 				return err
 			}
 		}
@@ -191,9 +191,6 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 			return response, nil
 		}
 		return nil, normalizeGroupWriteError(err, "failed to handle group invitation")
-	}
-	if createdApproval {
-		notifyGroupAdminsFromDB(l.ctx, l.ServiceContext, initial.GroupID, actor, response.GroupRequestId, initial.Message)
 	}
 	return response, nil
 }

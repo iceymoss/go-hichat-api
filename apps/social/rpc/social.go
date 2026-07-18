@@ -37,6 +37,7 @@ func main() {
 	relayCtx, cancelRelay := context.WithCancel(context.Background())
 	defer cancelRelay()
 	go relay.New(ctx).Start(relayCtx)
+	go relay.NewNotification(ctx).Start(relayCtx)
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
 		social.RegisterSocialServer(grpcServer, server.NewSocialServer(ctx))
