@@ -9,11 +9,13 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 
-	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type GroupSetAdminLogic struct {
@@ -31,21 +33,6 @@ func NewGroupSetAdminLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Gro
 }
 
 func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social.GroupSetAdminResp, error) {
-	// 1) 校验群存在且操作者为群主
-	group, err := l.svcCtx.GroupsModel.FindOne(l.ctx, in.GroupId)
-	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "group not found %v", in.GroupId)
-	}
-	if group.Status == 1 {
-		return nil, errors.Wrapf(xerr.NewMsg("group disbanded"), "group disbanded")
-	}
-	if group.CreatorUid != in.UserId {
-		return nil, errors.Wrapf(xerr.NewMsg("no permission"), "only owner can set admin")
-	}
-	if len(in.MemberIds) == 0 {
-		return &social.GroupSetAdminResp{}, nil
-	}
-
 	role := int(constants.AtLargeGroupRoleLevel)
 	if in.IsAdmin {
 		role = int(constants.ManagerGroupRoleLevel)
@@ -54,39 +41,83 @@ func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social
 	// 不允许操作群主本人
 	filtered := make([]string, 0, len(in.MemberIds))
 	for _, id := range in.MemberIds {
-		if id == "" || id == group.CreatorUid {
+		if id == "" || id == in.UserId {
 			continue
 		}
 		filtered = append(filtered, id)
 	}
-	if len(filtered) == 0 {
-		return &social.GroupSetAdminResp{}, nil
+	groupID, parseErr := parsePositiveID(in.GroupId, "group id")
+	if parseErr != nil {
+		return nil, parseErr
 	}
-
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
-	tx := mysqlConn.Begin()
-
-	// 2) 只更新这些成员，且不动 role_level=2（防御）
-	if err := tx.Table("group_members").
-		Where("group_id = ?", in.GroupId).
-		Where("user_id in (?)", filtered).
-		Where("role_level <> ?", int(constants.CreatorGroupRoleLevel)).
-		Updates(map[string]any{
-			"role_level":  role,
-			"operator_uid": in.UserId,
-		}).Error; err != nil {
-		tx.Rollback()
-		return nil, errors.Wrapf(xerr.NewDBErr(), "update member role err")
+	ownerID, parseErr := parsePositiveID(in.UserId, "owner uid")
+	if parseErr != nil {
+		return nil, parseErr
 	}
-
-	tx.Commit()
+	memberIDs := make([]uint64, 0, len(filtered))
+	seen := make(map[uint64]struct{}, len(filtered))
+	for _, id := range filtered {
+		memberID, parseErr := parsePositiveID(id, "member uid")
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		if _, duplicate := seen[memberID]; duplicate {
+			continue
+		}
+		seen[memberID] = struct{}{}
+		memberIDs = append(memberIDs, memberID)
+	}
+	var changedIDs []uint64
+	err := transactionWithSQLiteRetry(l.ctx, l.svcCtx.DB, func(tx *gorm.DB) error {
+		attemptChanged := make([]uint64, 0, len(memberIDs))
+		query := tx
+		if tx.Dialector.Name() != "sqlite" {
+			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+		}
+		var currentGroup objects.Group
+		if err := query.First(&currentGroup, groupID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return status.Error(codes.NotFound, "group not found")
+			}
+			return err
+		}
+		if currentGroup.Status != nil && *currentGroup.Status != 0 {
+			return status.Error(codes.FailedPrecondition, "group is unavailable")
+		}
+		if currentGroup.CreatorUID != ownerID {
+			return status.Error(codes.PermissionDenied, "only the current group owner may change administrators")
+		}
+		members, err := loadGroupMembersLocked(tx, groupID, memberIDs...)
+		if err != nil {
+			return err
+		}
+		for _, memberID := range memberIDs {
+			member := members[memberID]
+			if member == nil || member.RoleLevel == int(constants.CreatorGroupRoleLevel) || member.RoleLevel == role {
+				continue
+			}
+			result := tx.Model(&objects.GroupMember{}).Where("id = ?", member.ID).Updates(map[string]any{
+				"role_level": role, "operator_uid": ownerID,
+			})
+			if result.Error != nil {
+				return result.Error
+			}
+			attemptChanged = append(attemptChanged, memberID)
+		}
+		changedIDs = attemptChanged
+		return nil
+	})
+	if err != nil {
+		return nil, normalizeGroupWriteError(err, "failed to update member roles")
+	}
 
 	// 公共通知：被设为/取消管理员的成员收到通知
 	notifyType := NotifyGroupAdminSet
 	if !in.IsAdmin {
 		notifyType = NotifyGroupAdminUnset
 	}
-	for _, id := range filtered {
+	for _, memberID := range changedIDs {
+		id := fmt.Sprintf("%d", memberID)
 		emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
 			NotifyType: notifyType,
 			ReceiverId: id,

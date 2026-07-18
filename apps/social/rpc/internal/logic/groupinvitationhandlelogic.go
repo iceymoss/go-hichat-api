@@ -60,6 +60,8 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 	var response *social.GroupInvitationHandleResp
 	createdApproval := false
 	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
+		response = nil
+		createdApproval = false
 		var group objects.Group
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&group, initial.GroupID).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
@@ -220,17 +222,22 @@ func (l *GroupInvitationHandleLogic) invitationTerminalResponse(db *gorm.DB, inv
 		joinState := "rejected"
 		var requestID uint64
 		if invitation.Status == groupInvitationAccepted {
+			var request objects.GroupRequest
+			requestErr := db.Where("source_invitation_id = ?", invitation.ID).First(&request).Error
+			if requestErr == nil {
+				requestID = request.ID
+			} else if requestErr != gorm.ErrRecordNotFound {
+				return requestErr
+			}
 			member, err := loadGroupMember(db, invitation.GroupID, invitation.InviteeUID)
 			if err != nil {
 				return err
 			}
 			if member != nil {
-				*response = invitationHandleResponse(invitation, invitation.Status, "joined", 0, true)
+				*response = invitationHandleResponse(invitation, invitation.Status, "joined", requestID, true)
 				return nil
 			}
-			var request objects.GroupRequest
-			if err := db.Where("source_invitation_id = ?", invitation.ID).First(&request).Error; err == nil {
-				requestID = request.ID
+			if requestErr == nil {
 				if request.HandleResult == nil || *request.HandleResult == groupRequestPending {
 					joinState = "pending_approval"
 				} else if *request.HandleResult == groupRequestAccepted {
@@ -240,8 +247,6 @@ func (l *GroupInvitationHandleLogic) invitationTerminalResponse(db *gorm.DB, inv
 				} else {
 					return status.Error(codes.Internal, "group approval has invalid result")
 				}
-			} else if err != gorm.ErrRecordNotFound {
-				return err
 			} else {
 				joinState = "joined"
 			}

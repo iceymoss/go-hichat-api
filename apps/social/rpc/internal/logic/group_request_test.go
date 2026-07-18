@@ -268,6 +268,55 @@ func TestGroupInvitationCreateAuthorizationAndIndependence(t *testing.T) {
 	require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.GroupInvitation{}))
 }
 
+func TestGroupInvitationDisabledUsers(t *testing.T) {
+	t.Run("disabled inviter cannot create", func(t *testing.T) {
+		svcCtx, _ := newGroupTestContext(t)
+		require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+		seedGroupMember(t, svcCtx.DB, 1, 20, 0)
+		_, err := NewGroupInvitationCreateLogic(context.Background(), svcCtx).GroupInvitationCreate(&social.GroupInvitationCreateReq{
+			ActorUid: "20", GroupId: "1", InviteeUid: "3",
+		})
+		require.Equal(t, codes.NotFound, status.Code(err))
+		require.Zero(t, countRows(t, svcCtx.DB, &objects.GroupInvitation{}))
+	})
+
+	t.Run("legacy batch is atomic for disabled users", func(t *testing.T) {
+		svcCtx, _ := newGroupTestContext(t)
+		require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+		seedGroupMember(t, svcCtx.DB, 1, 2, 0)
+		_, err := NewGroupInviteLogic(context.Background(), svcCtx).GroupInvite(&social.GroupInviteReq{
+			ActorUid: "2", UserId: "2", GroupId: "1", FriendIds: []string{"3", "20"},
+		})
+		require.Equal(t, codes.NotFound, status.Code(err))
+		require.Zero(t, countRows(t, svcCtx.DB, &objects.GroupInvitation{}))
+	})
+
+	t.Run("disabled inviter cannot use legacy batch", func(t *testing.T) {
+		svcCtx, _ := newGroupTestContext(t)
+		require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+		seedGroupMember(t, svcCtx.DB, 1, 20, 0)
+		_, err := NewGroupInviteLogic(context.Background(), svcCtx).GroupInvite(&social.GroupInviteReq{
+			ActorUid: "20", UserId: "20", GroupId: "1", FriendIds: []string{"3"},
+		})
+		require.Equal(t, codes.NotFound, status.Code(err))
+		require.Zero(t, countRows(t, svcCtx.DB, &objects.GroupInvitation{}))
+	})
+
+	t.Run("disabled invitee cannot handle", func(t *testing.T) {
+		svcCtx, _ := newGroupTestContext(t)
+		require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+		seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+		invitation := seedInvitation(t, svcCtx.DB, 1, 1, 20, 2)
+		_, err := NewGroupInvitationHandleLogic(context.Background(), svcCtx).GroupInvitationHandle(&social.GroupInvitationHandleReq{
+			Id: invitation.ID, ActorUid: "20", Result: 1,
+		})
+		require.Equal(t, codes.NotFound, status.Code(err))
+		var latest objects.GroupInvitation
+		require.NoError(t, svcCtx.DB.First(&latest, invitation.ID).Error)
+		require.Equal(t, groupInvitationPending, latest.Status)
+	})
+}
+
 func TestGroupInvitationHandleRolesAndAuthorization(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -349,6 +398,43 @@ func TestGroupInvitationAcceptCreatesIndependentApprovalAndInvalidatesOthers(t *
 	require.Equal(t, resp.GroupRequestId, retry.GroupRequestId)
 	_, err = NewGroupInvitationHandleLogic(context.Background(), svcCtx).GroupInvitationHandle(&social.GroupInvitationHandleReq{Id: first.ID, ActorUid: "3", Result: 2})
 	require.Equal(t, codes.FailedPrecondition, status.Code(err))
+}
+
+func TestGroupInvitationRetryReflectsApprovalTerminalState(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		result    int32
+		joinState string
+	}{
+		{name: "approved", result: groupRequestAccepted, joinState: "joined"},
+		{name: "rejected", result: groupRequestRejected, joinState: "approval_rejected"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svcCtx, _ := newGroupTestContext(t)
+			require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+			seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+			seedGroupMember(t, svcCtx.DB, 1, 2, 0)
+			invitation := seedInvitation(t, svcCtx.DB, 1, 2, 3, 0)
+			accepted, err := NewGroupInvitationHandleLogic(context.Background(), svcCtx).GroupInvitationHandle(&social.GroupInvitationHandleReq{
+				Id: invitation.ID, ActorUid: "3", Result: 1,
+			})
+			require.NoError(t, err)
+			require.Equal(t, "pending_approval", accepted.JoinState)
+
+			_, err = NewGroupPutInHandleLogic(context.Background(), svcCtx).GroupPutInHandle(&social.GroupPutInHandleReq{
+				RequestId: accepted.GroupRequestId, ActorUid: "1", HandleResult: tc.result,
+			})
+			require.NoError(t, err)
+			retry, err := NewGroupInvitationHandleLogic(context.Background(), svcCtx).GroupInvitationHandle(&social.GroupInvitationHandleReq{
+				Id: invitation.ID, ActorUid: "3", Result: 1,
+			})
+			require.NoError(t, err)
+			require.True(t, retry.Idempotent)
+			require.Equal(t, tc.joinState, retry.JoinState)
+			require.Equal(t, accepted.GroupRequestId, retry.GroupRequestId)
+			require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.GroupRequest{}))
+		})
+	}
 }
 
 func TestGroupInvitationConcurrentAcceptSingleWinner(t *testing.T) {
@@ -452,6 +538,231 @@ func TestGroupRequestHandleCASClosureAndRollback(t *testing.T) {
 	require.True(t, retry.Idempotent)
 	_, err = NewGroupPutInHandleLogic(context.Background(), svcCtx).GroupPutInHandle(&social.GroupPutInHandleReq{GroupReqId: int32(first.ID), ActorUid: "1", HandleUid: "1", HandleResult: 2})
 	require.Equal(t, codes.FailedPrecondition, status.Code(err))
+}
+
+func TestGroupRequestIDCompatibility(t *testing.T) {
+	tests := []struct {
+		name   string
+		legacy int32
+		modern uint64
+		code   codes.Code
+	}{
+		{name: "legacy only", legacy: 1},
+		{name: "modern only", modern: 1},
+		{name: "matching fields", legacy: 1, modern: 1},
+		{name: "conflicting fields", legacy: 1, modern: 2, code: codes.InvalidArgument},
+		{name: "missing fields", code: codes.InvalidArgument},
+		{name: "negative legacy", legacy: -1, code: codes.InvalidArgument},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svcCtx, _ := newGroupTestContext(t)
+			require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+			seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+			now := time.Now()
+			request := objects.GroupRequest{ID: 1, ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}
+			require.NoError(t, svcCtx.DB.Create(&request).Error)
+			_, err := NewGroupPutInHandleLogic(context.Background(), svcCtx).GroupPutInHandle(&social.GroupPutInHandleReq{
+				GroupReqId: tt.legacy, RequestId: tt.modern, ActorUid: "1", HandleResult: 2,
+			})
+			require.Equal(t, tt.code, status.Code(err))
+		})
+	}
+
+	t.Run("modern id above int32", func(t *testing.T) {
+		svcCtx, _ := newGroupTestContext(t)
+		require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+		seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+		now := time.Now()
+		request := objects.GroupRequest{ID: uint64(1<<31) + 1, ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}
+		require.NoError(t, svcCtx.DB.Create(&request).Error)
+		resp, err := NewGroupPutInHandleLogic(context.Background(), svcCtx).GroupPutInHandle(&social.GroupPutInHandleReq{
+			RequestId: request.ID, ActorUid: "1", HandleResult: 2,
+		})
+		require.NoError(t, err)
+		require.Equal(t, request.ID, resp.RequestId)
+	})
+}
+
+func TestGroupKickSkippedDoesNotWriteOutbox(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedGroupMember(t, svcCtx.DB, 1, 2, 2)
+	_, err := NewGroupKickLogic(context.Background(), svcCtx).GroupKick(&social.GroupKickReq{
+		UserId: "1", GroupId: "1", MemberIds: []string{"2", "3"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.GroupMember{}))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
+}
+
+func TestGroupKickDeduplicatesMembers(t *testing.T) {
+	svcCtx, recorder := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedGroupMember(t, svcCtx.DB, 1, 2, 0)
+	_, err := NewGroupKickLogic(context.Background(), svcCtx).GroupKick(&social.GroupKickReq{
+		UserId: "1", GroupId: "1", MemberIds: []string{"2", "2"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.GroupMember{}))
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
+	require.Equal(t, 1, recorder.count())
+}
+
+func TestGroupKickBatchIsAtomicAndAuthorized(t *testing.T) {
+	t.Run("empty batch still requires authorization", func(t *testing.T) {
+		svcCtx, _ := newGroupTestContext(t)
+		require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+		seedGroupMember(t, svcCtx.DB, 1, 2, 0)
+		_, err := NewGroupKickLogic(context.Background(), svcCtx).GroupKick(&social.GroupKickReq{
+			UserId: "2", GroupId: "1",
+		})
+		require.Equal(t, codes.PermissionDenied, status.Code(err))
+	})
+
+	t.Run("invalid later member changes nothing", func(t *testing.T) {
+		svcCtx, _ := newGroupTestContext(t)
+		require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+		seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+		seedGroupMember(t, svcCtx.DB, 1, 2, 0)
+		_, err := NewGroupKickLogic(context.Background(), svcCtx).GroupKick(&social.GroupKickReq{
+			UserId: "1", GroupId: "1", MemberIds: []string{"2", "invalid"},
+		})
+		require.Equal(t, codes.InvalidArgument, status.Code(err))
+		require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.GroupMember{}))
+		require.Zero(t, countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
+	})
+
+	t.Run("outbox failure rolls back all members", func(t *testing.T) {
+		svcCtx, _ := newGroupTestContext(t)
+		if svcCtx.DB.Dialector.Name() != "sqlite" {
+			t.Skip("SQLite trigger is used to inject the outbox failure")
+		}
+		require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+		seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+		seedGroupMember(t, svcCtx.DB, 1, 2, 0)
+		seedGroupMember(t, svcCtx.DB, 1, 3, 0)
+		require.NoError(t, svcCtx.DB.Exec(`CREATE TRIGGER fail_kick_outbox BEFORE INSERT ON relation_outbox BEGIN SELECT RAISE(ABORT, 'outbox failure'); END`).Error)
+		_, err := NewGroupKickLogic(context.Background(), svcCtx).GroupKick(&social.GroupKickReq{
+			UserId: "1", GroupId: "1", MemberIds: []string{"2", "3"},
+		})
+		require.Equal(t, codes.Internal, status.Code(err))
+		require.Equal(t, int64(3), countRows(t, svcCtx.DB, &objects.GroupMember{}))
+		require.Zero(t, countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
+	})
+
+	t.Run("successful batch writes one outbox per member", func(t *testing.T) {
+		svcCtx, recorder := newGroupTestContext(t)
+		require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+		seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+		seedGroupMember(t, svcCtx.DB, 1, 2, 0)
+		seedGroupMember(t, svcCtx.DB, 1, 3, 0)
+		_, err := NewGroupKickLogic(context.Background(), svcCtx).GroupKick(&social.GroupKickReq{
+			UserId: "1", GroupId: "1", MemberIds: []string{"2", "3"},
+		})
+		require.NoError(t, err)
+		require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.GroupMember{}))
+		require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
+		require.Equal(t, 2, recorder.count())
+	})
+}
+
+func TestGroupRoleRevocationSerializesWithRequestApproval(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedGroupMember(t, svcCtx.DB, 1, 2, 1)
+	now := time.Now()
+	request := objects.GroupRequest{ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}
+	require.NoError(t, svcCtx.DB.Create(&request).Error)
+
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	go func() {
+		<-start
+		_, err := NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{
+			UserId: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: false,
+		})
+		errs <- err
+	}()
+	go func() {
+		<-start
+		_, err := NewGroupPutInHandleLogic(context.Background(), svcCtx).GroupPutInHandle(&social.GroupPutInHandleReq{
+			RequestId: request.ID, ActorUid: "2", HandleResult: 1,
+		})
+		errs <- err
+	}()
+	close(start)
+	firstErr, secondErr := <-errs, <-errs
+	for _, err := range []error{firstErr, secondErr} {
+		if err != nil {
+			require.Equal(t, codes.PermissionDenied, status.Code(err))
+		}
+	}
+
+	member, err := loadGroupMember(svcCtx.DB, 1, 2)
+	require.NoError(t, err)
+	require.NotNil(t, member)
+	require.Zero(t, member.RoleLevel)
+	var latest objects.GroupRequest
+	require.NoError(t, svcCtx.DB.First(&latest, request.ID).Error)
+	require.NotNil(t, latest.HandleResult)
+	if *latest.HandleResult == groupRequestAccepted {
+		require.Equal(t, int64(3), countRows(t, svcCtx.DB, &objects.GroupMember{}))
+	} else {
+		require.Equal(t, groupRequestPending, *latest.HandleResult)
+		require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.GroupMember{}))
+	}
+}
+
+func TestGroupRoleRevocationSerializesWithInvitationConfirmation(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedGroupMember(t, svcCtx.DB, 1, 2, 1)
+	invitation := seedInvitation(t, svcCtx.DB, 1, 2, 3, 1)
+
+	start := make(chan struct{})
+	roleErr := make(chan error, 1)
+	handleResult := make(chan *social.GroupInvitationHandleResp, 1)
+	handleErr := make(chan error, 1)
+	go func() {
+		<-start
+		_, err := NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{
+			UserId: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: false,
+		})
+		roleErr <- err
+	}()
+	go func() {
+		<-start
+		resp, err := NewGroupInvitationHandleLogic(context.Background(), svcCtx).GroupInvitationHandle(&social.GroupInvitationHandleReq{
+			Id: invitation.ID, ActorUid: "3", Result: 1,
+		})
+		handleResult <- resp
+		handleErr <- err
+	}()
+	close(start)
+	require.NoError(t, <-roleErr)
+	resp, err := <-handleResult, <-handleErr
+	require.NoError(t, err)
+	require.Contains(t, []string{"joined", "pending_approval"}, resp.JoinState)
+
+	inviter, err := loadGroupMember(svcCtx.DB, 1, 2)
+	require.NoError(t, err)
+	require.NotNil(t, inviter)
+	require.Zero(t, inviter.RoleLevel)
+	if resp.JoinState == "joined" {
+		invitee, err := loadGroupMember(svcCtx.DB, 1, 3)
+		require.NoError(t, err)
+		require.NotNil(t, invitee)
+	} else {
+		require.NotZero(t, resp.GroupRequestId)
+		var approval objects.GroupRequest
+		require.NoError(t, svcCtx.DB.First(&approval, resp.GroupRequestId).Error)
+		require.Equal(t, groupRequestPending, *approval.HandleResult)
+	}
 }
 
 func TestGroupRequestRejectOnlyCurrentAndOutboxRollback(t *testing.T) {

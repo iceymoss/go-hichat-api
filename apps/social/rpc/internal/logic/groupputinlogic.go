@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -57,6 +58,10 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 	joined := false
 	var groupCreator uint64
 	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
+		response = nil
+		createdPending = false
+		joined = false
+		groupCreator = 0
 		group, err := loadNormalGroup(tx, groupID)
 		if err != nil {
 			return err
@@ -165,6 +170,7 @@ func (l *GroupPutinLogic) groupPutinByToken(in *social.GroupPutinReq) (*social.G
 	}
 	var response *social.GroupPutinResp
 	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
+		response = nil
 		group, err := loadNormalGroup(tx, groupID)
 		if err != nil {
 			return err
@@ -286,6 +292,23 @@ func loadGroupMember(tx *gorm.DB, groupID, userID uint64) (*objects.GroupMember,
 
 func loadGroupMemberLocked(tx *gorm.DB, groupID, userID uint64) (*objects.GroupMember, error) {
 	return loadGroupMemberWithLock(tx, groupID, userID, true)
+}
+
+func loadGroupMembersLocked(tx *gorm.DB, groupID uint64, userIDs ...uint64) (map[uint64]*objects.GroupMember, error) {
+	sorted := append([]uint64(nil), userIDs...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	members := make(map[uint64]*objects.GroupMember, len(sorted))
+	for _, userID := range sorted {
+		if _, loaded := members[userID]; loaded {
+			continue
+		}
+		member, err := loadGroupMemberLocked(tx, groupID, userID)
+		if err != nil {
+			return nil, err
+		}
+		members[userID] = member
+	}
+	return members, nil
 }
 
 func loadGroupMemberWithLock(tx *gorm.DB, groupID, userID uint64, locked bool) (*objects.GroupMember, error) {

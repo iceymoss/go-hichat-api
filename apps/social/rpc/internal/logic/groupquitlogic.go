@@ -7,11 +7,13 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 
-	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type GroupQuitLogic struct {
@@ -29,31 +31,45 @@ func NewGroupQuitLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GroupQu
 }
 
 func (l *GroupQuitLogic) GroupQuit(in *social.GroupQuitReq) (*social.GroupQuitResp, error) {
-	// 1. Check if group exists
-	_, err := l.svcCtx.GroupsModel.FindOne(l.ctx, in.GroupId)
-	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "group not found %v", in.GroupId)
+	groupID, parseErr := parsePositiveID(in.GroupId, "group id")
+	if parseErr != nil {
+		return nil, parseErr
 	}
-
-	// 2. Find member record
-	member, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.UserId, in.GroupId)
-	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "member not found %v", err)
+	userID, parseErr := parsePositiveID(in.UserId, "user id")
+	if parseErr != nil {
+		return nil, parseErr
 	}
-
-	// 微信式约束：群主不能直接退群，必须先转让群主或解散群
-	if member.RoleLevel == int(constants.CreatorGroupRoleLevel) {
-		return nil, errors.Wrapf(xerr.NewMsg("群主不能直接退群，请先转让群主或解散群"), "owner cannot quit")
-	}
-
-	// 3. Delete member + 同事务写 outbox（退群事件），提交后 best-effort 同步关系缓存
-	err = emitRelationChange(l.ctx, l.svcCtx, constants.RelationEventGroupMemberRemoved, in.GroupId,
+	err := emitRelationChange(l.ctx, l.svcCtx, constants.RelationEventGroupMemberRemoved, in.GroupId,
 		&mq.RelationChangeTransfer{GroupId: in.GroupId, UserId: in.UserId, OperatorId: in.UserId},
 		func(tx *gorm.DB) error {
-			return tx.Table("group_members").Where("id = ?", member.Id).Delete(nil).Error
+			query := tx
+			if tx.Dialector.Name() != "sqlite" {
+				query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+			}
+			var group objects.Group
+			if err := query.First(&group, groupID).Error; err != nil {
+				if err == gorm.ErrRecordNotFound {
+					return status.Error(codes.NotFound, "group not found")
+				}
+				return err
+			}
+			if group.Status != nil && *group.Status != 0 {
+				return status.Error(codes.FailedPrecondition, "group is unavailable")
+			}
+			member, err := loadGroupMemberLocked(tx, groupID, userID)
+			if err != nil {
+				return err
+			}
+			if member == nil {
+				return status.Error(codes.NotFound, "group member not found")
+			}
+			if member.RoleLevel == int(constants.CreatorGroupRoleLevel) {
+				return status.Error(codes.FailedPrecondition, "owner must transfer ownership or disband the group before leaving")
+			}
+			return tx.Delete(&objects.GroupMember{}, member.ID).Error
 		})
 	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "delete member err %v", err)
+		return nil, normalizeGroupWriteError(err, "failed to leave group")
 	}
 
 	return &social.GroupQuitResp{}, nil

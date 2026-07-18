@@ -55,6 +55,7 @@ func (l *GroupInvitationCreateLogic) GroupInvitationCreate(in *social.GroupInvit
 
 	var invitation objects.GroupInvitation
 	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
+		invitation = objects.GroupInvitation{}
 		if _, err := loadNormalGroup(tx, groupID); err != nil {
 			return err
 		}

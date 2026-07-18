@@ -5762,7 +5762,7 @@ type GroupInvitationHandleResp struct {
 
 	InvitationId   uint64 `protobuf:"varint,1,opt,name=invitationId,proto3" json:"invitationId,omitempty"`
 	Status         int32  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
-	JoinState      string `protobuf:"bytes,3,opt,name=joinState,proto3" json:"joinState,omitempty"` // joined|pending_approval|rejected|expired|invalidated
+	JoinState      string `protobuf:"bytes,3,opt,name=joinState,proto3" json:"joinState,omitempty"` // joined|pending_approval|approval_rejected|rejected|expired|invalidated
 	GroupRequestId uint64 `protobuf:"varint,4,opt,name=groupRequestId,proto3" json:"groupRequestId,omitempty"`
 	Idempotent     bool   `protobuf:"varint,5,opt,name=idempotent,proto3" json:"idempotent,omitempty"`
 	GroupId        string `protobuf:"bytes,6,opt,name=groupId,proto3" json:"groupId,omitempty"`

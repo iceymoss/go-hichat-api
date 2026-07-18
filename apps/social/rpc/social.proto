@@ -522,7 +522,7 @@ message GroupInvitationHandleReq {
 message GroupInvitationHandleResp {
   uint64 invitationId = 1;
   int32 status = 2;
-  string joinState = 3; // joined|pending_approval|rejected|expired|invalidated
+  string joinState = 3; // joined|pending_approval|approval_rejected|rejected|expired|invalidated
   uint64 groupRequestId = 4;
   bool idempotent = 5;
   string groupId = 6;

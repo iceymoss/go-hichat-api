@@ -537,7 +537,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - `b1fc5ad feat(deploy): add social migration audit`：步骤 1，只读迁移审计工具。
 - `3570bd5 feat(deploy): migrate social request schema`：步骤 2，显式 schema/data/index 分阶段迁移。
 - `1b74e21 fix(social): harden friend request state machine`：步骤 3，好友申请授权、并发和 CAS 状态机。
-- `36d0c4e feat(social): add group request state machines`：步骤 4 checkpoint，尚不能视为步骤 4 完成。
+- `36d0c4e feat(social): add group request state machines`：步骤 4 checkpoint。
 
 ### 已完成
 
@@ -560,17 +560,18 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - 已新增真实文件 SQLite 测试，覆盖群申请重复/并发、邀请授权与角色变化、多邀请并发、审批 CAS、成员幂等和 relation outbox 故障回滚。
 - checkpoint 提交前 `go test ./apps/social/... -count=1` 和 `go test -race ./apps/social/... -count=1` 通过。
 
-### 明日恢复入口
+### 步骤 4 复审修复
 
-新会话应先读取本节，从 `36d0c4e` 后继续步骤 4，不要直接进入步骤 5。按以下顺序修复并追加独立 fix commit：
+- 邀请确认和群审批锁定授权成员行；设/撤管理员、转让群主、退群和踢人改为事务内按一致顺序锁定群与成员行，SQLite 跳过 `FOR UPDATE`。
+- 单条邀请、旧批量邀请和邀请确认均校验当前用户状态，停用用户不能创建或处理邀请。
+- accepted invitation 重试按当前成员关系和来源审批终态返回 `joined`、`pending_approval` 或 `approval_rejected`，并保留稳定的来源审批 ID。
+- HTTP 已移除普通申请、审批和按用户列表中的危险身份/来源字段；审批 ID 使用 `uint64`，RPC 保留旧 `int32 groupReqId` 并拒绝新旧 ID 冲突。
+- 使用 `goctl 1.8.2`、`protoc 5.28.3`、`protoc-gen-go 1.35.2` 核对并重新生成 proto；未生成额外 `social.yaml`，GET form 标签和零值 count 契约保持不变。
+- 新增禁用用户、审批终态重试、新旧/大 ID、角色撤销并发和空踢人 outbox 测试；Social 全量、race、目标 vet 和 diff check 通过。MySQL/PostgreSQL 因未配置 DSN 仍未实跑。
 
-1. 邀请确认读取 inviter、群审批读取 approver 时锁定对应 `group_members` 行；同时让设/撤管理员、转让群主、退群和踢人修改同一成员行时使用兼容事务锁，避免确认或审批与角色撤销并发越权。SQLite 跳过不支持的 `FOR UPDATE`，MySQL/PostgreSQL 启用。
-2. 单条邀请、旧批量邀请均重新校验 inviter 为正常用户；邀请确认前重新校验 invitee/actor，禁止停用用户创建或接受邀请。
-3. 修复 accepted invitation 的幂等响应：已是成员返回 `joined`；来源审批仍 pending 才返回 `pending_approval`；审批已拒绝返回稳定冲突/拒绝状态；不能仅因来源申请存在就固定返回 pending。
-4. 收紧 HTTP 契约：普通群申请移除公开 `req_id/req_time/join_source/inviter_uid`；审批移除公开 `group_id`；按用户列表移除公开 `ids`。RPC 保留旧字段号兼容，但继续校验 actor 和旧身份字段一致。
-5. 群审批 ID 改为 HTTP `uint64`；proto 保留旧 `int32 groupReqId` 并追加新的 `uint64 requestId`，服务端优先新字段且拒绝两个字段冲突。
-6. 使用固定生成工具重新生成：`goctl 1.8.2`、`protoc 5.28.3`、`protoc-gen-go 1.35.2`。恢复所有无关 GET `form` 标签和零值 count 契约，删除自动生成的 `apps/social/rpc/etc/social.yaml`，检查生成 diff。
-7. 补角色降级/撤权并发、禁用用户、管理员批准后邀请重试、管理员拒绝后邀请重试测试，再运行 Social 全量、race、目标 vet 和 diff check。
+### 恢复入口
+
+步骤 4 已完成。下一会话从步骤 5 开始：先梳理好友、群申请和邀请创建/终态事务中的 receipt 写入点，再将现有 unread/read RPC 与 HTTP 接口切换到 `social_request_receipts`；旧 read 字段只保留兼容读取窗口，不再新增写入。
 
 步骤 4 暂不提前实现：
 
@@ -590,7 +591,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 1. [x] 增加迁移审计工具或版本化迁移：识别并清理重复申请、重复好友关系，输出报告。
 2. [x] 增加 `active_key`、`group_invitations`、`social_request_receipts`、`social_notification_outbox` 和好友唯一索引，完成迁移实现与 SQLite 测试；MySQL/PostgreSQL 实跑留待步骤 17。
 3. [x] 修复好友发起/审批授权、self-check、目标校验、结果枚举和 CAS 状态机。
-4. [ ] 修复群发起身份伪造、列表越权、结果枚举、事务提交和 CAS 状态机。`36d0c4e` 为 checkpoint，完成前必须处理上述复审项。
+4. [x] 修复群发起身份伪造、列表越权、结果枚举、事务提交和 CAS 状态机；完成 checkpoint 复审修复与 SQLite 并发测试。
 5. [ ] 好友和群申请事务接入个人 receipt，切换 unread/read API，保留旧字段兼容读取窗口。
 6. [ ] 实现 notification outbox relay、新 Kafka topic、幂等消费、backoff/dead 状态和监控指标。
 7. [ ] 完善好友/群申请 RPC 与 HTTP 字段、分页、稳定错误码和通知业务筛选标读。
