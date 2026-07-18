@@ -8,8 +8,8 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
@@ -54,8 +54,7 @@ func (l *GroupCreateLogic) GroupCreate(in *social.GroupCreateReq) (*social.Group
 		UpdatedAt:       time.Now(),
 	}
 
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
-	tx := mysqlConn.Begin()
+	tx := l.svcCtx.DB.WithContext(l.ctx).Begin()
 	res := tx.Table("groups").Create(&groups)
 	if res.Error != nil || res.RowsAffected == 0 {
 		tx.Rollback()
@@ -78,6 +77,12 @@ func (l *GroupCreateLogic) GroupCreate(in *social.GroupCreateReq) (*social.Group
 		zLog.Error("insert group err", zap.Any("err", res.Error))
 		return nil, res.Error
 	}
+	groupID := strconv.Itoa(groups.Id)
+	creatorID := strconv.Itoa(creatorUidInt)
+	if err := emitRelationChangeInTx(tx, l.svcCtx, constants.RelationEventGroupMemberAdded, groupID, &mq.RelationChangeTransfer{GroupId: groupID, UserId: creatorID, OperatorId: creatorID}); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
 
 	//
 
@@ -93,7 +98,9 @@ func (l *GroupCreateLogic) GroupCreate(in *social.GroupCreateReq) (*social.Group
 	//}
 
 	//提交事务
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
 
 	return &social.GroupCreateResp{
 		GroupId: strconv.Itoa(groups.Id),

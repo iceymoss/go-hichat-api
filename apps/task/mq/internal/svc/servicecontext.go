@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/models"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/imclient"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/config"
@@ -38,6 +39,7 @@ type ServiceContext struct {
 
 	// 导入social微服务模块
 	Social socialclient.Social
+	Im     imclient.Im
 
 	// 关系缓存（群成员集/好友集）：消费关系变更事件维护，群扇出/鉴权读取
 	RelationCache *relationcache.Cache
@@ -57,6 +59,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		ConversationsModel: model.NewConversationsModel(),
 		NotificationModel:  model.NewNotificationModel(),
 		Social:             socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
+		Im:                 imclient.NewIm(zrpc.MustNewClient(c.ImRpc)),
 		RelationCache:      relationcache.New(db.GetRedisConn()),
 		UserSettingsModel:  userModels.NewUserSettingsModel(),
 		SystemConfigModel:  userModels.NewSystemConfigModel(),

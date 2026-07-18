@@ -42,13 +42,18 @@ func (l *Listen) Services() []service.Service {
 	if socialRequestNotification.Group == "" {
 		socialRequestNotification.Group = "socialRequestNotificationV1"
 	}
+	relationChange := l.svc.Config.RelationChangeTransfer
+	relationChange.ForceCommit = false
+	relationChange.CommitInOrder = false
+	relationChange.Consumers = 1
+	relationChange.Processors = 1
 	// 注册处理逻辑
 	return []service.Service{
 		kq.MustNewQueue(l.svc.Config.MsgChatTransfer, msgChatConsumeHandle),
 		kq.MustNewQueue(l.svc.Config.MsgReadTransfer, msgChatMarkReadConsumeHandle),
 		kq.MustNewQueue(l.svc.Config.MsgRecallTransfer, msgRecallConsumeHandle),
 		kq.MustNewQueue(l.svc.Config.TrendNotifyTransfer, trendNotifyConsumeHandle),
-		kq.MustNewQueue(l.svc.Config.RelationChangeTransfer, relationChangeConsumeHandle),
+		kq.MustNewQueue(relationChange, relationChangeConsumeHandle),
 		kq.MustNewQueue(l.svc.Config.CommonNotifyTransfer, commonNotifyConsumeHandle),
 		kq.MustNewQueue(socialRequestNotification, commonNotifyConsumeHandle),
 	}

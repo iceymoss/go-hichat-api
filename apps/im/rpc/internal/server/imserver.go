@@ -94,3 +94,8 @@ func (s *ImServer) GetUnreadNotificationCount(ctx context.Context, in *im.GetUnr
 	l := logic.NewGetUnreadNotificationCountLogic(ctx, s.svcCtx)
 	return l.GetUnreadNotificationCount(in)
 }
+
+func (s *ImServer) EnsureGroupConversation(ctx context.Context, in *im.EnsureGroupConversationReq) (*im.EnsureGroupConversationResp, error) {
+	l := logic.NewEnsureGroupConversationLogic(ctx, s.svcCtx)
+	return l.EnsureGroupConversation(in)
+}

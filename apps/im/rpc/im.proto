@@ -186,6 +186,9 @@ message GetUnreadNotificationCountResp {
   int64 count = 1;
 }
 
+message EnsureGroupConversationReq { string userId = 1; string groupId = 2; int64 relationVersion = 3; }
+message EnsureGroupConversationResp { bool conversationCreated = 1; bool userBindingChanged = 2; }
+
 service Im {
   // 获取会话记录
   rpc GetChatLog(GetChatLogReq) returns(GetChatLogResp);
@@ -222,4 +225,6 @@ service Im {
 
   // 公共通知通道：接收者未读数
   rpc GetUnreadNotificationCount(GetUnreadNotificationCountReq) returns(GetUnreadNotificationCountResp);
+
+  rpc EnsureGroupConversation(EnsureGroupConversationReq) returns(EnsureGroupConversationResp);
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 
 	"github.com/stretchr/testify/require"
@@ -72,6 +73,17 @@ func TestGroupRequestListPaginationAndFields(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(3), all.Total)
 	require.Len(t, all.List, 1)
+}
+
+func TestGroupCreateEmitsCreatorMembershipEvent(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	resp, err := NewGroupCreateLogic(context.Background(), svcCtx).GroupCreate(&social.GroupCreateReq{Name: "new-group", CreatorUid: "1"})
+	require.NoError(t, err)
+	var memberCount, outboxCount int64
+	require.NoError(t, svcCtx.DB.Model(&objects.GroupMember{}).Where("group_id = ? AND user_id = ?", resp.GroupId, 1).Count(&memberCount).Error)
+	require.Equal(t, int64(1), memberCount)
+	require.NoError(t, svcCtx.DB.Model(&objects.RelationOutbox{}).Where("event_type = ? AND group_id = ?", constants.RelationEventGroupMemberAdded, resp.GroupId).Count(&outboxCount).Error)
+	require.Equal(t, int64(1), outboxCount)
 }
 
 func createGroupSQLiteSchema(t *testing.T, database *gorm.DB) {

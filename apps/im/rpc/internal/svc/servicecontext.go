@@ -1,10 +1,12 @@
 package svc
 
 import (
+	"context"
 	models "github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/zeromicro/go-zero/zrpc"
+	"time"
 )
 
 type ServiceContext struct {
@@ -27,6 +29,16 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
+	conversationModel := models.NewConversationModel()
+	conversationsModel := models.NewConversationsModel()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := conversationModel.EnsureUniqueIndex(ctx); err != nil {
+		panic(err)
+	}
+	if err := conversationsModel.EnsureUniqueIndex(ctx); err != nil {
+		panic(err)
+	}
 
 	//// 使用正确的类型声明和检查逻辑
 	//var socialRpcClient *zrpc.Client
@@ -71,8 +83,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
 		Config:             c,
 		ChatLogModel:       models.NewChatLogModel(),
-		ConversationModel:  models.NewConversationModel(),
-		ConversationsModel: models.NewConversationsModel(),
+		ConversationModel:  conversationModel,
+		ConversationsModel: conversationsModel,
 		NotificationModel:  models.NewNotificationModel(),
 		Social:             socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
 	}

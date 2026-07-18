@@ -574,7 +574,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-WebSocket 在线定位基础修复已完成。下一会话从步骤 8 的业务清单项开始：可靠消费 `group.member.added` 并幂等创建群会话；当前节点多连接广播仍为步骤 9。
+步骤 8 已完成。下一会话从步骤 9 开始：当前节点同用户多连接广播与连接级失败隔离。
 
 ### 步骤 5 实施结果
 
@@ -603,6 +603,16 @@ WebSocket 在线定位基础修复已完成。下一会话从步骤 8 的业务�
 - 外部 WS client 测试改为 `HICHAT_WS_TEST_HOST` 显式启用；相关 package、race、目标 vet 和 diff check 通过。
 - 本项仅建立 locator 基础，不宣称已完成跨节点消息传输；当前节点多连接广播仍按步骤 9 实施。
 
+### 步骤 8 实施结果
+
+- 群创建者成员关系与 `group.member.added` relation outbox 在同一 Social 事务提交；原有申请、审批、邀请和 token 入群继续复用统一成员/outbox helper。
+- 新增内部 `EnsureGroupConversation(userId, groupId, relationVersion)` RPC；全局群会话和用户绑定使用 Mongo 原子 upsert，并由 `conversationId`/`userId` 唯一索引保证并发幂等。
+- added/removed 使用 relation outbox version 原子收敛 `isShow/removedAt`；普通会话更新不覆盖 tombstone/version，旧事件不能恢复较新的移除状态。
+- relation consumer 强制单 consumer/processor，并在 durable IM/Mongo 状态成功前内部指数退避阻塞后续 offset；进程 shutdown gate 防止预取高 offset 越过失败事件。
+- malformed/非法 ID/version/timestamp 作为 poison 记录后丢弃；cache 和 WS push 在 durable 状态成功后保持 best-effort。
+- 删除群创建和 token 入群 API 的 800ms IM goroutine；新增群创建 outbox、consumer RPC/poison 测试。
+- IM、task consumer、Social 全量目标测试、race、目标 vet 和 diff check 通过；Mongo 实例并发/E2E 覆盖留待步骤 17。
+
 步骤 4 暂不提前实现：
 
 - 个人 receipt 和 read/unread API 属于步骤 5。
@@ -625,7 +635,7 @@ WebSocket 在线定位基础修复已完成。下一会话从步骤 8 的业务�
 5. [x] 好友和群申请事务接入个人 receipt，切换 unread/read API，保留旧字段兼容读取窗口。
 6. [x] 实现 notification outbox relay、新 Kafka topic、幂等消费、backoff/dead 状态和监控指标。
 7. [x] 完善好友/群申请 RPC 与 HTTP 字段、分页、稳定错误码和通知业务筛选标读。
-8. [ ] 将 `group.member.added` 会话创建迁移到可靠消费者，删除 API best-effort goroutine；补关系新增事件。
+8. [x] 将 `group.member.added` 会话创建迁移到可靠消费者，删除 API best-effort goroutine；补关系新增事件。
 9. [ ] 修复 WS 当前节点内多连接广播，并明确 WS 失败为 best-effort。
 10. [ ] 前端 store 增加好友/群申请/邀请及群列表版本和统一 unread actions，所有相关通知触发重拉。
 11. [ ] FriendRequestList 改为分页单请求、顺序标读、字段正确映射和通知定位。
