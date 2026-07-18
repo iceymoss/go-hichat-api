@@ -44,10 +44,9 @@ type Conn struct {
 	message chan *Message
 
 	// 当前连接状态
-	done          chan struct{}
-	closeOnce     sync.Once
-	writeMu       sync.Mutex
-	presenceToken string
+	done      chan struct{}
+	closeOnce sync.Once
+	writeMu   sync.Mutex
 }
 
 // NewConn 将连接转为websocket 并且对该连接进行进一步封装
@@ -184,6 +183,9 @@ func (c *Conn) ReadMessage() (messageType int, p []byte, err error) {
 func (c *Conn) WriteMessage(messageType int, data []byte) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
+	if c.s.opt.writeTimeout > 0 {
+		_ = c.Conn.SetWriteDeadline(time.Now().Add(c.s.opt.writeTimeout))
+	}
 	err := c.Conn.WriteMessage(messageType, data)
 	return err
 }

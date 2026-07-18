@@ -574,7 +574,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 8 已完成。下一会话从步骤 9 开始：当前节点同用户多连接广播与连接级失败隔离。
+步骤 9 已完成。下一会话从步骤 10 开始：前端请求版本化刷新与失效请求丢弃。
 
 ### 步骤 5 实施结果
 
@@ -613,6 +613,15 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - 删除群创建和 token 入群 API 的 800ms IM goroutine；新增群创建 outbox、consumer RPC/poison 测试。
 - IM、task consumer、Social 全量目标测试、race、目标 vet 和 diff check 通过；Mongo 实例并发/E2E 覆盖留待步骤 17。
 
+### 步骤 9 实施结果
+
+- WS 本地连接池从单连接改为 `uid -> connection set`；同一用户多个标签页/设备在当前节点共存，不再互踢。
+- presence 提升为 UID 级共享 lease：首连接 claim、附加连接复用、末连接 owner-safe delete；失去 locator owner 的旧节点停止续租且不重新抢占。
+- `GetConn` 返回去重后的全部目标连接，`GetUsers(nil)` 返回唯一在线 UID；`NewMessageTest` 直接使用不可变 `conn.Uid`。
+- `Send` 对全部连接逐一尝试并聚合错误；每次写有 5 秒 deadline，失败连接在完成本轮广播后异步清理，不阻断健康连接。
+- notify、relation、trend、call 和 chat push 均广播到当前节点所有目标连接；chat 单聊/群聊局部失败有明确日志。
+- 新增双客户端广播、重复 UID 去重、失败连接隔离及首末连接 presence 测试；WS 全量与 race 通过。
+
 步骤 4 暂不提前实现：
 
 - 个人 receipt 和 read/unread API 属于步骤 5。
@@ -636,7 +645,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 6. [x] 实现 notification outbox relay、新 Kafka topic、幂等消费、backoff/dead 状态和监控指标。
 7. [x] 完善好友/群申请 RPC 与 HTTP 字段、分页、稳定错误码和通知业务筛选标读。
 8. [x] 将 `group.member.added` 会话创建迁移到可靠消费者，删除 API best-effort goroutine；补关系新增事件。
-9. [ ] 修复 WS 当前节点内多连接广播，并明确 WS 失败为 best-effort。
+9. [x] 修复 WS 当前节点内多连接广播，并明确 WS 失败为 best-effort。
 10. [ ] 前端 store 增加好友/群申请/邀请及群列表版本和统一 unread actions，所有相关通知触发重拉。
 11. [ ] FriendRequestList 改为分页单请求、顺序标读、字段正确映射和通知定位。
 12. [ ] GroupList/GroupProfileCard 接入三个群申请 Tab、分页、个人回执、邀请确认、直接入群结果、群/会话刷新和通知定位。

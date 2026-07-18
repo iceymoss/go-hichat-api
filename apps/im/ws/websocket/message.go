@@ -36,10 +36,9 @@ type Message struct {
 }
 
 func NewMessageTest(srv *Server, conn *Conn, data interface{}) *Message {
-	fid := srv.GetUsers([]*Conn{conn})[0]
 	return &Message{
 		FrameType: FrameData,
-		FormId:    fid,
+		FormId:    conn.Uid,
 		Data:      data,
 	}
 }

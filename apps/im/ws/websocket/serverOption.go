@@ -30,6 +30,7 @@ type option struct {
 	presence        *presence.Store
 	presenceTTL     time.Duration
 	presenceRefresh time.Duration
+	writeTimeout    time.Duration
 }
 
 func newOption(opts ...Options) option {
@@ -41,6 +42,7 @@ func newOption(opts ...Options) option {
 		concurrency:       defaultConcurrency,
 		presenceTTL:       5 * time.Minute,
 		presenceRefresh:   2 * time.Minute,
+		writeTimeout:      5 * time.Second,
 	}
 
 	for _, opt := range opts {
