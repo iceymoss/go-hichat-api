@@ -192,6 +192,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: group.GroupInvitationHandleHandler(serverCtx),
 			},
 			{
+				// 标记收到的群邀请已读
+				Method:  http.MethodPut,
+				Path:    "/group/invitations/read",
+				Handler: group.GroupInvitationReadHandler(serverCtx),
+			},
+			{
 				// 邀请群成员
 				Method:  http.MethodPost,
 				Path:    "/group/invite",
@@ -250,6 +256,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPut,
 				Path:    "/group/putIn",
 				Handler: group.GroupPutInHandleHandler(serverCtx),
+			},
+			{
+				// 群申请与邀请未读数量
+				Method:  http.MethodGet,
+				Path:    "/group/putIn/messageCount",
+				Handler: group.GroupRequestMessageCountHandler(serverCtx),
 			},
 			{
 				// 申请进群列表

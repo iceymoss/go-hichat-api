@@ -6,6 +6,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -25,7 +26,7 @@ func NewFriendPutInMessageCountLogic(ctx context.Context, svcCtx *svc.ServiceCon
 }
 
 func (l *FriendPutInMessageCountLogic) FriendPutInMessageCount(req *types.FriendPutInMessageCountReq) (resp *types.FriendPutInMessageCountResp, err error) {
-	curUid := l.ctx.Value(Identify).(string)
+	curUid := ctxdata.GetUId(l.ctx)
 
 	// 调用 RPC 获取消息数量
 	rpcResp, err := l.svcCtx.Social.FriendPutInMessageCount(l.ctx, &social.FriendPutInMessageCountReq{
@@ -36,7 +37,9 @@ func (l *FriendPutInMessageCountLogic) FriendPutInMessageCount(req *types.Friend
 	}
 
 	resp = &types.FriendPutInMessageCountResp{
-		Count: rpcResp.Count,
+		Count:  rpcResp.Count,
+		Apply:  rpcResp.Apply,
+		Result: rpcResp.Result,
 	}
 	return
 }

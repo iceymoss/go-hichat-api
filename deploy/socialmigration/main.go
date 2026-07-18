@@ -19,6 +19,7 @@ import (
 
 const migrationVersion = "20260717_social_req"
 const migrationDataVersion = "20260717_soc_data"
+const receiptResultFixVersion = "20260718_receipt_result_fix"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))

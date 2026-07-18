@@ -73,7 +73,7 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 		}
 		if member != nil {
 			now := time.Now()
-			if err := resolvePendingGroupRequests(tx, groupID, actor, now, 1); err != nil {
+			if err := resolvePendingGroupRequests(tx, groupID, actor, now, 1, true); err != nil {
 				return err
 			}
 			if err := invalidatePendingGroupInvitations(tx, groupID, actor, now); err != nil {
@@ -93,12 +93,15 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 			if err := tx.Create(&request).Error; err != nil {
 				return err
 			}
+			if err := createResultReceipt(tx, receiptTypeGroup, request.ID, in.ActorUid, receiptAccepted, now, now, true); err != nil {
+				return err
+			}
 			memberCreated, err := createGroupMemberAndOutbox(tx, l.ServiceContext, groupID, actor, 0, 1, nil, actor)
 			if err != nil {
 				return err
 			}
 			joined = memberCreated
-			if err := resolvePendingGroupRequests(tx, groupID, actor, now, 1); err != nil {
+			if err := resolvePendingGroupRequests(tx, groupID, actor, now, 1, true); err != nil {
 				return err
 			}
 			if err := invalidatePendingGroupInvitations(tx, groupID, actor, now); err != nil {
@@ -135,6 +138,11 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 		createdPending = result.RowsAffected == 1
 		if !createdPending {
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("active_key = ?", activeKey).First(&request).Error; err != nil {
+				return err
+			}
+		}
+		if createdPending {
+			if err := createGroupApplyReceipts(tx, groupID, request.ID, now); err != nil {
 				return err
 			}
 		}
@@ -209,6 +217,17 @@ func (l *GroupPutinLogic) groupPutinByToken(in *social.GroupPutinReq) (*social.G
 			if _, err := createGroupMemberAndOutbox(tx, l.ServiceContext, groupID, actor, 0, joinSource, &inviter, inviter); err != nil {
 				return err
 			}
+			if err := createResultReceipt(tx, receiptTypeGroup, request.ID, in.ActorUid, receiptAccepted, now, now, true); err != nil {
+				return err
+			}
+			if err := resolvePendingGroupRequests(tx, groupID, actor, now, joinSource, true); err != nil {
+				return err
+			}
+			if err := invalidatePendingGroupInvitations(tx, groupID, actor, now); err != nil {
+				return err
+			}
+		} else if err := createGroupApplyReceipts(tx, groupID, request.ID, now); err != nil {
+			return err
 		}
 		response = groupPutinResponse(groupID, request.ID, result, false, false)
 		return nil
@@ -353,16 +372,51 @@ func createGroupMemberAndOutbox(tx *gorm.DB, svcCtx *svc.ServiceContext, groupID
 	return true, nil
 }
 
-func resolvePendingGroupRequests(tx *gorm.DB, groupID, userID uint64, now time.Time, actualSource int) error {
-	return tx.Model(&objects.GroupRequest{}).
-		Where("group_id = ? AND req_id = ? AND handle_result = ?", groupID, strconv.FormatUint(userID, 10), groupRequestPending).
-		Updates(map[string]any{"handle_result": groupRequestAccepted, "handle_time": now, "active_key": nil, "actual_join_source": actualSource}).Error
+func resolvePendingGroupRequests(tx *gorm.DB, groupID, userID uint64, now time.Time, actualSource int, readResults bool) error {
+	var requests []objects.GroupRequest
+	if err := tx.Where("group_id = ? AND req_id = ? AND handle_result = ?", groupID, strconv.FormatUint(userID, 10), groupRequestPending).Find(&requests).Error; err != nil {
+		return err
+	}
+	for _, request := range requests {
+		result := tx.Model(&objects.GroupRequest{}).Where("id = ? AND handle_result = ?", request.ID, groupRequestPending).
+			Updates(map[string]any{"handle_result": groupRequestAccepted, "handle_time": now, "active_key": nil, "actual_join_source": actualSource})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			continue
+		}
+		if err := resolveApplyReceipts(tx, receiptTypeGroup, []uint64{request.ID}, receiptAccepted, now, ""); err != nil {
+			return err
+		}
+		createdAt := now
+		if request.ReqTime != nil {
+			createdAt = *request.ReqTime
+		}
+		if err := createResultReceipt(tx, receiptTypeGroup, request.ID, request.ReqID, receiptAccepted, createdAt, now, readResults); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func invalidatePendingGroupInvitations(tx *gorm.DB, groupID, userID uint64, now time.Time) error {
-	return tx.Model(&objects.GroupInvitation{}).
-		Where("group_id = ? AND invitee_uid = ? AND status = ?", groupID, userID, groupInvitationPending).
-		Updates(map[string]any{"status": groupInvitationInvalidated, "handled_at": now}).Error
+	var invitations []objects.GroupInvitation
+	if err := tx.Where("group_id = ? AND invitee_uid = ? AND status = ?", groupID, userID, groupInvitationPending).Find(&invitations).Error; err != nil {
+		return err
+	}
+	ids := make([]uint64, 0, len(invitations))
+	for _, invitation := range invitations {
+		updated := tx.Model(&objects.GroupInvitation{}).Where("id = ? AND status = ?", invitation.ID, groupInvitationPending).
+			Updates(map[string]any{"status": groupInvitationInvalidated, "handled_at": now})
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected == 1 {
+			ids = append(ids, invitation.ID)
+		}
+	}
+	return resolveInviteReceipts(tx, ids, receiptInvalidated, now, "")
 }
 
 func transactionWithSQLiteRetry(ctx context.Context, db *gorm.DB, fn func(*gorm.DB) error) error {
@@ -371,7 +425,13 @@ func transactionWithSQLiteRetry(ctx context.Context, db *gorm.DB, fn func(*gorm.
 		if err == nil || db.Dialector.Name() != "sqlite" || attempt >= 9 || !isSQLiteLockError(err) {
 			return err
 		}
-		time.Sleep(time.Duration(attempt+1) * 10 * time.Millisecond)
+		timer := time.NewTimer(time.Duration(attempt+1) * 10 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
 	}
 }
 

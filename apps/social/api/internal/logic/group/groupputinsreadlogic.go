@@ -28,8 +28,12 @@ func NewGroupPutInsReadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *G
 
 func (l *GroupPutInsReadLogic) GroupPutInsRead(req *types.GroupPutInsReadReq) (resp *types.GroupPutInsReadResp, err error) {
 	uid := ctxdata.GetUId(l.ctx)
-	_, err = l.svcCtx.Social.MarkGroupReqRead(l.ctx, &socialclient.MarkGroupReqReadReq{
-		UserId: uid,
+	rpcResp, err := l.svcCtx.Social.MarkGroupReqRead(l.ctx, &socialclient.MarkGroupReqReadReq{
+		UserId:     uid,
+		RequestIds: req.RequestIds,
 	})
-	return &types.GroupPutInsReadResp{}, err
+	if err != nil {
+		return nil, err
+	}
+	return &types.GroupPutInsReadResp{Count: rpcResp.Count, Apply: rpcResp.Apply, Result: rpcResp.Result, Invite: rpcResp.Invite}, nil
 }

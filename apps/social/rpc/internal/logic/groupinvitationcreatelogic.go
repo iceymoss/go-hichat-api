@@ -78,7 +78,10 @@ func (l *GroupInvitationCreateLogic) GroupInvitationCreate(in *social.GroupInvit
 			GroupID: groupID, InviterUID: actor, InviteeUID: invitee, InviterRoleSnapshot: inviter.RoleLevel,
 			Message: in.Message, Status: groupInvitationPending, CreatedAt: now, ExpiresAt: now.Add(7 * 24 * time.Hour),
 		}
-		return tx.Create(&invitation).Error
+		if err := tx.Create(&invitation).Error; err != nil {
+			return err
+		}
+		return createReceipt(tx, receiptTypeGroupInvite, invitation.ID, in.InviteeUid, receiptKindInvite, 1, receiptPending, now, false, nil)
 	})
 	if err != nil {
 		return nil, normalizeGroupWriteError(err, "failed to create group invitation")

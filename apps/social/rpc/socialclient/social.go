@@ -80,6 +80,8 @@ type (
 	GroupInvitationHandleResp      = social.GroupInvitationHandleResp
 	GroupInvitationListReq         = social.GroupInvitationListReq
 	GroupInvitationListResp        = social.GroupInvitationListResp
+	GroupInvitationReadReq         = social.GroupInvitationReadReq
+	GroupInvitationReadResp        = social.GroupInvitationReadResp
 	GroupInviteLink                = social.GroupInviteLink
 	GroupInviteLinkCreateReq       = social.GroupInviteLinkCreateReq
 	GroupInviteLinkCreateResp      = social.GroupInviteLinkCreateResp
@@ -105,6 +107,8 @@ type (
 	GroupPutinResp                 = social.GroupPutinResp
 	GroupQuitReq                   = social.GroupQuitReq
 	GroupQuitResp                  = social.GroupQuitResp
+	GroupRequestMessageCountReq    = social.GroupRequestMessageCountReq
+	GroupRequestMessageCountResp   = social.GroupRequestMessageCountResp
 	GroupRequests                  = social.GroupRequests
 	GroupSearchItem                = social.GroupSearchItem
 	GroupSearchReq                 = social.GroupSearchReq
@@ -177,6 +181,8 @@ type (
 		GroupAnnouncementPin(ctx context.Context, in *GroupAnnouncementPinReq, opts ...grpc.CallOption) (*GroupAnnouncementPinResp, error)
 		GroupInvitationCreate(ctx context.Context, in *GroupInvitationCreateReq, opts ...grpc.CallOption) (*GroupInvitationCreateResp, error)
 		GroupInvitationList(ctx context.Context, in *GroupInvitationListReq, opts ...grpc.CallOption) (*GroupInvitationListResp, error)
+		GroupInvitationRead(ctx context.Context, in *GroupInvitationReadReq, opts ...grpc.CallOption) (*GroupInvitationReadResp, error)
+		GroupRequestMessageCount(ctx context.Context, in *GroupRequestMessageCountReq, opts ...grpc.CallOption) (*GroupRequestMessageCountResp, error)
 		GroupInvitationHandle(ctx context.Context, in *GroupInvitationHandleReq, opts ...grpc.CallOption) (*GroupInvitationHandleResp, error)
 	}
 
@@ -434,6 +440,16 @@ func (m *defaultSocial) GroupInvitationCreate(ctx context.Context, in *GroupInvi
 func (m *defaultSocial) GroupInvitationList(ctx context.Context, in *GroupInvitationListReq, opts ...grpc.CallOption) (*GroupInvitationListResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.GroupInvitationList(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupInvitationRead(ctx context.Context, in *GroupInvitationReadReq, opts ...grpc.CallOption) (*GroupInvitationReadResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupInvitationRead(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupRequestMessageCount(ctx context.Context, in *GroupRequestMessageCountReq, opts ...grpc.CallOption) (*GroupRequestMessageCountResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupRequestMessageCount(ctx, in, opts...)
 }
 
 func (m *defaultSocial) GroupInvitationHandle(ctx context.Context, in *GroupInvitationHandleReq, opts ...grpc.CallOption) (*GroupInvitationHandleResp, error) {

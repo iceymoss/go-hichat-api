@@ -98,7 +98,15 @@ func (l *GroupInviteLogic) GroupInvite(in *social.GroupInviteReq) (*social.Group
 				Message: "", Status: groupInvitationPending, CreatedAt: now, ExpiresAt: now.Add(7 * 24 * time.Hour),
 			})
 		}
-		return tx.Create(&invitations).Error
+		if err := tx.Create(&invitations).Error; err != nil {
+			return err
+		}
+		for i := range invitations {
+			if err := createReceipt(tx, receiptTypeGroupInvite, invitations[i].ID, strconv.FormatUint(invitations[i].InviteeUID, 10), receiptKindInvite, 1, receiptPending, invitations[i].CreatedAt, false, nil); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, normalizeGroupWriteError(err, "failed to create group invitations")

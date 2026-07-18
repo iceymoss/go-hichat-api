@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -56,9 +57,29 @@ func (l *GroupInvitationListLogic) GroupInvitationList(in *social.GroupInvitatio
 	if err := query.Order("created_at DESC, id DESC").Offset(int((page - 1) * size)).Limit(int(size)).Find(&rows).Error; err != nil {
 		return nil, status.Error(codes.Internal, "failed to list group invitations")
 	}
+	ids := make([]uint64, len(rows))
+	for i := range rows {
+		ids[i] = rows[i].ID
+	}
+	var receipts []objects.SocialRequestReceipt
+	if len(ids) > 0 {
+		if err := l.DB.WithContext(l.ctx).Where("request_type = ? AND request_id IN ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeGroupInvite, ids, in.ActorUid, receiptKindInvite).Find(&receipts).Error; err != nil {
+			return nil, status.Error(codes.Internal, "failed to load invitation receipts")
+		}
+	}
+	byID := make(map[uint64]objects.SocialRequestReceipt, len(receipts))
+	for _, receipt := range receipts {
+		byID[receipt.RequestID] = receipt
+	}
 	list := make([]*social.GroupInvitation, len(rows))
 	for i := range rows {
 		list[i] = invitationProto(&rows[i])
+		if receipt, ok := byID[rows[i].ID]; ok {
+			list[i].ReadState = int32(receipt.IsRead)
+			list[i].Actionable = receipt.IsActionable == 1
+		} else {
+			list[i].Actionable = rows[i].Status == groupInvitationPending && rows[i].ExpiresAt.After(time.Now())
+		}
 	}
 	return &social.GroupInvitationListResp{List: list, Total: total}, nil
 }

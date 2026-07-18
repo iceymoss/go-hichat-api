@@ -78,12 +78,19 @@ func newFriendTestContext(t *testing.T) (*svc.ServiceContext, *notifyRecorder) {
 			id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, group_id TEXT NOT NULL DEFAULT '',
 			payload TEXT NOT NULL, status INTEGER NOT NULL DEFAULT 0, created_at DATETIME, sent_at DATETIME
 		)`).Error)
+		require.NoError(t, db.Exec(`CREATE TABLE social_request_receipts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT, request_type TEXT NOT NULL, request_id INTEGER NOT NULL,
+			receiver_id TEXT NOT NULL, receipt_kind TEXT NOT NULL, is_read INTEGER NOT NULL DEFAULT 0,
+			is_actionable INTEGER NOT NULL DEFAULT 0, result INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL, read_at DATETIME, resolved_at DATETIME,
+			UNIQUE(request_type, request_id, receiver_id, receipt_kind)
+		)`).Error)
 	} else if db.Dialector.Name() == "postgres" {
 		require.NoError(t, db.AutoMigrate(&objects.FriendRequest{}))
 		require.NoError(t, db.Migrator().DropIndex(&objects.FriendRequest{}, "idx_user"))
-		require.NoError(t, db.AutoMigrate(&objects.Friend{}, &objects.RelationOutbox{}))
+		require.NoError(t, db.AutoMigrate(&objects.Friend{}, &objects.RelationOutbox{}, &objects.SocialRequestReceipt{}))
 	} else {
-		require.NoError(t, db.AutoMigrate(&objects.FriendRequest{}, &objects.Friend{}, &objects.RelationOutbox{}))
+		require.NoError(t, db.AutoMigrate(&objects.FriendRequest{}, &objects.Friend{}, &objects.RelationOutbox{}, &objects.SocialRequestReceipt{}))
 	}
 	recorder := &notifyRecorder{}
 	users := map[string]*user.UserEntity{
@@ -203,6 +210,74 @@ func TestFriendPutInConcurrentActive(t *testing.T) {
 	require.Equal(t, 1, recorder.count())
 }
 
+func TestFriendRequestReceiptsAndReadCount(t *testing.T) {
+	svcCtx, _ := newFriendTestContext(t)
+	created, err := NewFriendPutInLogic(context.Background(), svcCtx).FriendPutIn(&social.FriendPutInReq{
+		ActorUid: "1", UserId: "1", ReqUid: "2", ReqMsg: "hello", ReqTime: time.Now().Unix(),
+	})
+	require.NoError(t, err)
+	var apply objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeFriend, created.RequestId, "2", receiptKindApply).First(&apply).Error)
+	require.Zero(t, apply.IsRead)
+	require.Equal(t, 1, apply.IsActionable)
+
+	count, err := NewFriendPutInMessageCountLogic(context.Background(), svcCtx).FriendPutInMessageCount(&social.FriendPutInMessageCountReq{UserId: "2"})
+	require.NoError(t, err)
+	require.Equal(t, int32(1), count.Count)
+	require.Equal(t, int32(1), count.Apply)
+
+	_, err = NewFriendPutInHandleLogic(context.Background(), svcCtx).FriendPutInHandle(&social.FriendPutInHandleReq{
+		FriendReqId: int32(created.RequestId), ActorUid: "2", HandleResult: 2,
+	})
+	require.NoError(t, err)
+	require.NoError(t, svcCtx.DB.First(&apply, apply.ID).Error)
+	require.Equal(t, 1, apply.IsRead)
+	require.Zero(t, apply.IsActionable)
+	require.Equal(t, receiptRejected, apply.Result)
+
+	var result objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeFriend, created.RequestId, "1", receiptKindResult).First(&result).Error)
+	require.Zero(t, result.IsRead)
+	require.Equal(t, receiptRejected, result.Result)
+
+	read, err := NewFriendPutInReadLogic(context.Background(), svcCtx).FriendPutInRead(&social.FriendPutInReadReq{UserId: "1", RequestIds: []uint64{uint64(created.RequestId)}})
+	require.NoError(t, err)
+	require.Zero(t, read.Count)
+	require.NoError(t, svcCtx.DB.First(&result, result.ID).Error)
+	require.Equal(t, 1, result.IsRead)
+}
+
+func TestFriendReceiptFailureRollsBackRequest(t *testing.T) {
+	svcCtx, _ := newFriendTestContext(t)
+	if svcCtx.DB.Dialector.Name() != "sqlite" {
+		t.Skip("SQLite trigger is used to inject receipt failure")
+	}
+	require.NoError(t, svcCtx.DB.Exec(`CREATE TRIGGER fail_friend_receipt BEFORE INSERT ON social_request_receipts BEGIN SELECT RAISE(ABORT, 'receipt failure'); END`).Error)
+	_, err := NewFriendPutInLogic(context.Background(), svcCtx).FriendPutIn(&social.FriendPutInReq{
+		ActorUid: "1", UserId: "1", ReqUid: "2", ReqTime: time.Now().Unix(),
+	})
+	require.Equal(t, codes.Internal, status.Code(err))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.FriendRequest{}))
+}
+
+func TestFriendDeletePreservesSharedHistory(t *testing.T) {
+	svcCtx, _ := newFriendTestContext(t)
+	created, err := NewFriendPutInLogic(context.Background(), svcCtx).FriendPutIn(&social.FriendPutInReq{
+		ActorUid: "1", UserId: "1", ReqUid: "2", ReqTime: time.Now().Unix(),
+	})
+	require.NoError(t, err)
+	_, err = NewFriendPutInDeleteLogic(context.Background(), svcCtx).FriendPutInDelete(&social.FriendPutInDeleteReq{UserId: "2", FriendReqId: int32(created.RequestId)})
+	require.NoError(t, err)
+	var request objects.FriendRequest
+	require.NoError(t, svcCtx.DB.First(&request, uint64(created.RequestId)).Error)
+	require.Equal(t, 1, *request.Status)
+	require.NotNil(t, request.ActiveKey)
+	var receipt objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ?", receiptTypeFriend, created.RequestId, "2").First(&receipt).Error)
+	require.Equal(t, 1, receipt.IsRead)
+	require.Zero(t, receipt.IsActionable)
+}
+
 func TestFriendPutInHandleAuthorizationAndResults(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -265,9 +340,9 @@ func TestFriendPutInHandleIdempotencyAndReversePending(t *testing.T) {
 			require.Equal(t, codes.FailedPrecondition, status.Code(err))
 			if result == 1 {
 				assertRequestState(t, svcCtx.DB, reverse.ID, 1)
-				var reverseRequest objects.FriendRequest
-				require.NoError(t, svcCtx.DB.First(&reverseRequest, reverse.ID).Error)
-				require.Equal(t, 1, reverseRequest.SenderRead)
+				var receipt objects.SocialRequestReceipt
+				require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeFriend, reverse.ID, "2", receiptKindResult).First(&receipt).Error)
+				require.Equal(t, 1, receipt.IsRead)
 			} else {
 				assertRequestState(t, svcCtx.DB, reverse.ID, 0)
 			}

@@ -268,6 +268,16 @@ func (s *SocialServer) GroupInvitationList(ctx context.Context, in *social.Group
 	return l.GroupInvitationList(in)
 }
 
+func (s *SocialServer) GroupInvitationRead(ctx context.Context, in *social.GroupInvitationReadReq) (*social.GroupInvitationReadResp, error) {
+	l := logic.NewGroupInvitationReadLogic(ctx, s.svcCtx)
+	return l.GroupInvitationRead(in)
+}
+
+func (s *SocialServer) GroupRequestMessageCount(ctx context.Context, in *social.GroupRequestMessageCountReq) (*social.GroupRequestMessageCountResp, error) {
+	l := logic.NewGroupRequestMessageCountLogic(ctx, s.svcCtx)
+	return l.GroupRequestMessageCount(in)
+}
+
 func (s *SocialServer) GroupInvitationHandle(ctx context.Context, in *social.GroupInvitationHandleReq) (*social.GroupInvitationHandleResp, error) {
 	l := logic.NewGroupInvitationHandleLogic(ctx, s.svcCtx)
 	return l.GroupInvitationHandle(in)

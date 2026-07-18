@@ -103,6 +103,16 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 			return errGroupRequestCASMiss
 		}
 		changed = true
+		if err := resolveApplyReceipts(tx, receiptTypeGroup, []uint64{request.ID}, int(in.HandleResult), now, in.ActorUid); err != nil {
+			return err
+		}
+		createdAt := now
+		if request.ReqTime != nil {
+			createdAt = *request.ReqTime
+		}
+		if err := createResultReceipt(tx, receiptTypeGroup, request.ID, request.ReqID, int(in.HandleResult), createdAt, now, false); err != nil {
+			return err
+		}
 		if in.HandleResult == groupRequestRejected {
 			return nil
 		}
@@ -114,12 +124,10 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		if _, err := createGroupMemberAndOutbox(tx, l.ServiceContext, request.GroupID, applicant, 0, actualSource, request.InviterUserID, actor); err != nil {
 			return err
 		}
-		if err := resolvePendingGroupRequests(tx, request.GroupID, applicant, now, actualSource); err != nil {
+		if err := resolvePendingGroupRequests(tx, request.GroupID, applicant, now, actualSource, false); err != nil {
 			return err
 		}
-		return tx.Model(&objects.GroupInvitation{}).
-			Where("group_id = ? AND invitee_uid = ? AND status = ?", request.GroupID, applicant, groupInvitationPending).
-			Updates(map[string]any{"status": groupInvitationInvalidated, "handled_at": now}).Error
+		return invalidatePendingGroupInvitations(tx, request.GroupID, applicant, now)
 	})
 	if err != nil {
 		if errors.Is(err, errGroupRequestCASMiss) {

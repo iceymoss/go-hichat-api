@@ -82,13 +82,15 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 
 	changed := false
 	var relationEvent *mq.RelationChangeTransfer
-	err = l.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
+	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
+		changed = false
+		relationEvent = nil
 		now := utils.NowInChina()
 		result := tx.Model(&objects.FriendRequest{}).
 			Where("id = ? AND req_uid = ? AND handle_result = ? AND status = ?", request.ID, actor, 0, 1).
 			Updates(map[string]any{
 				"handle_result": in.HandleResult, "handle_msg": in.HandleMsg, "handled_at": now,
-				"active_key": nil, "sender_read": 0,
+				"active_key": nil,
 			})
 		if result.Error != nil {
 			return result.Error
@@ -97,6 +99,12 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 			return errFriendRequestCASMiss
 		}
 		changed = true
+		if err := resolveApplyReceipts(tx, receiptTypeFriend, []uint64{request.ID}, int(in.HandleResult), now, in.ActorUid); err != nil {
+			return err
+		}
+		if err := createResultReceipt(tx, receiptTypeFriend, request.ID, strconv.FormatUint(request.UserID, 10), int(in.HandleResult), request.ReqTime, now, false); err != nil {
+			return err
+		}
 
 		if in.HandleResult == 2 {
 			return nil
@@ -136,10 +144,25 @@ func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleR
 			return status.Error(codes.Internal, "failed to establish bidirectional friendship")
 		}
 
-		if err := tx.Model(&objects.FriendRequest{}).
-			Where("id <> ? AND user_id = ? AND req_uid = ? AND handle_result = ? AND status = ?", request.ID, request.ReqUID, request.UserID, 0, 1).
-			Updates(map[string]any{"handle_result": 1, "handled_at": now, "active_key": nil, "sender_read": 1}).Error; err != nil {
+		var reverse []objects.FriendRequest
+		if err := tx.Where("id <> ? AND user_id = ? AND req_uid = ? AND handle_result = ? AND status = ?", request.ID, request.ReqUID, request.UserID, 0, 1).Find(&reverse).Error; err != nil {
 			return err
+		}
+		for _, reverseRequest := range reverse {
+			updated := tx.Model(&objects.FriendRequest{}).Where("id = ? AND handle_result = ?", reverseRequest.ID, 0).
+				Updates(map[string]any{"handle_result": 1, "handled_at": now, "active_key": nil})
+			if updated.Error != nil {
+				return updated.Error
+			}
+			if updated.RowsAffected == 0 {
+				continue
+			}
+			if err := resolveApplyReceipts(tx, receiptTypeFriend, []uint64{reverseRequest.ID}, receiptAccepted, now, ""); err != nil {
+				return err
+			}
+			if err := createResultReceipt(tx, receiptTypeFriend, reverseRequest.ID, strconv.FormatUint(reverseRequest.UserID, 10), receiptAccepted, reverseRequest.ReqTime, now, true); err != nil {
+				return err
+			}
 		}
 		relationEvent = &mq.RelationChangeTransfer{
 			FriendA: strconv.FormatUint(request.UserID, 10), FriendB: strconv.FormatUint(request.ReqUID, 10),

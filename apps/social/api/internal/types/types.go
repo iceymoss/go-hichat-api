@@ -99,14 +99,20 @@ type FriendPutInMessageCountReq struct {
 }
 
 type FriendPutInMessageCountResp struct {
-	Count int32 `json:"count"` // 未读消息数量（确保 0 也返回）
+	Count  int32 `json:"count"` // 未读消息数量（确保 0 也返回）
+	Apply  int32 `json:"apply"`
+	Result int32 `json:"result"`
 }
 
 type FriendPutInReadReq struct {
-	FriendReqId int32 `json:"friend_req_id,omitempty"` // 0 或不传表示全部已读
+	FriendReqId int32    `json:"friend_req_id,omitempty"` // 0 或不传表示全部已读
+	RequestIds  []uint64 `json:"request_ids,optional"`
 }
 
 type FriendPutInReadResp struct {
+	Count  int32 `json:"count"`
+	Apply  int32 `json:"apply"`
+	Result int32 `json:"result"`
 }
 
 type FriendPutInReq struct {
@@ -313,6 +319,8 @@ type GroupInvitation struct {
 	CreatedAt           int64  `json:"created_at"`
 	HandledAt           int64  `json:"handled_at,omitempty"`
 	ExpiresAt           int64  `json:"expires_at"`
+	ReadState           int32  `json:"read_state"`
+	Actionable          bool   `json:"actionable"`
 }
 
 type GroupInvitationCreateReq struct {
@@ -349,6 +357,17 @@ type GroupInvitationListReq struct {
 type GroupInvitationListResp struct {
 	List  []GroupInvitation `json:"list"`
 	Total int64             `json:"total"`
+}
+
+type GroupInvitationReadReq struct {
+	InvitationIds []uint64 `json:"invitation_ids"`
+}
+
+type GroupInvitationReadResp struct {
+	Count  int32 `json:"count"`
+	Apply  int32 `json:"apply"`
+	Result int32 `json:"result"`
+	Invite int32 `json:"invite"`
 }
 
 type GroupInviteLink struct {
@@ -484,9 +503,14 @@ type GroupPutInResp struct {
 }
 
 type GroupPutInsReadReq struct {
+	RequestIds []uint64 `json:"request_ids,optional"`
 }
 
 type GroupPutInsReadResp struct {
+	Count  int32 `json:"count"`
+	Apply  int32 `json:"apply"`
+	Result int32 `json:"result"`
+	Invite int32 `json:"invite"`
 }
 
 type GroupQuitReq struct {
@@ -494,6 +518,16 @@ type GroupQuitReq struct {
 }
 
 type GroupQuitResp struct {
+}
+
+type GroupRequestMessageCountReq struct {
+}
+
+type GroupRequestMessageCountResp struct {
+	Count  int32 `json:"count"`
+	Apply  int32 `json:"apply"`
+	Result int32 `json:"result"`
+	Invite int32 `json:"invite"`
 }
 
 type GroupRequests struct {

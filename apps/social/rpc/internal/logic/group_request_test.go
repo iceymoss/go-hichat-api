@@ -32,7 +32,7 @@ func newGroupTestContext(t *testing.T) (*svc.ServiceContext, *notifyRecorder) {
 	} else {
 		require.NoError(t, database.AutoMigrate(
 			&objects.Group{}, &objects.GroupMember{}, &objects.GroupRequest{},
-			&objects.GroupInvitation{}, &objects.RelationOutbox{},
+			&objects.GroupInvitation{}, &objects.RelationOutbox{}, &objects.SocialRequestReceipt{},
 		))
 	}
 	recorder := &notifyRecorder{}
@@ -77,6 +77,13 @@ func createGroupSQLiteSchema(t *testing.T, database *gorm.DB) {
 		`CREATE TABLE relation_outbox (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, group_id TEXT NOT NULL DEFAULT '',
 			payload TEXT NOT NULL, status INTEGER NOT NULL DEFAULT 0, created_at DATETIME, sent_at DATETIME
+		)`,
+		`CREATE TABLE social_request_receipts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT, request_type TEXT NOT NULL, request_id INTEGER NOT NULL,
+			receiver_id TEXT NOT NULL, receipt_kind TEXT NOT NULL, is_read INTEGER NOT NULL DEFAULT 0,
+			is_actionable INTEGER NOT NULL DEFAULT 0, result INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL, read_at DATETIME, resolved_at DATETIME,
+			UNIQUE(request_type, request_id, receiver_id, receipt_kind)
 		)`,
 		`CREATE INDEX idx_group_invitation_invitee ON group_invitations(invitee_uid, status, created_at)`,
 		`CREATE INDEX idx_group_invitation_group_invitee ON group_invitations(group_id, invitee_uid, status)`,
@@ -220,6 +227,70 @@ func TestGroupPutInConcurrentAndCooldown(t *testing.T) {
 	resp, err := NewGroupPutinLogic(context.Background(), svcCtx).GroupPutin(groupPutInReq("3", "3", "1"))
 	require.NoError(t, err)
 	require.NotEqual(t, stable, resp.RequestId)
+}
+
+func TestGroupRequestReceiptsArePersonal(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedGroupMember(t, svcCtx.DB, 1, 2, 1)
+	created, err := NewGroupPutinLogic(context.Background(), svcCtx).GroupPutin(groupPutInReq("3", "3", "1"))
+	require.NoError(t, err)
+
+	var receipts []objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receipt_kind = ?", receiptTypeGroup, created.RequestId, receiptKindApply).Order("receiver_id").Find(&receipts).Error)
+	require.Len(t, receipts, 2)
+	require.Equal(t, []string{"1", "2"}, []string{receipts[0].ReceiverID, receipts[1].ReceiverID})
+
+	read, err := NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: "1", RequestIds: []uint64{created.RequestId}})
+	require.NoError(t, err)
+	require.Equal(t, int32(0), read.Apply)
+	otherCount, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "2"})
+	require.NoError(t, err)
+	require.Equal(t, int32(1), otherCount.Apply)
+
+	_, err = NewGroupPutInHandleLogic(context.Background(), svcCtx).GroupPutInHandle(&social.GroupPutInHandleReq{RequestId: created.RequestId, ActorUid: "1", HandleResult: 1})
+	require.NoError(t, err)
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receipt_kind = ?", receiptTypeGroup, created.RequestId, receiptKindApply).Order("receiver_id").Find(&receipts).Error)
+	require.Zero(t, receipts[0].IsActionable)
+	require.Zero(t, receipts[1].IsActionable)
+	require.Equal(t, 1, receipts[0].IsRead)
+	require.Zero(t, receipts[1].IsRead)
+	require.Equal(t, receiptAccepted, receipts[1].Result)
+
+	var applicantResult objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeGroup, created.RequestId, "3", receiptKindResult).First(&applicantResult).Error)
+	require.Zero(t, applicantResult.IsRead)
+	applicantCount, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "3"})
+	require.NoError(t, err)
+	require.Equal(t, int32(1), applicantCount.Result)
+}
+
+func TestGroupInvitationReceiptLifecycle(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	created, err := NewGroupInvitationCreateLogic(context.Background(), svcCtx).GroupInvitationCreate(&social.GroupInvitationCreateReq{ActorUid: "1", GroupId: "1", InviteeUid: "3"})
+	require.NoError(t, err)
+	count, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "3"})
+	require.NoError(t, err)
+	require.Equal(t, int32(1), count.Invite)
+
+	read, err := NewGroupInvitationReadLogic(context.Background(), svcCtx).GroupInvitationRead(&social.GroupInvitationReadReq{ActorUid: "3", InvitationIds: []uint64{created.Invitation.Id}})
+	require.NoError(t, err)
+	require.Zero(t, read.Invite)
+	_, err = NewGroupInvitationHandleLogic(context.Background(), svcCtx).GroupInvitationHandle(&social.GroupInvitationHandleReq{Id: created.Invitation.Id, ActorUid: "3", Result: 2})
+	require.NoError(t, err)
+	var receipt objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ?", receiptTypeGroupInvite, created.Invitation.Id).First(&receipt).Error)
+	require.Zero(t, receipt.IsActionable)
+	require.Equal(t, receiptRejected, receipt.Result)
+}
+
+func TestGroupInvitationReadRequiresDisplayedIDs(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	_, err := NewGroupInvitationReadLogic(context.Background(), svcCtx).GroupInvitationRead(&social.GroupInvitationReadReq{ActorUid: "3"})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
 }
 
 func TestGroupInvitationCreateAuthorizationAndIndependence(t *testing.T) {

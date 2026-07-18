@@ -70,6 +70,32 @@ func TestMigrateLegacyDatabase(t *testing.T) {
 	}
 }
 
+func TestRepairInvitationReceiptResults(t *testing.T) {
+	db := openTestDB(t, "sqlite", t.TempDir()+"/receipt-fix.db")
+	require.NoError(t, db.AutoMigrate(&migrationRecord{}, &objects.GroupInvitation{}, &objects.SocialRequestReceipt{}))
+	now := time.Now().UTC()
+	invitations := []objects.GroupInvitation{
+		{ID: 1, GroupID: 1, InviterUID: 1, InviteeUID: 2, Status: 3, CreatedAt: now, ExpiresAt: now},
+		{ID: 2, GroupID: 1, InviterUID: 1, InviteeUID: 3, Status: 4, CreatedAt: now, ExpiresAt: now},
+	}
+	require.NoError(t, db.Create(&invitations).Error)
+	receipts := []objects.SocialRequestReceipt{
+		{RequestType: "group_invite", RequestID: 1, ReceiverID: "2", ReceiptKind: "invite", Result: 3, CreatedAt: now},
+		{RequestType: "group_invite", RequestID: 2, ReceiverID: "3", ReceiptKind: "invite", Result: 4, CreatedAt: now},
+	}
+	require.NoError(t, db.Create(&receipts).Error)
+	require.NoError(t, repairInvitationReceiptResults(db, now))
+
+	var repaired []objects.SocialRequestReceipt
+	require.NoError(t, db.Order("request_id").Find(&repaired).Error)
+	require.Equal(t, 4, repaired[0].Result)
+	require.Equal(t, 3, repaired[1].Result)
+	require.NoError(t, repairInvitationReceiptResults(db, now.Add(time.Hour)))
+	var records int64
+	require.NoError(t, db.Model(&migrationRecord{}).Where("version = ?", receiptResultFixVersion).Count(&records).Error)
+	require.Equal(t, int64(1), records)
+}
+
 func TestMigrateBlocksAmbiguousInvitation(t *testing.T) {
 	db := openTestDB(t, "sqlite", t.TempDir()+"/ambiguous.db")
 	require.NoError(t, createLegacySchema(db))

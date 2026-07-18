@@ -90,6 +90,9 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 			if result.RowsAffected == 0 {
 				return errInvitationCASMiss
 			}
+			if err := resolveInviteReceipts(tx, []uint64{invitation.ID}, receiptExpired, now, in.ActorUid); err != nil {
+				return err
+			}
 			response = invitationHandleResponse(&invitation, groupInvitationExpired, "expired", 0, false)
 			return nil
 		}
@@ -105,6 +108,9 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 			}
 			if result.RowsAffected == 0 {
 				return errInvitationCASMiss
+			}
+			if err := resolveInviteReceipts(tx, []uint64{invitation.ID}, receiptRejected, now, in.ActorUid); err != nil {
+				return err
 			}
 			response = invitationHandleResponse(&invitation, groupInvitationRejected, "rejected", 0, false)
 			return nil
@@ -124,11 +130,14 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 		if err := acceptCurrentInvitation(tx, &invitation, actor, now); err != nil {
 			return err
 		}
+		if err := resolveInviteReceipts(tx, []uint64{invitation.ID}, receiptAccepted, now, in.ActorUid); err != nil {
+			return err
+		}
 		if err := invalidateOtherInvitations(tx, &invitation, now); err != nil {
 			return err
 		}
 		if currentMember != nil {
-			if err := resolvePendingGroupRequests(tx, invitation.GroupID, actor, now, 2); err != nil {
+			if err := resolvePendingGroupRequests(tx, invitation.GroupID, actor, now, 2, true); err != nil {
 				return err
 			}
 			response = invitationHandleResponse(&invitation, groupInvitationAccepted, "joined", 0, false)
@@ -138,7 +147,7 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 			if _, err := createGroupMemberAndOutbox(tx, l.ServiceContext, invitation.GroupID, actor, 0, 2, &invitation.InviterUID, invitation.InviterUID); err != nil {
 				return err
 			}
-			if err := resolvePendingGroupRequests(tx, invitation.GroupID, actor, now, 2); err != nil {
+			if err := resolvePendingGroupRequests(tx, invitation.GroupID, actor, now, 2, true); err != nil {
 				return err
 			}
 			response = invitationHandleResponse(&invitation, groupInvitationAccepted, "joined", 0, false)
@@ -162,6 +171,11 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 			}
 		}
 		createdApproval = result.RowsAffected == 1
+		if createdApproval {
+			if err := createGroupApplyReceipts(tx, invitation.GroupID, request.ID, now); err != nil {
+				return err
+			}
+		}
 		response = invitationHandleResponse(&invitation, groupInvitationAccepted, "pending_approval", request.ID, false)
 		return nil
 	})
@@ -198,9 +212,22 @@ func acceptCurrentInvitation(tx *gorm.DB, invitation *objects.GroupInvitation, a
 }
 
 func invalidateOtherInvitations(tx *gorm.DB, invitation *objects.GroupInvitation, now time.Time) error {
-	return tx.Model(&objects.GroupInvitation{}).
-		Where("id <> ? AND group_id = ? AND invitee_uid = ? AND status = ?", invitation.ID, invitation.GroupID, invitation.InviteeUID, groupInvitationPending).
-		Updates(map[string]any{"status": groupInvitationInvalidated, "handled_at": now}).Error
+	var invitations []objects.GroupInvitation
+	if err := tx.Where("id <> ? AND group_id = ? AND invitee_uid = ? AND status = ?", invitation.ID, invitation.GroupID, invitation.InviteeUID, groupInvitationPending).Find(&invitations).Error; err != nil {
+		return err
+	}
+	ids := make([]uint64, 0, len(invitations))
+	for _, other := range invitations {
+		updated := tx.Model(&objects.GroupInvitation{}).Where("id = ? AND status = ?", other.ID, groupInvitationPending).
+			Updates(map[string]any{"status": groupInvitationInvalidated, "handled_at": now})
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected == 1 {
+			ids = append(ids, other.ID)
+		}
+	}
+	return resolveInviteReceipts(tx, ids, receiptInvalidated, now, "")
 }
 
 func invalidateInvitation(tx *gorm.DB, invitation *objects.GroupInvitation, actor uint64, now time.Time, _ string, response **social.GroupInvitationHandleResp) error {
@@ -212,6 +239,9 @@ func invalidateInvitation(tx *gorm.DB, invitation *objects.GroupInvitation, acto
 	}
 	if result.RowsAffected == 0 {
 		return errInvitationCASMiss
+	}
+	if err := resolveInviteReceipts(tx, []uint64{invitation.ID}, receiptInvalidated, now, strconv.FormatUint(actor, 10)); err != nil {
+		return err
 	}
 	*response = invitationHandleResponse(invitation, groupInvitationInvalidated, "invalidated", 0, false)
 	return nil

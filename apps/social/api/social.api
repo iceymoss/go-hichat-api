@@ -105,8 +105,15 @@ type (
 		User          User   `json:"user,omitempty"`
 		Group         Groups `json:"group,omitempty"`
 	}
-	GroupPutInsReadReq  {}
-	GroupPutInsReadResp  {}
+	GroupPutInsReadReq {
+		RequestIds []uint64 `json:"request_ids,optional"`
+	}
+	GroupPutInsReadResp {
+		Count  int32 `json:"count"`
+		Apply  int32 `json:"apply"`
+		Result int32 `json:"result"`
+		Invite int32 `json:"invite"`
+	}
 )
 
 type (
@@ -194,9 +201,14 @@ type (
 
 type (
 	FriendPutInReadReq {
-		FriendReqId int32 `json:"friend_req_id,omitempty"` // 0 或不传表示全部已读
+		FriendReqId int32    `json:"friend_req_id,omitempty"` // 0 或不传表示全部已读
+		RequestIds  []uint64 `json:"request_ids,optional"`
 	}
-	FriendPutInReadResp  {}
+	FriendPutInReadResp {
+		Count  int32 `json:"count"`
+		Apply  int32 `json:"apply"`
+		Result int32 `json:"result"`
+	}
 )
 
 type (
@@ -213,7 +225,9 @@ type (
 	FriendPutInDeleteResp  {}
 	FriendPutInMessageCountReq  {}
 	FriendPutInMessageCountResp {
-		Count int32 `json:"count"` // 未读消息数量（确保 0 也返回）
+		Count  int32 `json:"count"` // 未读消息数量（确保 0 也返回）
+		Apply  int32 `json:"apply"`
+		Result int32 `json:"result"`
 	}
 )
 
@@ -338,6 +352,8 @@ type (
 		CreatedAt           int64  `json:"created_at"`
 		HandledAt           int64  `json:"handled_at,omitempty"`
 		ExpiresAt           int64  `json:"expires_at"`
+		ReadState           int32  `json:"read_state"`
+		Actionable          bool   `json:"actionable"`
 	}
 	GroupInvitationCreateReq {
 		GroupId    string `json:"group_id"`
@@ -368,6 +384,22 @@ type (
 		GroupRequestId uint64 `json:"group_request_id,omitempty"`
 		Idempotent     bool   `json:"idempotent,omitempty"`
 		GroupId        string `json:"group_id"`
+	}
+	GroupInvitationReadReq {
+		InvitationIds []uint64 `json:"invitation_ids"`
+	}
+	GroupInvitationReadResp {
+		Count  int32 `json:"count"`
+		Apply  int32 `json:"apply"`
+		Result int32 `json:"result"`
+		Invite int32 `json:"invite"`
+	}
+	GroupRequestMessageCountReq  {}
+	GroupRequestMessageCountResp {
+		Count  int32 `json:"count"`
+		Apply  int32 `json:"apply"`
+		Result int32 `json:"result"`
+		Invite int32 `json:"invite"`
 	}
 )
 
@@ -672,6 +704,10 @@ service social {
 	@handler getGroupPutListByUid
 	get /group/putInsByUid (GetGroupPutListByUidReq) returns (GetGroupPutListByUidResp)
 
+	@doc "群申请与邀请未读数量"
+	@handler groupRequestMessageCount
+	get /group/putIn/messageCount (GroupRequestMessageCountReq) returns (GroupRequestMessageCountResp)
+
 	@doc "把我管理的群收到的入群申请全部标记已读"
 	@handler groupPutInsRead
 	put /group/putIns/read (GroupPutInsReadReq) returns (GroupPutInsReadResp)
@@ -711,6 +747,10 @@ service social {
 	@doc "收到的群邀请"
 	@handler groupInvitationList
 	get /group/invitations (GroupInvitationListReq) returns (GroupInvitationListResp)
+
+	@doc "标记收到的群邀请已读"
+	@handler groupInvitationRead
+	put /group/invitations/read (GroupInvitationReadReq) returns (GroupInvitationReadResp)
 
 	@doc "处理群邀请"
 	@handler groupInvitationHandle

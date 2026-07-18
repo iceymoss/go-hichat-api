@@ -538,6 +538,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - `3570bd5 feat(deploy): migrate social request schema`：步骤 2，显式 schema/data/index 分阶段迁移。
 - `1b74e21 fix(social): harden friend request state machine`：步骤 3，好友申请授权、并发和 CAS 状态机。
 - `36d0c4e feat(social): add group request state machines`：步骤 4 checkpoint。
+- `940aadb fix(social): complete group request reliability`：完成步骤 4 复审修复。
 
 ### 已完成
 
@@ -571,7 +572,16 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 4 已完成。下一会话从步骤 5 开始：先梳理好友、群申请和邀请创建/终态事务中的 receipt 写入点，再将现有 unread/read RPC 与 HTTP 接口切换到 `social_request_receipts`；旧 read 字段只保留兼容读取窗口，不再新增写入。
+步骤 5 已完成。下一会话从步骤 6 开始：实现 `social_notification_outbox` relay、新 Kafka topic、幂等消费、退避重试/dead 状态与监控；不得将 receipt 事务重新退化为旧 read 字段写入。
+
+### 步骤 5 实施结果
+
+- 好友、群申请和群邀请创建/终态事务已原子写入或关闭个人 receipt；并行申请和其他邀请的自动收口同步关闭 actionability。
+- 好友和群申请 unread/read 已切换到 receipt 分类计数；新增群申请/邀请 count 与邀请按展示 ID 标读接口，一人标读不影响其他管理员。
+- 好友、群申请和邀请列表优先映射个人 receipt；仅无 receipt 的旧数据回退旧 read 字段或状态推导，新代码不再写旧 read 列。
+- 好友申请隐藏只关闭当前用户 receipt，不再删除共享历史或复用取消语义。
+- 新增邀请 receipt 枚举修复迁移版本，升级已执行旧迁移的数据库时可幂等修正 expired/invalidated。
+- 固定工具重新生成 API/RPC；Social 全量、receipt/migration 测试、race、目标 vet 和 diff check 通过。MySQL/PostgreSQL DSN 未配置，仍只实跑 SQLite。
 
 步骤 4 暂不提前实现：
 
@@ -592,7 +602,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 2. [x] 增加 `active_key`、`group_invitations`、`social_request_receipts`、`social_notification_outbox` 和好友唯一索引，完成迁移实现与 SQLite 测试；MySQL/PostgreSQL 实跑留待步骤 17。
 3. [x] 修复好友发起/审批授权、self-check、目标校验、结果枚举和 CAS 状态机。
 4. [x] 修复群发起身份伪造、列表越权、结果枚举、事务提交和 CAS 状态机；完成 checkpoint 复审修复与 SQLite 并发测试。
-5. [ ] 好友和群申请事务接入个人 receipt，切换 unread/read API，保留旧字段兼容读取窗口。
+5. [x] 好友和群申请事务接入个人 receipt，切换 unread/read API，保留旧字段兼容读取窗口。
 6. [ ] 实现 notification outbox relay、新 Kafka topic、幂等消费、backoff/dead 状态和监控指标。
 7. [ ] 完善好友/群申请 RPC 与 HTTP 字段、分页、稳定错误码和通知业务筛选标读。
 8. [ ] 将 `group.member.added` 会话创建迁移到可靠消费者，删除 API best-effort goroutine；补关系新增事件。

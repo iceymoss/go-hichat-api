@@ -6,6 +6,7 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	"github.com/iceymoss/go-hichat-api/pkg/utils"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
@@ -33,6 +34,24 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "find list friend req err %v req %v", err, in.UserId)
 	}
+	requestIDs := make([]uint64, len(friendReqList))
+	for i, request := range friendReqList {
+		requestIDs[i] = uint64(request.Id)
+	}
+	kind := receiptKindApply
+	if in.Class == "0" {
+		kind = receiptKindResult
+	}
+	var receipts []objects.SocialRequestReceipt
+	if len(requestIDs) > 0 {
+		if err := l.svcCtx.DB.WithContext(l.ctx).Where("request_type = ? AND request_id IN ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeFriend, requestIDs, in.UserId, kind).Find(&receipts).Error; err != nil {
+			return nil, errors.Wrapf(xerr.NewDBErr(), "find friend request receipts err %v", err)
+		}
+	}
+	readByID := make(map[uint64]int, len(receipts))
+	for _, receipt := range receipts {
+		readByID[receipt.RequestID] = receipt.IsRead
+	}
 
 	resp := make([]*social.FriendRequests, 0, len(friendReqList))
 	for _, v := range friendReqList {
@@ -51,6 +70,9 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 		readState := v.ReceiverRead
 		if in.Class == "0" {
 			readState = v.SenderRead
+		}
+		if receiptRead, ok := readByID[uint64(v.Id)]; ok {
+			readState = receiptRead
 		}
 
 		resp = append(resp, &social.FriendRequests{

@@ -132,6 +132,9 @@ func Migrate(ctx context.Context, db *gorm.DB, driver string, now time.Time) (Re
 	}
 	if count > 0 {
 		report.AlreadyApplied = true
+		if err := repairInvitationReceiptResults(db, now); err != nil {
+			return report, err
+		}
 		return report, validateSchema(db)
 	}
 
@@ -164,6 +167,9 @@ func Migrate(ctx context.Context, db *gorm.DB, driver string, now time.Time) (Re
 	if err := createAndValidateIndexes(db); err != nil {
 		return report, err
 	}
+	if err := repairInvitationReceiptResults(db, now); err != nil {
+		return report, err
+	}
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		record := migrationRecord{Version: migrationVersion, Description: "social request interaction reliability schema", AppliedAt: now}
 		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&record).Error; err != nil {
@@ -174,6 +180,37 @@ func Migrate(ctx context.Context, db *gorm.DB, driver string, now time.Time) (Re
 		return report, err
 	}
 	return report, validateSchema(db)
+}
+
+func repairInvitationReceiptResults(db *gorm.DB, now time.Time) error {
+	var applied int64
+	if err := db.Model(&migrationRecord{}).Where("version = ?", receiptResultFixVersion).Count(&applied).Error; err != nil {
+		return fmt.Errorf("check receipt result fix: %w", err)
+	}
+	if applied > 0 {
+		return nil
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		for invitationStatus, receiptResult := range map[int]int{3: 4, 4: 3} {
+			var ids []uint64
+			if err := tx.Model(&objects.GroupInvitation{}).Where("status = ?", invitationStatus).Pluck("id", &ids).Error; err != nil {
+				return fmt.Errorf("list invitation receipt fixes: %w", err)
+			}
+			if len(ids) == 0 {
+				continue
+			}
+			if err := tx.Model(&objects.SocialRequestReceipt{}).
+				Where("request_type = ? AND receipt_kind = ? AND request_id IN ?", "group_invite", "invite", ids).
+				Update("result", receiptResult).Error; err != nil {
+				return fmt.Errorf("repair invitation receipt results: %w", err)
+			}
+		}
+		record := migrationRecord{Version: receiptResultFixVersion, Description: "repair group invitation receipt result enum", AppliedAt: now}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&record).Error; err != nil {
+			return fmt.Errorf("record receipt result fix: %w", err)
+		}
+		return nil
+	})
 }
 
 func ensureSchema(db *gorm.DB) error {
@@ -607,7 +644,13 @@ func backfillReceipts(db *gorm.DB, now time.Time) error {
 	}
 	for _, invitation := range invitations {
 		actionable := boolInt(invitation.Status == 0)
-		inviteReceipt := receipt("group_invite", invitation.ID, strconv.FormatUint(invitation.InviteeUID, 10), "invite", 0, actionable, invitation.Status, invitation.CreatedAt, invitation.HandledAt, now)
+		result := invitation.Status
+		if result == 3 {
+			result = 4
+		} else if result == 4 {
+			result = 3
+		}
+		inviteReceipt := receipt("group_invite", invitation.ID, strconv.FormatUint(invitation.InviteeUID, 10), "invite", 0, actionable, result, invitation.CreatedAt, invitation.HandledAt, now)
 		if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&inviteReceipt).Error; err != nil {
 			return fmt.Errorf("backfill group invitation receipt: %w", err)
 		}

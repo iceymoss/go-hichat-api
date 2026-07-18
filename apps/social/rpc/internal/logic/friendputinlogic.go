@@ -16,6 +16,7 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -64,15 +65,22 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 		UserID: actor, ReqUID: target, ReqMsg: in.ReqMsg, ReqTime: reqTime,
 		HandleResult: &pending, Status: &visible, Remark: in.Remark, ActiveKey: &activeKey,
 	}
-	result := l.DB.WithContext(l.ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(request)
-	if result.Error != nil {
-		return nil, status.Error(codes.Internal, "failed to create friend request")
-	}
-	created := result.RowsAffected == 1
-	if !created {
-		if err := l.DB.WithContext(l.ctx).Where("active_key = ?", activeKey).First(request).Error; err != nil {
-			return nil, status.Error(codes.Internal, "failed to load active friend request")
+	created := false
+	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
+		created = false
+		request.ID = 0
+		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(request)
+		if result.Error != nil {
+			return result.Error
 		}
+		created = result.RowsAffected == 1
+		if !created {
+			return tx.Where("active_key = ?", activeKey).First(request).Error
+		}
+		return createReceipt(tx, receiptTypeFriend, request.ID, in.ReqUid, receiptKindApply, 1, receiptPending, reqTime, false, nil)
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to create friend request")
 	}
 
 	if created {

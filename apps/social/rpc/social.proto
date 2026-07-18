@@ -312,8 +312,13 @@ message FriendPutInHandleResp {
 message FriendPutInReadReq {
   string userId = 1;
   int32  friendReqId = 2; // 0 表示全部已读
+  repeated uint64 requestIds = 3;
 }
-message FriendPutInReadResp {}
+message FriendPutInReadResp {
+  int32 count = 1;
+  int32 apply = 2;
+  int32 result = 3;
+}
 
 message FriendPutInDeleteReq {
   string userId = 1;
@@ -337,6 +342,8 @@ message FriendPutInMessageCountReq{
 
 message FriendPutInMessageCountResp{
   int32 count = 1; // 消息数量
+  int32 apply = 2;
+  int32 result = 3;
 }
 
 message FriendListReq{
@@ -490,6 +497,8 @@ message GroupInvitation {
   int64 createdAt = 9;
   int64 handledAt = 10;
   int64 expiresAt = 11;
+  int32 readState = 12;
+  bool actionable = 13;
 }
 
 message GroupInvitationCreateReq {
@@ -526,6 +535,25 @@ message GroupInvitationHandleResp {
   uint64 groupRequestId = 4;
   bool idempotent = 5;
   string groupId = 6;
+}
+
+message GroupInvitationReadReq {
+  string actorUid = 1;
+  repeated uint64 invitationIds = 2;
+}
+message GroupInvitationReadResp {
+  int32 count = 1;
+  int32 apply = 2;
+  int32 result = 3;
+  int32 invite = 4;
+}
+
+message GroupRequestMessageCountReq { string userId = 1; }
+message GroupRequestMessageCountResp {
+  int32 count = 1;
+  int32 apply = 2;
+  int32 result = 3;
+  int32 invite = 4;
 }
 
 message GroupListReq{
@@ -577,8 +605,14 @@ message GroupSearchResp {
 
 message MarkGroupReqReadReq {
   string userId = 1; // 当前用户（群主/管理员），把其管理的群收到的申请标记已读
+  repeated uint64 requestIds = 2;
 }
-message MarkGroupReqReadResp {}
+message MarkGroupReqReadResp {
+  int32 count = 1;
+  int32 apply = 2;
+  int32 result = 3;
+  int32 invite = 4;
+}
 
 
 // svc
@@ -642,5 +676,7 @@ service social {
   rpc GroupAnnouncementPin(GroupAnnouncementPinReq) returns (GroupAnnouncementPinResp); // 置顶群公告
   rpc GroupInvitationCreate(GroupInvitationCreateReq) returns (GroupInvitationCreateResp); // 创建独立群邀请
   rpc GroupInvitationList(GroupInvitationListReq) returns (GroupInvitationListResp); // 查询当前用户收到的邀请
+  rpc GroupInvitationRead(GroupInvitationReadReq) returns (GroupInvitationReadResp); // 标记当前用户展示的邀请已读
+  rpc GroupRequestMessageCount(GroupRequestMessageCountReq) returns (GroupRequestMessageCountResp); // 群申请与邀请个人未读
   rpc GroupInvitationHandle(GroupInvitationHandleReq) returns (GroupInvitationHandleResp); // 接受或拒绝群邀请
 }

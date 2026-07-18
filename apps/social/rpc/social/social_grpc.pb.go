@@ -67,6 +67,8 @@ const (
 	Social_GroupAnnouncementPin_FullMethodName       = "/social.social/GroupAnnouncementPin"
 	Social_GroupInvitationCreate_FullMethodName      = "/social.social/GroupInvitationCreate"
 	Social_GroupInvitationList_FullMethodName        = "/social.social/GroupInvitationList"
+	Social_GroupInvitationRead_FullMethodName        = "/social.social/GroupInvitationRead"
+	Social_GroupRequestMessageCount_FullMethodName   = "/social.social/GroupRequestMessageCount"
 	Social_GroupInvitationHandle_FullMethodName      = "/social.social/GroupInvitationHandle"
 )
 
@@ -130,6 +132,8 @@ type SocialClient interface {
 	GroupAnnouncementPin(ctx context.Context, in *GroupAnnouncementPinReq, opts ...grpc.CallOption) (*GroupAnnouncementPinResp, error)
 	GroupInvitationCreate(ctx context.Context, in *GroupInvitationCreateReq, opts ...grpc.CallOption) (*GroupInvitationCreateResp, error)
 	GroupInvitationList(ctx context.Context, in *GroupInvitationListReq, opts ...grpc.CallOption) (*GroupInvitationListResp, error)
+	GroupInvitationRead(ctx context.Context, in *GroupInvitationReadReq, opts ...grpc.CallOption) (*GroupInvitationReadResp, error)
+	GroupRequestMessageCount(ctx context.Context, in *GroupRequestMessageCountReq, opts ...grpc.CallOption) (*GroupRequestMessageCountResp, error)
 	GroupInvitationHandle(ctx context.Context, in *GroupInvitationHandleReq, opts ...grpc.CallOption) (*GroupInvitationHandleResp, error)
 }
 
@@ -621,6 +625,26 @@ func (c *socialClient) GroupInvitationList(ctx context.Context, in *GroupInvitat
 	return out, nil
 }
 
+func (c *socialClient) GroupInvitationRead(ctx context.Context, in *GroupInvitationReadReq, opts ...grpc.CallOption) (*GroupInvitationReadResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupInvitationReadResp)
+	err := c.cc.Invoke(ctx, Social_GroupInvitationRead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupRequestMessageCount(ctx context.Context, in *GroupRequestMessageCountReq, opts ...grpc.CallOption) (*GroupRequestMessageCountResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupRequestMessageCountResp)
+	err := c.cc.Invoke(ctx, Social_GroupRequestMessageCount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *socialClient) GroupInvitationHandle(ctx context.Context, in *GroupInvitationHandleReq, opts ...grpc.CallOption) (*GroupInvitationHandleResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GroupInvitationHandleResp)
@@ -691,6 +715,8 @@ type SocialServer interface {
 	GroupAnnouncementPin(context.Context, *GroupAnnouncementPinReq) (*GroupAnnouncementPinResp, error)
 	GroupInvitationCreate(context.Context, *GroupInvitationCreateReq) (*GroupInvitationCreateResp, error)
 	GroupInvitationList(context.Context, *GroupInvitationListReq) (*GroupInvitationListResp, error)
+	GroupInvitationRead(context.Context, *GroupInvitationReadReq) (*GroupInvitationReadResp, error)
+	GroupRequestMessageCount(context.Context, *GroupRequestMessageCountReq) (*GroupRequestMessageCountResp, error)
 	GroupInvitationHandle(context.Context, *GroupInvitationHandleReq) (*GroupInvitationHandleResp, error)
 	mustEmbedUnimplementedSocialServer()
 }
@@ -845,6 +871,12 @@ func (UnimplementedSocialServer) GroupInvitationCreate(context.Context, *GroupIn
 }
 func (UnimplementedSocialServer) GroupInvitationList(context.Context, *GroupInvitationListReq) (*GroupInvitationListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupInvitationList not implemented")
+}
+func (UnimplementedSocialServer) GroupInvitationRead(context.Context, *GroupInvitationReadReq) (*GroupInvitationReadResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupInvitationRead not implemented")
+}
+func (UnimplementedSocialServer) GroupRequestMessageCount(context.Context, *GroupRequestMessageCountReq) (*GroupRequestMessageCountResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupRequestMessageCount not implemented")
 }
 func (UnimplementedSocialServer) GroupInvitationHandle(context.Context, *GroupInvitationHandleReq) (*GroupInvitationHandleResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupInvitationHandle not implemented")
@@ -1734,6 +1766,42 @@ func _Social_GroupInvitationList_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Social_GroupInvitationRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupInvitationReadReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupInvitationRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupInvitationRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupInvitationRead(ctx, req.(*GroupInvitationReadReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupRequestMessageCount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupRequestMessageCountReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupRequestMessageCount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupRequestMessageCount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupRequestMessageCount(ctx, req.(*GroupRequestMessageCountReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Social_GroupInvitationHandle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GroupInvitationHandleReq)
 	if err := dec(in); err != nil {
@@ -1950,6 +2018,14 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GroupInvitationList",
 			Handler:    _Social_GroupInvitationList_Handler,
+		},
+		{
+			MethodName: "GroupInvitationRead",
+			Handler:    _Social_GroupInvitationRead_Handler,
+		},
+		{
+			MethodName: "GroupRequestMessageCount",
+			Handler:    _Social_GroupRequestMessageCount_Handler,
 		},
 		{
 			MethodName: "GroupInvitationHandle",
