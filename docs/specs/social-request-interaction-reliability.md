@@ -574,7 +574,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 11 已完成。下一会话从步骤 12 开始：群申请与群邀请三 tab 分页、直接入群状态和 receipt 已读时序。
+步骤 12 已完成。下一会话从步骤 13 开始：业务 receipt 与公共通知 receipt 联动、重试和错误态收口。
 
 ### 步骤 5 实施结果
 
@@ -643,6 +643,17 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - WS toast 和 NotificationCenter 将 `bizId` 传入导航，按精确字符串 request ID 跨页定位，找到后打开详情，不存在时显示双语提示。
 - Social API/RPC 目标 test、race、vet 和 Bun tests 通过；lint 无 error，typecheck 仅保留两个既有 CSS 自定义属性类型错误。
 
+### 步骤 12 实施结果
+
+- 群申请/邀请 HTTP canonical ID 全部改为十进制字符串，API 边界严格解析为 RPC `uint64`；`group_id` 同步统一为字符串，`is_pass=0` 明确返回。
+- received/sent/invitations 三个 tab 使用独立分页查询、服务端 total 和完整终态 filter；只对 exact committed query 的可见 unread IDs 标记 receipt。
+- 群申请列表严格按个人 receipt 划分 received history 和 `actionable`；新管理员事务回填 pending receipts，降级/转让事务关闭 actionability。
+- 邀请状态统一为 `3=invalidated, 4=expired`，新增版本化三库兼容数据交换迁移和 receipt repair；列表/确认路径均执行 expiry 收敛，cron 留待步骤 16。
+- 邀请 accept 按 `join_state` 区分 joined、pending_approval、invalidated、expired；reject 支持可选双语原因输入。
+- open-group 与 invite-link direct join 不再写 self notification；GroupProfileCard 根据 `is_pass/already_member/already_pending` 刷新群、申请和会话。
+- WS toast/NotificationCenter 将精确 `bizId` 定位到三类 tab，跨页查找后滚动并高亮；request mapper 展示后端用户/群信息和 invitation-derived inviter。
+- 新增 group API actor/ID、receipt、expiry、管理员回填、migration 与前端 helper tests；Social 全量 test/race、migration test/race 和 40 个 Bun tests 通过。
+
 步骤 4 暂不提前实现：
 
 - 个人 receipt 和 read/unread API 属于步骤 5。
@@ -669,7 +680,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 9. [x] 修复 WS 当前节点内多连接广播，并明确 WS 失败为 best-effort。
 10. [x] 前端 store 增加好友/群申请/邀请及群列表版本和统一 unread actions，所有相关通知触发重拉。
 11. [x] FriendRequestList 改为分页单请求、顺序标读、字段正确映射和通知定位。
-12. [ ] GroupList/GroupProfileCard 接入三个群申请 Tab、分页、个人回执、邀请确认、直接入群结果、群/会话刷新和通知定位。
+12. [x] GroupList/GroupProfileCard 接入三个群申请 Tab、分页、个人回执、邀请确认、直接入群结果、群/会话刷新和通知定位。
 13. [ ] 联动业务 receipt 与通知中心标读；补中英文文案和可重试错误态。
 14. [ ] 统一 JWT 安全取值、修正好友 remark/tags 方向，重新生成 `.api/.proto/model` 代码并增加生成一致性检查。
 15. [ ] 公共通知消费者改走幂等 IM RPC，移除 task 对 IM notification model 的直接写入。

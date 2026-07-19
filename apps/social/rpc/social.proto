@@ -174,8 +174,9 @@ message GroupJoinByTokenReq {
   string reqMsg = 3;
 }
 message GroupJoinByTokenResp {
-  int32 groupId = 1;
+  int32 groupId = 1; // legacy numeric ID
   int32 isPass = 2; // 1=直接进群 0=进入申请流程
+  string groupIdString = 3;
 }
 
 // ---------------- 群成员资料（群内昵称/群备注/@列表） ----------------
@@ -466,7 +467,7 @@ message GroupPutinReq {
   string actorUid = 8; // 当前操作者；主动申请必须与 reqId 一致
 }
 message GroupPutinResp {
-  int32 groupId = 1;
+  int32 groupId = 1; // legacy numeric ID
   int32 isPass = 2;
   uint64 requestId = 3;
   int32 status = 4; // 0=pending, 1=accepted, 2=rejected
@@ -513,7 +514,7 @@ message GroupInvitation {
   string inviteeUid = 4;
   int32 inviterRoleSnapshot = 5;
   string message = 6;
-  int32 status = 7; // 0=pending, 1=accepted, 2=rejected, 3=expired, 4=invalidated
+  int32 status = 7; // 0=pending, 1=accepted, 2=rejected, 3=invalidated, 4=expired
   string rejectReason = 8;
   int64 createdAt = 9;
   int64 handledAt = 10;

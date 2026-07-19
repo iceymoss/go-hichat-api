@@ -11,6 +11,7 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 type GroupInvitationListLogic struct {
@@ -31,7 +32,7 @@ func (l *GroupInvitationListLogic) GroupInvitationList(in *social.GroupInvitatio
 	if err != nil {
 		return nil, err
 	}
-	if in.Status < -1 || in.Status > groupInvitationInvalidated {
+	if in.Status < -1 || in.Status > groupInvitationExpired {
 		return nil, status.Error(codes.InvalidArgument, "invitation status must be between 0 and 4, or -1")
 	}
 	page, size := in.Page, in.Size
@@ -43,6 +44,9 @@ func (l *GroupInvitationListLogic) GroupInvitationList(in *social.GroupInvitatio
 	}
 	if size > 100 {
 		return nil, status.Error(codes.InvalidArgument, "page size must not exceed 100")
+	}
+	if err := l.expireInvitations(actor); err != nil {
+		return nil, err
 	}
 
 	query := l.DB.WithContext(l.ctx).Model(&objects.GroupInvitation{}).Where("invitee_uid = ?", actor)
@@ -77,9 +81,33 @@ func (l *GroupInvitationListLogic) GroupInvitationList(in *social.GroupInvitatio
 		if receipt, ok := byID[rows[i].ID]; ok {
 			list[i].ReadState = int32(receipt.IsRead)
 			list[i].Actionable = receipt.IsActionable == 1
-		} else {
-			list[i].Actionable = rows[i].Status == groupInvitationPending && rows[i].ExpiresAt.After(time.Now())
 		}
 	}
 	return &social.GroupInvitationListResp{List: list, Total: total}, nil
+}
+
+func (l *GroupInvitationListLogic) expireInvitations(actor uint64) error {
+	now := time.Now()
+	err := l.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
+		var rows []objects.GroupInvitation
+		if err := tx.Where("invitee_uid = ? AND status = ? AND expires_at <= ?", actor, groupInvitationPending, now).Find(&rows).Error; err != nil {
+			return err
+		}
+		ids := make([]uint64, 0, len(rows))
+		for _, invitation := range rows {
+			result := tx.Model(&objects.GroupInvitation{}).Where("id = ? AND status = ?", invitation.ID, groupInvitationPending).
+				Updates(map[string]any{"status": groupInvitationExpired, "handled_at": now})
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 1 {
+				ids = append(ids, invitation.ID)
+			}
+		}
+		return resolveInviteReceipts(tx, ids, receiptExpired, now, "")
+	})
+	if err != nil {
+		return status.Error(codes.Internal, "failed to expire group invitations")
+	}
+	return nil
 }

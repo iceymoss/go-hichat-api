@@ -13,6 +13,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 )
 
@@ -94,6 +95,90 @@ func TestRepairInvitationReceiptResults(t *testing.T) {
 	var records int64
 	require.NoError(t, db.Model(&migrationRecord{}).Where("version = ?", receiptResultFixVersion).Count(&records).Error)
 	require.Equal(t, int64(1), records)
+}
+
+func TestMigrateInvitationStatusOrderAndReceipts(t *testing.T) {
+	tests := []struct {
+		name   string
+		driver string
+		dsn    func(*testing.T) string
+	}{
+		{name: "sqlite", driver: "sqlite", dsn: func(t *testing.T) string { return t.TempDir() + "/status-swap.db" }},
+		{name: "mysql", driver: "mysql", dsn: envDSN("SOCIAL_MIGRATION_TEST_MYSQL_DSN")},
+		{name: "postgres", driver: "postgres", dsn: envDSN("SOCIAL_MIGRATION_TEST_POSTGRES_DSN")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dsn := test.dsn(t)
+			if dsn == "" {
+				t.Skip("integration DSN is not set")
+			}
+			db := openTestDB(t, test.driver, dsn)
+			dropTestTables(t, db)
+			now := time.Date(2026, 7, 19, 12, 0, 0, 0, time.UTC)
+			require.NoError(t, createLegacySchema(db))
+			_, err := Migrate(context.Background(), db, test.driver, now.Add(-time.Hour))
+			require.NoError(t, err)
+			require.NoError(t, db.Where("version IN ?", []string{invitationStatusSwapVersion, invitationReceiptCanonicalVersion}).Delete(&migrationRecord{}).Error)
+			require.NoError(t, db.Clauses(clause.OnConflict{DoNothing: true}).Create(&migrationRecord{Version: receiptResultFixVersion, Description: "existing receipt repair", AppliedAt: now.Add(-time.Hour)}).Error)
+			require.NoError(t, db.Create(&[]objects.GroupInvitation{
+				{ID: 1, GroupID: 10, InviterUID: 1, InviteeUID: 2, Status: 3, CreatedAt: now, ExpiresAt: now}, // old expired
+				{ID: 2, GroupID: 10, InviterUID: 1, InviteeUID: 3, Status: 4, CreatedAt: now, ExpiresAt: now}, // old invalidated
+			}).Error)
+			require.NoError(t, db.Create(&[]objects.SocialRequestReceipt{
+				{RequestType: "group_invite", RequestID: 1, ReceiverID: "2", ReceiptKind: "invite", Result: 4, CreatedAt: now},
+				{RequestType: "group_invite", RequestID: 2, ReceiverID: "3", ReceiptKind: "invite", Result: 3, CreatedAt: now},
+			}).Error)
+
+			report, err := Migrate(context.Background(), db, test.driver, now)
+			require.NoError(t, err)
+			require.True(t, report.AlreadyApplied)
+
+			var invitations []objects.GroupInvitation
+			require.NoError(t, db.Order("id").Find(&invitations).Error)
+			require.Equal(t, []int{4, 3}, []int{invitations[0].Status, invitations[1].Status})
+			var receipts []objects.SocialRequestReceipt
+			require.NoError(t, db.Order("request_id").Find(&receipts).Error)
+			require.Equal(t, []int{4, 3}, []int{receipts[0].Result, receipts[1].Result})
+
+			repeated, err := Migrate(context.Background(), db, test.driver, now.Add(time.Hour))
+			require.NoError(t, err)
+			require.True(t, repeated.AlreadyApplied)
+			require.NoError(t, db.Order("id").Find(&invitations).Error)
+			require.Equal(t, []int{4, 3}, []int{invitations[0].Status, invitations[1].Status})
+			require.NoError(t, db.Order("request_id").Find(&receipts).Error)
+			require.Equal(t, []int{4, 3}, []int{receipts[0].Result, receipts[1].Result})
+			var versions int64
+			require.NoError(t, db.Model(&migrationRecord{}).Where("version IN ?", []string{invitationStatusSwapVersion, invitationReceiptCanonicalVersion}).Count(&versions).Error)
+			require.Equal(t, int64(2), versions)
+		})
+	}
+}
+
+func TestMigrateInvitationStatusOrderAuditRollsBack(t *testing.T) {
+	db := openTestDB(t, "sqlite", t.TempDir()+"/status-audit.db")
+	require.NoError(t, db.AutoMigrate(&migrationRecord{}, &objects.GroupInvitation{}))
+	now := time.Now().UTC()
+	require.NoError(t, db.Create(&objects.GroupInvitation{ID: 1, GroupID: 1, InviterUID: 1, InviteeUID: 2, Status: 6, CreatedAt: now, ExpiresAt: now}).Error)
+
+	err := migrateInvitationStatusOrder(db, now, true)
+	require.ErrorContains(t, err, "outside 0..4")
+	var versions int64
+	require.NoError(t, db.Model(&migrationRecord{}).Where("version = ?", invitationStatusSwapVersion).Count(&versions).Error)
+	require.Zero(t, versions)
+	var invitation objects.GroupInvitation
+	require.NoError(t, db.First(&invitation, 1).Error)
+	require.Equal(t, 6, invitation.Status)
+}
+
+func TestCanonicalInvitationReceiptRepairRequiresStatusMigration(t *testing.T) {
+	db := openTestDB(t, "sqlite", t.TempDir()+"/receipt-order.db")
+	require.NoError(t, db.AutoMigrate(&migrationRecord{}, &objects.GroupInvitation{}, &objects.SocialRequestReceipt{}))
+	err := repairCanonicalInvitationReceiptResults(db, time.Now().UTC())
+	require.ErrorContains(t, err, "requires status migration")
+	var versions int64
+	require.NoError(t, db.Model(&migrationRecord{}).Where("version = ?", invitationReceiptCanonicalVersion).Count(&versions).Error)
+	require.Zero(t, versions)
 }
 
 func TestMigrateBlocksAmbiguousInvitation(t *testing.T) {

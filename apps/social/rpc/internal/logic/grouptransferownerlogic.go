@@ -89,8 +89,19 @@ func (l *GroupTransferOwnerLogic) GroupTransferOwner(in *social.GroupTransferOwn
 			Updates(map[string]any{"role_level": int(constants.CreatorGroupRoleLevel)}).Error; err != nil {
 			return err
 		}
-		return tx.Model(&objects.GroupMember{}).Where("id = ?", members[oldOwnerID].ID).
-			Updates(map[string]any{"role_level": oldRole}).Error
+		if err := tx.Model(&objects.GroupMember{}).Where("id = ?", members[oldOwnerID].ID).
+			Updates(map[string]any{"role_level": oldRole}).Error; err != nil {
+			return err
+		}
+		if members[newOwnerID].RoleLevel == int(constants.AtLargeGroupRoleLevel) {
+			if err := convergeAdminReceipts(tx, groupID, []uint64{newOwnerID}, true); err != nil {
+				return err
+			}
+		}
+		if oldRole == int(constants.AtLargeGroupRoleLevel) {
+			return convergeAdminReceipts(tx, groupID, []uint64{oldOwnerID}, false)
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, normalizeGroupWriteError(err, "failed to transfer group ownership")

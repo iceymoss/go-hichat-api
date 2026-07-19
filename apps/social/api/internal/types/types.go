@@ -322,13 +322,13 @@ type GroupDisbandResp struct {
 }
 
 type GroupInvitation struct {
-	Id                  uint64 `json:"id"`
+	Id                  string `json:"id"`
 	GroupId             string `json:"group_id"`
 	InviterUid          string `json:"inviter_uid"`
 	InviteeUid          string `json:"invitee_uid"`
 	InviterRoleSnapshot int32  `json:"inviter_role_snapshot"`
 	Message             string `json:"message,omitempty"`
-	Status              int32  `json:"status"` // 0=pending, 1=accepted, 2=rejected, 3=expired, 4=invalidated
+	Status              int32  `json:"status"` // 0=pending, 1=accepted, 2=rejected, 3=invalidated, 4=expired
 	RejectReason        string `json:"reject_reason,omitempty"`
 	CreatedAt           int64  `json:"created_at"`
 	HandledAt           int64  `json:"handled_at,omitempty"`
@@ -348,16 +348,16 @@ type GroupInvitationCreateResp struct {
 }
 
 type GroupInvitationHandleReq struct {
-	Id        uint64 `path:"id"`
+	Id        string `path:"id"`
 	Result    int32  `json:"result"`
 	HandleMsg string `json:"handle_msg,optional"`
 }
 
 type GroupInvitationHandleResp struct {
-	InvitationId   uint64 `json:"invitation_id"`
+	InvitationId   string `json:"invitation_id"`
 	Status         int32  `json:"status"`
 	JoinState      string `json:"join_state"`
-	GroupRequestId uint64 `json:"group_request_id,omitempty"`
+	GroupRequestId string `json:"group_request_id,omitempty"`
 	Idempotent     bool   `json:"idempotent,omitempty"`
 	GroupId        string `json:"group_id"`
 }
@@ -374,7 +374,7 @@ type GroupInvitationListResp struct {
 }
 
 type GroupInvitationReadReq struct {
-	InvitationIds []uint64 `json:"invitation_ids"`
+	InvitationIds []string `json:"invitation_ids"`
 }
 
 type GroupInvitationReadResp struct {
@@ -437,8 +437,8 @@ type GroupJoinByTokenReq struct {
 }
 
 type GroupJoinByTokenResp struct {
-	GroupId int32 `json:"group_id,omitempty"`
-	IsPass  int32 `json:"is_pass,omitempty"` // 1=直接进群 0=进入申请流程
+	GroupId string `json:"group_id"`
+	IsPass  int32  `json:"is_pass"` // 1=直接进群 0=进入申请流程
 }
 
 type GroupKickReq struct {
@@ -479,13 +479,13 @@ type GroupMembers struct {
 }
 
 type GroupPutInHandleReq struct {
-	GroupReqId   uint64 `json:"group_req_id"`
+	RequestId    string `json:"request_id"`
 	HandleResult int32  `json:"handle_result,omitempty"` // 处理结果
 	HandleMsg    string `json:"handle_msg,optional"`
 }
 
 type GroupPutInHandleResp struct {
-	RequestId    uint64 `json:"request_id,omitempty"`
+	RequestId    string `json:"request_id"`
 	HandleResult int32  `json:"handle_result"`
 	Idempotent   bool   `json:"idempotent,omitempty"`
 }
@@ -508,17 +508,16 @@ type GroupPutInReq struct {
 }
 
 type GroupPutInResp struct {
-	GroupId        int    `json:"group_id,omitempty"`
-	GroupIdString  string `json:"group_id_string,omitempty"`
-	IsPass         int    `json:"is_pass,omitempty"` // 1=直接进群, 0=进入申请流程
-	RequestId      uint64 `json:"request_id,omitempty"`
+	GroupId        string `json:"group_id"`
+	IsPass         int    `json:"is_pass"` // 1=直接进群, 0=进入申请流程
+	RequestId      string `json:"request_id,omitempty"`
 	Status         int32  `json:"status"`
 	AlreadyPending bool   `json:"already_pending,omitempty"`
 	AlreadyMember  bool   `json:"already_member,omitempty"`
 }
 
 type GroupPutInsReadReq struct {
-	RequestIds []uint64 `json:"request_ids,optional"`
+	RequestIds []string `json:"request_ids"`
 }
 
 type GroupPutInsReadResp struct {
@@ -557,13 +556,13 @@ type GroupRequests struct {
 	HandleTime         int64  `json:"handle_time,omitempty"`
 	HandleResult       int64  `json:"handle_result,omitempty"`
 	ReceiverRead       int64  `json:"receiver_read,omitempty"`
-	RequestId          uint64 `json:"request_id"`
+	RequestId          string `json:"request_id"`
 	ApplicantUid       string `json:"applicant_uid"`
 	HandleMsg          string `json:"handle_msg,omitempty"`
 	InvalidReason      string `json:"invalid_reason,omitempty"`
 	ActualJoinSource   int32  `json:"actual_join_source,omitempty"`
 	SourceType         int32  `json:"source_type"`
-	SourceInvitationId uint64 `json:"source_invitation_id,omitempty"`
+	SourceInvitationId string `json:"source_invitation_id,omitempty"`
 	ReadState          int32  `json:"read_state"`
 	Actionable         bool   `json:"actionable"`
 	User               User   `json:"user,omitempty"`

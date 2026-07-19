@@ -6,7 +6,6 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
-	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,7 +26,10 @@ func NewGroupRequestMessageCountLogic(ctx context.Context, svcCtx *svc.ServiceCo
 }
 
 func (l *GroupRequestMessageCountLogic) GroupRequestMessageCount(req *types.GroupRequestMessageCountReq) (resp *types.GroupRequestMessageCountResp, err error) {
-	uid := ctxdata.GetUId(l.ctx)
+	uid, err := apiActor(l.ctx)
+	if err != nil {
+		return nil, err
+	}
 	rpcResp, err := l.svcCtx.Social.GroupRequestMessageCount(l.ctx, &socialclient.GroupRequestMessageCountReq{UserId: uid})
 	if err != nil {
 		return nil, err

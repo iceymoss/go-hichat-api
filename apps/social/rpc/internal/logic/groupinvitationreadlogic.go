@@ -30,6 +30,9 @@ func (l *GroupInvitationReadLogic) GroupInvitationRead(in *social.GroupInvitatio
 	if in.ActorUid == "" {
 		return nil, status.Error(codes.Unauthenticated, "actor uid is required")
 	}
+	if _, err := parsePositiveID(in.ActorUid, "actor uid"); err != nil {
+		return nil, err
+	}
 	if len(in.InvitationIds) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "invitation ids are required")
 	}

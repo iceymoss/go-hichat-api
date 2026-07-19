@@ -64,6 +64,44 @@ func createGroupApplyReceipts(tx *gorm.DB, svcCtx *svc.ServiceContext, groupID, 
 	return nil
 }
 
+func convergeAdminReceipts(tx *gorm.DB, groupID uint64, memberIDs []uint64, promoted bool) error {
+	if len(memberIDs) == 0 {
+		return nil
+	}
+	receivers := make([]string, len(memberIDs))
+	for i, id := range memberIDs {
+		receivers[i] = strconv.FormatUint(id, 10)
+	}
+	if !promoted {
+		return tx.Model(&objects.SocialRequestReceipt{}).
+			Where("request_type = ? AND receipt_kind = ? AND receiver_id IN ? AND request_id IN (SELECT id FROM group_requests WHERE group_id = ? AND handle_result = ?)", receiptTypeGroup, receiptKindApply, receivers, groupID, groupRequestPending).
+			Update("is_actionable", 0).Error
+	}
+	var requests []objects.GroupRequest
+	if err := tx.Where("group_id = ? AND handle_result = ?", groupID, groupRequestPending).Find(&requests).Error; err != nil {
+		return err
+	}
+	for _, request := range requests {
+		createdAt := time.Now()
+		if request.ReqTime != nil {
+			createdAt = *request.ReqTime
+		}
+		for _, receiver := range receivers {
+			receipt := objects.SocialRequestReceipt{
+				RequestType: receiptTypeGroup, RequestID: request.ID, ReceiverID: receiver,
+				ReceiptKind: receiptKindApply, IsActionable: 1, Result: receiptPending, CreatedAt: createdAt,
+			}
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "request_type"}, {Name: "request_id"}, {Name: "receiver_id"}, {Name: "receipt_kind"}},
+				DoUpdates: clause.Assignments(map[string]any{"is_read": 0, "read_at": nil, "is_actionable": 1, "result": receiptPending, "resolved_at": nil}),
+			}).Create(&receipt).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func resolveApplyReceipts(tx *gorm.DB, requestType string, requestIDs []uint64, result int, now time.Time, readActor string) error {
 	if len(requestIDs) == 0 {
 		return nil

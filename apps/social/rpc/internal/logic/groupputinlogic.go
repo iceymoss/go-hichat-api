@@ -31,8 +31,8 @@ const (
 	groupInvitationPending     = 0
 	groupInvitationAccepted    = 1
 	groupInvitationRejected    = 2
-	groupInvitationExpired     = 3
-	groupInvitationInvalidated = 4
+	groupInvitationInvalidated = 3
+	groupInvitationExpired     = 4
 )
 
 type GroupPutinLogic struct {
@@ -90,9 +90,6 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 				return err
 			}
 			if err := createResultReceipt(tx, receiptTypeGroup, request.ID, in.ActorUid, receiptAccepted, now, now, true); err != nil {
-				return err
-			}
-			if err := emitRequestNotificationInTx(tx, l.ServiceContext, NotifyGroupAccept, receiptTypeGroup, request.ID, in.ActorUid, strconv.FormatUint(group.CreatorUID, 10), groupID, receiptAccepted); err != nil {
 				return err
 			}
 			memberCreated, err := createGroupMemberAndOutbox(tx, l.ServiceContext, groupID, actor, 0, 1, nil, actor)
@@ -208,9 +205,6 @@ func (l *GroupPutinLogic) groupPutinByToken(in *social.GroupPutinReq) (*social.G
 				return err
 			}
 			if err := createResultReceipt(tx, receiptTypeGroup, request.ID, in.ActorUid, receiptAccepted, now, now, true); err != nil {
-				return err
-			}
-			if err := emitRequestNotificationInTx(tx, l.ServiceContext, NotifyGroupAccept, receiptTypeGroup, request.ID, in.ActorUid, strconv.FormatUint(inviter, 10), groupID, receiptAccepted); err != nil {
 				return err
 			}
 			if err := resolvePendingGroupRequests(tx, l.ServiceContext, groupID, actor, now, joinSource, true, in.ActorUid); err != nil {

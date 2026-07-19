@@ -104,6 +104,9 @@ func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social
 			}
 			attemptChanged = append(attemptChanged, memberID)
 		}
+		if err := convergeAdminReceipts(tx, groupID, attemptChanged, in.IsAdmin); err != nil {
+			return err
+		}
 		changedIDs = attemptChanged
 		return nil
 	})

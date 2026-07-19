@@ -6,7 +6,6 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
-	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,8 +26,15 @@ func NewGroupInvitationReadLogic(ctx context.Context, svcCtx *svc.ServiceContext
 }
 
 func (l *GroupInvitationReadLogic) GroupInvitationRead(req *types.GroupInvitationReadReq) (resp *types.GroupInvitationReadResp, err error) {
-	uid := ctxdata.GetUId(l.ctx)
-	rpcResp, err := l.svcCtx.Social.GroupInvitationRead(l.ctx, &socialclient.GroupInvitationReadReq{ActorUid: uid, InvitationIds: req.InvitationIds})
+	uid, err := apiActor(l.ctx)
+	if err != nil {
+		return nil, err
+	}
+	invitationIDs, err := parseGroupIDs(req.InvitationIds, "invitation id")
+	if err != nil {
+		return nil, err
+	}
+	rpcResp, err := l.svcCtx.Social.GroupInvitationRead(l.ctx, &socialclient.GroupInvitationReadReq{ActorUid: uid, InvitationIds: invitationIDs})
 	if err != nil {
 		return nil, err
 	}

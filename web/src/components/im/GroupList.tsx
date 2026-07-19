@@ -39,17 +39,27 @@ import { toast } from 'sonner';
 import { useT } from '@/hooks/use-i18n';
 import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
+import {
+  handleGroupInvitation,
+  handleGroupRequest,
+  groupInvitationAcceptPlan,
+  listGroupRequests,
+  markGroupInvitationsRead,
+  markGroupRequestsRead,
+  type GroupRequestItem,
+  type GroupInvitationHandleResult,
+  type GroupRequestStatusFilter,
+  type GroupRequestTab,
+} from '@/lib/social-request-api';
 import { getAvatarColor } from '@/lib/utils';
 import {
   type GroupInfo,
   type GroupMemberInfo,
-  type GroupApplication,
   type GroupInviteLink,
   type GroupAnnouncement,
   type GroupMemberSetting,
   type GroupRoleLevel,
   type GroupAppResult,
-  type GroupAppClass,
   type GroupJoinSource,
 } from '@/lib/types';
 
@@ -90,6 +100,11 @@ const appResultConfig: Record<GroupAppResult, { labelKey: string; color: string;
   1: { labelKey: 'group.appResult.approved', color: '#4DCD5E', bg: 'rgba(77,205,94,0.1)', icon: <CheckCircle className="w-3.5 h-3.5" /> },
   2: { labelKey: 'group.appResult.rejected', color: '#FF5252', bg: 'rgba(255,82,82,0.1)', icon: <XCircle className="w-3.5 h-3.5" /> },
   3: { labelKey: 'group.appResult.ignored', color: '#A2ACB5', bg: 'rgba(162,172,181,0.1)', icon: <MinusCircle className="w-3.5 h-3.5" /> },
+};
+const requestStatusConfig = {
+  pending: appResultConfig[0], accepted: appResultConfig[1], rejected: appResultConfig[2],
+  invalidated: { ...appResultConfig[3], labelKey: 'group.appResult.invalidated' },
+  expired: { ...appResultConfig[3], labelKey: 'group.appResult.expired' },
 };
 
 /* ═══════════════════════════════════════
@@ -137,25 +152,6 @@ function mapMember(m: any, groupId: string): GroupMemberInfo {
     online: false,
     groupNickname: m.group_nickname || '',
     groupRemark: m.group_remark || '',
-  };
-}
-
-function mapApplication(a: any): GroupApplication {
-  return {
-    id: a.id,
-    userId: String(a.user_id),
-    userName: a.user?.nickname || String(a.user_id),
-    userAvatar: a.user?.avatar || '',
-    groupId: String(a.group_id),
-    groupName: a.group?.name || '',
-    groupIcon: a.group?.icon || '',
-    reqMsg: a.req_msg || '',
-    reqTime: tsToDate(a.req_time),
-    joinSource: (a.join_source || 1) as GroupJoinSource,
-    inviterName: a.inviter_user_id ? String(a.inviter_user_id) : undefined,
-    handleResult: (a.handle_result ?? 0) as GroupAppResult,
-    // 已读模型：readState 由 receiver_read 决定（进列表即标已读），与好友申请一致
-    readState: (a.receiver_read ?? 0) === 1,
   };
 }
 
@@ -312,11 +308,17 @@ function ActionMenu({ x, y, items, onClose }: { x: number; y: number; items: Act
 
 type View = 'list' | 'app' | 'detail';
 type DetailTab = 'members' | 'links' | 'announcements';
-type AppStatusFilter = 'all' | GroupAppResult;
+type AppStatusFilter = GroupRequestStatusFilter;
+const requestTabs: GroupRequestTab[] = ['received', 'sent', 'invitations'];
+type AppQuery = { key: string; tab: GroupRequestTab; status: AppStatusFilter; page: number; items: GroupRequestItem[]; total: number };
+
+function appQueryKey(token: string, tab: GroupRequestTab, status: AppStatusFilter, page: number) {
+  return `${token}\u0000${tab}\u0000${status}\u0000${page}`;
+}
 
 export default function GroupList() {
   const t = useT();
-  const { setShowGroupPanel, groupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupRequestsVersion, invalidateGroupRequests, groupsVersion, invalidateGroups, refreshGroupRequestUnread, groupAppNavTab, clearGroupAppNavTab, groupDetailNavId, clearGroupDetailNav } = useIMStore();
+  const { setShowGroupPanel, groupAppUnreadCount, groupRequestUnread, setGroupRequestUnread, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupRequestsVersion, invalidateGroupRequests, groupsVersion, invalidateGroups, refreshGroupRequestUnread, groupAppNavTarget, clearGroupAppNavTarget, groupDetailNavId, clearGroupDetailNav } = useIMStore();
   const token = currentUser?.token || '';
   const myUserId = currentUser?.id || '';
 
@@ -327,20 +329,31 @@ export default function GroupList() {
   const [memberSearch, setMemberSearch] = useState('');
 
   // App view
-  const [appClass, setAppClass] = useState<GroupAppClass>('received');
-  const [appStatusFilter, setAppStatusFilter] = useState<AppStatusFilter>('all');
+  const [appClass, setAppClass] = useState<GroupRequestTab>('received');
+  const [appStatus, setAppStatus] = useState<Record<GroupRequestTab, AppStatusFilter>>({ received: 'all', sent: 'all', invitations: 'all' });
+  const [appPage, setAppPage] = useState<Record<GroupRequestTab, number>>({ received: 1, sent: 1, invitations: 1 });
+  const [committedAppQuery, setCommittedAppQuery] = useState<AppQuery | null>(null);
+  const [appLoading, setAppLoading] = useState(false);
+  const [appTargetId, setAppTargetId] = useState<string>();
+  const [highlightedAppId, setHighlightedAppId] = useState<string>();
+  const [rejectInvitation, setRejectInvitation] = useState<Extract<GroupRequestItem, { tab: 'invitations' }> | null>(null);
+  const [invitationRejectReason, setInvitationRejectReason] = useState('');
   // 申请是否已真正拉取过——拉取前不要用空 apps 把全局 groupAppUnreadCount 清零（否则进列表视图气泡会闪没）
   const groupsGeneration = useRef(0);
   const appsGeneration = useRef(0);
+  const locatorGeneration = useRef(0);
 
   // 通知点击带来的跳转意图：进入「群申请」视图并定位子 tab（received=我收到 / sent=我发起）
   useEffect(() => {
-    if (!groupAppNavTab) return;
+    if (!groupAppNavTarget) return;
+    locatorGeneration.current += 1;
+    setHighlightedAppId(undefined);
     setView('app');
-    setAppClass(groupAppNavTab);
-    setAppStatusFilter('all');
-    clearGroupAppNavTab();
-  }, [groupAppNavTab, clearGroupAppNavTab]);
+    setAppClass(groupAppNavTarget.tab);
+    setAppStatus(prev => ({ ...prev, [groupAppNavTarget.tab]: 'all' }));
+    setAppTargetId(groupAppNavTarget.itemId);
+    clearGroupAppNavTarget();
+  }, [groupAppNavTarget, clearGroupAppNavTarget]);
 
   // List search
   const [listSearch, setListSearch] = useState('');
@@ -348,7 +361,6 @@ export default function GroupList() {
   // Local data (fetched from API)
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [members, setMembers] = useState<GroupMemberInfo[]>([]);
-  const [apps, setApps] = useState<GroupApplication[]>([]);
   const [links, setLinks] = useState<GroupInviteLink[]>([]);
   const [announcements, setAnnouncements] = useState<GroupAnnouncement[]>([]);
   const [settings, setSettings] = useState<GroupMemberSetting[]>([]);
@@ -468,21 +480,21 @@ export default function GroupList() {
   }, [token, myUserId]);
 
   // ── API: Fetch applications ──
-  const fetchApplications = useCallback(async () => {
+  const fetchApplications = useCallback(async (tab = appClass, status = appStatus[tab], page = appPage[tab]) => {
     if (!token) return;
+    const requestToken = token;
     const generation = ++appsGeneration.current;
+    setAppLoading(true);
     try {
-      const data = await apiFetch('/api/social/group/putInsByUid?class=2', token);
-      if (generation !== appsGeneration.current) return;
-      if (data.success && data.data?.list) {
-        setApps(data.data.list.map(mapApplication));
-      } else {
-        setApps([]);
-      }
+      const data = await listGroupRequests(requestToken, tab, status, page, 20);
+      if (generation !== appsGeneration.current || useIMStore.getState().currentUser?.token !== requestToken) return;
+      setCommittedAppQuery({ key: appQueryKey(requestToken, tab, status, page), tab, status, page, items: data.list, total: data.total });
     } catch {
       // Preserve the last successful page on refresh failure.
+    } finally {
+      if (generation === appsGeneration.current) setAppLoading(false);
     }
-  }, [token]);
+  }, [token, appClass, appStatus, appPage]);
 
   // ── API: Fetch invite links for a group ──
   const fetchInviteLinks = useCallback(async (groupId: string) => {
@@ -545,25 +557,73 @@ export default function GroupList() {
     return () => { groupsGeneration.current += 1; };
   }, [fetchGroups, groupsVersion]);
 
-  // ── 挂载即拉取申请：让「我的群组」列表视图的铃铛徽标也准确，而不只在进入群申请视图后才有 ──
-  useEffect(() => {
-    if (token) fetchApplications();
-    return () => { appsGeneration.current += 1; };
-  }, [token, fetchApplications, groupRequestsVersion]);
-
-  // ── When entering app view: fetch applications + 全部标记已读（已读模型，清零气泡） ──
+  // Render-time query gate: only the active tab/status/page may update the visible result.
   useEffect(() => {
     if (view !== 'app') return;
     fetchApplications();
-    if (!token) return;
-    apiFetch('/api/social/group/putIns/read', token, { method: 'PUT' })
-      .then(() => {
-        // 本地把我收到的申请标已读，气泡立即清零（无需等下次拉取）
-        setApps(prev => prev.map(a => (a.userId !== myUserId ? { ...a, readState: true } : a)));
-        void refreshGroupRequestUnread();
-      })
-      .catch(() => {});
-  }, [view, token, myUserId, fetchApplications, refreshGroupRequestUnread]);
+    return () => { appsGeneration.current += 1; };
+  }, [view, fetchApplications, groupRequestsVersion]);
+
+  // Mark exactly the unread IDs rendered on the current page, then apply the categorized server counts.
+  useEffect(() => {
+    const expectedKey = appQueryKey(token, appClass, appStatus[appClass], appPage[appClass]);
+    if (view !== 'app' || !token || appLoading || committedAppQuery?.key !== expectedKey) return;
+    const committedKey = committedAppQuery.key;
+    const ids = committedAppQuery.items.filter(item => !item.read).map(item => item.id);
+    if (ids.length === 0) return;
+    const generation = appsGeneration.current;
+    const requestToken = token;
+    const mark = appClass === 'invitations' ? markGroupInvitationsRead : markGroupRequestsRead;
+    mark(requestToken, ids).then(unread => {
+      if (generation !== appsGeneration.current || useIMStore.getState().currentUser?.token !== requestToken) return;
+      setCommittedAppQuery(current => current?.key === committedKey ? { ...current, items: current.items.map(item => ids.includes(item.id) ? { ...item, read: true } : item) } : current);
+      setGroupRequestUnread(unread);
+    }).catch(() => {});
+  }, [view, token, appClass, appStatus, appPage, committedAppQuery, appLoading, setGroupRequestUnread]);
+
+  // Notification targets may live on another page; locate by exact bizId without mixing page results.
+  useEffect(() => {
+    if (view !== 'app' || !appTargetId || !token) return;
+    const generation = ++appsGeneration.current;
+    const requestToken = token;
+    setAppLoading(true);
+    void (async () => {
+      for (let page = 1; ; page += 1) {
+        const data = await listGroupRequests(requestToken, appClass, 'all', page, 20);
+        if (generation !== appsGeneration.current || useIMStore.getState().currentUser?.token !== requestToken) return;
+        if (data.list.some(item => item.id === appTargetId)) {
+          setAppStatus(prev => ({ ...prev, [appClass]: 'all' }));
+          setAppPage(prev => ({ ...prev, [appClass]: page }));
+          setCommittedAppQuery({ key: appQueryKey(requestToken, appClass, 'all', page), tab: appClass, status: 'all', page, items: data.list, total: data.total });
+          const locator = ++locatorGeneration.current;
+          setHighlightedAppId(appTargetId);
+          setAppTargetId(undefined);
+          window.setTimeout(() => {
+            if (locator === locatorGeneration.current) setHighlightedAppId(undefined);
+          }, 3000);
+          return;
+        }
+        if (page * 20 >= data.total) { setAppTargetId(undefined); return; }
+      }
+    })().catch(() => {
+      if (generation === appsGeneration.current) setAppTargetId(undefined);
+    }).finally(() => {
+      if (generation === appsGeneration.current) setAppLoading(false);
+    });
+  }, [view, appTargetId, token, appClass]);
+
+  useEffect(() => {
+    const expectedKey = appQueryKey(token, appClass, appStatus[appClass], appPage[appClass]);
+    if (!highlightedAppId || view !== 'app' || committedAppQuery?.key !== expectedKey || !committedAppQuery.items.some(item => item.id === highlightedAppId)) return;
+    const locator = locatorGeneration.current;
+    const frame = window.requestAnimationFrame(() => {
+      if (locator !== locatorGeneration.current) return;
+      document.querySelector<HTMLElement>(`[data-request-id="${highlightedAppId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [highlightedAppId, view, token, appClass, appStatus, appPage, committedAppQuery]);
+
+  useEffect(() => () => { locatorGeneration.current += 1; }, []);
 
   // ── When a group is selected: fetch detail, settings, announcements ──
   useEffect(() => {
@@ -639,11 +699,9 @@ export default function GroupList() {
     return groupName;
   }, [groups, settings]);
 
-  const filteredApps = useMemo(() => {
-    let list = apps.filter(a => appClass === 'received' ? a.userId !== myUserId : a.userId === myUserId);
-    if (appStatusFilter !== 'all') list = list.filter(a => a.handleResult === appStatusFilter);
-    return list;
-  }, [apps, appClass, appStatusFilter, myUserId]);
+  const currentAppQueryKey = appQueryKey(token, appClass, appStatus[appClass], appPage[appClass]);
+  const renderedAppQuery = committedAppQuery?.key === currentAppQueryKey ? committedAppQuery : null;
+  const filteredApps = renderedAppQuery?.items || [];
 
   const friendsNotInGroup = useMemo(() => {
     const inGroup = new Set(groupMembers.map(m => m.userId));
@@ -680,58 +738,70 @@ export default function GroupList() {
   }, []);
 
   // Group app actions
-  const markAppRead = useCallback((id: number) => { setApps(prev => prev.map(a => a.id === id ? { ...a, readState: true } : a)); }, []);
+  const convergeMutation = useCallback(async (item: GroupRequestItem, result: 1 | 2, handleMsg?: string): Promise<GroupInvitationHandleResult | null> => {
+    const invitationResult = item.tab === 'invitations' ? await handleGroupInvitation(token, item.id, result, handleMsg) : null;
+    if (item.tab !== 'invitations') await handleGroupRequest(token, item.id, result);
+    invalidateGroupRequests();
+    const invitationPlan = invitationResult ? groupInvitationAcceptPlan(invitationResult.joinState) : null;
+    if (invitationPlan?.refreshGroups) {
+      invalidateGroups();
+    }
+    if (invitationPlan?.refreshConversations) {
+      await useChatStore.getState().fetchConversations(token);
+    }
+    await fetchApplications(appClass, appStatus[appClass], appPage[appClass]);
+    void refreshGroupRequestUnread();
+    return invitationResult;
+  }, [token, invalidateGroupRequests, invalidateGroups, fetchApplications, appClass, appStatus, appPage, refreshGroupRequestUnread]);
 
-  const handleAcceptApp = useCallback((app: GroupApplication) => {
-    markAppRead(app.id);
-    doConfirm(t('group.confirmAgreeTitle'), t('group.confirmAgreeDesc').replace('{user}', app.userName).replace('{group}', app.groupName), t('group.agree'), '#1BB45B', async () => {
+  const handleAcceptApp = useCallback((app: GroupRequestItem) => {
+    const actor = app.tab === 'invitations'
+      ? t('group.invitation.inviterId').replace('{id}', app.inviterUid || t('group.idUnavailable'))
+      : t('group.request.applicantId').replace('{id}', app.applicantUid || t('group.idUnavailable'));
+    const group = t('group.request.groupId').replace('{id}', app.groupId || t('group.idUnavailable'));
+    doConfirm(t('group.confirmAgreeTitle'), t('group.confirmAgreeDesc').replace('{user}', actor).replace('{group}', group), t('group.agree'), '#1BB45B', async () => {
       try {
-        const data = await apiFetch('/api/social/group/putIn', token, {
-          method: 'PUT',
-          body: JSON.stringify({ group_req_id: app.id, group_id: app.groupId, handle_result: 1 }),
-        });
-        if (data.success) {
-          appsGeneration.current += 1;
-          setApps(prev => prev.map(a => a.id === app.id ? { ...a, handleResult: 1 as GroupAppResult, readState: true } : a));
-          invalidateGroupRequests();
-          void refreshGroupRequestUnread();
-          toast.success(t('group.agreedToast').replace('{user}', app.userName).replace('{group}', app.groupName));
-        } else {
-          toast.error(data.message || t('group.opFailed'));
-        }
+        const outcome = await convergeMutation(app, 1);
+        const effect = outcome ? groupInvitationAcceptPlan(outcome.joinState).effect : null;
+        if (effect === 'approval_pending') toast.success(t('group.invitation.pendingApproval'));
+        else if (effect === 'terminal_invalidated') toast(t('group.invitation.invalidated'));
+        else if (effect === 'terminal_expired') toast(t('group.invitation.expired'));
+        else toast.success(t('group.agreedToast').replace('{user}', actor).replace('{group}', group));
       } catch {
         toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, markAppRead, token, t, invalidateGroupRequests, refreshGroupRequestUnread]);
+  }, [doConfirm, t, convergeMutation]);
 
-  const handleRejectApp = useCallback((app: GroupApplication) => {
-    markAppRead(app.id);
-    doConfirm(t('group.confirmRejectTitle'), t('group.confirmRejectDesc').replace('{user}', app.userName).replace('{group}', app.groupName), t('group.reject'), '#E53935', async () => {
+  const handleRejectApp = useCallback((app: GroupRequestItem) => {
+    if (app.tab === 'invitations') {
+      setRejectInvitation(app);
+      setInvitationRejectReason('');
+      return;
+    }
+    const actor = t('group.request.applicantId').replace('{id}', app.applicantUid || t('group.idUnavailable'));
+    const group = t('group.request.groupId').replace('{id}', app.groupId || t('group.idUnavailable'));
+    doConfirm(t('group.confirmRejectTitle'), t('group.confirmRejectDesc').replace('{user}', actor).replace('{group}', group), t('group.reject'), '#E53935', async () => {
       try {
-        const data = await apiFetch('/api/social/group/putIn', token, {
-          method: 'PUT',
-          body: JSON.stringify({ group_req_id: app.id, group_id: app.groupId, handle_result: 2 }),
-        });
-        if (data.success) {
-          appsGeneration.current += 1;
-          setApps(prev => prev.map(a => a.id === app.id ? { ...a, handleResult: 2 as GroupAppResult, readState: true } : a));
-          invalidateGroupRequests();
-          void refreshGroupRequestUnread();
-          toast.success(t('group.rejectedToast').replace('{user}', app.userName));
-        } else {
-          toast.error(data.message || t('group.opFailed'));
-        }
+        await convergeMutation(app, 2);
+        toast.success(t('group.rejectedToast').replace('{user}', actor));
       } catch {
         toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, markAppRead, token, t, invalidateGroupRequests, refreshGroupRequestUnread]);
+  }, [doConfirm, t, convergeMutation]);
 
-  const markAllAppRead = useCallback(() => {
-    setApps(prev => prev.map(a => a.userId !== myUserId ? { ...a, readState: true } : a));
-    toast.success(t('group.allMarkedRead'));
-  }, [myUserId, t]);
+  const submitInvitationReject = useCallback(async () => {
+    if (!rejectInvitation) return;
+    try {
+      await convergeMutation(rejectInvitation, 2, invitationRejectReason);
+      toast.success(t('group.invitation.rejected'));
+      setRejectInvitation(null);
+      setInvitationRejectReason('');
+    } catch {
+      toast.error(t('group.networkError'));
+    }
+  }, [rejectInvitation, invitationRejectReason, convergeMutation, t]);
 
   // Create group
   const handleCreateGroup = useCallback(async () => {
@@ -1218,7 +1288,7 @@ export default function GroupList() {
         {renderHeader(t('group.title'),
           <>
             <div className="relative">
-              <button onClick={() => { setView('app'); setAppStatusFilter('all'); }} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button onClick={() => setView('app')} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'transparent', color: '#708499', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Bell className="w-5 h-5" />
               </button>
               {groupAppUnreadCount > 0 && (
@@ -1350,83 +1420,99 @@ export default function GroupList() {
   // ═══ VIEW: Applications ═══
   if (view === 'app') {
     const statusFilters: { key: AppStatusFilter; label: string }[] = [
-      { key: 'all', label: t('group.filter.all') }, { key: 0, label: t('group.appResult.pending') }, { key: 1, label: t('group.appResult.approved') }, { key: 2, label: t('group.appResult.rejected') },
+      { key: 'all', label: t('group.filter.all') }, { key: 'pending', label: t('group.appResult.pending') }, { key: 'accepted', label: t('group.appResult.approved') }, { key: 'rejected', label: t('group.appResult.rejected') },
+      { key: 'invalidated', label: t('group.appResult.invalidated') },
+      ...(appClass === 'invitations' ? [{ key: 'expired' as const, label: t('group.appResult.expired') }] : []),
     ];
+    const appStatusFilter = appStatus[appClass];
     const getEmptyMsg = () => {
-      if (appStatusFilter === 'all') return { t: appClass === 'received' ? t('group.emptyReceived') : t('group.emptySent'), d: t('group.emptyHere') };
+      if (appStatusFilter === 'all') return { t: appClass === 'received' ? t('group.emptyReceived') : appClass === 'sent' ? t('group.emptySent') : t('group.emptyInvitations'), d: t('group.emptyHere') };
       return { t: t('group.emptyMatch'), d: t('group.emptyMatchHint') };
     };
     const emptyMsg = getEmptyMsg();
+    const currentPage = appPage[appClass];
+    const appTotal = renderedAppQuery?.total || 0;
+    const totalPages = Math.max(1, Math.ceil(appTotal / 20));
+    const switchTab = (tab: GroupRequestTab) => { appsGeneration.current += 1; locatorGeneration.current += 1; setHighlightedAppId(undefined); setAppClass(tab); setAppTargetId(undefined); };
+    const switchStatus = (status: AppStatusFilter) => {
+      appsGeneration.current += 1;
+      locatorGeneration.current += 1;
+      setHighlightedAppId(undefined);
+      setAppStatus(prev => ({ ...prev, [appClass]: status }));
+      setAppPage(prev => ({ ...prev, [appClass]: 1 }));
+    };
+    const switchPage = (page: number) => {
+      appsGeneration.current += 1;
+      locatorGeneration.current += 1;
+      setHighlightedAppId(undefined);
+      setAppPage(prev => ({ ...prev, [appClass]: page }));
+    };
 
     return (
       <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
-        {renderHeader(t('group.appTitle'),
-          <button onClick={markAllAppRead} style={{ fontSize: '13px', color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>{t('group.allRead')}</button>
-        )}
+        {renderHeader(t('group.appTitle'))}
 
         {/* Class tabs */}
         <div className="flex items-center shrink-0" style={{ padding: '12px 16px 8px', background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
           <div className="flex items-center" style={{ borderRadius: '20px', background: 'rgba(0,0,0,0.04)', padding: '3px' }}>
-            {pillTab(appClass === 'received', () => { setAppClass('received'); setAppStatusFilter('all'); }, t('group.app.received'), groupAppUnreadCount)}
-            {pillTab(appClass === 'sent', () => { setAppClass('sent'); setAppStatusFilter('all'); }, t('group.app.sent'))}
+            {requestTabs.map(tab => pillTab(appClass === tab, () => switchTab(tab), t(`group.app.${tab}`), tab === 'received' ? groupRequestUnread.apply : tab === 'sent' ? groupRequestUnread.result : groupRequestUnread.invite))}
           </div>
         </div>
 
         {/* Status filter */}
         <div className="flex items-center gap-2 shrink-0 overflow-x-auto" style={{ padding: '8px 16px 10px', background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-          {statusFilters.map(f => filterPill(appStatusFilter === f.key, () => setAppStatusFilter(f.key), f.label, f.key))}
+          {statusFilters.map(f => filterPill(appStatusFilter === f.key, () => switchStatus(f.key), f.label, f.key))}
         </div>
 
         {/* App list */}
         <div className="flex-1 overflow-y-auto im-scroll">
-          {filteredApps.length > 0 ? (
+          {appLoading ? (
+            <div className="flex items-center justify-center" style={{ padding: 60 }}><Loader2 className="w-5 h-5" style={{ color: '#1BB45B', animation: 'spin 1s linear infinite' }} /></div>
+          ) : filteredApps.length > 0 ? (
             <div style={{ background: '#FFF', borderRadius: '12px', margin: '8px', overflow: 'hidden' }}>
               {filteredApps.map(app => {
-                const rc = appResultConfig[app.handleResult];
-                const isReceived = app.userId !== myUserId;
-                const isPending = app.handleResult === 0;
+                const rc = requestStatusConfig[app.status];
+                const isInvitation = app.tab === 'invitations';
+                const isReceived = app.tab === 'received';
+                const actorName = isInvitation
+                  ? t('group.invitation.inviterId').replace('{id}', app.inviterUid || t('group.idUnavailable'))
+                  : isReceived
+                    ? app.applicantName || t('group.request.applicantId').replace('{id}', app.applicantUid || t('group.idUnavailable'))
+                    : app.groupName || t('group.request.groupId').replace('{id}', app.groupId || t('group.idUnavailable'));
+                const actorAvatar = isInvitation ? '' : app.applicantAvatar;
+                const isPending = app.status === 'pending';
                 return (
-                  <div key={app.id} className="relative" style={{ background: isReceived && !app.readState ? 'rgba(245,166,35,0.03)' : '#FFF', borderLeft: isReceived && !app.readState ? '3px solid #F5A623' : 'none', borderBottom: '1px solid rgba(0,0,0,0.05)', padding: '12px 16px', transition: 'background 0.15s' }}>
+                  <div key={app.id} data-request-id={app.id} className="relative" style={{ background: highlightedAppId === app.id ? 'rgba(27,180,91,0.14)' : !app.read ? 'rgba(245,166,35,0.03)' : '#FFF', borderLeft: highlightedAppId === app.id ? '3px solid #1BB45B' : !app.read ? '3px solid #F5A623' : 'none', boxShadow: highlightedAppId === app.id ? 'inset 0 0 0 1px rgba(27,180,91,0.35)' : 'none', borderBottom: '1px solid rgba(0,0,0,0.05)', padding: '12px 16px', transition: 'background 0.2s, box-shadow 0.2s' }}>
                     <div className="flex gap-3">
-                      {/* Avatar */}
-                      {isReceived ? (
-                        avatarCircle(app.userName, 44, <div className="absolute" style={{ bottom: -2, left: '50%', transform: 'translateX(-50%)', width: 20, height: 3, borderRadius: 2, backgroundColor: rc.color }} />, app.userAvatar)
+                      {isReceived || isInvitation ? (
+                        avatarCircle(actorName, 44, <div className="absolute" style={{ bottom: -2, left: '50%', transform: 'translateX(-50%)', width: 20, height: 3, borderRadius: 2, backgroundColor: rc.color }} />, actorAvatar)
                       ) : (
                         app.groupIcon ? (
                           <img src={app.groupIcon} alt="" className="shrink-0" style={{ width: 44, height: 44, borderRadius: '50%' }} />
                         ) : (
-                          avatarCircle(app.groupName, 44)
+                          avatarCircle(app.groupId, 44)
                         )
                       )}
                       <div className="flex-1 min-w-0">
                         {/* Row 1: name + source + status + time */}
                         <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 4 }}>
-                          <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>{isReceived ? app.userName : app.groupName}</span>
-                          <span style={{ fontSize: '10px', color: '#708499', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: '3px', padding: '0 4px' }}>{t(joinSourceLabelKey[app.joinSource])}</span>
+                          <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>{actorName}</span>
+                          {!isInvitation && <span style={{ fontSize: '10px', color: '#708499', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: '3px', padding: '0 4px' }}>{t(joinSourceLabelKey[(app.source >= 1 && app.source <= 3 ? app.source : 1) as GroupJoinSource])}</span>}
                           <span style={{ fontSize: '11px', fontWeight: 500, color: rc.color, backgroundColor: rc.bg, borderRadius: '4px', padding: '1px 6px', display: 'flex', alignItems: 'center', gap: 3 }}>
                             {React.cloneElement(rc.icon as React.ReactElement<any>, { style: { color: rc.color, width: 12, height: 12 } })}{t(rc.labelKey)}
                           </span>
-                          <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{fmtTime(app.reqTime, t)}</span>
+                          <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{fmtTime(app.createdAt, t)}</span>
                         </div>
-                        {/* Group info for received */}
-                        {isReceived && (
+                        {(isReceived || isInvitation) && (
                           <div className="flex items-center gap-1.5" style={{ marginBottom: 4 }}>
-                            {app.groupIcon ? (
-                              <img src={app.groupIcon} alt="" style={{ width: 16, height: 16, borderRadius: '50%' }} />
-                            ) : (
-                              <div style={{ width: 16, height: 16, borderRadius: '50%', backgroundColor: getAvatarColor(app.groupName || '?'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 600, color: '#FFF' }}>{(app.groupName || '?')[0]}</div>
-                            )}
-                            <span style={{ fontSize: '12px', color: '#708499' }}>{app.groupName}</span>
+                            {app.groupIcon && <img src={app.groupIcon} alt="" style={{ width: 16, height: 16, borderRadius: '50%' }} />}
+                            <span style={{ fontSize: '12px', color: '#708499' }}>{app.groupName || t('group.request.groupId').replace('{id}', app.groupId || t('group.idUnavailable'))}</span>
                           </div>
                         )}
-                        {/* Inviter */}
-                        {app.inviterName && (
-                          <div style={{ fontSize: '12px', color: '#708499', marginBottom: 4 }}>{t('group.inviter').replace('{name}', app.inviterName)}</div>
-                        )}
-                        {/* Message */}
-                        <div style={{ fontSize: '13px', color: '#646A73', lineHeight: '1.5', marginBottom: isReceived && isPending ? '6px' : 0 }}>{app.reqMsg}</div>
-                        {/* Action buttons */}
-                        {isReceived && isPending && (
+                        {!isInvitation && app.applicantName && <div style={{ fontSize: '12px', color: '#708499', marginBottom: 4 }}>{t('group.request.applicantId').replace('{id}', app.applicantUid || t('group.idUnavailable'))}</div>}
+                        {!isInvitation && app.inviterUid && <div style={{ fontSize: '12px', color: '#708499', marginBottom: 4 }}>{t('group.invitation.inviterId').replace('{id}', app.inviterUid)}</div>}
+                        {app.message && <div style={{ fontSize: '13px', color: '#646A73', lineHeight: '1.5', marginBottom: app.actionable ? '6px' : 0 }}>{app.message}</div>}
+                        {app.actionable && isPending && (
                           <div className="flex items-center gap-2" style={{ marginTop: 6 }}>
                             <button onClick={() => handleAcceptApp(app)} style={{ padding: '5px 16px', borderRadius: '6px', border: 'none', background: '#1BB45B', color: '#FFF', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>{t('group.agree')}</button>
                             <button onClick={() => handleRejectApp(app)} style={{ padding: '5px 16px', borderRadius: '6px', border: '1px solid #FF5252', background: '#FFF', color: '#FF5252', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>{t('group.reject')}</button>
@@ -1437,6 +1523,11 @@ export default function GroupList() {
                   </div>
                 );
               })}
+              <div className="flex items-center justify-center gap-3" style={{ padding: 12 }}>
+                <button disabled={currentPage <= 1} onClick={() => switchPage(currentPage - 1)} style={{ ...inputStyle, width: 'auto', padding: '5px 12px', cursor: currentPage <= 1 ? 'not-allowed' : 'pointer' }}>{t('group.page.previous')}</button>
+                <span style={{ fontSize: 12, color: '#708499' }}>{t('group.page.summary').replace('{page}', String(currentPage)).replace('{pages}', String(totalPages)).replace('{total}', String(appTotal))}</span>
+                <button disabled={currentPage >= totalPages} onClick={() => switchPage(currentPage + 1)} style={{ ...inputStyle, width: 'auto', padding: '5px 12px', cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer' }}>{t('group.page.next')}</button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
@@ -1448,6 +1539,10 @@ export default function GroupList() {
         </div>
 
         <ConfirmModal open={!!confirmOpts} opts={confirmOpts} />
+        <InputModal open={!!rejectInvitation} title={t('group.invitation.rejectTitle')} onClose={() => { setRejectInvitation(null); setInvitationRejectReason(''); }} onSubmit={submitInvitationReject}>
+          <label style={{ fontSize: 13, color: '#646A73', display: 'block', marginBottom: 6 }}>{t('group.invitation.rejectReason')}</label>
+          <textarea value={invitationRejectReason} onChange={(event) => setInvitationRejectReason(event.target.value)} placeholder={t('group.invitation.rejectReasonPlaceholder')} rows={3} style={{ ...inputStyle, resize: 'none' }} onFocus={focusInput} onBlur={blurInput} />
+        </InputModal>
       </div>
     );
   }

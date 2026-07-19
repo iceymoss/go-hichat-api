@@ -86,7 +86,7 @@ func (l *GroupJoinByTokenLogic) GroupJoinByToken(in *social.GroupJoinByTokenReq)
 	// 已在群内：不消耗次数，直接返回
 	if _, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.UserId, groupIdStr); err == nil {
 		tx.Rollback()
-		return &social.GroupJoinByTokenResp{GroupId: int32(link.GroupId), IsPass: 1}, nil
+		return &social.GroupJoinByTokenResp{GroupId: int32(link.GroupId), GroupIdString: groupIdStr, IsPass: 1}, nil
 	}
 
 	// 统一走 GroupPutin 逻辑（joinSource=InviteLink），由群配置/邀请人角色决定是否直入群
@@ -116,5 +116,5 @@ func (l *GroupJoinByTokenLogic) GroupJoinByToken(in *social.GroupJoinByTokenReq)
 	}
 
 	tx.Commit()
-	return &social.GroupJoinByTokenResp{GroupId: putinResp.GroupId, IsPass: putinResp.IsPass}, nil
+	return &social.GroupJoinByTokenResp{GroupId: putinResp.GroupId, GroupIdString: putinResp.GroupIdString, IsPass: putinResp.IsPass}, nil
 }

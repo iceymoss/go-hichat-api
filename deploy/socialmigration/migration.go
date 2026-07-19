@@ -133,7 +133,10 @@ func Migrate(ctx context.Context, db *gorm.DB, driver string, now time.Time) (Re
 	}
 	if count > 0 {
 		report.AlreadyApplied = true
-		if err := repairInvitationReceiptResults(db, now); err != nil {
+		if err := migrateInvitationStatusOrder(db, now, true); err != nil {
+			return report, err
+		}
+		if err := repairCanonicalInvitationReceiptResults(db, now); err != nil {
 			return report, err
 		}
 		if err := ensureGroupHandleMsg(db, now); err != nil {
@@ -171,10 +174,15 @@ func Migrate(ctx context.Context, db *gorm.DB, driver string, now time.Time) (Re
 	if err := createAndValidateIndexes(db); err != nil {
 		return report, err
 	}
-	if err := repairInvitationReceiptResults(db, now); err != nil {
+	if err := ensureGroupHandleMsg(db, now); err != nil {
 		return report, err
 	}
-	if err := ensureGroupHandleMsg(db, now); err != nil {
+	// Fresh migrations already write the canonical enum. Record the same
+	// version without swapping so retries can distinguish them from upgrades.
+	if err := migrateInvitationStatusOrder(db, now, false); err != nil {
+		return report, err
+	}
+	if err := repairCanonicalInvitationReceiptResults(db, now); err != nil {
 		return report, err
 	}
 	if err := db.Transaction(func(tx *gorm.DB) error {
@@ -231,6 +239,101 @@ func repairInvitationReceiptResults(db *gorm.DB, now time.Time) error {
 		record := migrationRecord{Version: receiptResultFixVersion, Description: "repair group invitation receipt result enum", AppliedAt: now}
 		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&record).Error; err != nil {
 			return fmt.Errorf("record receipt result fix: %w", err)
+		}
+		return nil
+	})
+}
+
+func migrateInvitationStatusOrder(db *gorm.DB, now time.Time, swap bool) error {
+	var applied int64
+	if err := db.Model(&migrationRecord{}).Where("version = ?", invitationStatusSwapVersion).Count(&applied).Error; err != nil {
+		return fmt.Errorf("check invitation status swap: %w", err)
+	}
+	if applied > 0 {
+		return auditCanonicalInvitationStatuses(db)
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := auditInvitationStatusesBeforeSwap(tx); err != nil {
+			return err
+		}
+		description := "record canonical group invitation status enum"
+		if swap {
+			description = "swap group invitation status 3=invalidated 4=expired"
+		}
+		if err := tx.Create(&migrationRecord{Version: invitationStatusSwapVersion, Description: description, AppliedAt: now}).Error; err != nil {
+			return fmt.Errorf("record invitation status swap: %w", err)
+		}
+		if swap {
+			for _, step := range []struct{ from, to int }{{3, 5}, {4, 3}, {5, 4}} {
+				if err := tx.Model(&objects.GroupInvitation{}).Where("status = ?", step.from).Update("status", step.to).Error; err != nil {
+					return fmt.Errorf("swap group invitation status %d to %d: %w", step.from, step.to, err)
+				}
+			}
+		}
+		if err := auditCanonicalInvitationStatuses(tx); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func auditInvitationStatusesBeforeSwap(db *gorm.DB) error {
+	var invalid int64
+	if err := db.Model(&objects.GroupInvitation{}).Where("status NOT IN ?", []int{0, 1, 2, 3, 4}).Count(&invalid).Error; err != nil {
+		return fmt.Errorf("audit invitation statuses before swap: %w", err)
+	}
+	if invalid != 0 {
+		return fmt.Errorf("audit invitation statuses before swap: found %d values outside 0..4", invalid)
+	}
+	return nil
+}
+
+func auditCanonicalInvitationStatuses(db *gorm.DB) error {
+	var invalid int64
+	if err := db.Model(&objects.GroupInvitation{}).Where("status NOT IN ?", []int{0, 1, 2, 3, 4}).Count(&invalid).Error; err != nil {
+		return fmt.Errorf("audit canonical invitation statuses: %w", err)
+	}
+	if invalid != 0 {
+		return fmt.Errorf("audit canonical invitation statuses: found %d values outside 0..4", invalid)
+	}
+	return nil
+}
+
+func repairCanonicalInvitationReceiptResults(db *gorm.DB, now time.Time) error {
+	var applied int64
+	if err := db.Model(&migrationRecord{}).Where("version = ?", invitationReceiptCanonicalVersion).Count(&applied).Error; err != nil {
+		return fmt.Errorf("check canonical invitation receipt repair: %w", err)
+	}
+	if applied > 0 {
+		return nil
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		var statusApplied int64
+		if err := tx.Model(&migrationRecord{}).Where("version = ?", invitationStatusSwapVersion).Count(&statusApplied).Error; err != nil {
+			return fmt.Errorf("check invitation status migration dependency: %w", err)
+		}
+		if statusApplied == 0 {
+			return fmt.Errorf("canonical invitation receipt repair requires status migration %s", invitationStatusSwapVersion)
+		}
+		if err := auditCanonicalInvitationStatuses(tx); err != nil {
+			return err
+		}
+		for _, statusValue := range []int{3, 4} {
+			var ids []uint64
+			if err := tx.Model(&objects.GroupInvitation{}).Where("status = ?", statusValue).Pluck("id", &ids).Error; err != nil {
+				return fmt.Errorf("list canonical invitation receipt repairs: %w", err)
+			}
+			if len(ids) == 0 {
+				continue
+			}
+			if err := tx.Model(&objects.SocialRequestReceipt{}).
+				Where("request_type = ? AND receipt_kind = ? AND request_id IN ?", "group_invite", "invite", ids).
+				Update("result", statusValue).Error; err != nil {
+				return fmt.Errorf("repair canonical invitation receipt results: %w", err)
+			}
+		}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&migrationRecord{Version: invitationReceiptCanonicalVersion, Description: "align invitation receipts with canonical status enum", AppliedAt: now}).Error; err != nil {
+			return fmt.Errorf("record canonical invitation receipt repair: %w", err)
 		}
 		return nil
 	})
@@ -668,11 +771,6 @@ func backfillReceipts(db *gorm.DB, now time.Time) error {
 	for _, invitation := range invitations {
 		actionable := boolInt(invitation.Status == 0)
 		result := invitation.Status
-		if result == 3 {
-			result = 4
-		} else if result == 4 {
-			result = 3
-		}
 		inviteReceipt := receipt("group_invite", invitation.ID, strconv.FormatUint(invitation.InviteeUID, 10), "invite", 0, actionable, result, invitation.CreatedAt, invitation.HandledAt, now)
 		if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&inviteReceipt).Error; err != nil {
 			return fmt.Errorf("backfill group invitation receipt: %w", err)

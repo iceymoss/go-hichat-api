@@ -43,7 +43,7 @@ func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(in *social.GetGroupPutL
 	if in.Class == "1" {
 		q = q.Where("req_id = ?", actor)
 	} else {
-		q = q.Where("req_id = ? OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = group_requests.group_id AND gm.user_id = ? AND gm.role_level IN ?)", actor, actor, []int{1, 2})
+		q = q.Where("EXISTS (SELECT 1 FROM social_request_receipts srr WHERE srr.request_type = ? AND srr.request_id = group_requests.id AND srr.receiver_id = ? AND srr.receipt_kind = ?)", receiptTypeGroup, actor, receiptKindApply)
 	}
 	if in.Status != nil {
 		q = q.Where("handle_result = ?", *in.Status)
@@ -87,9 +87,6 @@ func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(in *social.GetGroupPutL
 		if receipt, ok := receipts[fmt.Sprintf("%d:%s", r.ID, kind)]; ok {
 			read = int32(receipt.IsRead)
 			action = receipt.IsActionable == 1
-		}
-		if in.Class == "2" && r.HandleResult != nil && *r.HandleResult == groupRequestPending && r.ReqID != actor {
-			action = true
 		}
 		reqTime, handleTime := int64(0), int64(0)
 		if r.ReqTime != nil {

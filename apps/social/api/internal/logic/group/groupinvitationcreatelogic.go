@@ -51,7 +51,7 @@ func invitationType(invitation *social.GroupInvitation) types.GroupInvitation {
 		return types.GroupInvitation{}
 	}
 	return types.GroupInvitation{
-		Id: invitation.Id, GroupId: invitation.GroupId, InviterUid: invitation.InviterUid, InviteeUid: invitation.InviteeUid,
+		Id: strconv.FormatUint(invitation.Id, 10), GroupId: invitation.GroupId, InviterUid: invitation.InviterUid, InviteeUid: invitation.InviteeUid,
 		InviterRoleSnapshot: invitation.InviterRoleSnapshot, Message: invitation.Message, Status: invitation.Status,
 		RejectReason: invitation.RejectReason, CreatedAt: invitation.CreatedAt, HandledAt: invitation.HandledAt, ExpiresAt: invitation.ExpiresAt,
 		ReadState: invitation.ReadState, Actionable: invitation.Actionable,

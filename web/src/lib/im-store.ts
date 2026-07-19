@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createLatestRequest } from './latest-request';
-import { getFriendRequestUnread, getGroupRequestUnread, type FriendRequestUnread, type GroupRequestUnread } from './social-request-api';
+import { getFriendRequestUnread, getGroupRequestUnread, groupRequestTargetFromBizID, type FriendRequestUnread, type GroupRequestTab, type GroupRequestUnread } from './social-request-api';
 import { getNotificationUnreadCount } from './api-client';
 import { type Contact } from '@/lib/types';
 
@@ -97,9 +97,9 @@ interface IMState {
 
   // 通知点击/气泡跳转意图：把用户带到对应入口的具体子 tab（received=我收到 / sent=我发起）
   friendReqNavTarget: { tab: 'received' | 'sent'; requestId?: string } | null;
-  groupAppNavTab: 'received' | 'sent' | null;
+  groupAppNavTarget: { tab: GroupRequestTab; itemId?: string } | null;
   clearFriendReqNavTarget: () => void;
-  clearGroupAppNavTab: () => void;
+  clearGroupAppNavTarget: () => void;
   // 从群聊深链到通讯录群详情：携带 groupId，GroupList 读取后自动打开该群详情
   groupDetailNavId: string | null;
   openGroupDetail: (groupId: string) => void;
@@ -113,6 +113,7 @@ interface IMState {
   groupAppUnreadCount: number;
   setGroupAppUnreadCount: (count: number) => void;
   groupRequestUnread: GroupRequestUnread;
+  setGroupRequestUnread: (unread: GroupRequestUnread) => void;
   groupRequestsVersion: number;
   invalidateGroupRequests: () => void;
   groupsVersion: number;
@@ -328,9 +329,9 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   },
 
   friendReqNavTarget: null,
-  groupAppNavTab: null,
+  groupAppNavTarget: null,
   clearFriendReqNavTarget: () => set({ friendReqNavTarget: null }),
-  clearGroupAppNavTab: () => set({ groupAppNavTab: null }),
+  clearGroupAppNavTarget: () => set({ groupAppNavTarget: null }),
   groupDetailNavId: null,
   openGroupDetail: (groupId) => set({
     activeTab: 'contacts', showGroupPanel: true, showFriendRequests: false,
@@ -347,9 +348,9 @@ export const useIMStore = create<IMState>()(persist((set) => ({
       const match = /^friend:([1-9]\d*):(apply|accept|reject)$/.exec(bizId || '');
       set({ ...base, activeTab: 'contacts', showGroupPanel: false, showFriendRequests: true, friendReqNavTarget: { tab, requestId: match?.[1] } });
     } else if (notifyType.startsWith('group.')) {
-      // group.apply=群主/管理员(我收到)；group.accept/reject=申请人看结果(我发起)
-      const tab = notifyType === 'group.apply' ? 'received' : 'sent';
-      set({ ...base, activeTab: 'contacts', showFriendRequests: false, showGroupPanel: true, groupAppNavTab: tab });
+      const target = groupRequestTargetFromBizID(bizId);
+      const tab = notifyType === 'group.invite' ? 'invitations' : notifyType === 'group.apply' ? 'received' : 'sent';
+      set({ ...base, activeTab: 'contacts', showFriendRequests: false, showGroupPanel: true, groupAppNavTarget: target || { tab } });
     }
   },
 
@@ -359,6 +360,7 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   groupAppUnreadCount: 0,
   setGroupAppUnreadCount: (count) => set({ groupAppUnreadCount: count }),
   groupRequestUnread: { total: 0, apply: 0, result: 0, invite: 0 },
+  setGroupRequestUnread: (unread) => set({ groupRequestUnread: unread, groupAppUnreadCount: unread.total }),
   groupRequestsVersion: 0,
   invalidateGroupRequests: () => set((state) => ({ groupRequestsVersion: state.groupRequestsVersion + 1 })),
   groupsVersion: 0,

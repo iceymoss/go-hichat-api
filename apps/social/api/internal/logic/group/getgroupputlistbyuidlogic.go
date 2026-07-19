@@ -128,13 +128,13 @@ func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(req *types.GetGroupPutL
 			HandleTime:         v.HandleResultTime,
 			HandleResult:       int64(v.HandleResult),
 			ReceiverRead:       int64(v.ReceiverRead),
-			RequestId:          v.RequestId,
+			RequestId:          strconv.FormatUint(v.RequestId, 10),
 			ApplicantUid:       v.ApplicantUid,
 			HandleMsg:          v.HandleMsg,
 			InvalidReason:      v.InvalidReason,
 			ActualJoinSource:   v.ActualJoinSource,
 			SourceType:         v.SourceType,
-			SourceInvitationId: v.SourceInvitationId,
+			SourceInvitationId: formatOptionalID(v.SourceInvitationId),
 			ReadState:          v.ReadState,
 			Actionable:         v.Actionable,
 		})
@@ -145,4 +145,11 @@ func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(req *types.GetGroupPutL
 	}
 
 	return
+}
+
+func formatOptionalID(id uint64) string {
+	if id == 0 {
+		return ""
+	}
+	return strconv.FormatUint(id, 10)
 }

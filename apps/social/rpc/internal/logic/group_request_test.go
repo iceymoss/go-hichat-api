@@ -75,6 +75,31 @@ func TestGroupRequestListPaginationAndFields(t *testing.T) {
 	require.Len(t, all.List, 1)
 }
 
+func TestGroupRequestListSeparatesSentAndReceiptOwnedReceived(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	now := time.Now()
+	own := objects.GroupRequest{ReqID: "1", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}
+	other := objects.GroupRequest{ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}
+	require.NoError(t, svcCtx.DB.Create(&own).Error)
+	require.NoError(t, svcCtx.DB.Create(&other).Error)
+
+	sent, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, Class: "1"})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), sent.Total)
+	require.Equal(t, own.ID, sent.List[0].RequestId)
+
+	received, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, Class: "2"})
+	require.NoError(t, err)
+	require.Zero(t, received.Total)
+	require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroup, other.ID, "1", receiptKindApply, 0, receiptPending, now, false, nil))
+	received, err = NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, Class: "2"})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), received.Total)
+	require.False(t, received.List[0].Actionable)
+}
+
 func TestGroupCreateEmitsCreatorMembershipEvent(t *testing.T) {
 	svcCtx, _ := newGroupTestContext(t)
 	resp, err := NewGroupCreateLogic(context.Background(), svcCtx).GroupCreate(&social.GroupCreateReq{Name: "new-group", CreatorUid: "1"})
@@ -198,6 +223,7 @@ func TestGroupPutInValidationAndState(t *testing.T) {
 			}
 			if tt.accepted {
 				require.Zero(t, recorder.count())
+				require.Zero(t, countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
 			} else {
 				require.Zero(t, recorder.count())
 			}
@@ -331,6 +357,65 @@ func TestGroupInvitationReceiptLifecycle(t *testing.T) {
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ?", receiptTypeGroupInvite, created.Invitation.Id).First(&receipt).Error)
 	require.Zero(t, receipt.IsActionable)
 	require.Equal(t, receiptRejected, receipt.Result)
+}
+
+func TestGroupInvitationListExpiresPendingBeforeFiltering(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	invitation := seedInvitation(t, svcCtx.DB, 1, 1, 3, 2)
+	past := time.Now().Add(-time.Second)
+	require.NoError(t, svcCtx.DB.Model(&objects.GroupInvitation{}).Where("id = ?", invitation.ID).Update("expires_at", past).Error)
+	require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroupInvite, invitation.ID, "3", receiptKindInvite, 1, receiptPending, invitation.CreatedAt, false, nil))
+
+	resp, err := NewGroupInvitationListLogic(context.Background(), svcCtx).GroupInvitationList(&social.GroupInvitationListReq{ActorUid: "3", Status: groupInvitationExpired})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), resp.Total)
+	require.Equal(t, int32(groupInvitationExpired), resp.List[0].Status)
+	require.False(t, resp.List[0].Actionable)
+	var receipt objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ?", receiptTypeGroupInvite, invitation.ID).First(&receipt).Error)
+	require.Equal(t, receiptExpired, receipt.Result)
+}
+
+func TestGroupAdminRoleChangesConvergePendingReceipts(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedGroupMember(t, svcCtx.DB, 1, 2, 0)
+	now := time.Now()
+	request := objects.GroupRequest{ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}
+	require.NoError(t, svcCtx.DB.Create(&request).Error)
+
+	_, err := NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{UserId: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: true})
+	require.NoError(t, err)
+	var receipt objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ?", receiptTypeGroup, request.ID, "2").First(&receipt).Error)
+	require.Zero(t, receipt.IsRead)
+	require.Equal(t, 1, receipt.IsActionable)
+
+	_, err = NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{UserId: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: false})
+	require.NoError(t, err)
+	require.NoError(t, svcCtx.DB.First(&receipt, receipt.ID).Error)
+	require.Zero(t, receipt.IsActionable)
+	received, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"2"}, Class: "2"})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), received.Total)
+	require.False(t, received.List[0].Actionable)
+}
+
+func TestGroupReadAndCountValidateActor(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	for _, actor := range []string{"", "0", "invalid"} {
+		_, err := NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: actor, RequestIds: []uint64{1}})
+		require.NotEqual(t, codes.OK, status.Code(err))
+		_, err = NewGroupInvitationReadLogic(context.Background(), svcCtx).GroupInvitationRead(&social.GroupInvitationReadReq{ActorUid: actor, InvitationIds: []uint64{1}})
+		require.NotEqual(t, codes.OK, status.Code(err))
+		_, err = NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: actor})
+		require.NotEqual(t, codes.OK, status.Code(err))
+	}
+	_, err := NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: "1"})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
 }
 
 func TestGroupNotificationOutboxFailureRollsBackApplication(t *testing.T) {
@@ -468,7 +553,7 @@ func TestGroupInvitationHandleRolesAndAuthorization(t *testing.T) {
 		{name: "member approval", roleAtCreate: 0, actor: "3", result: 1, wantState: "pending_approval", wantStatus: 1, wantMember: 1, wantRequest: 1, wantInvitation: 1},
 		{name: "role promoted", roleAtCreate: 0, roleAtHandle: intPtr(1), actor: "3", result: 1, wantState: "joined", wantStatus: 1, wantMember: 2, wantInvitation: 1},
 		{name: "role demoted", roleAtCreate: 1, roleAtHandle: intPtr(0), actor: "3", result: 1, wantState: "pending_approval", wantStatus: 1, wantMember: 1, wantRequest: 1, wantInvitation: 1},
-		{name: "inviter left", roleAtCreate: 1, roleAtHandle: intPtr(-1), actor: "3", result: 1, wantState: "invalidated", wantStatus: 4, wantInvitation: 4},
+		{name: "inviter left", roleAtCreate: 1, roleAtHandle: intPtr(-1), actor: "3", result: 1, wantState: "invalidated", wantStatus: 3, wantInvitation: 3},
 		{name: "invalid result", roleAtCreate: 1, actor: "3", result: 3, code: codes.InvalidArgument},
 	}
 	for _, tt := range tests {

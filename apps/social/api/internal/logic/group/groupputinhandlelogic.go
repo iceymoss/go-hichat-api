@@ -29,18 +29,19 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(req *types.GroupPutInHandleReq)
 	if id, err := strconv.ParseUint(uid, 10, 64); err != nil || id == 0 {
 		return nil, status.Error(codes.Unauthenticated, "missing or invalid user identity")
 	}
-	if req.GroupReqId == 0 {
-		return nil, status.Error(codes.InvalidArgument, "group request id must be positive")
+	requestID, err := parseGroupID(req.RequestId, "group request id")
+	if err != nil {
+		return nil, err
 	}
 	if req.HandleResult != 1 && req.HandleResult != 2 {
 		return nil, status.Error(codes.InvalidArgument, "handle result must be 1 or 2")
 	}
 	res, err := l.svcCtx.Social.GroupPutInHandle(l.ctx, &social.GroupPutInHandleReq{
-		RequestId: req.GroupReqId, HandleUid: uid, HandleResult: req.HandleResult,
+		RequestId: requestID, HandleUid: uid, HandleResult: req.HandleResult,
 		ActorUid: uid, HandleMsg: req.HandleMsg,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &types.GroupPutInHandleResp{RequestId: res.RequestId, HandleResult: res.HandleResult, Idempotent: res.Idempotent}, nil
+	return &types.GroupPutInHandleResp{RequestId: strconv.FormatUint(res.RequestId, 10), HandleResult: res.HandleResult, Idempotent: res.Idempotent}, nil
 }

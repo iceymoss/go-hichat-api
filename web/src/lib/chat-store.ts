@@ -310,8 +310,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const n = data as { notifyType?: string; bizId?: string } | null;
       if (!n?.notifyType) return;
       const imStore = useIMStore.getState();
-      const friendNotification = n.notifyType.startsWith('friend.');
-      const groupNotification = n.notifyType.startsWith('group.');
+      const friendNotification = ['friend.apply', 'friend.accept', 'friend.reject'].includes(n.notifyType);
+      const groupNotification = ['group.apply', 'group.accept', 'group.reject', 'group.invalidated', 'group.invite'].includes(n.notifyType);
       if (friendNotification) {
         imStore.invalidateFriendRequests();
         void imStore.refreshFriendRequestUnread();

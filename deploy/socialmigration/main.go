@@ -21,6 +21,8 @@ const migrationVersion = "20260717_social_req"
 const migrationDataVersion = "20260717_soc_data"
 const receiptResultFixVersion = "20260718_receipt_result_fix"
 const groupHandleMsgVersion = "20260718_group_handle_msg"
+const invitationStatusSwapVersion = "20260719_invitation_status_swap"
+const invitationReceiptCanonicalVersion = "20260719_invitation_receipt_canonical"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))

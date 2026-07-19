@@ -35,7 +35,7 @@ func (l *GroupPutInLogic) GroupPutIn(req *types.GroupPutInReq) (*types.GroupPutI
 		if err != nil {
 			return nil, err
 		}
-		return &types.GroupPutInResp{GroupId: int(res.GroupId), GroupIdString: strconv.FormatInt(int64(res.GroupId), 10), IsPass: int(res.IsPass), Status: res.IsPass}, nil
+		return &types.GroupPutInResp{GroupId: res.GroupIdString, IsPass: int(res.IsPass), Status: res.IsPass}, nil
 	}
 
 	// Legacy identity/source fields are intentionally ignored for public direct applications.
@@ -47,7 +47,7 @@ func (l *GroupPutInLogic) GroupPutIn(req *types.GroupPutInReq) (*types.GroupPutI
 		return nil, err
 	}
 	return &types.GroupPutInResp{
-		GroupId: int(res.GroupId), GroupIdString: res.GroupIdString, IsPass: int(res.IsPass), RequestId: res.RequestId,
+		GroupId: res.GroupIdString, IsPass: int(res.IsPass), RequestId: formatOptionalID(res.RequestId),
 		Status: res.Status, AlreadyPending: res.AlreadyPending, AlreadyMember: res.AlreadyMember,
 	}, nil
 }
