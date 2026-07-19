@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   Bell,
@@ -131,19 +131,6 @@ async function fetchAllRequests(token: string): Promise<FriendRequest[]> {
     seen.add(r.id);
     return true;
   });
-}
-
-async function fetchUnreadCount(token: string): Promise<number> {
-  try {
-    const resp = await fetch('/api/social/friend/putIn/messageCount', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const json = await resp.json();
-    if (json.success && json.data?.count !== undefined) return json.data.count;
-    return 0;
-  } catch {
-    return 0;
-  }
 }
 
 async function apiHandleRequest(token: string, friendReqId: number, handleResult: number, handleMsg?: string): Promise<boolean> {
@@ -933,8 +920,9 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
    ═══════════════════════════════════════ */
 
 export default function FriendRequestList() {
-  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, invalidateFriends, friendReqNavTab, clearFriendReqNavTab } = useIMStore();
+  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, invalidateFriends, friendRequestsVersion, invalidateFriendRequests, refreshFriendRequestUnread, friendReqNavTab, clearFriendReqNavTab } = useIMStore();
   const t = useT();
+  const loadRequestFailureText = t('friend.loadReqFail');
   const token = currentUser?.token || '';
 
   // Local state
@@ -952,6 +940,7 @@ export default function FriendRequestList() {
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [detailRequest, setDetailRequest] = useState<FriendRequest | null>(null);
   const [loading, setLoading] = useState(true);
+  const requestGeneration = useRef(0);
 
   // Send request panel state
   const [showSendPanel, setShowSendPanel] = useState(false);
@@ -966,37 +955,29 @@ export default function FriendRequestList() {
   // Fetch all requests on mount, then mark all as read
   useEffect(() => {
     if (!token) return;
-    let cancelled = false;
+    const generation = ++requestGeneration.current;
     setLoading(true);
     fetchAllRequests(token)
       .then((data) => {
-        if (!cancelled) {
+        if (generation === requestGeneration.current) {
           setRequests(data);
           // 进入列表后自动全部标记已读，清除 badge
           const hasUnread = data.some(r => !r.readState);
           if (hasUnread) {
             apiMarkAsRead(token, 0).then(() => {
-              setFriendRequestUnreadCount(0);
+              if (generation === requestGeneration.current) void refreshFriendRequestUnread();
             });
           }
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error(t('friend.loadReqFail'));
+        if (generation === requestGeneration.current) toast.error(loadRequestFailureText);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (generation === requestGeneration.current) setLoading(false);
       });
-    return () => { cancelled = true; };
-  }, [token, setFriendRequestUnreadCount]);
-
-  // Fetch unread count on mount and sync with store
-  useEffect(() => {
-    if (!token) return;
-    fetchUnreadCount(token).then((count) => {
-      setFriendRequestUnreadCount(count);
-    });
-  }, [token, setFriendRequestUnreadCount]);
+    return () => { requestGeneration.current += 1; };
+  }, [token, friendRequestsVersion, refreshFriendRequestUnread, loadRequestFailureText]);
 
   // Filter requests
   const filteredRequests = useMemo(() => {
@@ -1080,15 +1061,16 @@ export default function FriendRequestList() {
         }
       }
 
-      // Refresh unread count
-      fetchUnreadCount(token).then((count) => setFriendRequestUnreadCount(count));
+      requestGeneration.current += 1;
+      invalidateFriendRequests();
+      void refreshFriendRequestUnread();
       setConfirmOpen(false);
     } catch {
       toast.error(t('friend.opFailLater'));
     } finally {
       setConfirmLoading(false);
     }
-  }, [confirmType, confirmTargetId, detailRequest, token, requests, setFriendRequestUnreadCount]);
+  }, [confirmType, confirmTargetId, detailRequest, token, requests, invalidateFriendRequests, refreshFriendRequestUnread]);
 
   const handleCardClick = useCallback((req: FriendRequest) => {
     markAsRead(req.id);
@@ -1374,9 +1356,9 @@ export default function FriendRequestList() {
         open={showSendPanel}
         onClose={() => setShowSendPanel(false)}
         onSent={() => {
-          // 发送成功后刷新请求列表与未读数
-          fetchAllRequests(token).then(setRequests);
-          fetchUnreadCount(token).then(setFriendRequestUnreadCount);
+          requestGeneration.current += 1;
+          invalidateFriendRequests();
+          void refreshFriendRequestUnread();
         }}
       />
     </div>

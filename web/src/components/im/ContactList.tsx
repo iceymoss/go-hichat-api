@@ -10,18 +10,6 @@ import { getAvatarColor } from '@/lib/utils';
 import { useT } from '@/hooks/use-i18n';
 // Contact detail is shown via ContactDetailPanel in IMLayout right panel
 
-/**
- * Derive a sort letter from a nickname.
- * If the first character is A-Z / a-z, return uppercase.
- * Otherwise (Chinese, emoji, etc.) return '#'.
- */
-function letterFromName(name: string): string {
-  if (!name) return '#';
-  const first = name[0];
-  if (/[a-zA-Z]/.test(first)) return first.toUpperCase();
-  return '#';
-}
-
 const iconMap: Record<string, React.ReactNode> = {
   UserPlus: <UserPlus className="w-[22px] h-[22px]" />,
   Users: <Users className="w-[22px] h-[22px]" />,
@@ -42,98 +30,14 @@ export default function ContactList() {
   const t = useT();
   const [searchQuery, setSearchQuery] = useState('');
   const [backendResults, setBackendResults] = useState<Contact[]>([]);
-  const { setSelectedContactId, selectedContactId, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setFriends, friendsVersion } = useIMStore();
+  const { setSelectedContactId, selectedContactId, setShowFriendRequests, friendRequestUnreadCount, setShowGroupPanel, groupAppUnreadCount, currentUser, friends, refreshFriends, friendsVersion } = useIMStore();
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // 好友申请未读数：挂载时拉一次（拿离线累计），之后由 ws.on('notify') 实时 +1，无需轮询
-  useEffect(() => {
-    if (!currentUser?.token) return;
-    fetch('/api/social/friend/putIn/messageCount', {
-      headers: { Authorization: `Bearer ${currentUser.token}` },
-    })
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) setFriendRequestUnreadCount(d.data?.count ?? 0);
-      })
-      .catch(() => {});
-  }, [currentUser?.token, setFriendRequestUnreadCount]);
-
-  // 入群申请未读数：挂载时拉一次（持久化「我的群组」气泡），否则刷新后需进群申请视图才算出来。
-  // 已读模型：未读 = 我收到的(申请人≠我) 且 receiver_read=0。
-  useEffect(() => {
-    const myId = currentUser?.id;
-    if (!currentUser?.token || !myId) return;
-    fetch('/api/social/group/putInsByUid?class=2', {
-      headers: { Authorization: `Bearer ${currentUser.token}` },
-    })
-      .then(r => r.json())
-      .then(d => {
-        const list: Array<{ user_id?: string; receiver_read?: number }> = d?.data?.list || [];
-        const cnt = list.filter(x => String(x.user_id) !== String(myId) && (x.receiver_read ?? 0) === 0).length;
-        setGroupAppUnreadCount(cnt);
-      })
-      .catch(() => {});
-  }, [currentUser?.token, currentUser?.id, setGroupAppUnreadCount]);
 
   // Fetch friends list from API
   useEffect(() => {
     if (!currentUser?.token) return;
-    let cancelled = false;
-
-    async function fetchFriends() {
-      try {
-        const [friendsRes, onlineRes] = await Promise.all([
-          fetch('/api/social/friends', {
-            headers: { Authorization: `Bearer ${currentUser!.token}` },
-          }),
-          fetch('/api/social/friends/online', {
-            headers: { Authorization: `Bearer ${currentUser!.token}` },
-          }),
-        ]);
-
-        const friendsData = await friendsRes.json();
-        const onlineData = await onlineRes.json();
-
-        if (cancelled) return;
-
-        const onlineMap: Record<string, boolean> =
-          onlineData.success && onlineData.data?.onLineList
-            ? onlineData.data.onLineList
-            : {};
-
-        if (friendsData.success && friendsData.data?.list) {
-          const mapped: Contact[] = friendsData.data.list.map((f: any) => {
-            const displayName = f.remark || f.nickname || '';
-            const letter = letterFromName(displayName);
-            return {
-              id: String(f.friend_uid),
-              name: displayName,
-              avatar: f.avatar || '',
-              pinyin: displayName,
-              letter,
-              online: !!onlineMap[String(f.friend_uid)],
-              gender: f.sex === 1 ? 'male' as const : f.sex === 2 ? 'female' as const : undefined,
-              phone: f.phone || undefined,
-              region: f.region || undefined,
-              signature: f.introduction || undefined,
-              introduction: f.introduction || undefined,
-              occupation: f.occupation || undefined,
-              tags: f.tags || undefined,
-              account: String(f.friend_uid),
-              remark: f.remark || undefined,
-              nickname: f.nickname || undefined,
-            };
-          });
-          setFriends(mapped);
-        }
-      } catch (err) {
-        console.error('Failed to fetch friends:', err);
-      }
-    }
-
-    fetchFriends();
-    return () => { cancelled = true; };
-  }, [currentUser?.token, setFriends, friendsVersion]);
+    void refreshFriends();
+  }, [currentUser?.token, refreshFriends, friendsVersion]);
 
   // Search backend when query looks like phone/email or after debounce
   const clearResults = useCallback(() => setBackendResults([]), []);

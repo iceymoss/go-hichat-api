@@ -574,7 +574,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 9 已完成。下一会话从步骤 10 开始：前端请求版本化刷新与失效请求丢弃。
+步骤 10 已完成。下一会话从步骤 11 开始：好友申请列表按新契约分页与 receipt 已读时序。
 
 ### 步骤 5 实施结果
 
@@ -622,6 +622,16 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - notify、relation、trend、call 和 chat push 均广播到当前节点所有目标连接；chat 单聊/群聊局部失败有明确日志。
 - 新增双客户端广播、重复 UID 去重、失败连接隔离及首末连接 presence 测试；WS 全量与 race 通过。
 
+### 步骤 10 实施结果
+
+- 前端 store 新增 friend requests、group requests/invitations、groups 和 friends version；通知与 relation 事件按业务类型统一 invalidation。
+- 好友申请、群申请、群列表、会话、好友、业务未读和公共通知未读均使用 generation/token guard，旧请求和旧账号响应不能覆盖新状态。
+- 好友/群业务未读改为分类 count API 的 centralized actions，不再从分页列表推导或由多个组件直接写入。
+- WS 初连/重连执行 quiet REST recovery；notify 不再用本地 `+1` 作为业务未读真相，accept 事件同步失效好友、群和会话资源。
+- FriendRequestList 和 GroupList 在 mutation 成功时先失效旧 GET generation，再 bump version 并用服务端状态收敛。
+- logout/login 同步清空 chat auth-scoped state并失效旧请求；异步群成员、用户资料和通知中心列表写入均校验当前 token/generation。
+- 新增 latest-request 单元测试；`bun test` 与 lint 通过，typecheck 仅保留两个既有 CSS 自定义属性类型错误。
+
 步骤 4 暂不提前实现：
 
 - 个人 receipt 和 read/unread API 属于步骤 5。
@@ -646,7 +656,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 7. [x] 完善好友/群申请 RPC 与 HTTP 字段、分页、稳定错误码和通知业务筛选标读。
 8. [x] 将 `group.member.added` 会话创建迁移到可靠消费者，删除 API best-effort goroutine；补关系新增事件。
 9. [x] 修复 WS 当前节点内多连接广播，并明确 WS 失败为 best-effort。
-10. [ ] 前端 store 增加好友/群申请/邀请及群列表版本和统一 unread actions，所有相关通知触发重拉。
+10. [x] 前端 store 增加好友/群申请/邀请及群列表版本和统一 unread actions，所有相关通知触发重拉。
 11. [ ] FriendRequestList 改为分页单请求、顺序标读、字段正确映射和通知定位。
 12. [ ] GroupList/GroupProfileCard 接入三个群申请 Tab、分页、个人回执、邀请确认、直接入群结果、群/会话刷新和通知定位。
 13. [ ] 联动业务 receipt 与通知中心标读；补中英文文案和可重试错误态。

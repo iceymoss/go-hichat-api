@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createLatestRequest } from './latest-request';
+import { getFriendRequestUnread, getGroupRequestUnread, type FriendRequestUnread, type GroupRequestUnread } from './social-request-api';
+import { getNotificationUnreadCount } from './api-client';
 import { type Contact } from '@/lib/types';
+
+const friendUnreadRequest = createLatestRequest();
+const groupUnreadRequest = createLatestRequest();
+const friendsRequest = createLatestRequest();
+const notificationUnreadRequest = createLatestRequest();
 
 export type TabType = 'chats' | 'contacts' | 'moments' | 'me';
 export type AuthView = 'login' | 'register' | 'forgot-password';
@@ -66,6 +74,10 @@ interface IMState {
   setShowFriendRequests: (show: boolean) => void;
   friendRequestUnreadCount: number;
   setFriendRequestUnreadCount: (count: number) => void;
+  friendRequestUnread: FriendRequestUnread;
+  friendRequestsVersion: number;
+  invalidateFriendRequests: () => void;
+  refreshFriendRequestUnread: () => Promise<void>;
 
   // Moments (动态) message-center unread + realtime notify version
   momentsUnreadCount: number;
@@ -80,6 +92,7 @@ interface IMState {
   // 公共通知未读总数：登录拉一次(持久化) + ws 实时 +1，驱动「联系人」tab 气泡 + 铃铛角标（同一真相）
   notificationUnreadCount: number;
   setNotificationUnreadCount: (count: number) => void;
+  refreshNotificationUnread: () => Promise<void>;
 
   // 通知点击/气泡跳转意图：把用户带到对应入口的具体子 tab（received=我收到 / sent=我发起）
   friendReqNavTab: 'received' | 'sent' | null;
@@ -98,6 +111,13 @@ interface IMState {
   setShowGroupPanel: (show: boolean) => void;
   groupAppUnreadCount: number;
   setGroupAppUnreadCount: (count: number) => void;
+  groupRequestUnread: GroupRequestUnread;
+  groupRequestsVersion: number;
+  invalidateGroupRequests: () => void;
+  groupsVersion: number;
+  invalidateGroups: () => void;
+  refreshGroupRequestUnread: () => Promise<void>;
+  refreshSocialRequestUnread: () => Promise<void>;
 
   // Trend detail panel
   selectedTrendId: number | null;
@@ -122,6 +142,7 @@ interface IMState {
   setFriends: (friends: Contact[]) => void;
   friendsVersion: number;
   invalidateFriends: () => void;
+  refreshFriends: () => Promise<void>;
 }
 
 // ── Shared profile resolvers (used by openUserProfile + showUserCard) ──
@@ -141,6 +162,11 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   setAuthView: (view) => set({ authView: view }),
   setLoginMethod: (method) => set({ loginMethod: method }),
   login: (user) => {
+    friendUnreadRequest.invalidate();
+    groupUnreadRequest.invalidate();
+    friendsRequest.invalidate();
+    notificationUnreadRequest.invalidate();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('hichat:auth-reset'));
     set({ isAuthenticated: true, currentUser: user, authView: 'login' });
     // Load settings from backend after login
     import('./settings-store').then(({ useSettingsStore }) => {
@@ -148,6 +174,11 @@ export const useIMStore = create<IMState>()(persist((set) => ({
     });
   },
   logout: () => {
+    friendUnreadRequest.invalidate();
+    groupUnreadRequest.invalidate();
+    friendsRequest.invalidate();
+    notificationUnreadRequest.invalidate();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('hichat:auth-reset'));
     const token = useIMStore.getState().currentUser?.token;
     if (token) {
       fetch('/api/auth/logout', {
@@ -155,7 +186,7 @@ export const useIMStore = create<IMState>()(persist((set) => ({
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => {});
     }
-    set({ isAuthenticated: false, currentUser: null, activeTab: 'chats', selectedConversationId: null, showChatDetail: false });
+    set({ isAuthenticated: false, currentUser: null, activeTab: 'chats', selectedConversationId: null, showChatDetail: false, friendRequestUnreadCount: 0, groupAppUnreadCount: 0, notificationUnreadCount: 0, friendRequestUnread: { total: 0, apply: 0, result: 0 }, groupRequestUnread: { total: 0, apply: 0, result: 0, invite: 0 }, friends: [] });
   },
   updateCurrentUser: (partial) => set((state) => ({
     currentUser: state.currentUser ? { ...state.currentUser, ...partial } : null,
@@ -259,6 +290,19 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   setShowFriendRequests: (show) => set({ showFriendRequests: show, selectedContactId: null, showGroupPanel: false }),
   friendRequestUnreadCount: 0,
   setFriendRequestUnreadCount: (count) => set({ friendRequestUnreadCount: count }),
+  friendRequestUnread: { total: 0, apply: 0, result: 0 },
+  friendRequestsVersion: 0,
+  invalidateFriendRequests: () => set((state) => ({ friendRequestsVersion: state.friendRequestsVersion + 1 })),
+  refreshFriendRequestUnread: async () => {
+    const token = useIMStore.getState().currentUser?.token;
+    if (!token) return;
+    const isLatest = friendUnreadRequest.begin();
+    try {
+      const unread = await getFriendRequestUnread(token);
+      if (!isLatest() || useIMStore.getState().currentUser?.token !== token) return;
+      set({ friendRequestUnread: unread, friendRequestUnreadCount: unread.total });
+    } catch { /* preserve the last successful value */ }
+  },
 
   momentsUnreadCount: 0,
   setMomentsUnreadCount: (count) => set({ momentsUnreadCount: count }),
@@ -270,6 +314,16 @@ export const useIMStore = create<IMState>()(persist((set) => ({
 
   notificationUnreadCount: 0,
   setNotificationUnreadCount: (count) => set({ notificationUnreadCount: Math.max(0, count) }),
+  refreshNotificationUnread: async () => {
+    const token = useIMStore.getState().currentUser?.token;
+    if (!token) return;
+    const isLatest = notificationUnreadRequest.begin();
+    try {
+      const body = await getNotificationUnreadCount(token);
+      if (!isLatest() || useIMStore.getState().currentUser?.token !== token) return;
+      set({ notificationUnreadCount: Math.max(0, body.count ?? 0) });
+    } catch { /* preserve the last successful value */ }
+  },
 
   friendReqNavTab: null,
   groupAppNavTab: null,
@@ -301,6 +355,25 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   setShowGroupPanel: (show) => set({ showGroupPanel: show, selectedContactId: null, showFriendRequests: false }),
   groupAppUnreadCount: 0,
   setGroupAppUnreadCount: (count) => set({ groupAppUnreadCount: count }),
+  groupRequestUnread: { total: 0, apply: 0, result: 0, invite: 0 },
+  groupRequestsVersion: 0,
+  invalidateGroupRequests: () => set((state) => ({ groupRequestsVersion: state.groupRequestsVersion + 1 })),
+  groupsVersion: 0,
+  invalidateGroups: () => set((state) => ({ groupsVersion: state.groupsVersion + 1 })),
+  refreshGroupRequestUnread: async () => {
+    const token = useIMStore.getState().currentUser?.token;
+    if (!token) return;
+    const isLatest = groupUnreadRequest.begin();
+    try {
+      const unread = await getGroupRequestUnread(token);
+      if (!isLatest() || useIMStore.getState().currentUser?.token !== token) return;
+      set({ groupRequestUnread: unread, groupAppUnreadCount: unread.total });
+    } catch { /* preserve the last successful value */ }
+  },
+  refreshSocialRequestUnread: async () => {
+    const state = useIMStore.getState();
+    await Promise.all([state.refreshFriendRequestUnread(), state.refreshGroupRequestUnread()]);
+  },
 
   // Trend detail panel
   selectedTrendId: null,
@@ -323,6 +396,29 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   setFriends: (friends) => set({ friends }),
   friendsVersion: 0,
   invalidateFriends: () => set((state) => ({ friendsVersion: state.friendsVersion + 1 })),
+  refreshFriends: async () => {
+    const token = useIMStore.getState().currentUser?.token;
+    if (!token) return;
+    const isLatest = friendsRequest.begin();
+    try {
+      const [friendsResponse, onlineResponse] = await Promise.all([
+        fetch('/api/social/friends', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/social/friends/online', { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const friendsBody = await friendsResponse.json();
+      const onlineBody = await onlineResponse.json();
+      if (!isLatest() || useIMStore.getState().currentUser?.token !== token) return;
+      if (!friendsResponse.ok || !friendsBody?.success) return;
+      const onlineMap: Record<string, boolean> = onlineBody?.data?.onLineList || {};
+      const list = friendsBody?.data?.list || friendsBody?.list || [];
+      const mapped: Contact[] = list.map((friend: any) => {
+        const id = String(friend.friend_uid || friend.id || '');
+        const name = friend.remark || friend.nickname || id;
+        return { id, friend_uid: String(friend.friend_uid || ''), name, remark: friend.remark || '', nickname: friend.nickname || '', avatar: friend.avatar || '', pinyin: name, letter: /^[a-z]/i.test(name[0] || '') ? name[0].toUpperCase() : '#', online: !!onlineMap[id], gender: friend.sex === 1 ? 'male' : friend.sex === 2 ? 'female' : undefined, phone: friend.phone || undefined, email: friend.email || undefined, region: friend.region || undefined, signature: friend.introduction || undefined, introduction: friend.introduction || undefined, occupation: friend.occupation || undefined, tags: friend.tags || undefined, account: id, blacklisted: !!friend.blacklisted, moments_permission: friend.moments_permission, notify_enabled: friend.notify_enabled, pinned: !!friend.pinned, muted: !!friend.muted, friend_tags: friend.friend_tags || [] };
+      });
+      set({ friends: mapped });
+    } catch { /* preserve the last successful value */ }
+  },
 }), {
   name: 'hichat-auth',
   partialize: (state) => ({

@@ -316,7 +316,7 @@ type AppStatusFilter = 'all' | GroupAppResult;
 
 export default function GroupList() {
   const t = useT();
-  const { setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupAppNavTab, clearGroupAppNavTab, groupDetailNavId, clearGroupDetailNav } = useIMStore();
+  const { setShowGroupPanel, groupAppUnreadCount, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupRequestsVersion, invalidateGroupRequests, groupsVersion, invalidateGroups, refreshGroupRequestUnread, groupAppNavTab, clearGroupAppNavTab, groupDetailNavId, clearGroupDetailNav } = useIMStore();
   const token = currentUser?.token || '';
   const myUserId = currentUser?.id || '';
 
@@ -330,7 +330,8 @@ export default function GroupList() {
   const [appClass, setAppClass] = useState<GroupAppClass>('received');
   const [appStatusFilter, setAppStatusFilter] = useState<AppStatusFilter>('all');
   // 申请是否已真正拉取过——拉取前不要用空 apps 把全局 groupAppUnreadCount 清零（否则进列表视图气泡会闪没）
-  const [appsLoaded, setAppsLoaded] = useState(false);
+  const groupsGeneration = useRef(0);
+  const appsGeneration = useRef(0);
 
   // 通知点击带来的跳转意图：进入「群申请」视图并定位子 tab（received=我收到 / sent=我发起）
   useEffect(() => {
@@ -414,8 +415,10 @@ export default function GroupList() {
   // ── API: Fetch groups list ──
   const fetchGroups = useCallback(async () => {
     if (!token) return;
+    const generation = ++groupsGeneration.current;
     try {
       const data = await apiFetch('/api/social/groups', token);
+      if (generation !== groupsGeneration.current) return;
       if (data.success && data.data?.list) {
         setGroups(data.data.list.map(mapGroup));
       } else {
@@ -467,16 +470,17 @@ export default function GroupList() {
   // ── API: Fetch applications ──
   const fetchApplications = useCallback(async () => {
     if (!token) return;
+    const generation = ++appsGeneration.current;
     try {
       const data = await apiFetch('/api/social/group/putInsByUid?class=2', token);
+      if (generation !== appsGeneration.current) return;
       if (data.success && data.data?.list) {
         setApps(data.data.list.map(mapApplication));
       } else {
         setApps([]);
       }
-      setAppsLoaded(true);
     } catch {
-      setApps([]);
+      // Preserve the last successful page on refresh failure.
     }
   }, [token]);
 
@@ -538,12 +542,14 @@ export default function GroupList() {
   // ── On mount: fetch groups ──
   useEffect(() => {
     fetchGroups();
-  }, [fetchGroups]);
+    return () => { groupsGeneration.current += 1; };
+  }, [fetchGroups, groupsVersion]);
 
   // ── 挂载即拉取申请：让「我的群组」列表视图的铃铛徽标也准确，而不只在进入群申请视图后才有 ──
   useEffect(() => {
     if (token) fetchApplications();
-  }, [token, fetchApplications]);
+    return () => { appsGeneration.current += 1; };
+  }, [token, fetchApplications, groupRequestsVersion]);
 
   // ── When entering app view: fetch applications + 全部标记已读（已读模型，清零气泡） ──
   useEffect(() => {
@@ -554,9 +560,10 @@ export default function GroupList() {
       .then(() => {
         // 本地把我收到的申请标已读，气泡立即清零（无需等下次拉取）
         setApps(prev => prev.map(a => (a.userId !== myUserId ? { ...a, readState: true } : a)));
+        void refreshGroupRequestUnread();
       })
       .catch(() => {});
-  }, [view, token, myUserId, fetchApplications]);
+  }, [view, token, myUserId, fetchApplications, refreshGroupRequestUnread]);
 
   // ── When a group is selected: fetch detail, settings, announcements ──
   useEffect(() => {
@@ -575,10 +582,6 @@ export default function GroupList() {
   }, [selectedGroupId, detailTab, fetchInviteLinks]);
 
   // ── Computed ──
-  const unreadCount = useMemo(() => apps.filter(a => a.userId !== myUserId && !a.readState).length, [apps, myUserId]);
-  // 仅在已真正拉取过申请后才同步全局计数，避免挂载瞬间用空 apps 清零（气泡闪没）
-  useEffect(() => { if (appsLoaded) setGroupAppUnreadCount(unreadCount); }, [unreadCount, appsLoaded, setGroupAppUnreadCount]);
-
   const filteredGroups = useMemo(() => {
     if (!listSearch.trim()) return groups;
     const q = listSearch.toLowerCase();
@@ -688,7 +691,10 @@ export default function GroupList() {
           body: JSON.stringify({ group_req_id: app.id, group_id: app.groupId, handle_result: 1 }),
         });
         if (data.success) {
+          appsGeneration.current += 1;
           setApps(prev => prev.map(a => a.id === app.id ? { ...a, handleResult: 1 as GroupAppResult, readState: true } : a));
+          invalidateGroupRequests();
+          void refreshGroupRequestUnread();
           toast.success(t('group.agreedToast').replace('{user}', app.userName).replace('{group}', app.groupName));
         } else {
           toast.error(data.message || t('group.opFailed'));
@@ -697,7 +703,7 @@ export default function GroupList() {
         toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, markAppRead, token, t]);
+  }, [doConfirm, markAppRead, token, t, invalidateGroupRequests, refreshGroupRequestUnread]);
 
   const handleRejectApp = useCallback((app: GroupApplication) => {
     markAppRead(app.id);
@@ -708,7 +714,10 @@ export default function GroupList() {
           body: JSON.stringify({ group_req_id: app.id, group_id: app.groupId, handle_result: 2 }),
         });
         if (data.success) {
+          appsGeneration.current += 1;
           setApps(prev => prev.map(a => a.id === app.id ? { ...a, handleResult: 2 as GroupAppResult, readState: true } : a));
+          invalidateGroupRequests();
+          void refreshGroupRequestUnread();
           toast.success(t('group.rejectedToast').replace('{user}', app.userName));
         } else {
           toast.error(data.message || t('group.opFailed'));
@@ -717,7 +726,7 @@ export default function GroupList() {
         toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, markAppRead, token, t]);
+  }, [doConfirm, markAppRead, token, t, invalidateGroupRequests, refreshGroupRequestUnread]);
 
   const markAllAppRead = useCallback(() => {
     setApps(prev => prev.map(a => a.userId !== myUserId ? { ...a, readState: true } : a));
@@ -953,12 +962,14 @@ export default function GroupList() {
           body: JSON.stringify({ group_id: selectedGroupId }),
         });
         if (data.success) {
+          groupsGeneration.current += 1;
           setGroups(prev => prev.filter(g => g.id !== selectedGroupId));
           setMembers(prev => prev.filter(m => m.groupId !== selectedGroupId));
           setSettings(prev => prev.filter(s => s.groupId !== selectedGroupId));
           toast.success(t('group.disbandedToast'));
           setView('list');
           setSelectedGroupId(null);
+          invalidateGroups();
         } else {
           toast.error(data.message || t('group.opFailed'));
         }
@@ -966,7 +977,7 @@ export default function GroupList() {
         toast.error(t('group.networkError'));
       }
     });
-  }, [selectedGroup, selectedGroupId, doConfirm, token, t]);
+  }, [selectedGroup, selectedGroupId, doConfirm, token, t, invalidateGroups]);
 
   const handleQuitGroup = useCallback(() => {
     if (!selectedGroup) return;
@@ -977,12 +988,14 @@ export default function GroupList() {
           body: JSON.stringify({ group_id: selectedGroupId }),
         });
         if (data.success) {
+          groupsGeneration.current += 1;
           setGroups(prev => prev.filter(g => g.id !== selectedGroupId));
           setMembers(prev => prev.filter(m => m.groupId !== selectedGroupId));
           setSettings(prev => prev.filter(s => s.groupId !== selectedGroupId));
           toast.success(t('group.quitToast'));
           setView('list');
           setSelectedGroupId(null);
+          invalidateGroups();
         } else {
           toast.error(data.message || t('group.opFailed'));
         }
@@ -990,7 +1003,7 @@ export default function GroupList() {
         toast.error(t('group.networkError'));
       }
     });
-  }, [selectedGroup, selectedGroupId, doConfirm, token, t]);
+  }, [selectedGroup, selectedGroupId, doConfirm, token, t, invalidateGroups]);
 
   // Member actions
   const handleSetAdmin = useCallback((m: GroupMemberInfo) => {
@@ -1354,7 +1367,7 @@ export default function GroupList() {
         {/* Class tabs */}
         <div className="flex items-center shrink-0" style={{ padding: '12px 16px 8px', background: '#FFF', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
           <div className="flex items-center" style={{ borderRadius: '20px', background: 'rgba(0,0,0,0.04)', padding: '3px' }}>
-            {pillTab(appClass === 'received', () => { setAppClass('received'); setAppStatusFilter('all'); }, t('group.app.received'), unreadCount)}
+            {pillTab(appClass === 'received', () => { setAppClass('received'); setAppStatusFilter('all'); }, t('group.app.received'), groupAppUnreadCount)}
             {pillTab(appClass === 'sent', () => { setAppClass('sent'); setAppStatusFilter('all'); }, t('group.app.sent'))}
           </div>
         </div>

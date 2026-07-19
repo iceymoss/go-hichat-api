@@ -8,7 +8,6 @@ import { useChatStore } from '@/lib/chat-store';
 import { useT } from '@/hooks/use-i18n';
 import {
   listNotifications,
-  getNotificationUnreadCount,
   markNotificationsRead,
   type NotificationItem,
 } from '@/lib/api-client';
@@ -22,7 +21,7 @@ export default function NotificationCenter() {
   const friends = useIMStore(s => s.friends);
   const notificationVersion = useIMStore(s => s.notificationVersion);
   const unread = useIMStore(s => s.notificationUnreadCount);
-  const setUnread = useIMStore(s => s.setNotificationUnreadCount);
+  const refreshNotificationUnread = useIMStore(s => s.refreshNotificationUnread);
   const navigateToNotificationSource = useIMStore(s => s.navigateToNotificationSource);
   // 通知发起人头像/昵称：好友优先，非好友回退到 chat-store 拉取的用户资料
   const userProfiles = useChatStore(s => s.userProfiles);
@@ -32,23 +31,25 @@ export default function NotificationCenter() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const listGeneration = useRef(0);
 
   const token = currentUser?.token;
 
   const fetchUnread = useCallback(() => {
     if (!token) return;
-    getNotificationUnreadCount(token)
-      .then(r => setUnread(r.count ?? 0))
-      .catch(() => {});
-  }, [token, setUnread]);
+    void refreshNotificationUnread();
+  }, [token, refreshNotificationUnread]);
 
   const fetchList = useCallback(() => {
     if (!token) return;
+    const generation = ++listGeneration.current;
     setLoading(true);
     listNotifications(token, false, 0, 30)
-      .then(r => setItems(r.list ?? []))
+      .then(r => {
+        if (generation === listGeneration.current && useIMStore.getState().currentUser?.token === token) setItems(r.list ?? []);
+      })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (generation === listGeneration.current) setLoading(false); });
   }, [token]);
 
   // 未读角标：挂载 + 每次收到新通知（notificationVersion 变化）刷新
@@ -89,10 +90,11 @@ export default function NotificationCenter() {
 
   const handleMarkAllRead = () => {
     if (!token) return;
+    listGeneration.current += 1;
     markNotificationsRead(token, [])
       .then(() => {
-        setItems(prev => prev.map(n => ({ ...n, isRead: 1 })));
-        setUnread(0);
+        fetchList();
+        void refreshNotificationUnread();
         toast.success(t('notify.center.allReadDone'));
       })
       .catch(() => toast.error(t('notify.center.markFailed')));
@@ -103,10 +105,11 @@ export default function NotificationCenter() {
     navigateToNotificationSource(n.notifyType);
     setOpen(false);
     if (!token || n.isRead) return;
+    listGeneration.current += 1;
     markNotificationsRead(token, [n.id])
       .then(() => {
-        setItems(prev => prev.map(x => (x.id === n.id ? { ...x, isRead: 1 } : x)));
-        setUnread(Math.max(0, unread - 1));
+        fetchList();
+        void refreshNotificationUnread();
       })
       .catch(() => {});
   };
