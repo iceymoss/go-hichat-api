@@ -307,7 +307,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     // 公共通知（好友/群申请等）：按 notifyType 分发 —— 实时红点 + 气泡提示（点击跳到对应入口）。
     // 文案硬编码中文，与本模块其余 toast 保持一致；历史列表/已读由通知中心走 REST 拉取。
     ws.on('notify', (data) => {
-      const n = data as { notifyType?: string } | null;
+      const n = data as { notifyType?: string; bizId?: string } | null;
       if (!n?.notifyType) return;
       const imStore = useIMStore.getState();
       const friendNotification = n.notifyType.startsWith('friend.');
@@ -326,7 +326,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         void get().fetchConversations(token);
       }
       // 点击气泡跳到来源 + 子 tab（好友→新的朋友；群→群申请）
-      const go = { label: '查看', onClick: () => useIMStore.getState().navigateToNotificationSource(n.notifyType!) };
+      const go = { label: '查看', onClick: () => useIMStore.getState().navigateToNotificationSource(n.notifyType!, n.bizId) };
       switch (n.notifyType) {
         case 'friend.apply':
           toast('有人申请添加你为好友', { action: go });

@@ -66,7 +66,8 @@ type FriendPinResp struct {
 }
 
 type FriendPutInDeleteReq struct {
-	FriendReqId int32 `json:"friend_req_id,omitempty"` // 申请ID
+	FriendReqId int32  `json:"friend_req_id,omitempty"` // 申请ID
+	RequestId   string `json:"request_id,optional"`
 }
 
 type FriendPutInDeleteResp struct {
@@ -74,7 +75,7 @@ type FriendPutInDeleteResp struct {
 
 type FriendPutInHandleReq struct {
 	FriendReqId  int32    `json:"friend_req_id,omitempty"`
-	RequestId    uint64   `json:"request_id,optional"`
+	RequestId    string   `json:"request_id,optional"`
 	HandleResult int32    `json:"handle_result,omitempty"` // 处理结果
 	HandleMsg    string   `json:"handle_msg,optional"`     // 处理附言/回复
 	Remark       string   `json:"remark,omitempty"`        // 备注
@@ -82,9 +83,9 @@ type FriendPutInHandleReq struct {
 }
 
 type FriendPutInHandleResp struct {
-	RequestId    int64 `json:"request_id"`
-	HandleResult int32 `json:"handle_result"`
-	Idempotent   bool  `json:"idempotent"`
+	RequestId    string `json:"request_id"`
+	HandleResult int32  `json:"handle_result"`
+	Idempotent   bool   `json:"idempotent"`
 }
 
 type FriendPutInListReq struct {
@@ -111,7 +112,7 @@ type FriendPutInMessageCountResp struct {
 
 type FriendPutInReadReq struct {
 	FriendReqId int32    `json:"friend_req_id,omitempty"` // 0 或不传表示全部已读
-	RequestIds  []uint64 `json:"request_ids,optional"`
+	RequestIds  []string `json:"request_ids,optional"`
 }
 
 type FriendPutInReadResp struct {
@@ -162,9 +163,10 @@ type FriendRequests struct {
 	StatusText    string `json:"status_text,omitempty"` // 状态中文文本: 待处理, 已同意, 已拒绝, 已忽略
 	HandleMsg     string `json:"handle_msg,omitempty"`
 	ReadState     int    `json:"read_state,omitempty"` // 读取状态 0未读 1已读
-	RequestId     uint64 `json:"request_id"`
+	RequestId     string `json:"request_id"`
 	PeerUid       string `json:"peer_uid"`
 	HandledAt     int64  `json:"handled_at,omitempty"`
+	Actionable    bool   `json:"actionable"`
 	Nickname      string `json:"nickname,omitempty"`     // 昵称
 	Avatar        string `json:"avatar,omitempty"`       // 头像
 	Sex           int32  `json:"sex,omitempty"`          // 性别（0-未知 1-男 2-女）

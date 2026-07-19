@@ -70,7 +70,7 @@ func resolveApplyReceipts(tx *gorm.DB, requestType string, requestIDs []uint64, 
 	}
 	updates := map[string]any{"is_actionable": 0, "result": result, "resolved_at": now}
 	if err := tx.Model(&objects.SocialRequestReceipt{}).
-		Where("request_type = ? AND request_id IN ? AND receipt_kind = ?", requestType, requestIDs, receiptKindApply).
+		Where("request_type = ? AND request_id IN ? AND receipt_kind = ? AND result <> ?", requestType, requestIDs, receiptKindApply, receiptInvalidated).
 		Updates(updates).Error; err != nil {
 		return err
 	}

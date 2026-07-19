@@ -315,6 +315,17 @@ func TestFriendDeletePreservesSharedHistory(t *testing.T) {
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ?", receiptTypeFriend, created.RequestId, "2").First(&receipt).Error)
 	require.Equal(t, 1, receipt.IsRead)
 	require.Zero(t, receipt.IsActionable)
+	require.Equal(t, receiptInvalidated, receipt.Result)
+
+	_, err = NewFriendPutInHandleLogic(context.Background(), svcCtx).FriendPutInHandle(&social.FriendPutInHandleReq{
+		ActorUid: "2", UserId: "2", RequestId: uint64(created.RequestId), HandleResult: 1,
+	})
+	require.NoError(t, err)
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ?", receiptTypeFriend, created.RequestId, "2").First(&receipt).Error)
+	require.Equal(t, receiptInvalidated, receipt.Result)
+	list, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{UserId: "2", Class: "1", Type: -1})
+	require.NoError(t, err)
+	require.Empty(t, list.List)
 }
 
 func TestFriendPutInHandleAuthorizationAndResults(t *testing.T) {

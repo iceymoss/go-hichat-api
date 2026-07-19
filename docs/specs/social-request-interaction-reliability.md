@@ -574,7 +574,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 10 已完成。下一会话从步骤 11 开始：好友申请列表按新契约分页与 receipt 已读时序。
+步骤 11 已完成。下一会话从步骤 12 开始：群申请与群邀请三 tab 分页、直接入群状态和 receipt 已读时序。
 
 ### 步骤 5 实施结果
 
@@ -632,6 +632,17 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - logout/login 同步清空 chat auth-scoped state并失效旧请求；异步群成员、用户资料和通知中心列表写入均校验当前 token/generation。
 - 新增 latest-request 单元测试；`bun test` 与 lint 通过，typecheck 仅保留两个既有 CSS 自定义属性类型错误。
 
+### 步骤 11 实施结果
+
+- 好友申请 HTTP canonical `request_id/request_ids` 改为十进制字符串，handle/read/delete 精确解析为 RPC `uint64`；覆盖 `2^53+1` 和非法/溢出 ID 测试。
+- FriendRequestList 按 active tab/status/page 每次只发一个分页请求，使用服务端 `total`，tab/filter 切换重置页码并对空尾页自动 clamp。
+- 前端 mapper 使用 `request_id`、`peer_uid`、`handle_msg`、`handled_at`、receipt-owned `read_state/actionable`，不再通过 JavaScript `Number` 传递申请 ID。
+- 已读严格按 list -> 当前页 unread request IDs -> read response counts 顺序执行；空 ID 不调用批量 read，read 返回值直接更新分类 badge。
+- delete 使用个人 receipt tombstone，sender 无 receipt 时 upsert；列表在 count/page 前排除 tombstone，后续 accept/reject 不覆盖个人删除状态。
+- query scope 使用 token/tab/status/page render-time gate，旧账号或旧筛选数据不会在新 scope 短暂渲染；mutation 完成校验 token/generation。
+- WS toast 和 NotificationCenter 将 `bizId` 传入导航，按精确字符串 request ID 跨页定位，找到后打开详情，不存在时显示双语提示。
+- Social API/RPC 目标 test、race、vet 和 Bun tests 通过；lint 无 error，typecheck 仅保留两个既有 CSS 自定义属性类型错误。
+
 步骤 4 暂不提前实现：
 
 - 个人 receipt 和 read/unread API 属于步骤 5。
@@ -657,7 +668,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 8. [x] 将 `group.member.added` 会话创建迁移到可靠消费者，删除 API best-effort goroutine；补关系新增事件。
 9. [x] 修复 WS 当前节点内多连接广播，并明确 WS 失败为 best-effort。
 10. [x] 前端 store 增加好友/群申请/邀请及群列表版本和统一 unread actions，所有相关通知触发重拉。
-11. [ ] FriendRequestList 改为分页单请求、顺序标读、字段正确映射和通知定位。
+11. [x] FriendRequestList 改为分页单请求、顺序标读、字段正确映射和通知定位。
 12. [ ] GroupList/GroupProfileCard 接入三个群申请 Tab、分页、个人回执、邀请确认、直接入群结果、群/会话刷新和通知定位。
 13. [ ] 联动业务 receipt 与通知中心标读；补中英文文案和可重试错误态。
 14. [ ] 统一 JWT 安全取值、修正好友 remark/tags 方向，重新生成 `.api/.proto/model` 代码并增加生成一致性检查。

@@ -6,6 +6,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
+	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -28,10 +29,15 @@ func NewFriendPutInDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 }
 
 func (l *FriendPutInDeleteLogic) FriendPutInDelete(req *types.FriendPutInDeleteReq) (resp *types.FriendPutInDeleteResp, err error) {
-	uid := l.ctx.Value(Identify).(string)
+	uid := ctxdata.GetUId(l.ctx)
+	requestID, err := parseRequestID(req.RequestId, req.FriendReqId)
+	if err != nil {
+		return nil, err
+	}
 	_, err = l.svcCtx.Social.FriendPutInDelete(l.ctx, &social.FriendPutInDeleteReq{
 		UserId:      uid,
 		FriendReqId: req.FriendReqId,
+		RequestId:   requestID,
 	})
 	if err != nil {
 		zLog.Error("friend putIn delete err", zap.Error(err))

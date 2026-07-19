@@ -174,9 +174,10 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 			StatusText:    statusText,
 			HandleMsg:     v.HandleMsg,
 			ReadState:     int(v.ReadState),
-			RequestId:     v.RequestId,
+			RequestId:     strconv.FormatUint(v.RequestId, 10),
 			PeerUid:       v.PeerUid,
 			HandledAt:     v.HandledAt,
+			Actionable:    v.Actionable,
 		}
 
 		// 填充用户信息

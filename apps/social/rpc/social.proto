@@ -32,6 +32,7 @@ message FriendRequests { //好友请求
   string peerUid = 10;
   string handleMsg = 11;
   int64 handledAt = 12;
+  bool actionable = 13;
 }
 
 message Groups { //群
@@ -337,6 +338,7 @@ message FriendPutInReadResp {
 message FriendPutInDeleteReq {
   string userId = 1;
   int32  friendReqId = 2;
+  uint64 requestId = 3;
 }
 message FriendPutInDeleteResp {}
 

@@ -18,167 +18,15 @@ import {
   XCircle,
   MinusCircle,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIMStore } from '@/lib/im-store';
 import { getAvatarColor, tagColor } from '@/lib/utils';
 import { useT } from '@/hooks/use-i18n';
 import AddFriendPanel from './AddFriendPanel';
-
-/* ═══════════════════════════════════════
-   Types (previously from mock-data)
-   ═══════════════════════════════════════ */
-
-export type FriendRequestStatus = 'pending' | 'accepted' | 'rejected' | 'ignored';
-export type FriendRequestClass = 'received' | 'sent';
-
-export interface FriendRequest {
-  id: string;
-  class: FriendRequestClass;
-  nickname: string;
-  avatar: string;
-  sex: 'male' | 'female' | 'unknown';
-  region: string;
-  occupation: string;
-  introduction: string;
-  tags: string[];
-  reqMsg: string;
-  handleMsg: string;
-  status: FriendRequestStatus;
-  readState: boolean;
-  reqTime: Date;
-  hiChatId?: string;
-  email?: string;
-  phone?: string;
-}
-
-/* ═══════════════════════════════════════
-   API helpers
-   ═══════════════════════════════════════ */
-
-/** Map backend sex int to string */
-function mapSex(sex?: number): 'male' | 'female' | 'unknown' {
-  if (sex === 1) return 'male';
-  if (sex === 2) return 'female';
-  return 'unknown';
-}
-
-/** Map backend handle_result int to status string */
-function mapHandleResult(hr: number): FriendRequestStatus {
-  switch (hr) {
-    case 1: return 'accepted';
-    case 2: return 'rejected';
-    case 3: return 'ignored';
-    default: return 'pending';
-  }
-}
-
-/** Map a single API record to our FriendRequest shape */
-function mapApiRequest(item: any, reqClass: FriendRequestClass): FriendRequest {
-  const tagsRaw = item.tags;
-  let tags: string[] = [];
-  if (Array.isArray(tagsRaw)) {
-    tags = tagsRaw;
-  } else if (typeof tagsRaw === 'string' && tagsRaw) {
-    try { tags = JSON.parse(tagsRaw); } catch { tags = tagsRaw.split(',').filter(Boolean); }
-  }
-
-  return {
-    id: String(item.id),
-    class: reqClass,
-    nickname: item.nickname || '未知用户',
-    avatar: item.avatar || '',
-    sex: mapSex(item.sex),
-    region: item.region || '',
-    occupation: item.occupation || '',
-    introduction: item.introduction || '',
-    tags,
-    reqMsg: item.req_msg || '',
-    handleMsg: item.handle_msg || '',
-    status: (item.status as FriendRequestStatus) || mapHandleResult(item.handle_result ?? 0),
-    readState: item.read_state === 1,
-    reqTime: new Date((item.req_time ?? 0) * 1000),
-    hiChatId: item.user_id ? String(item.user_id) : undefined,
-    email: item.email || undefined,
-    phone: item.phone || undefined,
-  };
-}
-
-async function fetchRequests(token: string, cls: '0' | '1', type: number): Promise<FriendRequest[]> {
-  const reqClass: FriendRequestClass = cls === '1' ? 'received' : 'sent';
-  const resp = await fetch(`/api/social/friend/putIns?class=${cls}&type=${type}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const json = await resp.json();
-  if (!json.success || !json.data?.list) return [];
-  return (json.data.list as any[]).map((item) => mapApiRequest(item, reqClass));
-}
-
-async function fetchAllRequests(token: string): Promise<FriendRequest[]> {
-  // Fetch both received (class=1) and sent (class=0) for all status types (type=0,1,2,3)
-  const promises: Promise<FriendRequest[]>[] = [];
-  for (const cls of ['0', '1'] as const) {
-    for (const type of [0, 1, 2, 3]) {
-      promises.push(fetchRequests(token, cls, type));
-    }
-  }
-  const results = await Promise.all(promises);
-  const all = results.flat();
-  // Deduplicate by id
-  const seen = new Set<string>();
-  return all.filter((r) => {
-    if (seen.has(r.id)) return false;
-    seen.add(r.id);
-    return true;
-  });
-}
-
-async function apiHandleRequest(token: string, friendReqId: number, handleResult: number, handleMsg?: string): Promise<boolean> {
-  const resp = await fetch('/api/social/friend/putIn', {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      friend_req_id: friendReqId,
-      handle_result: handleResult,
-      ...(handleMsg ? { handle_msg: handleMsg } : {}),
-    }),
-  });
-  const json = await resp.json();
-  return json.success === true;
-}
-
-async function apiDeleteRequest(token: string, friendReqId: number): Promise<boolean> {
-  const resp = await fetch('/api/social/friend/putIn/delete', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ friend_req_id: friendReqId }),
-  });
-  const json = await resp.json();
-  return json.success === true;
-}
-
-async function apiMarkAsRead(token: string, friendReqId: number): Promise<boolean> {
-  try {
-    const resp = await fetch('/api/social/friend/putIn/read', {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ friend_req_id: friendReqId }),
-    });
-    const json = await resp.json();
-    return json.success === true;
-  } catch {
-    return false;
-  }
-}
+import { deleteFriendRequest, handleFriendRequest, listFriendRequests, markFriendRequestsRead, type FriendRequest, type FriendRequestClass, type FriendRequestStatus, type FriendRequestStatusFilter } from '@/lib/social-request-api';
 
 /* ═══════════════════════════════════════
    Helpers
@@ -236,7 +84,7 @@ const statusStripeColors: Record<FriendRequestStatus, string> = {
   ignored: '#A2ACB5',
 };
 
-type StatusFilter = 'all' | FriendRequestStatus;
+type StatusFilter = FriendRequestStatusFilter;
 
 /* ═══════════════════════════════════════
    Confirm Dialog (Accept / Reject / Delete)
@@ -424,7 +272,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
   if (!request) return null;
 
   const sc = statusConfig[request.status];
-  const canAction = request.status === 'pending' && request.class === 'received';
+  const canAction = request.actionable;
 
   return (
     <div
@@ -712,7 +560,7 @@ interface RequestCardProps {
 function RequestCard({ request, onClick, onAccept, onReject, onDelete }: RequestCardProps) {
   const t = useT();
   const sc = statusConfig[request.status];
-  const canAction = request.status === 'pending' && request.class === 'received';
+  const canAction = request.actionable;
 
   return (
     <div
@@ -811,6 +659,12 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
               {formatRelativeTime(request.reqTime, t)}
             </span>
           </div>
+
+          {request.handledAt && (
+            <div style={{ fontSize: '11px', color: '#A2ACB5', marginBottom: '4px' }}>
+              {t('friend.requests.handledAt').replace('{time}', formatRelativeTime(request.handledAt, t))}
+            </div>
+          )}
 
           {/* Region */}
           <div style={{ fontSize: '12px', color: '#A2ACB5', marginBottom: '4px' }}>
@@ -920,27 +774,42 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
    ═══════════════════════════════════════ */
 
 export default function FriendRequestList() {
-  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, invalidateFriends, friendRequestsVersion, invalidateFriendRequests, refreshFriendRequestUnread, friendReqNavTab, clearFriendReqNavTab } = useIMStore();
+  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, friendRequestUnread, setFriendRequestUnread, invalidateFriends, friendRequestsVersion, invalidateFriendRequests, refreshFriendRequestUnread, friendReqNavTarget, clearFriendReqNavTarget } = useIMStore();
   const t = useT();
   const loadRequestFailureText = t('friend.loadReqFail');
+  const locationNotFoundText = t('friend.requests.locationNotFound');
   const token = currentUser?.token || '';
 
   // Local state
   const [activeTab, setActiveTab] = useState<FriendRequestClass>('received');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [page, setPage] = useState(1);
+  const [navigationVersion, setNavigationVersion] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [committedQuery, setCommittedQuery] = useState('');
+  const [loadError, setLoadError] = useState(false);
+  const [readError, setReadError] = useState(false);
+  const pageSize = 20;
 
   // 通知点击带来的子 tab 跳转意图（received=我收到 / sent=我发起），消费后清除
   useEffect(() => {
-    if (!friendReqNavTab) return;
-    setActiveTab(friendReqNavTab);
+    if (!friendReqNavTarget) return;
+    locatorTarget.current = friendReqNavTarget;
+    setActiveTab(friendReqNavTarget.tab);
     setStatusFilter('all');
-    clearFriendReqNavTab();
-  }, [friendReqNavTab, clearFriendReqNavTab]);
+    setPage(1);
+    setNavigationVersion(version => version + 1);
+  }, [friendReqNavTarget]);
 
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [detailRequest, setDetailRequest] = useState<FriendRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const requestGeneration = useRef(0);
+  const mutationGeneration = useRef(0);
+  const locatorTarget = useRef<{ tab: FriendRequestClass; requestId?: string } | null>(null);
+  const currentQuery = `${token}:${activeTab}:${statusFilter}:${page}`;
+  const visibleRequests = committedQuery === currentQuery ? requests : [];
+  const visibleDetailRequest = committedQuery === currentQuery ? detailRequest : null;
 
   // Send request panel state
   const [showSendPanel, setShowSendPanel] = useState(false);
@@ -952,69 +821,86 @@ export default function FriendRequestList() {
   const [confirmNickname, setConfirmNickname] = useState('');
   const [confirmLoading, setConfirmLoading] = useState(false);
 
-  // Fetch all requests on mount, then mark all as read
+  // Fetch one active page, then mark only visible unread receipts and refresh the authoritative count.
   useEffect(() => {
     if (!token) return;
     const generation = ++requestGeneration.current;
     setLoading(true);
-    fetchAllRequests(token)
-      .then((data) => {
+    setLoadError(false);
+    setReadError(false);
+    listFriendRequests(token, activeTab, statusFilter, page, pageSize)
+      .then(async ({ list, total: nextTotal }) => {
         if (generation === requestGeneration.current) {
-          setRequests(data);
-          // 进入列表后自动全部标记已读，清除 badge
-          const hasUnread = data.some(r => !r.readState);
-          if (hasUnread) {
-            apiMarkAsRead(token, 0).then(() => {
-              if (generation === requestGeneration.current) void refreshFriendRequestUnread();
-            });
+          const maxPage = Math.max(1, Math.ceil(nextTotal / pageSize));
+          if (page > maxPage) {
+            setPage(maxPage);
+            return;
+          }
+          const locator = locatorTarget.current;
+          if (locator?.requestId) {
+            const target = list.find(request => request.id === locator.requestId);
+            if (!target && page < maxPage) {
+              setPage(current => current + 1);
+              return;
+            }
+            if (!target) {
+              toast.error(locationNotFoundText);
+            } else {
+              setDetailRequest(target);
+            }
+          }
+          setRequests(list);
+          setTotal(nextTotal);
+          setCommittedQuery(currentQuery);
+          const unreadIds = list.filter(request => !request.readState).map(request => request.id);
+          if (unreadIds.length > 0) {
+            try {
+              const unread = await markFriendRequestsRead(token, unreadIds);
+              if (generation !== requestGeneration.current) return;
+              setRequests(current => current.map(request => unreadIds.includes(request.id) ? { ...request, readState: true } : request));
+              setFriendRequestUnread(unread);
+            } catch {
+              if (generation === requestGeneration.current) setReadError(true);
+            }
+          } else {
+            await refreshFriendRequestUnread();
+          }
+          if (generation === requestGeneration.current && locator) {
+            locatorTarget.current = null;
+            clearFriendReqNavTarget();
           }
         }
       })
       .catch(() => {
-        if (generation === requestGeneration.current) toast.error(loadRequestFailureText);
+        if (generation === requestGeneration.current) {
+          setLoadError(true);
+          toast.error(loadRequestFailureText);
+        }
       })
       .finally(() => {
         if (generation === requestGeneration.current) setLoading(false);
       });
     return () => { requestGeneration.current += 1; };
-  }, [token, friendRequestsVersion, refreshFriendRequestUnread, loadRequestFailureText]);
-
-  // Filter requests
-  const filteredRequests = useMemo(() => {
-    let filtered = requests.filter(r => r.class === activeTab);
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(r => r.status === statusFilter);
-    }
-    return filtered;
-  }, [requests, activeTab, statusFilter]);
+  }, [token, activeTab, statusFilter, page, currentQuery, friendRequestsVersion, navigationVersion, refreshFriendRequestUnread, setFriendRequestUnread, clearFriendReqNavTarget, loadRequestFailureText, locationNotFoundText]);
 
   // Handlers
   const handleBack = useCallback(() => {
     setShowFriendRequests(false);
   }, [setShowFriendRequests]);
 
-  const markAsRead = useCallback((id: string) => {
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, readState: true } : r));
-    if (token) {
-      apiMarkAsRead(token, Number(id));
-    }
-  }, [token]);
-
   const openAcceptDialog = useCallback((id: string, nickname: string) => {
-    markAsRead(id);
     setConfirmType('accept');
     setConfirmTargetId(id);
     setConfirmNickname(nickname);
     setConfirmOpen(true);
-  }, [markAsRead]);
+  }, []);
 
   const openRejectDialog = useCallback((id: string, nickname: string) => {
-    markAsRead(id);
     setConfirmType('reject');
     setConfirmTargetId(id);
     setConfirmNickname(nickname);
     setConfirmOpen(true);
-  }, [markAsRead]);
+  }, []);
 
   const openDeleteDialog = useCallback((id: string, nickname: string) => {
     setConfirmType('delete');
@@ -1025,13 +911,12 @@ export default function FriendRequestList() {
 
   const handleConfirm = useCallback(async (msg: string) => {
     if (!token) return;
+    const mutation = ++mutationGeneration.current;
     setConfirmLoading(true);
     try {
-      const reqId = Number(confirmTargetId);
-
       if (confirmType === 'accept') {
-        const ok = await apiHandleRequest(token, reqId, 1, msg || undefined);
-        if (!ok) { toast.error(t('friend.opFailRetry')); return; }
+        await handleFriendRequest(token, confirmTargetId, 1, msg || undefined);
+        if (mutation !== mutationGeneration.current || useIMStore.getState().currentUser?.token !== token) return;
         setRequests(prev => prev.map(r =>
           r.id === confirmTargetId
             ? { ...r, status: 'accepted' as const, handleMsg: msg, readState: true }
@@ -1041,8 +926,8 @@ export default function FriendRequestList() {
         toast.success(t('friend.acceptedToast').replace('{name}', req?.nickname || ''));
         invalidateFriends();
       } else if (confirmType === 'reject') {
-        const ok = await apiHandleRequest(token, reqId, 2, msg || undefined);
-        if (!ok) { toast.error(t('friend.opFailRetry')); return; }
+        await handleFriendRequest(token, confirmTargetId, 2, msg || undefined);
+        if (mutation !== mutationGeneration.current || useIMStore.getState().currentUser?.token !== token) return;
         setRequests(prev => prev.map(r =>
           r.id === confirmTargetId
             ? { ...r, status: 'rejected' as const, handleMsg: msg, readState: true }
@@ -1052,14 +937,16 @@ export default function FriendRequestList() {
         toast.success(t('friend.rejectedToast').replace('{name}', req?.nickname || ''));
       } else {
         // delete
-        const ok = await apiDeleteRequest(token, reqId);
-        if (!ok) { toast.error(t('friend.deleteFailRetry')); return; }
+        await deleteFriendRequest(token, confirmTargetId);
+        if (mutation !== mutationGeneration.current || useIMStore.getState().currentUser?.token !== token) return;
         setRequests(prev => prev.filter(r => r.id !== confirmTargetId));
         toast.success(t('friend.recordDeleted'));
         if (detailRequest?.id === confirmTargetId) {
           setDetailRequest(null);
         }
       }
+
+      if (mutation !== mutationGeneration.current || useIMStore.getState().currentUser?.token !== token) return;
 
       requestGeneration.current += 1;
       invalidateFriendRequests();
@@ -1068,14 +955,13 @@ export default function FriendRequestList() {
     } catch {
       toast.error(t('friend.opFailLater'));
     } finally {
-      setConfirmLoading(false);
+      if (mutation === mutationGeneration.current) setConfirmLoading(false);
     }
   }, [confirmType, confirmTargetId, detailRequest, token, requests, invalidateFriendRequests, refreshFriendRequestUnread]);
 
   const handleCardClick = useCallback((req: FriendRequest) => {
-    markAsRead(req.id);
     setDetailRequest(req);
-  }, [markAsRead]);
+  }, []);
 
   const handleDetailAccept = useCallback((id: string) => {
     const req = requests.find(r => r.id === id);
@@ -1228,7 +1114,7 @@ export default function FriendRequestList() {
           {(['received', 'sent'] as FriendRequestClass[]).map((tab) => (
             <button
               key={tab}
-              onClick={() => { setActiveTab(tab); setStatusFilter('all'); }}
+              onClick={() => { setActiveTab(tab); setStatusFilter('all'); setPage(1); }}
               style={{
                 padding: '6px 20px',
                 borderRadius: '17px',
@@ -1242,7 +1128,7 @@ export default function FriendRequestList() {
               }}
             >
               {tab === 'received' ? t('group.app.received') : t('group.app.sent')}
-              {tab === 'received' && friendRequestUnreadCount > 0 && activeTab !== tab && (
+              {friendRequestUnread[tab === 'received' ? 'apply' : 'result'] > 0 && activeTab !== tab && (
                 <span
                   className="inline-flex items-center justify-center"
                   style={{
@@ -1255,7 +1141,7 @@ export default function FriendRequestList() {
                     fontWeight: 700,
                   }}
                 >
-                  {friendRequestUnreadCount > 9 ? '9+' : friendRequestUnreadCount}
+                  {friendRequestUnread[tab === 'received' ? 'apply' : 'result'] > 9 ? '9+' : friendRequestUnread[tab === 'received' ? 'apply' : 'result']}
                 </span>
               )}
             </button>
@@ -1275,7 +1161,7 @@ export default function FriendRequestList() {
         {filterOptions.map((opt) => (
           <button
             key={opt.key}
-            onClick={() => setStatusFilter(opt.key)}
+            onClick={() => { setStatusFilter(opt.key); setPage(1); }}
             style={{
               padding: '4px 14px',
               borderRadius: '14px',
@@ -1296,14 +1182,19 @@ export default function FriendRequestList() {
 
       {/* ── Request List ── */}
       <div className="flex-1 overflow-y-auto im-scroll">
+        {(loadError || readError) && (
+          <div style={{ margin: '8px', padding: '10px 12px', borderRadius: 8, background: '#FFF3E8', color: '#AD6800', fontSize: 12 }}>
+            {loadError ? t('friend.requests.staleData') : t('friend.requests.markReadFailed')}
+          </div>
+        )}
         {loading ? (
           <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
             <Loader2 className="w-8 h-8" style={{ color: '#1BB45B', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
             <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{t('common.loading')}</div>
           </div>
-        ) : filteredRequests.length > 0 ? (
+        ) : visibleRequests.length > 0 ? (
           <div style={{ background: '#FFFFFF', borderRadius: '12px', margin: '8px', overflow: 'hidden' }}>
-            {filteredRequests.map((req) => (
+            {visibleRequests.map((req) => (
               <RequestCard
                 key={req.id}
                 request={req}
@@ -1313,6 +1204,17 @@ export default function FriendRequestList() {
                 onDelete={(id) => openDeleteDialog(id, req.nickname)}
               />
             ))}
+            {Math.ceil(total / pageSize) > 1 && (
+              <div className="flex items-center justify-center gap-3" style={{ padding: '12px' }}>
+                <button disabled={loading || page <= 1} onClick={() => setPage(current => Math.max(1, current - 1))} className="flex items-center gap-1" style={{ opacity: page <= 1 ? 0.4 : 1 }}>
+                  <ChevronLeft className="w-4 h-4" />{t('friend.requests.pagination.previous')}
+                </button>
+                <span style={{ fontSize: 12, color: '#646A73' }}>{t('friend.requests.pagination.page').replace('{page}', String(page)).replace('{total}', String(Math.ceil(total / pageSize)))}</span>
+                <button disabled={loading || page >= Math.ceil(total / pageSize)} onClick={() => setPage(current => Math.min(Math.ceil(total / pageSize), current + 1))} className="flex items-center gap-1" style={{ opacity: page >= Math.ceil(total / pageSize) ? 0.4 : 1 }}>
+                  {t('friend.requests.pagination.next')}<ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div
@@ -1344,7 +1246,7 @@ export default function FriendRequestList() {
 
       {/* ── Detail Modal ── */}
       <DetailModal
-        request={detailRequest}
+        request={visibleDetailRequest}
         onClose={() => setDetailRequest(null)}
         onAccept={handleDetailAccept}
         onReject={handleDetailReject}

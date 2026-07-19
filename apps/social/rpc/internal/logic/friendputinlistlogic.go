@@ -38,6 +38,9 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 		size = 100
 	}
 	query := l.svcCtx.DB.WithContext(l.ctx).Model(&objects.FriendRequest{}).Where("status <> ?", 0)
+	hidden := l.svcCtx.DB.Model(&objects.SocialRequestReceipt{}).Select("request_id").
+		Where("request_type = ? AND receiver_id = ? AND result = ?", receiptTypeFriend, in.UserId, receiptInvalidated)
+	query = query.Where("id NOT IN (?)", hidden)
 	if in.Class == "0" {
 		query = query.Where("user_id = ?", in.UserId)
 	} else {
@@ -60,7 +63,8 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 	for i := range rows {
 		ids[i] = rows[i].ID
 	}
-	receipts := map[uint64]int{}
+	type receiptState struct{ Read, Actionable int }
+	receipts := map[uint64]receiptState{}
 	if len(ids) > 0 {
 		kind := receiptKindApply
 		if in.Class == "0" {
@@ -71,7 +75,7 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 			return nil, status.Error(codes.Internal, "failed to list friend request receipts")
 		}
 		for _, r := range rs {
-			receipts[r.RequestID] = r.IsRead
+			receipts[r.RequestID] = receiptState{Read: r.IsRead, Actionable: r.IsActionable}
 		}
 	}
 	list := make([]*social.FriendRequests, 0, len(rows))
@@ -81,9 +85,6 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 		if in.Class == "0" {
 			read = r.SenderRead
 			peer = strconv.FormatUint(r.ReqUID, 10)
-		}
-		if v, ok := receipts[r.ID]; ok {
-			read = v
 		}
 		handled := int64(0)
 		if r.HandledAt != nil {
@@ -96,11 +97,16 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 		if r.Status != nil {
 			state = *r.Status
 		}
+		actionable := in.Class == "1" && result == receiptPending
+		if v, ok := receipts[r.ID]; ok {
+			read = v.Read
+			actionable = v.Actionable == 1
+		}
 		legacyID := int32(0)
 		if r.ID <= math.MaxInt32 {
 			legacyID = int32(r.ID)
 		}
-		list = append(list, &social.FriendRequests{Id: legacyID, RequestId: r.ID, UserId: strconv.FormatUint(r.UserID, 10), ReqUid: strconv.FormatUint(r.ReqUID, 10), PeerUid: peer, ReqMsg: r.ReqMsg, ReqTime: r.ReqTime.Unix(), HandleResult: int32(result), Status: int32(state), ReadState: int32(read), HandleMsg: r.HandleMsg, HandledAt: handled})
+		list = append(list, &social.FriendRequests{Id: legacyID, RequestId: r.ID, UserId: strconv.FormatUint(r.UserID, 10), ReqUid: strconv.FormatUint(r.ReqUID, 10), PeerUid: peer, ReqMsg: r.ReqMsg, ReqTime: r.ReqTime.Unix(), HandleResult: int32(result), Status: int32(state), ReadState: int32(read), HandleMsg: r.HandleMsg, HandledAt: handled, Actionable: actionable})
 	}
 	return &social.FriendPutInListResp{List: list, Total: total}, nil
 }

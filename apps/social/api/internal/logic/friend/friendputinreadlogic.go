@@ -28,10 +28,14 @@ func NewFriendPutInReadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *F
 
 func (l *FriendPutInReadLogic) FriendPutInRead(req *types.FriendPutInReadReq) (resp *types.FriendPutInReadResp, err error) {
 	uid := ctxdata.GetUId(l.ctx)
+	requestIDs, err := parseRequestIDs(req.RequestIds)
+	if err != nil {
+		return nil, err
+	}
 	rpcResp, err := l.svcCtx.Social.FriendPutInRead(l.ctx, &socialclient.FriendPutInReadReq{
 		UserId:      uid,
 		FriendReqId: req.FriendReqId,
-		RequestIds:  req.RequestIds,
+		RequestIds:  requestIDs,
 	})
 	if err != nil {
 		return nil, err

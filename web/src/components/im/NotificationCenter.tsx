@@ -102,7 +102,7 @@ export default function NotificationCenter() {
 
   const handleItemClick = (n: NotificationItem) => {
     // 跳到对应来源 + 子 tab（好友→新的朋友/我收到·我发起；群→群申请/我收到·我发起）
-    navigateToNotificationSource(n.notifyType);
+    navigateToNotificationSource(n.notifyType, n.bizId);
     setOpen(false);
     if (!token || n.isRead) return;
     listGeneration.current += 1;

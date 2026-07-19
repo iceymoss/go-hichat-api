@@ -75,6 +75,7 @@ interface IMState {
   friendRequestUnreadCount: number;
   setFriendRequestUnreadCount: (count: number) => void;
   friendRequestUnread: FriendRequestUnread;
+  setFriendRequestUnread: (unread: FriendRequestUnread) => void;
   friendRequestsVersion: number;
   invalidateFriendRequests: () => void;
   refreshFriendRequestUnread: () => Promise<void>;
@@ -95,16 +96,16 @@ interface IMState {
   refreshNotificationUnread: () => Promise<void>;
 
   // 通知点击/气泡跳转意图：把用户带到对应入口的具体子 tab（received=我收到 / sent=我发起）
-  friendReqNavTab: 'received' | 'sent' | null;
+  friendReqNavTarget: { tab: 'received' | 'sent'; requestId?: string } | null;
   groupAppNavTab: 'received' | 'sent' | null;
-  clearFriendReqNavTab: () => void;
+  clearFriendReqNavTarget: () => void;
   clearGroupAppNavTab: () => void;
   // 从群聊深链到通讯录群详情：携带 groupId，GroupList 读取后自动打开该群详情
   groupDetailNavId: string | null;
   openGroupDetail: (groupId: string) => void;
   clearGroupDetailNav: () => void;
   // 按 notifyType 跳到来源（好友→新的朋友；群→群申请），并定位子 tab。通知中心点击 + toast 共用。
-  navigateToNotificationSource: (notifyType: string) => void;
+  navigateToNotificationSource: (notifyType: string, bizId?: string) => void;
 
   // Group panel
   showGroupPanel: boolean;
@@ -291,6 +292,7 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   friendRequestUnreadCount: 0,
   setFriendRequestUnreadCount: (count) => set({ friendRequestUnreadCount: count }),
   friendRequestUnread: { total: 0, apply: 0, result: 0 },
+  setFriendRequestUnread: (unread) => set({ friendRequestUnread: unread, friendRequestUnreadCount: unread.total }),
   friendRequestsVersion: 0,
   invalidateFriendRequests: () => set((state) => ({ friendRequestsVersion: state.friendRequestsVersion + 1 })),
   refreshFriendRequestUnread: async () => {
@@ -325,9 +327,9 @@ export const useIMStore = create<IMState>()(persist((set) => ({
     } catch { /* preserve the last successful value */ }
   },
 
-  friendReqNavTab: null,
+  friendReqNavTarget: null,
   groupAppNavTab: null,
-  clearFriendReqNavTab: () => set({ friendReqNavTab: null }),
+  clearFriendReqNavTarget: () => set({ friendReqNavTarget: null }),
   clearGroupAppNavTab: () => set({ groupAppNavTab: null }),
   groupDetailNavId: null,
   openGroupDetail: (groupId) => set({
@@ -336,13 +338,14 @@ export const useIMStore = create<IMState>()(persist((set) => ({
     groupDetailNavId: groupId,
   }),
   clearGroupDetailNav: () => set({ groupDetailNavId: null }),
-  navigateToNotificationSource: (notifyType) => {
+  navigateToNotificationSource: (notifyType, bizId) => {
     // 公共导航字段，避免被 setActiveTab/setShowXxx 互相重置：一次 set 落定目标视图 + 子 tab 意图
     const base = { selectedContactId: null, showChatDetail: false, selectedTrendId: null, meSubPage: null };
     if (notifyType.startsWith('friend.')) {
       // friend.apply=被申请人(我收到)；friend.accept/reject=申请人看结果(我发起)
       const tab = notifyType === 'friend.apply' ? 'received' : 'sent';
-      set({ ...base, activeTab: 'contacts', showGroupPanel: false, showFriendRequests: true, friendReqNavTab: tab });
+      const match = /^friend:([1-9]\d*):(apply|accept|reject)$/.exec(bizId || '');
+      set({ ...base, activeTab: 'contacts', showGroupPanel: false, showFriendRequests: true, friendReqNavTarget: { tab, requestId: match?.[1] } });
     } else if (notifyType.startsWith('group.')) {
       // group.apply=群主/管理员(我收到)；group.accept/reject=申请人看结果(我发起)
       const tab = notifyType === 'group.apply' ? 'received' : 'sent';
