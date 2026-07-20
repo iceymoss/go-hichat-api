@@ -33,7 +33,7 @@ func newNotificationModelForTest(t *testing.T) NotificationModel {
 	if err := conn.Exec("SELECT 1").Error; err != nil {
 		t.Skipf("mysql unavailable, skip: %v", err)
 	}
-	if err := conn.AutoMigrate(&objects.Notification{}); err != nil {
+	if err := conn.AutoMigrate(&objects.Notification{}, &objects.NotificationReadIntent{}); err != nil {
 		t.Skipf("migrate notifications unavailable, skip: %v", err)
 	}
 	return NewNotificationModel()
@@ -55,6 +55,7 @@ func Test_Notification_Insert_Idempotent_MultiReceiver(t *testing.T) {
 	receiverB := "tuserB_" + time.Now().Format("150405.000000")
 	t.Cleanup(func() {
 		conn.Table(table).Where("notify_type = ?", marker).Delete(nil)
+		conn.Table(objects.NotificationReadIntent{}.TableName()).Where("notify_type = ?", marker).Delete(nil)
 	})
 
 	newRow := func(receiver, biz string) *Notification {
@@ -95,7 +96,7 @@ func Test_Notification_Insert_Idempotent_MultiReceiver(t *testing.T) {
 	}
 
 	// MarkRead 单条：标 A 列表中第一条，未读应降到 1
-	if aff, err := m.MarkRead(ctx, receiverA, []uint64{listA[0].Id}); err != nil || aff != 1 {
+	if aff, unread, err := m.MarkRead(ctx, receiverA, []uint64{listA[0].Id}); err != nil || aff != 1 || unread != 1 {
 		t.Fatalf("MarkRead one affected=%d err=%v, want 1", aff, err)
 	}
 	if cnt, _ := m.CountUnread(ctx, receiverA); cnt != 1 {
@@ -104,7 +105,7 @@ func Test_Notification_Insert_Idempotent_MultiReceiver(t *testing.T) {
 	if ins, err := m.Insert(ctx, newRow(receiverA, "biz3")); err != nil || !ins {
 		t.Fatalf("insert biz3: %v", err)
 	}
-	if aff, err := m.MarkReadByBusiness(ctx, receiverA, []string{marker}, []string{"biz3"}); err != nil || aff != 1 {
+	if aff, unread, err := m.MarkReadByBusiness(ctx, receiverA, []NotificationReadTarget{{NotifyType: marker, BizId: "biz3"}}); err != nil || aff != 1 || unread != 1 {
 		t.Fatalf("MarkReadByBusiness affected=%d err=%v", aff, err)
 	}
 	if cnt, _ := m.CountUnread(ctx, receiverA); cnt != 1 {
@@ -112,7 +113,7 @@ func Test_Notification_Insert_Idempotent_MultiReceiver(t *testing.T) {
 	}
 
 	// MarkRead 全部（ids 空）：A 未读清零，且不影响 B
-	if _, err := m.MarkRead(ctx, receiverA, nil); err != nil {
+	if _, _, err := m.MarkRead(ctx, receiverA, nil); err != nil {
 		t.Fatalf("MarkRead all: %v", err)
 	}
 	if cnt, _ := m.CountUnread(ctx, receiverA); cnt != 0 {

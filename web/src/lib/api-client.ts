@@ -249,7 +249,7 @@ export function getAtMeMessages(token: string, conversationId: string, count = 0
 // ---------------- 公共通知（好友/群申请等实时通知） ----------------
 
 export interface NotificationItem {
-  id: number;
+  id: string;
   notifyType: string; // friend.apply / friend.accept / group.apply ...
   bizId?: string;
   actorId?: string;
@@ -273,9 +273,29 @@ export function getNotificationUnreadCount(token: string) {
   return imGet<{ count: number }>(`/v1/im/notifications/unreadCount`, token);
 }
 
-/** 标记通知已读（ids 为空表示全部已读） */
-export function markNotificationsRead(token: string, ids: number[] = []) {
-  return imPost<{ affected: number }>(`/v1/im/notifications/read`, { ids }, token);
+export type NotificationReadResult = { affected: number; unreadCount: number };
+export type NotificationBusinessTarget = { notify_type: string; biz_id: string };
+
+async function markNotificationsRead(token: string, body: unknown): Promise<NotificationReadResult> {
+  const result = await imPost<{ affected: number; unread_count: number }>(`/v1/im/notifications/read`, body, token);
+  return { affected: result.affected, unreadCount: result.unread_count };
+}
+
+/** 标记明确的通知 ID 已读。 */
+export function markNotificationIdsRead(token: string, ids: string[]) {
+  if (ids.length === 0) throw new Error('notification ids must not be empty');
+  return markNotificationsRead(token, { ids });
+}
+
+/** 标记当前用户的全部通知已读。 */
+export function markAllNotificationsRead(token: string) {
+  return markNotificationsRead(token, {});
+}
+
+/** 按本次已提交的业务目标精确同步公共通知已读状态。 */
+export function markBusinessNotificationsRead(token: string, targets: NotificationBusinessTarget[]) {
+  if (targets.length === 0) throw new Error('notification targets must not be empty');
+  return markNotificationsRead(token, { targets });
 }
 
 /** 获取会话列表 — 返回 {conversationList: Record<string, ConversationItem>} */

@@ -2,11 +2,14 @@ package logic
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type ListNotificationsLogic struct {
@@ -25,6 +28,9 @@ func NewListNotificationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 
 // ListNotifications 公共通知通道：拉取接收者通知列表（分页，按 id 倒序）。
 func (l *ListNotificationsLogic) ListNotifications(in *im.ListNotificationsReq) (*im.ListNotificationsResp, error) {
+	if parsed, err := strconv.ParseUint(in.ReceiverId, 10, 64); err != nil || parsed == 0 {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid receiver identity")
+	}
 	rows, err := l.svcCtx.NotificationModel.ListByReceiver(l.ctx, in.ReceiverId, in.UnreadOnly, int(in.Offset), int(in.Limit))
 	if err != nil {
 		return nil, err

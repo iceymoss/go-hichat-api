@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createLatestRequest } from './latest-request';
-import { getFriendRequestUnread, getGroupRequestUnread, groupRequestTargetFromBizID, type FriendRequestUnread, type GroupRequestTab, type GroupRequestUnread } from './social-request-api';
-import { getNotificationUnreadCount } from './api-client';
+import { clearMatchingPublicNotificationTargets, dedupePublicNotificationTargets, getFriendRequestUnread, getGroupRequestUnread, notificationNavigationTarget, type FriendRequestUnread, type GroupRequestTab, type GroupRequestUnread } from './social-request-api';
+import { getNotificationUnreadCount, type NotificationBusinessTarget } from './api-client';
 import { type Contact } from '@/lib/types';
 
 const friendUnreadRequest = createLatestRequest();
@@ -94,6 +94,12 @@ interface IMState {
   notificationUnreadCount: number;
   setNotificationUnreadCount: (count: number) => void;
   refreshNotificationUnread: () => Promise<void>;
+  friendPublicSyncTargets: NotificationBusinessTarget[];
+  groupPublicSyncTargets: NotificationBusinessTarget[];
+  queueFriendPublicSyncTargets: (targets: NotificationBusinessTarget[]) => NotificationBusinessTarget[];
+  queueGroupPublicSyncTargets: (targets: NotificationBusinessTarget[]) => NotificationBusinessTarget[];
+  clearFriendPublicSyncTargets: (snapshot: NotificationBusinessTarget[]) => void;
+  clearGroupPublicSyncTargets: (snapshot: NotificationBusinessTarget[]) => void;
 
   // 通知点击/气泡跳转意图：把用户带到对应入口的具体子 tab（received=我收到 / sent=我发起）
   friendReqNavTarget: { tab: 'received' | 'sent'; requestId?: string } | null;
@@ -105,7 +111,7 @@ interface IMState {
   openGroupDetail: (groupId: string) => void;
   clearGroupDetailNav: () => void;
   // 按 notifyType 跳到来源（好友→新的朋友；群→群申请），并定位子 tab。通知中心点击 + toast 共用。
-  navigateToNotificationSource: (notifyType: string, bizId?: string) => void;
+  navigateToNotificationSource: (notifyType: string, bizId?: string, groupId?: string) => void;
 
   // Group panel
   showGroupPanel: boolean;
@@ -169,7 +175,12 @@ export const useIMStore = create<IMState>()(persist((set) => ({
     friendsRequest.invalidate();
     notificationUnreadRequest.invalidate();
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('hichat:auth-reset'));
-    set({ isAuthenticated: true, currentUser: user, authView: 'login' });
+    set((state) => ({
+      isAuthenticated: true,
+      currentUser: user,
+      authView: 'login',
+      ...(state.currentUser?.token !== user.token ? { friendPublicSyncTargets: [], groupPublicSyncTargets: [] } : {}),
+    }));
     // Load settings from backend after login
     import('./settings-store').then(({ useSettingsStore }) => {
       useSettingsStore.getState().loadFromBackend(user.token);
@@ -188,7 +199,7 @@ export const useIMStore = create<IMState>()(persist((set) => ({
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => {});
     }
-    set({ isAuthenticated: false, currentUser: null, activeTab: 'chats', selectedConversationId: null, showChatDetail: false, friendRequestUnreadCount: 0, groupAppUnreadCount: 0, notificationUnreadCount: 0, friendRequestUnread: { total: 0, apply: 0, result: 0 }, groupRequestUnread: { total: 0, apply: 0, result: 0, invite: 0 }, friends: [] });
+    set({ isAuthenticated: false, currentUser: null, activeTab: 'chats', selectedConversationId: null, showChatDetail: false, friendRequestUnreadCount: 0, groupAppUnreadCount: 0, notificationUnreadCount: 0, friendRequestUnread: { total: 0, apply: 0, result: 0 }, groupRequestUnread: { total: 0, apply: 0, result: 0, invite: 0 }, friendPublicSyncTargets: [], groupPublicSyncTargets: [], friends: [] });
   },
   updateCurrentUser: (partial) => set((state) => ({
     currentUser: state.currentUser ? { ...state.currentUser, ...partial } : null,
@@ -327,6 +338,20 @@ export const useIMStore = create<IMState>()(persist((set) => ({
       set({ notificationUnreadCount: Math.max(0, body.count ?? 0) });
     } catch { /* preserve the last successful value */ }
   },
+  friendPublicSyncTargets: [],
+  groupPublicSyncTargets: [],
+  queueFriendPublicSyncTargets: (targets) => {
+    const next = dedupePublicNotificationTargets([...useIMStore.getState().friendPublicSyncTargets, ...targets]);
+    set({ friendPublicSyncTargets: next });
+    return next;
+  },
+  queueGroupPublicSyncTargets: (targets) => {
+    const next = dedupePublicNotificationTargets([...useIMStore.getState().groupPublicSyncTargets, ...targets]);
+    set({ groupPublicSyncTargets: next });
+    return next;
+  },
+  clearFriendPublicSyncTargets: (snapshot) => set((state) => ({ friendPublicSyncTargets: clearMatchingPublicNotificationTargets(state.friendPublicSyncTargets, snapshot) })),
+  clearGroupPublicSyncTargets: (snapshot) => set((state) => ({ groupPublicSyncTargets: clearMatchingPublicNotificationTargets(state.groupPublicSyncTargets, snapshot) })),
 
   friendReqNavTarget: null,
   groupAppNavTarget: null,
@@ -339,19 +364,13 @@ export const useIMStore = create<IMState>()(persist((set) => ({
     groupDetailNavId: groupId,
   }),
   clearGroupDetailNav: () => set({ groupDetailNavId: null }),
-  navigateToNotificationSource: (notifyType, bizId) => {
+  navigateToNotificationSource: (notifyType, bizId, groupId) => {
     // 公共导航字段，避免被 setActiveTab/setShowXxx 互相重置：一次 set 落定目标视图 + 子 tab 意图
     const base = { selectedContactId: null, showChatDetail: false, selectedTrendId: null, meSubPage: null };
-    if (notifyType.startsWith('friend.')) {
-      // friend.apply=被申请人(我收到)；friend.accept/reject=申请人看结果(我发起)
-      const tab = notifyType === 'friend.apply' ? 'received' : 'sent';
-      const match = /^friend:([1-9]\d*):(apply|accept|reject)$/.exec(bizId || '');
-      set({ ...base, activeTab: 'contacts', showGroupPanel: false, showFriendRequests: true, friendReqNavTarget: { tab, requestId: match?.[1] } });
-    } else if (notifyType.startsWith('group.')) {
-      const target = groupRequestTargetFromBizID(bizId);
-      const tab = notifyType === 'group.invite' ? 'invitations' : notifyType === 'group.apply' ? 'received' : 'sent';
-      set({ ...base, activeTab: 'contacts', showFriendRequests: false, showGroupPanel: true, groupAppNavTarget: target || { tab } });
-    }
+    const target = notificationNavigationTarget(notifyType, bizId, groupId);
+    if (target?.kind === 'friendRequest') set({ ...base, activeTab: 'contacts', showGroupPanel: false, showFriendRequests: true, friendReqNavTarget: { tab: target.tab, requestId: target.requestId } });
+    else if (target?.kind === 'groupRequest') set({ ...base, activeTab: 'contacts', showFriendRequests: false, showGroupPanel: true, groupAppNavTarget: { tab: target.tab, itemId: target.itemId } });
+    else if (target?.kind === 'groupDetail') useIMStore.getState().openGroupDetail(target.groupId);
   },
 
   // Group panel
@@ -429,6 +448,8 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   partialize: (state) => ({
     isAuthenticated: state.isAuthenticated,
     currentUser: state.currentUser,
+    friendPublicSyncTargets: state.friendPublicSyncTargets,
+    groupPublicSyncTargets: state.groupPublicSyncTargets,
   }),
 }));
 

@@ -84,17 +84,19 @@ type ListNotificationsResp struct {
 }
 
 type MarkNotificationsReadReq struct {
-	Ids         []uint64 `json:"ids,optional"` // 为空表示全部已读
-	NotifyTypes []string `json:"notify_types,optional"`
-	BizIds      []string `json:"biz_ids,optional"`
+	Ids         []string                 `json:"ids,optional"` // 十进制通知 ID；为空且无 targets 表示全部已读
+	NotifyTypes []string                 `json:"notify_types,optional"`
+	BizIds      []string                 `json:"biz_ids,optional"`
+	Targets     []NotificationReadTarget `json:"targets,optional"`
 }
 
 type MarkNotificationsReadResp struct {
-	Affected int64 `json:"affected"`
+	Affected    int64 `json:"affected"`
+	UnreadCount int64 `json:"unread_count"`
 }
 
 type NotificationItem struct {
-	Id         uint64 `json:"id"`
+	Id         string `json:"id"`
 	NotifyType string `json:"notifyType"` // friend.apply / group.accept ...
 	BizId      string `json:"bizId,omitempty"`
 	ActorId    string `json:"actorId,omitempty"`
@@ -104,6 +106,11 @@ type NotificationItem struct {
 	Payload    string `json:"payload,omitempty"`
 	IsRead     int32  `json:"isRead"`
 	CreateTime int64  `json:"createTime"`
+}
+
+type NotificationReadTarget struct {
+	NotifyType string `json:"notify_type"`
+	BizId      string `json:"biz_id"`
 }
 
 type NotificationUnreadCountResp struct {

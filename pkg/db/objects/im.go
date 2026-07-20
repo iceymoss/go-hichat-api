@@ -26,3 +26,17 @@ type Notification struct {
 func (Notification) TableName() string {
 	return "notifications"
 }
+
+// NotificationReadIntent makes a business notification read durable even when
+// the notification event arrives after the mark-read request.
+type NotificationReadIntent struct {
+	ID         uint64    `gorm:"primaryKey;column:id;autoIncrement"`
+	ReceiverID string    `gorm:"column:receiver_id;type:VARCHAR(64);not null;uniqueIndex:uk_notification_read_intent,priority:1"`
+	NotifyType string    `gorm:"column:notify_type;type:VARCHAR(64);not null;uniqueIndex:uk_notification_read_intent,priority:2"`
+	BizID      string    `gorm:"column:biz_id;type:VARCHAR(128);not null;uniqueIndex:uk_notification_read_intent,priority:3"`
+	CreatedAt  time.Time `gorm:"column:created_at;not null"`
+}
+
+func (NotificationReadIntent) TableName() string {
+	return "notification_read_intents"
+}

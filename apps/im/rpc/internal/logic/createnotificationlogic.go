@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	models "github.com/iceymoss/go-hichat-api/apps/im/models"
@@ -9,6 +10,8 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type CreateNotificationLogic struct {
@@ -28,6 +31,9 @@ func NewCreateNotificationLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 // CreateNotification 公共通知通道：落库一条通知（幂等）。
 // 命中 (receiver_id, notify_type, biz_id) 唯一键则跳过，inserted=false，供消费侧判断是否首次（避免重复推送）。
 func (l *CreateNotificationLogic) CreateNotification(in *im.CreateNotificationReq) (*im.CreateNotificationResp, error) {
+	if parsed, err := strconv.ParseUint(in.ReceiverId, 10, 64); err != nil || parsed == 0 {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid receiver identity")
+	}
 	data := &models.Notification{
 		ReceiverId: in.ReceiverId,
 		NotifyType: in.NotifyType,
@@ -51,7 +57,8 @@ func (l *CreateNotificationLogic) CreateNotification(in *im.CreateNotificationRe
 	}
 
 	return &im.CreateNotificationResp{
-		Id:       data.Id,
-		Inserted: inserted,
+		Id:          data.Id,
+		Inserted:    inserted,
+		AlreadyRead: data.IsRead == 1,
 	}, nil
 }

@@ -138,6 +138,7 @@ func migrationTables() []interface{} {
 
 		// IM 模块
 		&objects.Notification{},
+		&objects.NotificationReadIntent{},
 
 		// 系统级配置
 		&objects.SystemSetting{},

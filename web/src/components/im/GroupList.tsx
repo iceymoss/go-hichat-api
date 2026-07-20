@@ -39,7 +39,9 @@ import { toast } from 'sonner';
 import { useT } from '@/hooks/use-i18n';
 import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
+import { markBusinessNotificationsRead } from '@/lib/api-client';
 import {
+  groupRequestNotificationTargets,
   handleGroupInvitation,
   handleGroupRequest,
   groupInvitationAcceptPlan,
@@ -311,6 +313,7 @@ type DetailTab = 'members' | 'links' | 'announcements';
 type AppStatusFilter = GroupRequestStatusFilter;
 const requestTabs: GroupRequestTab[] = ['received', 'sent', 'invitations'];
 type AppQuery = { key: string; tab: GroupRequestTab; status: AppStatusFilter; page: number; items: GroupRequestItem[]; total: number };
+type AppReadRetry = { key: string; tab: GroupRequestTab; items: GroupRequestItem[] };
 
 function appQueryKey(token: string, tab: GroupRequestTab, status: AppStatusFilter, page: number) {
   return `${token}\u0000${tab}\u0000${status}\u0000${page}`;
@@ -318,7 +321,7 @@ function appQueryKey(token: string, tab: GroupRequestTab, status: AppStatusFilte
 
 export default function GroupList() {
   const t = useT();
-  const { setShowGroupPanel, groupAppUnreadCount, groupRequestUnread, setGroupRequestUnread, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupRequestsVersion, invalidateGroupRequests, groupsVersion, invalidateGroups, refreshGroupRequestUnread, groupAppNavTarget, clearGroupAppNavTarget, groupDetailNavId, clearGroupDetailNav } = useIMStore();
+  const { setShowGroupPanel, groupAppUnreadCount, groupRequestUnread, setGroupRequestUnread, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupRequestsVersion, invalidateGroupRequests, groupsVersion, invalidateGroups, refreshGroupRequestUnread, groupAppNavTarget, clearGroupAppNavTarget, groupDetailNavId, clearGroupDetailNav, setNotificationUnreadCount, bumpNotificationVersion, groupPublicSyncTargets, queueGroupPublicSyncTargets, clearGroupPublicSyncTargets } = useIMStore();
   const token = currentUser?.token || '';
   const myUserId = currentUser?.id || '';
 
@@ -334,6 +337,8 @@ export default function GroupList() {
   const [appPage, setAppPage] = useState<Record<GroupRequestTab, number>>({ received: 1, sent: 1, invitations: 1 });
   const [committedAppQuery, setCommittedAppQuery] = useState<AppQuery | null>(null);
   const [appLoading, setAppLoading] = useState(false);
+  const [appLoadError, setAppLoadError] = useState(false);
+  const [appReadError, setAppReadError] = useState(false);
   const [appTargetId, setAppTargetId] = useState<string>();
   const [highlightedAppId, setHighlightedAppId] = useState<string>();
   const [rejectInvitation, setRejectInvitation] = useState<Extract<GroupRequestItem, { tab: 'invitations' }> | null>(null);
@@ -342,6 +347,12 @@ export default function GroupList() {
   const groupsGeneration = useRef(0);
   const appsGeneration = useRef(0);
   const locatorGeneration = useRef(0);
+  const appReadRetry = useRef<AppReadRetry | null>(null);
+
+  useEffect(() => {
+    appReadRetry.current = null;
+    setAppReadError(false);
+  }, [token]);
 
   // 通知点击带来的跳转意图：进入「群申请」视图并定位子 tab（received=我收到 / sent=我发起）
   useEffect(() => {
@@ -485,12 +496,19 @@ export default function GroupList() {
     const requestToken = token;
     const generation = ++appsGeneration.current;
     setAppLoading(true);
+    setAppLoadError(false);
     try {
       const data = await listGroupRequests(requestToken, tab, status, page, 20);
       if (generation !== appsGeneration.current || useIMStore.getState().currentUser?.token !== requestToken) return;
+      const maxPage = Math.max(1, Math.ceil(data.total / 20));
+      if (page > maxPage) {
+        setAppPage(current => ({ ...current, [tab]: maxPage }));
+        return;
+      }
       setCommittedAppQuery({ key: appQueryKey(requestToken, tab, status, page), tab, status, page, items: data.list, total: data.total });
     } catch {
       // Preserve the last successful page on refresh failure.
+      if (generation === appsGeneration.current) setAppLoadError(true);
     } finally {
       if (generation === appsGeneration.current) setAppLoading(false);
     }
@@ -569,17 +587,73 @@ export default function GroupList() {
     const expectedKey = appQueryKey(token, appClass, appStatus[appClass], appPage[appClass]);
     if (view !== 'app' || !token || appLoading || committedAppQuery?.key !== expectedKey) return;
     const committedKey = committedAppQuery.key;
-    const ids = committedAppQuery.items.filter(item => !item.read).map(item => item.id);
+    const unreadItems = committedAppQuery.items.filter(item => !item.read);
+    const ids = unreadItems.map(item => item.id);
     if (ids.length === 0) return;
     const generation = appsGeneration.current;
     const requestToken = token;
     const mark = appClass === 'invitations' ? markGroupInvitationsRead : markGroupRequestsRead;
     mark(requestToken, ids).then(unread => {
-      if (generation !== appsGeneration.current || useIMStore.getState().currentUser?.token !== requestToken) return;
-      setCommittedAppQuery(current => current?.key === committedKey ? { ...current, items: current.items.map(item => ids.includes(item.id) ? { ...item, read: true } : item) } : current);
+      if (useIMStore.getState().currentUser?.token !== requestToken) return;
+      if (generation === appsGeneration.current) {
+        setCommittedAppQuery(current => current?.key === committedKey ? { ...current, items: current.items.map(item => ids.includes(item.id) ? { ...item, read: true } : item) } : current);
+        setAppReadError(false);
+        appReadRetry.current = null;
+      }
       setGroupRequestUnread(unread);
-    }).catch(() => {});
-  }, [view, token, appClass, appStatus, appPage, committedAppQuery, appLoading, setGroupRequestUnread]);
+      const targets = groupRequestNotificationTargets(unreadItems);
+      if (targets.length === 0) return;
+      const snapshot = queueGroupPublicSyncTargets(targets);
+      markBusinessNotificationsRead(requestToken, snapshot).then(result => {
+        if (useIMStore.getState().currentUser?.token !== requestToken) return;
+        setNotificationUnreadCount(result.unreadCount);
+        bumpNotificationVersion();
+        clearGroupPublicSyncTargets(snapshot);
+      }).catch(() => { /* queued snapshot remains retryable */ });
+    }).catch(() => {
+      if (generation !== appsGeneration.current) return;
+      appReadRetry.current = { key: committedKey, tab: appClass, items: unreadItems };
+      setAppReadError(true);
+    });
+  }, [view, token, appClass, appStatus, appPage, committedAppQuery, appLoading, setGroupRequestUnread, setNotificationUnreadCount, bumpNotificationVersion, queueGroupPublicSyncTargets, clearGroupPublicSyncTargets]);
+
+  const retryAppRead = useCallback(async () => {
+    const snapshot = appReadRetry.current;
+    if (!token || !snapshot || snapshot.items.length === 0) return;
+    const mark = snapshot.tab === 'invitations' ? markGroupInvitationsRead : markGroupRequestsRead;
+    try {
+      const unread = await mark(token, snapshot.items.map(item => item.id));
+      if (useIMStore.getState().currentUser?.token !== token) return;
+      const ids = new Set(snapshot.items.map(item => item.id));
+      setCommittedAppQuery(current => current?.key === snapshot.key ? { ...current, items: current.items.map(item => ids.has(item.id) ? { ...item, read: true } : item) } : current);
+      setGroupRequestUnread(unread);
+      appReadRetry.current = null;
+      setAppReadError(false);
+      const targets = groupRequestNotificationTargets(snapshot.items);
+      if (targets.length > 0) {
+        const committedTargets = queueGroupPublicSyncTargets(targets);
+        try {
+          const result = await markBusinessNotificationsRead(token, committedTargets);
+          if (useIMStore.getState().currentUser?.token !== token) return;
+          setNotificationUnreadCount(result.unreadCount);
+          bumpNotificationVersion();
+          clearGroupPublicSyncTargets(committedTargets);
+        } catch { /* queued snapshot remains retryable */ }
+      }
+    } catch { setAppReadError(true); }
+  }, [token, setGroupRequestUnread, setNotificationUnreadCount, bumpNotificationVersion, queueGroupPublicSyncTargets, clearGroupPublicSyncTargets]);
+
+  const retryAppPublicSync = useCallback(async () => {
+    const targets = useIMStore.getState().groupPublicSyncTargets;
+    if (!token || targets.length === 0) return;
+    try {
+      const result = await markBusinessNotificationsRead(token, targets);
+      if (useIMStore.getState().currentUser?.token !== token) return;
+      setNotificationUnreadCount(result.unreadCount);
+      bumpNotificationVersion();
+      clearGroupPublicSyncTargets(targets);
+    } catch { /* queued snapshot remains retryable */ }
+  }, [token, setNotificationUnreadCount, bumpNotificationVersion, clearGroupPublicSyncTargets]);
 
   // Notification targets may live on another page; locate by exact bizId without mixing page results.
   useEffect(() => {
@@ -739,8 +813,11 @@ export default function GroupList() {
 
   // Group app actions
   const convergeMutation = useCallback(async (item: GroupRequestItem, result: 1 | 2, handleMsg?: string): Promise<GroupInvitationHandleResult | null> => {
+    if (!token) throw new Error('Unauthenticated');
+    const requestToken = token;
     const invitationResult = item.tab === 'invitations' ? await handleGroupInvitation(token, item.id, result, handleMsg) : null;
     if (item.tab !== 'invitations') await handleGroupRequest(token, item.id, result);
+    if (useIMStore.getState().currentUser?.token !== requestToken) return null;
     invalidateGroupRequests();
     const invitationPlan = invitationResult ? groupInvitationAcceptPlan(invitationResult.joinState) : null;
     if (invitationPlan?.refreshGroups) {
@@ -768,10 +845,12 @@ export default function GroupList() {
         else if (effect === 'terminal_expired') toast(t('group.invitation.expired'));
         else toast.success(t('group.agreedToast').replace('{user}', actor).replace('{group}', group));
       } catch {
+        await fetchApplications(appClass, appStatus[appClass], appPage[appClass]);
+        void refreshGroupRequestUnread();
         toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, t, convergeMutation]);
+  }, [doConfirm, t, convergeMutation, fetchApplications, appClass, appStatus, appPage, refreshGroupRequestUnread]);
 
   const handleRejectApp = useCallback((app: GroupRequestItem) => {
     if (app.tab === 'invitations') {
@@ -786,10 +865,12 @@ export default function GroupList() {
         await convergeMutation(app, 2);
         toast.success(t('group.rejectedToast').replace('{user}', actor));
       } catch {
+        await fetchApplications(appClass, appStatus[appClass], appPage[appClass]);
+        void refreshGroupRequestUnread();
         toast.error(t('group.networkError'));
       }
     });
-  }, [doConfirm, t, convergeMutation]);
+  }, [doConfirm, t, convergeMutation, fetchApplications, appClass, appStatus, appPage, refreshGroupRequestUnread]);
 
   const submitInvitationReject = useCallback(async () => {
     if (!rejectInvitation) return;
@@ -799,9 +880,11 @@ export default function GroupList() {
       setRejectInvitation(null);
       setInvitationRejectReason('');
     } catch {
+      await fetchApplications(appClass, appStatus[appClass], appPage[appClass]);
+      void refreshGroupRequestUnread();
       toast.error(t('group.networkError'));
     }
-  }, [rejectInvitation, invitationRejectReason, convergeMutation, t]);
+  }, [rejectInvitation, invitationRejectReason, convergeMutation, t, fetchApplications, appClass, appStatus, appPage, refreshGroupRequestUnread]);
 
   // Create group
   const handleCreateGroup = useCallback(async () => {
@@ -1466,7 +1549,19 @@ export default function GroupList() {
 
         {/* App list */}
         <div className="flex-1 overflow-y-auto im-scroll">
-          {appLoading ? (
+          {(appLoadError || appReadError) && (
+            <div style={{ margin: 8, padding: '10px 12px', borderRadius: 8, background: '#FFF3E8', color: '#AD6800', fontSize: 12 }}>
+              {appLoadError ? t('group.requests.staleData') : t('group.requests.markReadFailed')}
+              {' '}<button onClick={appLoadError ? () => fetchApplications() : retryAppRead} style={{ color: '#1BB45B', background: 'none', border: 0, cursor: 'pointer' }}>{t('common.retry')}</button>
+            </div>
+          )}
+          {groupPublicSyncTargets.length > 0 && (
+            <div style={{ margin: 8, padding: '10px 12px', borderRadius: 8, background: '#FFF3E8', color: '#AD6800', fontSize: 12 }}>
+              {t('notify.center.syncFailed')}
+              {' '}<button onClick={retryAppPublicSync} style={{ color: '#1BB45B', background: 'none', border: 0, cursor: 'pointer' }}>{t('common.retry')}</button>
+            </div>
+          )}
+          {appLoading && !renderedAppQuery ? (
             <div className="flex items-center justify-center" style={{ padding: 60 }}><Loader2 className="w-5 h-5" style={{ color: '#1BB45B', animation: 'spin 1s linear infinite' }} /></div>
           ) : filteredApps.length > 0 ? (
             <div style={{ background: '#FFF', borderRadius: '12px', margin: '8px', overflow: 'hidden' }}>

@@ -1,5 +1,10 @@
 export type FriendRequestUnread = { total: number; apply: number; result: number };
 export type GroupRequestUnread = { total: number; apply: number; result: number; invite: number };
+export type PublicNotificationTarget = { notify_type: string; biz_id: string };
+export type NotificationNavigationTarget =
+  | { kind: 'friendRequest'; tab: FriendRequestClass; requestId?: string }
+  | { kind: 'groupRequest'; tab: GroupRequestTab; itemId?: string }
+  | { kind: 'groupDetail'; groupId: string };
 export type GroupRequestTab = 'received' | 'sent' | 'invitations';
 export type GroupRequestStatus = 'pending' | 'accepted' | 'rejected' | 'invalidated' | 'expired';
 export type GroupRequestStatusFilter = 'all' | GroupRequestStatus;
@@ -143,6 +148,59 @@ export function groupRequestTargetFromBizID(bizId?: string): { tab: GroupRequest
 export function friendRequestIDFromBizID(bizId?: string) {
   const match = /^friend:([1-9]\d*):(apply|accept|reject)$/.exec(bizId || '');
   return match?.[1];
+}
+
+export function dedupePublicNotificationTargets(targets: PublicNotificationTarget[]): PublicNotificationTarget[] {
+  const seen = new Set<string>();
+  return targets.filter(target => {
+    const key = `${target.notify_type}\u0000${target.biz_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function samePublicNotificationTargets(left: PublicNotificationTarget[], right: PublicNotificationTarget[]) {
+  return left.length === right.length && left.every((target, index) => target.notify_type === right[index]?.notify_type && target.biz_id === right[index]?.biz_id);
+}
+
+export function clearMatchingPublicNotificationTargets(current: PublicNotificationTarget[], submitted: PublicNotificationTarget[]) {
+  return samePublicNotificationTargets(current, submitted) ? [] : current;
+}
+
+export function friendRequestNotificationTargets(requests: FriendRequest[]): PublicNotificationTarget[] {
+  return dedupePublicNotificationTargets(requests.flatMap(request => {
+    if (request.class === 'received') return [{ notify_type: 'friend.apply', biz_id: `friend:${request.id}:apply` }];
+    if (request.status === 'accepted') return [{ notify_type: 'friend.accept', biz_id: `friend:${request.id}:accept` }];
+    if (request.status === 'rejected') return [{ notify_type: 'friend.reject', biz_id: `friend:${request.id}:reject` }];
+    return [];
+  }));
+}
+
+export function groupRequestNotificationTargets(requests: GroupRequestItem[]): PublicNotificationTarget[] {
+  return dedupePublicNotificationTargets(requests.flatMap(request => {
+    if (request.tab === 'invitations') return [{ notify_type: 'group.invite', biz_id: `group_invite:${request.id}:invite` }];
+    if (request.tab === 'received') return [{ notify_type: 'group.apply', biz_id: `group:${request.id}:apply` }];
+    if (request.status === 'accepted') return [{ notify_type: 'group.accept', biz_id: `group:${request.id}:accept` }];
+    if (request.status === 'rejected') return [{ notify_type: 'group.reject', biz_id: `group:${request.id}:reject` }];
+    if (request.status === 'invalidated') return [{ notify_type: 'group.invalidated', biz_id: `group:${request.id}:invalidated` }];
+    return [];
+  }));
+}
+
+export function notificationNavigationTarget(notifyType: string, bizId?: string, groupId?: string): NotificationNavigationTarget | undefined {
+  if (notifyType === 'friend.apply' || notifyType === 'friend.accept' || notifyType === 'friend.reject') {
+    return { kind: 'friendRequest', tab: notifyType === 'friend.apply' ? 'received' : 'sent', requestId: friendRequestIDFromBizID(bizId) };
+  }
+  if (notifyType === 'group.apply' || notifyType === 'group.accept' || notifyType === 'group.reject' || notifyType === 'group.invalidated' || notifyType === 'group.invite') {
+    const target = groupRequestTargetFromBizID(bizId);
+    const tab = notifyType === 'group.invite' ? 'invitations' : notifyType === 'group.apply' ? 'received' : 'sent';
+    return { kind: 'groupRequest', tab: target?.tab || tab, itemId: target?.itemId };
+  }
+  if (groupId && (notifyType === 'group.admin.set' || notifyType === 'group.admin.unset' || notifyType === 'group.owner.transferred')) {
+    return { kind: 'groupDetail', groupId };
+  }
+  return undefined;
 }
 
 function mapHandleResult(value: number): FriendRequestStatus {

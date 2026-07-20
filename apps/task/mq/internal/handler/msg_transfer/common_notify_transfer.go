@@ -67,8 +67,9 @@ func (m *CommonNotifyTransfer) Consume(ctx context.Context, key, value string) e
 		return err
 	}
 
-	// 2. 仅首次落库才推送，避免 kafka 重投造成重复气泡（重复消费无副作用）。
-	if !inserted {
+	// 2. 仅首次落库且未命中已读意图时推送。已读意图表示用户先在
+	// 业务列表处理了通知，迟到的通知事件不得再产生 websocket 气泡。
+	if !shouldPushCommonNotification(inserted, row.IsRead == 1) {
 		return nil
 	}
 
@@ -91,4 +92,8 @@ func (m *CommonNotifyTransfer) Consume(ctx context.Context, key, value string) e
 		logx.WithContext(ctx).Errorf("CommonNotifyTransfer websocket delivery failed: event=%d type=%s receiver=%s err=%v", in.EventId, in.NotifyType, in.ReceiverId, err)
 	}
 	return nil
+}
+
+func shouldPushCommonNotification(inserted, alreadyRead bool) bool {
+	return inserted && !alreadyRead
 }

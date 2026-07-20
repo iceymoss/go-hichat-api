@@ -26,7 +26,8 @@ import { useIMStore } from '@/lib/im-store';
 import { getAvatarColor, tagColor } from '@/lib/utils';
 import { useT } from '@/hooks/use-i18n';
 import AddFriendPanel from './AddFriendPanel';
-import { deleteFriendRequest, handleFriendRequest, listFriendRequests, markFriendRequestsRead, type FriendRequest, type FriendRequestClass, type FriendRequestStatus, type FriendRequestStatusFilter } from '@/lib/social-request-api';
+import { markBusinessNotificationsRead } from '@/lib/api-client';
+import { deleteFriendRequest, friendRequestNotificationTargets, handleFriendRequest, listFriendRequests, markFriendRequestsRead, type FriendRequest, type FriendRequestClass, type FriendRequestStatus, type FriendRequestStatusFilter } from '@/lib/social-request-api';
 
 /* ═══════════════════════════════════════
    Helpers
@@ -774,7 +775,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
    ═══════════════════════════════════════ */
 
 export default function FriendRequestList() {
-  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, friendRequestUnread, setFriendRequestUnread, invalidateFriends, friendRequestsVersion, invalidateFriendRequests, refreshFriendRequestUnread, friendReqNavTarget, clearFriendReqNavTarget } = useIMStore();
+  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, friendRequestUnread, setFriendRequestUnread, invalidateFriends, friendRequestsVersion, invalidateFriendRequests, refreshFriendRequestUnread, friendReqNavTarget, clearFriendReqNavTarget, setNotificationUnreadCount, bumpNotificationVersion, friendPublicSyncTargets, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets } = useIMStore();
   const t = useT();
   const loadRequestFailureText = t('friend.loadReqFail');
   const locationNotFoundText = t('friend.requests.locationNotFound');
@@ -789,7 +790,13 @@ export default function FriendRequestList() {
   const [committedQuery, setCommittedQuery] = useState('');
   const [loadError, setLoadError] = useState(false);
   const [readError, setReadError] = useState(false);
+  const readRetry = useRef<FriendRequest[]>([]);
   const pageSize = 20;
+
+  useEffect(() => {
+    readRetry.current = [];
+    setReadError(false);
+  }, [token]);
 
   // 通知点击带来的子 tab 跳转意图（received=我收到 / sent=我发起），消费后清除
   useEffect(() => {
@@ -828,6 +835,7 @@ export default function FriendRequestList() {
     setLoading(true);
     setLoadError(false);
     setReadError(false);
+    readRetry.current = [];
     listFriendRequests(token, activeTab, statusFilter, page, pageSize)
       .then(async ({ list, total: nextTotal }) => {
         if (generation === requestGeneration.current) {
@@ -852,15 +860,32 @@ export default function FriendRequestList() {
           setRequests(list);
           setTotal(nextTotal);
           setCommittedQuery(currentQuery);
-          const unreadIds = list.filter(request => !request.readState).map(request => request.id);
+          const unreadRequests = list.filter(request => !request.readState);
+          const unreadIds = unreadRequests.map(request => request.id);
           if (unreadIds.length > 0) {
             try {
               const unread = await markFriendRequestsRead(token, unreadIds);
-              if (generation !== requestGeneration.current) return;
-              setRequests(current => current.map(request => unreadIds.includes(request.id) ? { ...request, readState: true } : request));
+              if (useIMStore.getState().currentUser?.token !== token) return;
+              if (generation === requestGeneration.current) {
+                setRequests(current => current.map(request => unreadIds.includes(request.id) ? { ...request, readState: true } : request));
+              }
               setFriendRequestUnread(unread);
+              const targets = friendRequestNotificationTargets(unreadRequests);
+              if (targets.length > 0) {
+                const snapshot = queueFriendPublicSyncTargets(targets);
+                try {
+                  const result = await markBusinessNotificationsRead(token, snapshot);
+                  if (useIMStore.getState().currentUser?.token !== token) return;
+                  setNotificationUnreadCount(result.unreadCount);
+                  bumpNotificationVersion();
+                  clearFriendPublicSyncTargets(snapshot);
+                } catch { /* queued snapshot remains retryable */ }
+              }
             } catch {
-              if (generation === requestGeneration.current) setReadError(true);
+              if (generation === requestGeneration.current) {
+                readRetry.current = unreadRequests;
+                setReadError(true);
+              }
             }
           } else {
             await refreshFriendRequestUnread();
@@ -881,7 +906,46 @@ export default function FriendRequestList() {
         if (generation === requestGeneration.current) setLoading(false);
       });
     return () => { requestGeneration.current += 1; };
-  }, [token, activeTab, statusFilter, page, currentQuery, friendRequestsVersion, navigationVersion, refreshFriendRequestUnread, setFriendRequestUnread, clearFriendReqNavTarget, loadRequestFailureText, locationNotFoundText]);
+  }, [token, activeTab, statusFilter, page, currentQuery, friendRequestsVersion, navigationVersion, refreshFriendRequestUnread, setFriendRequestUnread, clearFriendReqNavTarget, loadRequestFailureText, locationNotFoundText, setNotificationUnreadCount, bumpNotificationVersion, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets]);
+
+  const retryRead = useCallback(async () => {
+    const snapshot = readRetry.current;
+    if (!token || snapshot.length === 0) return;
+    try {
+      const unread = await markFriendRequestsRead(token, snapshot.map(request => request.id));
+      if (useIMStore.getState().currentUser?.token !== token) return;
+      const ids = new Set(snapshot.map(request => request.id));
+      setRequests(current => current.map(request => ids.has(request.id) ? { ...request, readState: true } : request));
+      setFriendRequestUnread(unread);
+      readRetry.current = [];
+      setReadError(false);
+      const targets = friendRequestNotificationTargets(snapshot);
+      if (targets.length > 0) {
+        const committedTargets = queueFriendPublicSyncTargets(targets);
+        try {
+          const result = await markBusinessNotificationsRead(token, committedTargets);
+          if (useIMStore.getState().currentUser?.token !== token) return;
+          setNotificationUnreadCount(result.unreadCount);
+          bumpNotificationVersion();
+          clearFriendPublicSyncTargets(committedTargets);
+        } catch { /* queued snapshot remains retryable */ }
+      }
+    } catch {
+      setReadError(true);
+    }
+  }, [token, setFriendRequestUnread, setNotificationUnreadCount, bumpNotificationVersion, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets]);
+
+  const retryPublicSync = useCallback(async () => {
+    const targets = useIMStore.getState().friendPublicSyncTargets;
+    if (!token || targets.length === 0) return;
+    try {
+      const result = await markBusinessNotificationsRead(token, targets);
+      if (useIMStore.getState().currentUser?.token !== token) return;
+      setNotificationUnreadCount(result.unreadCount);
+      bumpNotificationVersion();
+      clearFriendPublicSyncTargets(targets);
+    } catch { /* queued snapshot remains retryable */ }
+  }, [token, setNotificationUnreadCount, bumpNotificationVersion, clearFriendPublicSyncTargets]);
 
   // Handlers
   const handleBack = useCallback(() => {
@@ -1185,9 +1249,16 @@ export default function FriendRequestList() {
         {(loadError || readError) && (
           <div style={{ margin: '8px', padding: '10px 12px', borderRadius: 8, background: '#FFF3E8', color: '#AD6800', fontSize: 12 }}>
             {loadError ? t('friend.requests.staleData') : t('friend.requests.markReadFailed')}
+            {' '}<button onClick={loadError ? () => invalidateFriendRequests() : retryRead} style={{ color: '#1BB45B', background: 'none', border: 0, cursor: 'pointer' }}>{t('common.retry')}</button>
           </div>
         )}
-        {loading ? (
+        {friendPublicSyncTargets.length > 0 && (
+          <div style={{ margin: '8px', padding: '10px 12px', borderRadius: 8, background: '#FFF3E8', color: '#AD6800', fontSize: 12 }}>
+            {t('notify.center.syncFailed')}
+            {' '}<button onClick={retryPublicSync} style={{ color: '#1BB45B', background: 'none', border: 0, cursor: 'pointer' }}>{t('common.retry')}</button>
+          </div>
+        )}
+        {loading && visibleRequests.length === 0 ? (
           <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
             <Loader2 className="w-8 h-8" style={{ color: '#1BB45B', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
             <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{t('common.loading')}</div>

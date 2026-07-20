@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { buildFriendRequestListURL, buildGroupRequestListURL, friendRequestIDFromBizID, groupInvitationAcceptPlan, groupRequestTargetFromBizID, handleGroupInvitation, mapFriendRequest, mapGroupInvitation, mapGroupRequest, markFriendRequestsRead, markGroupInvitationsRead, markGroupRequestsRead } from './social-request-api';
+import { buildFriendRequestListURL, buildGroupRequestListURL, clearMatchingPublicNotificationTargets, friendRequestIDFromBizID, friendRequestNotificationTargets, groupInvitationAcceptPlan, groupRequestNotificationTargets, groupRequestTargetFromBizID, handleGroupInvitation, mapFriendRequest, mapGroupInvitation, mapGroupRequest, markFriendRequestsRead, markGroupInvitationsRead, markGroupRequestsRead, notificationNavigationTarget, samePublicNotificationTargets } from './social-request-api';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
@@ -34,6 +34,16 @@ describe('friend request API contract', () => {
     expect(markFriendRequestsRead('token', [])).rejects.toThrow('requestIds must not be empty');
     expect(called).toBe(false);
   });
+
+  test('maps committed receipts to exact deduplicated public targets', () => {
+    const received = mapFriendRequest({ request_id: '1', handle_result: 1 }, 'received');
+    const accepted = mapFriendRequest({ request_id: '2', handle_result: 1 }, 'sent');
+    const pending = mapFriendRequest({ request_id: '3', handle_result: 0 }, 'sent');
+    expect(friendRequestNotificationTargets([received, accepted, accepted, pending])).toEqual([
+      { notify_type: 'friend.apply', biz_id: 'friend:1:apply' },
+      { notify_type: 'friend.accept', biz_id: 'friend:2:accept' },
+    ]);
+  });
 });
 
 describe('group request API contract', () => {
@@ -58,6 +68,36 @@ describe('group request API contract', () => {
     expect(groupRequestTargetFromBizID('group:2:accept')).toEqual({ tab: 'sent', itemId: '2' });
     expect(groupRequestTargetFromBizID('group_invite:3:invite')).toEqual({ tab: 'invitations', itemId: '3' });
     expect(groupRequestTargetFromBizID('group:3:invite:extra')).toBeUndefined();
+  });
+
+  test('maps each group receipt class to its exact public target', () => {
+    const received = mapGroupRequest({ request_id: '1' }, 'received');
+    const rejected = mapGroupRequest({ request_id: '2', handle_result: 2 }, 'sent');
+    const pending = mapGroupRequest({ request_id: '3' }, 'sent');
+    const invitation = mapGroupInvitation({ id: '4' });
+    expect(groupRequestNotificationTargets([received, rejected, pending, invitation, invitation])).toEqual([
+      { notify_type: 'group.apply', biz_id: 'group:1:apply' },
+      { notify_type: 'group.reject', biz_id: 'group:2:reject' },
+      { notify_type: 'group.invite', biz_id: 'group_invite:4:invite' },
+    ]);
+  });
+
+  test('routes only request notifications to request panels', () => {
+    expect(notificationNavigationTarget('friend.accept', 'friend:2:accept')).toEqual({ kind: 'friendRequest', tab: 'sent', requestId: '2' });
+    expect(notificationNavigationTarget('group.invite', 'group_invite:4:invite')).toEqual({ kind: 'groupRequest', tab: 'invitations', itemId: '4' });
+    expect(notificationNavigationTarget('group.admin.set', undefined, '9')).toEqual({ kind: 'groupDetail', groupId: '9' });
+    expect(notificationNavigationTarget('group.removed')).toBeUndefined();
+    expect(notificationNavigationTarget('group.removed', undefined, '99')).toBeUndefined();
+    expect(notificationNavigationTarget('group.unknown', 'group:1:apply', '9')).toBeUndefined();
+  });
+
+  test('matches only the exact submitted retry snapshot', () => {
+    const submitted = [{ notify_type: 'group.apply', biz_id: 'group:1:apply' }];
+    const changed = [...submitted, { notify_type: 'group.apply', biz_id: 'group:2:apply' }];
+    expect(samePublicNotificationTargets(submitted, [...submitted])).toBe(true);
+    expect(samePublicNotificationTargets(submitted, changed)).toBe(false);
+    expect(clearMatchingPublicNotificationTargets(submitted, [...submitted])).toEqual([]);
+    expect(clearMatchingPublicNotificationTargets(changed, submitted)).toBe(changed);
   });
 
   test('reads exact visible IDs and returns categorized counts', async () => {

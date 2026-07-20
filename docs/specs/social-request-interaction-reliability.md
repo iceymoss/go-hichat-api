@@ -574,7 +574,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 12 已完成。下一会话从步骤 13 开始：业务 receipt 与公共通知 receipt 联动、重试和错误态收口。
+步骤 13 已完成。下一会话从步骤 14 开始：HTTP actor/JWT helper、生成契约和跨服务边界统一复核。
 
 ### 步骤 5 实施结果
 
@@ -654,6 +654,17 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - WS toast/NotificationCenter 将精确 `bizId` 定位到三类 tab，跨页查找后滚动并高亮；request mapper 展示后端用户/群信息和 invitation-derived inviter。
 - 新增 group API actor/ID、receipt、expiry、管理员回填、migration 与前端 helper tests；Social 全量 test/race、migration test/race 和 40 个 Bun tests 通过。
 
+### 步骤 13 实施结果
+
+- IM notification mark-read 新增 exact `(notify_type,biz_id)` targets，保留 numeric ID、mark-all 和 legacy pair compatibility；HTTP notification ID 改为十进制字符串。
+- 新增 `notification_read_intents` durable tombstone，业务标读会原子 upsert intent、标记已存在通知并返回 authoritative unread count；通知后到达时直接以已读状态插入。
+- task notification consumer 识别 intent 命中的 `already_read`，不再为已查看业务推送延迟 WS toast；mark-before-insert、insert-before-mark 和并发路径均收敛为已读。
+- FriendRequestList/GroupList 在 Social receipt 成功后映射并同步精确公共通知 target；IM 同步失败不回滚业务已读，快照持久化并支持跨 tab/page/reload 重试。
+- NotificationCenter 使用字符串 ID，未读项先标读再导航，mark-all 和 item mark 有 pending/error/retry；并发点击均更新已读真相，仅最后一次点击执行导航。
+- request 页面区分 initial error、same-query stale、Social read failure 和 public-sync failure，保留已提交数据并提供双语 retry；群分页收缩自动 clamp。
+- WS Social toast 与通知类型完成中英文，group request/relationship 导航显式分类；被移出群不再跳转无效群详情。
+- IM model/API/RPC/task/deploy 全量目标 test/race、重复 SQLite 顺序测试和 47 个 Bun tests 通过；lint 无 error，typecheck 仅保留两个既有 CSS 类型错误。
+
 步骤 4 暂不提前实现：
 
 - 个人 receipt 和 read/unread API 属于步骤 5。
@@ -681,7 +692,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 10. [x] 前端 store 增加好友/群申请/邀请及群列表版本和统一 unread actions，所有相关通知触发重拉。
 11. [x] FriendRequestList 改为分页单请求、顺序标读、字段正确映射和通知定位。
 12. [x] GroupList/GroupProfileCard 接入三个群申请 Tab、分页、个人回执、邀请确认、直接入群结果、群/会话刷新和通知定位。
-13. [ ] 联动业务 receipt 与通知中心标读；补中英文文案和可重试错误态。
+13. [x] 联动业务 receipt 与通知中心标读；补中英文文案和可重试错误态。
 14. [ ] 统一 JWT 安全取值、修正好友 remark/tags 方向，重新生成 `.api/.proto/model` 代码并增加生成一致性检查。
 15. [ ] 公共通知消费者改走幂等 IM RPC，移除 task 对 IM notification model 的直接写入。
 16. [ ] 管理员角色授予/撤销接入 pending receipt 补发/收口，增加邀请过期 cron 和确认接口过期 CAS。

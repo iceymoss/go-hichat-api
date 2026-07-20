@@ -157,6 +157,7 @@ message CreateNotificationReq {
 message CreateNotificationResp {
   uint64 id = 1;
   bool   inserted = 2; // false=命中幂等键被跳过（已存在）
+  bool   alreadyRead = 3; // true=命中已读意图，插入时即为已读；调用方不得再推送
 }
 
 message ListNotificationsReq {
@@ -172,11 +173,19 @@ message ListNotificationsResp {
 message MarkNotificationsReadReq {
   string receiverId = 1;
   repeated uint64 ids = 2; // 为空表示标记该接收者全部未读为已读
+  // Deprecated: use targets. Retained for wire compatibility.
   repeated string notifyTypes = 3;
+  // Deprecated: use targets. Retained for wire compatibility.
   repeated string bizIds = 4;
+  repeated NotificationReadTarget targets = 5;
+}
+message NotificationReadTarget {
+  string notifyType = 1;
+  string bizId = 2;
 }
 message MarkNotificationsReadResp {
   int64 affected = 1;
+  int64 unreadCount = 2;
 }
 
 message GetUnreadNotificationCountReq {

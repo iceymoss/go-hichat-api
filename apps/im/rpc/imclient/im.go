@@ -35,6 +35,7 @@ type (
 	MarkNotificationsReadReq       = im.MarkNotificationsReadReq
 	MarkNotificationsReadResp      = im.MarkNotificationsReadResp
 	Notification                   = im.Notification
+	NotificationReadTarget         = im.NotificationReadTarget
 	PutConversationsReq            = im.PutConversationsReq
 	PutConversationsResp           = im.PutConversationsResp
 	RecallMsgReq                   = im.RecallMsgReq

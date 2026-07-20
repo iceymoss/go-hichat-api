@@ -34,16 +34,37 @@ func (l *MarkNotificationsReadLogic) MarkNotificationsRead(req *types.MarkNotifi
 	if parsed, parseErr := strconv.ParseUint(uid, 10, 64); parseErr != nil || parsed == 0 {
 		return nil, status.Error(codes.Unauthenticated, "missing or invalid user identity")
 	}
+	ids, err := parseNotificationIDs(req.Ids)
+	if err != nil {
+		return nil, err
+	}
+	targets := make([]*im.NotificationReadTarget, 0, len(req.Targets))
+	for _, target := range req.Targets {
+		targets = append(targets, &im.NotificationReadTarget{NotifyType: target.NotifyType, BizId: target.BizId})
+	}
 
 	res, err := l.svcCtx.IM.MarkNotificationsRead(l.ctx, &im.MarkNotificationsReadReq{
 		ReceiverId:  uid,
-		Ids:         req.Ids,
+		Ids:         ids,
 		NotifyTypes: req.NotifyTypes,
 		BizIds:      req.BizIds,
+		Targets:     targets,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &types.MarkNotificationsReadResp{Affected: res.Affected}, nil
+	return &types.MarkNotificationsReadResp{Affected: res.Affected, UnreadCount: res.UnreadCount}, nil
+}
+
+func parseNotificationIDs(values []string) ([]uint64, error) {
+	ids := make([]uint64, 0, len(values))
+	for _, value := range values {
+		parsed, err := strconv.ParseUint(value, 10, 64)
+		if err != nil || parsed == 0 || strconv.FormatUint(parsed, 10) != value {
+			return nil, status.Error(codes.InvalidArgument, "notification ids must be canonical positive decimal strings")
+		}
+		ids = append(ids, parsed)
+	}
+	return ids, nil
 }

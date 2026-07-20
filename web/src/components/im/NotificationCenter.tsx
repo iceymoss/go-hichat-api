@@ -8,7 +8,8 @@ import { useChatStore } from '@/lib/chat-store';
 import { useT } from '@/hooks/use-i18n';
 import {
   listNotifications,
-  markNotificationsRead,
+  markAllNotificationsRead,
+  markNotificationIdsRead,
   type NotificationItem,
 } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -22,6 +23,8 @@ export default function NotificationCenter() {
   const notificationVersion = useIMStore(s => s.notificationVersion);
   const unread = useIMStore(s => s.notificationUnreadCount);
   const refreshNotificationUnread = useIMStore(s => s.refreshNotificationUnread);
+  const setNotificationUnreadCount = useIMStore(s => s.setNotificationUnreadCount);
+  const bumpNotificationVersion = useIMStore(s => s.bumpNotificationVersion);
   const navigateToNotificationSource = useIMStore(s => s.navigateToNotificationSource);
   // 通知发起人头像/昵称：好友优先，非好友回退到 chat-store 拉取的用户资料
   const userProfiles = useChatStore(s => s.userProfiles);
@@ -30,10 +33,27 @@ export default function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [listError, setListError] = useState(false);
+  const [markAllPending, setMarkAllPending] = useState(false);
+  const [markRetryItem, setMarkRetryItem] = useState<NotificationItem | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const listGeneration = useRef(0);
+  const clickGeneration = useRef(0);
+  const markAllGeneration = useRef(0);
 
   const token = currentUser?.token;
+
+  useEffect(() => {
+    listGeneration.current += 1;
+    clickGeneration.current += 1;
+    markAllGeneration.current += 1;
+    setItems([]);
+    setLoaded(false);
+    setListError(false);
+    setMarkRetryItem(null);
+    setMarkAllPending(false);
+  }, [token]);
 
   const fetchUnread = useCallback(() => {
     if (!token) return;
@@ -44,11 +64,15 @@ export default function NotificationCenter() {
     if (!token) return;
     const generation = ++listGeneration.current;
     setLoading(true);
+    setListError(false);
     listNotifications(token, false, 0, 30)
       .then(r => {
-        if (generation === listGeneration.current && useIMStore.getState().currentUser?.token === token) setItems(r.list ?? []);
+        if (generation === listGeneration.current && useIMStore.getState().currentUser?.token === token) {
+          setItems(r.list ?? []);
+          setLoaded(true);
+        }
       })
-      .catch(() => {})
+      .catch(() => { if (generation === listGeneration.current) setListError(true); })
       .finally(() => { if (generation === listGeneration.current) setLoading(false); });
   }, [token]);
 
@@ -89,29 +113,51 @@ export default function NotificationCenter() {
   };
 
   const handleMarkAllRead = () => {
-    if (!token) return;
+    if (!token || markAllPending) return;
     listGeneration.current += 1;
-    markNotificationsRead(token, [])
-      .then(() => {
-        fetchList();
-        void refreshNotificationUnread();
+    const generation = ++markAllGeneration.current;
+    setMarkAllPending(true);
+    markAllNotificationsRead(token)
+      .then(result => {
+        if (useIMStore.getState().currentUser?.token !== token) return;
+        setItems(current => current.map(item => ({ ...item, isRead: 1 })));
+        setNotificationUnreadCount(result.unreadCount);
+        bumpNotificationVersion();
         toast.success(t('notify.center.allReadDone'));
       })
-      .catch(() => toast.error(t('notify.center.markFailed')));
+      .catch(() => {
+        if (useIMStore.getState().currentUser?.token === token) toast.error(t('notify.center.markFailed'));
+      })
+      .finally(() => {
+        if (generation === markAllGeneration.current && useIMStore.getState().currentUser?.token === token) setMarkAllPending(false);
+      });
+  };
+
+  const navigate = (n: NotificationItem) => {
+    navigateToNotificationSource(n.notifyType, n.bizId, n.groupId);
+    setOpen(false);
   };
 
   const handleItemClick = (n: NotificationItem) => {
-    // 跳到对应来源 + 子 tab（好友→新的朋友/我收到·我发起；群→群申请/我收到·我发起）
-    navigateToNotificationSource(n.notifyType, n.bizId);
-    setOpen(false);
-    if (!token || n.isRead) return;
+    const click = ++clickGeneration.current;
+    if (n.isRead) { navigate(n); return; }
+    if (!token) return;
     listGeneration.current += 1;
-    markNotificationsRead(token, [n.id])
-      .then(() => {
-        fetchList();
+    setMarkRetryItem(null);
+    markNotificationIdsRead(token, [n.id])
+      .then(result => {
+        if (useIMStore.getState().currentUser?.token !== token) return;
+        setItems(current => current.map(item => item.id === n.id ? { ...item, isRead: 1 } : item));
+        setNotificationUnreadCount(result.unreadCount);
+        bumpNotificationVersion();
         void refreshNotificationUnread();
+        if (click === clickGeneration.current) navigate(n);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (click !== clickGeneration.current || useIMStore.getState().currentUser?.token !== token) return;
+        setMarkRetryItem(n);
+        toast.error(t('notify.center.markFailed'));
+      });
   };
 
   return (
@@ -150,12 +196,22 @@ export default function NotificationCenter() {
         >
           <div className="flex items-center justify-between shrink-0" style={{ height: 48, padding: '0 16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
             <span style={{ fontSize: 15, fontWeight: 600, color: '#1C2733' }}>{t('notify.center.title')}</span>
-            <button onClick={handleMarkAllRead} style={{ fontSize: 13, color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
-              {t('notify.center.markAllRead')}
+            <button disabled={markAllPending} onClick={handleMarkAllRead} style={{ fontSize: 13, color: '#1BB45B', background: 'none', border: 'none', cursor: markAllPending ? 'wait' : 'pointer', fontWeight: 500, opacity: markAllPending ? 0.6 : 1 }}>
+              {markAllPending ? t('common.loading') : t('notify.center.markAllRead')}
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto im-scroll">
+            {listError && (
+              <div style={{ padding: '8px 12px', background: '#FFF3E8', color: '#AD6800', fontSize: 12 }}>
+                {t('notify.center.listFailed')} <button onClick={fetchList} style={{ color: '#1BB45B', background: 'none', border: 0, cursor: 'pointer' }}>{t('common.retry')}</button>
+              </div>
+            )}
+            {markRetryItem && (
+              <div style={{ padding: '8px 12px', background: '#FFF3E8', color: '#AD6800', fontSize: 12 }}>
+                {t('notify.center.markFailed')} <button onClick={() => handleItemClick(markRetryItem)} style={{ color: '#1BB45B', background: 'none', border: 0, cursor: 'pointer' }}>{t('common.retry')}</button>
+              </div>
+            )}
             {items.length > 0 ? (
               items.map(n => (
                 <div
@@ -182,10 +238,10 @@ export default function NotificationCenter() {
                   </div>
                 </div>
               ))
-            ) : (
+            ) : !loaded && listError ? null : (
               <div className="flex flex-col items-center justify-center" style={{ padding: '48px 24px' }}>
                 <Bell className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: 12 }} />
-                <div style={{ fontSize: 13, color: '#A2ACB5' }}>{loading ? '...' : t('notify.center.empty')}</div>
+                <div style={{ fontSize: 13, color: '#A2ACB5' }}>{!loaded && loading ? t('common.loading') : t('notify.center.empty')}</div>
               </div>
             )}
           </div>
@@ -197,7 +253,6 @@ export default function NotificationCenter() {
 
 function Avatar({ name, avatar }: { name: string; avatar: string }) {
   if (avatar) {
-    // eslint-disable-next-line @next/next/no-img-element
     return <img src={avatar} alt={name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />;
   }
   return (

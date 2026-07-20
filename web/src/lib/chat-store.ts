@@ -37,8 +37,10 @@ import type { CallSignal } from './call-engine';
 import type { Message, Conversation } from './types';
 import { toast } from 'sonner';
 import { sendFriendRequest } from './friend-group-api';
+import { t as translate } from './i18n';
 
 const conversationsRequest = createLatestRequest();
+const tt = (key: string) => translate(key, useSettingsStore.getState().language);
 
 // 私聊被后端鉴权拦截（对方已删好友）时，顶部弹"重新添加好友"通知。
 // 与红感叹号（消息标 failed）并行：感叹号是消息级反馈，这条是关系级引导。
@@ -305,9 +307,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     });
 
     // 公共通知（好友/群申请等）：按 notifyType 分发 —— 实时红点 + 气泡提示（点击跳到对应入口）。
-    // 文案硬编码中文，与本模块其余 toast 保持一致；历史列表/已读由通知中心走 REST 拉取。
     ws.on('notify', (data) => {
-      const n = data as { notifyType?: string; bizId?: string } | null;
+      const n = data as { notifyType?: string; bizId?: string; groupId?: string } | null;
       if (!n?.notifyType) return;
       const imStore = useIMStore.getState();
       const friendNotification = ['friend.apply', 'friend.accept', 'friend.reject'].includes(n.notifyType);
@@ -326,43 +327,44 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         void get().fetchConversations(token);
       }
       // 点击气泡跳到来源 + 子 tab（好友→新的朋友；群→群申请）
-      const go = { label: '查看', onClick: () => useIMStore.getState().navigateToNotificationSource(n.notifyType!, n.bizId) };
+      const go = { label: tt('notify.toast.view'), onClick: () => useIMStore.getState().navigateToNotificationSource(n.notifyType!, n.bizId, n.groupId) };
+      const groupDetailAction = n.groupId ? { action: go } : {};
       switch (n.notifyType) {
         case 'friend.apply':
-          toast('有人申请添加你为好友', { action: go });
+          toast(tt('notify.toast.friend.apply'), { action: go });
           break;
         case 'friend.accept':
-          toast.success('对方通过了你的好友申请', { action: go });
+          toast.success(tt('notify.toast.friend.accept'), { action: go });
           break;
         case 'friend.reject':
-          toast('对方拒绝了你的好友申请', { action: go });
+          toast(tt('notify.toast.friend.reject'), { action: go });
           break;
         case 'group.apply':
-          toast('有人申请加入你管理的群聊', { action: go });
+          toast(tt('notify.toast.group.apply'), { action: go });
           break;
         case 'group.accept':
-          toast.success('你的入群申请已通过', { action: go });
+          toast.success(tt('notify.toast.group.accept'), { action: go });
           break;
         case 'group.reject':
-          toast('你的入群申请被拒绝', { action: go });
+          toast(tt('notify.toast.group.reject'), { action: go });
           break;
         case 'group.invalidated':
-          toast('入群申请已失效', { action: go });
+          toast(tt('notify.toast.group.invalidated'), { action: go });
           break;
         case 'group.invite':
-          toast('你收到了一条群聊邀请', { action: go });
+          toast(tt('notify.toast.group.invite'), { action: go });
           break;
         case 'group.removed':
-          toast('你已被移出群聊');
+          toast(tt('notify.toast.group.removed'));
           break;
         case 'group.admin.set':
-          toast.success('你已被设为群管理员');
+          toast.success(tt('notify.toast.group.adminSet'), groupDetailAction);
           break;
         case 'group.admin.unset':
-          toast('你已被取消群管理员');
+          toast(tt('notify.toast.group.adminUnset'), groupDetailAction);
           break;
         case 'group.owner.transferred':
-          toast.success('你已成为新群主');
+          toast.success(tt('notify.toast.group.ownerTransferred'), groupDetailAction);
           break;
       }
       // 公共通知未读以 REST 为真相，避免 reconnect GET 与本地 +1 互相覆盖。
