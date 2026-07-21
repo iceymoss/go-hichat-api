@@ -574,7 +574,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 14 已完成。下一会话从步骤 15 开始：公共通知消费者改走 authenticated idempotent IM RPC，移除 task 对 IM notification model 的直接写入。
+步骤 15 已完成。下一会话从步骤 16 开始：管理员角色变更接入 pending receipt 补发/收口，并增加邀请过期 cron 和确认接口过期 CAS。
 
 ### 步骤 5 实施结果
 
@@ -706,7 +706,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 12. [x] GroupList/GroupProfileCard 接入三个群申请 Tab、分页、个人回执、邀请确认、直接入群结果、群/会话刷新和通知定位。
 13. [x] 联动业务 receipt 与通知中心标读；补中英文文案和可重试错误态。
 14. [x] 统一 JWT 安全取值、修正好友 remark/tags 方向，重新生成 `.api/.proto/model` 代码并增加生成一致性检查。
-15. [ ] 公共通知消费者改走幂等 IM RPC，移除 task 对 IM notification model 的直接写入。
+15. [x] 公共通知消费者改走幂等 IM RPC，移除 task 对 IM notification model 的直接写入。
 16. [ ] 管理员角色授予/撤销接入 pending receipt 补发/收口，增加邀请过期 cron 和确认接口过期 CAS。
 17. [ ] 执行后端三库测试、Kafka/WS 集成测试、前端类型/组件测试及双账号多端 E2E。
 

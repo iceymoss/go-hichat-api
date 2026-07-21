@@ -330,6 +330,7 @@ services:
     image: hichat-task-mq
     environment:
       CONFIG_FILE: apps/task/mq/etc/mq-local.yaml
+      HICHAT_IM_RPC_AUTH_SECRET: ${HICHAT_IM_RPC_AUTH_SECRET:?set HICHAT_IM_RPC_AUTH_SECRET to the same value used by im-rpc}
       TZ: Asia/Shanghai
     volumes:
       - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro

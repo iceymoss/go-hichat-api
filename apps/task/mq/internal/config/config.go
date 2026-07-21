@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	service.ServiceConf
+	RpcAuthSecret string `json:",optional"`
 
 	ListenOn string
 
@@ -31,6 +32,7 @@ type Config struct {
 
 	// CommonNotifyTransfer 公共通知 topic（落库 + 在线推送，承载好友/群申请等实时通知）
 	CommonNotifyTransfer kq.KqConf
+	NotificationDLQTopic string `json:",optional"`
 
 	SocialRequestNotification kq.KqConf `json:",optional"`
 

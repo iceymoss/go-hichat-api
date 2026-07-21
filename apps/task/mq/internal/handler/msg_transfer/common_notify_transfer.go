@@ -5,51 +5,94 @@ import (
 	"encoding/json"
 	"time"
 
-	model "github.com/iceymoss/go-hichat-api/apps/im/models"
+	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/ws"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/rpcauth"
 
 	"github.com/zeromicro/go-queue/kq"
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-// CommonNotifyTransfer 公共通知消费者，实现 ConsumeHandler 接口。
-// 单一公共 topic（commonNotifyTransfer）：先幂等落库（im notifications 表），再 push.notify 在线推送给接收者。
-// 落库与 ChatLogModel 一致直接走 im model；离线由 ws 侧静默丢弃，上线拉列表补偿。
-type CommonNotifyTransfer struct {
-	*BaseChatTransfer
+const (
+	dlqVersion             = 1
+	dlqMalformedJSON       = "malformed_json"
+	dlqRPCInvalidArgument  = "rpc_invalid_argument"
+	maxNotificationBackoff = 30 * time.Second
+)
+
+type notificationCreator interface {
+	CreateNotification(context.Context, *im.CreateNotificationReq, ...grpc.CallOption) (*im.CreateNotificationResp, error)
 }
 
-// NewCommonNotifyTransfer 实例化一个 CommonNotifyTransfer
-func NewCommonNotifyTransfer(svc *svc.ServiceContext) kq.ConsumeHandler {
+type notificationSender interface {
+	Send(any) error
+}
+
+type deadLetterPublisher interface {
+	Publish(context.Context, []byte) error
+}
+
+type notificationDeadLetter struct {
+	Version        int    `json:"version"`
+	Classification string `json:"classification"`
+	RawEvent       string `json:"rawEvent"`
+}
+
+// CommonNotifyTransfer persists notifications through the owning IM service before best-effort online delivery.
+type CommonNotifyTransfer struct {
+	im         notificationCreator
+	ws         notificationSender
+	dlq        deadLetterPublisher
+	shutdown   context.Context
+	begin      func() (func(), bool)
+	retryDelay func(int) time.Duration
+}
+
+func NewCommonNotifyTransfer(svcCtx *svc.ServiceContext) kq.ConsumeHandler {
 	return &CommonNotifyTransfer{
-		BaseChatTransfer: NewBaseMsgChatTransfer(svc),
+		im:         svcCtx.Im,
+		ws:         svcCtx.WsClient,
+		dlq:        svcCtx.NotificationDLQ,
+		shutdown:   svcCtx.ShutdownContext(),
+		begin:      svcCtx.BeginNotification,
+		retryDelay: notificationRetryDelay,
 	}
 }
 
 func (m *CommonNotifyTransfer) Consume(ctx context.Context, key, value string) error {
+	if m.begin != nil {
+		done, ok := m.begin()
+		if !ok {
+			return context.Canceled
+		}
+		defer done()
+	}
+	ctx, cancel := notificationConsumeContext(ctx, m.shutdown)
+	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	var in mq.CommonNotify
 	if err := json.Unmarshal([]byte(value), &in); err != nil {
-		// 不可重试错误（脏数据）：打日志后丢弃，不阻塞消费组
-		logx.WithContext(ctx).Errorf("CommonNotifyTransfer bad message: err=%v", err)
-		return nil
+		logx.WithContext(ctx).Errorf("CommonNotifyTransfer malformed event: err=%v", err)
+		return m.publishDeadLetter(ctx, value, dlqMalformedJSON)
 	}
-
-	// 防御：自己通知自己 / 空接收者，直接跳过
 	if in.ReceiverId == "" || in.ReceiverId == in.ActorId {
 		return nil
 	}
-
 	createTime := in.CreateTime
 	if createTime == 0 {
 		createTime = time.Now().Unix()
 	}
 
-	// 1. 幂等落库：命中 (receiver_id, notify_type, biz_id) 唯一键则 inserted=false（已处理过）。
-	row := &model.Notification{
+	req := &im.CreateNotificationReq{
 		ReceiverId: in.ReceiverId,
 		NotifyType: in.NotifyType,
 		BizId:      in.BizId,
@@ -58,22 +101,17 @@ func (m *CommonNotifyTransfer) Consume(ctx context.Context, key, value string) e
 		Title:      in.Title,
 		Content:    in.Content,
 		Payload:    in.Payload,
-		IsRead:     0,
-		CreatedAt:  time.Unix(createTime, 0),
+		CreateTime: createTime,
 	}
-	inserted, err := m.svcCtx.NotificationModel.Insert(ctx, row)
+	resp, err := m.createNotification(ctx, req, value)
 	if err != nil {
-		// 可重试错误：返回让 kafka 重投
 		return err
 	}
-
-	// 2. 仅首次落库且未命中已读意图时推送。已读意图表示用户先在
-	// 业务列表处理了通知，迟到的通知事件不得再产生 websocket 气泡。
-	if !shouldPushCommonNotification(inserted, row.IsRead == 1) {
+	if !resp.Inserted || resp.AlreadyRead {
 		return nil
 	}
 
-	if err := m.svcCtx.WsClient.Send(websocket.Message{
+	if err := m.ws.Send(websocket.Message{
 		FrameType: websocket.FrameNoAck,
 		Method:    "push.notify",
 		FormId:    constants.SYSTEM_ROOT_UID,
@@ -94,6 +132,88 @@ func (m *CommonNotifyTransfer) Consume(ctx context.Context, key, value string) e
 	return nil
 }
 
-func shouldPushCommonNotification(inserted, alreadyRead bool) bool {
-	return inserted && !alreadyRead
+func (m *CommonNotifyTransfer) createNotification(ctx context.Context, req *im.CreateNotificationReq, raw string) (*im.CreateNotificationResp, error) {
+	for attempt := 0; ; attempt++ {
+		resp, err := m.im.CreateNotification(rpcauth.WithTask(ctx), req)
+		if err == nil && resp != nil {
+			return resp, nil
+		}
+		if err == nil {
+			logx.WithContext(ctx).Error("CommonNotifyTransfer IM RPC returned an empty response, blocking partition")
+			if err := waitNotificationRetry(ctx, m.retryDelay(attempt)); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if status.Code(err) == codes.InvalidArgument {
+			if err := m.publishDeadLetter(ctx, raw, dlqRPCInvalidArgument); err != nil {
+				return nil, err
+			}
+			return &im.CreateNotificationResp{}, nil
+		}
+		if code := status.Code(err); code == codes.Unauthenticated || code == codes.PermissionDenied {
+			logx.WithContext(ctx).Errorf("ALERT CommonNotifyTransfer IM RPC authentication/configuration failure: err=%v", err)
+		} else {
+			logx.WithContext(ctx).Errorf("CommonNotifyTransfer IM RPC failed, blocking partition: err=%v", err)
+		}
+		if err := waitNotificationRetry(ctx, m.retryDelay(attempt)); err != nil {
+			return nil, err
+		}
+	}
+}
+
+func (m *CommonNotifyTransfer) publishDeadLetter(ctx context.Context, raw, classification string) error {
+	body, err := json.Marshal(notificationDeadLetter{Version: dlqVersion, Classification: classification, RawEvent: raw})
+	if err != nil {
+		return err
+	}
+	for attempt := 0; ; attempt++ {
+		if err := m.dlq.Publish(ctx, body); err == nil {
+			return nil
+		} else {
+			logx.WithContext(ctx).Errorf("CommonNotifyTransfer DLQ publish failed, blocking partition: classification=%s err=%v", classification, err)
+		}
+		if err := waitNotificationRetry(ctx, m.retryDelay(attempt)); err != nil {
+			return err
+		}
+	}
+}
+
+func notificationConsumeContext(handlerCtx, shutdownCtx context.Context) (context.Context, context.CancelFunc) {
+	if shutdownCtx == nil {
+		shutdownCtx = context.Background()
+	}
+	ctx, cancel := context.WithCancel(handlerCtx)
+	stop := context.AfterFunc(shutdownCtx, cancel)
+	// AfterFunc schedules asynchronously when shutdown has already happened, so
+	// synchronously close this window before processing a prefetched message.
+	if shutdownCtx.Err() != nil {
+		cancel()
+	}
+	return ctx, func() {
+		stop()
+		cancel()
+	}
+}
+
+func notificationRetryDelay(attempt int) time.Duration {
+	delay := time.Second
+	for i := 0; i < attempt && delay < maxNotificationBackoff; i++ {
+		delay *= 2
+	}
+	if delay > maxNotificationBackoff {
+		return maxNotificationBackoff
+	}
+	return delay
+}
+
+func waitNotificationRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
