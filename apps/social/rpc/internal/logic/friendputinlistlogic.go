@@ -24,7 +24,11 @@ func NewFriendPutInListLogic(ctx context.Context, s *svc.ServiceContext) *Friend
 }
 
 func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*social.FriendPutInListResp, error) {
-	if in.UserId == "" || (in.Class != "0" && in.Class != "1") {
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
+	if err != nil {
+		return nil, err
+	}
+	if in.Class != "0" && in.Class != "1" {
 		return nil, status.Error(codes.InvalidArgument, "invalid friend request list scope")
 	}
 	page, size := int(in.Page), int(in.Size)
@@ -39,12 +43,12 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 	}
 	query := l.svcCtx.DB.WithContext(l.ctx).Model(&objects.FriendRequest{}).Where("status <> ?", 0)
 	hidden := l.svcCtx.DB.Model(&objects.SocialRequestReceipt{}).Select("request_id").
-		Where("request_type = ? AND receiver_id = ? AND result = ?", receiptTypeFriend, in.UserId, receiptInvalidated)
+		Where("request_type = ? AND receiver_id = ? AND result = ?", receiptTypeFriend, actor, receiptInvalidated)
 	query = query.Where("id NOT IN (?)", hidden)
 	if in.Class == "0" {
-		query = query.Where("user_id = ?", in.UserId)
+		query = query.Where("user_id = ?", actor)
 	} else {
-		query = query.Where("req_uid = ?", in.UserId)
+		query = query.Where("req_uid = ?", actor)
 	}
 	if in.Status != nil {
 		query = query.Where("handle_result = ?", *in.Status)
@@ -71,7 +75,7 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 			kind = receiptKindResult
 		}
 		var rs []objects.SocialRequestReceipt
-		if err := l.svcCtx.DB.WithContext(l.ctx).Where("request_type=? AND request_id IN ? AND receiver_id=? AND receipt_kind=?", receiptTypeFriend, ids, in.UserId, kind).Find(&rs).Error; err != nil {
+		if err := l.svcCtx.DB.WithContext(l.ctx).Where("request_type=? AND request_id IN ? AND receiver_id=? AND receipt_kind=?", receiptTypeFriend, ids, actor, kind).Find(&rs).Error; err != nil {
 			return nil, status.Error(codes.Internal, "failed to list friend request receipts")
 		}
 		for _, r := range rs {

@@ -2,17 +2,14 @@ package group
 
 import (
 	"context"
-	"strconv"
 	"time"
 
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/logic/actor"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type GroupPutInLogic struct {
@@ -26,16 +23,9 @@ func NewGroupPutInLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GroupP
 }
 
 func (l *GroupPutInLogic) GroupPutIn(req *types.GroupPutInReq) (*types.GroupPutInResp, error) {
-	uid := ctxdata.GetUId(l.ctx)
-	if id, err := strconv.ParseUint(uid, 10, 64); err != nil || id == 0 {
-		return nil, status.Error(codes.Unauthenticated, "missing or invalid user identity")
-	}
-	if req.Token != "" {
-		res, err := l.svcCtx.Social.GroupJoinByToken(l.ctx, &social.GroupJoinByTokenReq{UserId: uid, Token: req.Token, ReqMsg: req.ReqMsg})
-		if err != nil {
-			return nil, err
-		}
-		return &types.GroupPutInResp{GroupId: res.GroupIdString, IsPass: int(res.IsPass), Status: res.IsPass}, nil
+	uid, err := actor.UID(l.ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	// Legacy identity/source fields are intentionally ignored for public direct applications.

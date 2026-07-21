@@ -51,8 +51,8 @@ func Test_Notification_Insert_Idempotent_MultiReceiver(t *testing.T) {
 
 	// 用唯一 notify_type 标记本次测试的行，测试后清理
 	marker := "test.notify." + time.Now().Format("150405.000000")
-	receiverA := "tuserA_" + time.Now().Format("150405.000000")
-	receiverB := "tuserB_" + time.Now().Format("150405.000000")
+	receiverA := time.Now().Format("150405000000001")
+	receiverB := time.Now().Format("150405000000002")
 	t.Cleanup(func() {
 		conn.Table(table).Where("notify_type = ?", marker).Delete(nil)
 		conn.Table(objects.NotificationReadIntent{}.TableName()).Where("notify_type = ?", marker).Delete(nil)
@@ -121,5 +121,23 @@ func Test_Notification_Insert_Idempotent_MultiReceiver(t *testing.T) {
 	}
 	if cnt, _ := m.CountUnread(ctx, receiverB); cnt != 1 {
 		t.Fatalf("B unread after A mark-all = %d, want 1 (cross-receiver leak)", cnt)
+	}
+}
+
+func TestNotificationListValidation(t *testing.T) {
+	m := &customNotificationModel{}
+
+	_, err := m.ListByReceiver(context.Background(), "01", false, 0, 20)
+	if err != ErrInvalidNotificationReceiver {
+		t.Fatalf("non-canonical receiver error = %v, want %v", err, ErrInvalidNotificationReceiver)
+	}
+	for _, pagination := range []struct {
+		offset int
+		limit  int
+	}{{offset: -1, limit: 20}, {offset: 0, limit: -1}, {offset: 0, limit: 101}} {
+		_, err = m.ListByReceiver(context.Background(), "1", false, pagination.offset, pagination.limit)
+		if err != ErrInvalidNotificationPagination {
+			t.Errorf("offset=%d limit=%d error = %v, want %v", pagination.offset, pagination.limit, err, ErrInvalidNotificationPagination)
+		}
 	}
 }

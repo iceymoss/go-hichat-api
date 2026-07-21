@@ -2,6 +2,8 @@ package group
 
 import (
 	"context"
+
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/logic/actor"
 	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
@@ -24,7 +26,7 @@ func NewGroupInvitationHandleLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *GroupInvitationHandleLogic) GroupInvitationHandle(req *types.GroupInvitationHandleReq) (*types.GroupInvitationHandleResp, error) {
-	uid, err := apiActor(l.ctx)
+	uid, err := actor.UID(l.ctx)
 	if err != nil {
 		return nil, err
 	}

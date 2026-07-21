@@ -30,7 +30,11 @@ func NewFriendPutInMessageCountLogic(ctx context.Context, svcCtx *svc.ServiceCon
 // 1. 我发起的申请：handle_result=2（已拒绝）且 status=1（正常显示）的数量
 // 2. 我收到的申请：status=1（正常显示）且 handle_result=0（待处理）的数量
 func (l *FriendPutInMessageCountLogic) FriendPutInMessageCount(in *social.FriendPutInMessageCountReq) (*social.FriendPutInMessageCountResp, error) {
-	counts, err := countUnreadReceipts(l.svcCtx.DB.WithContext(l.ctx), in.UserId, false)
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
+	if err != nil {
+		return nil, err
+	}
+	counts, err := countUnreadReceipts(l.svcCtx.DB.WithContext(l.ctx), actor, false)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to count friend request receipts")
 	}

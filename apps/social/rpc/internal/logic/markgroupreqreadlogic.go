@@ -28,22 +28,20 @@ func NewMarkGroupReqReadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 // MarkGroupReqRead 把"我（群主/管理员）管理的群"收到的入群申请全部标记已读（receiver_read=1）。
 // 与好友申请进入列表即全部标已读的语义一致：badge=未读新申请，查看后清零。
 func (l *MarkGroupReqReadLogic) MarkGroupReqRead(in *social.MarkGroupReqReadReq) (*social.MarkGroupReqReadResp, error) {
-	if in.UserId == "" {
-		return nil, status.Error(codes.Unauthenticated, "user id is required")
-	}
-	if _, err := parsePositiveID(in.UserId, "user id"); err != nil {
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
+	if err != nil {
 		return nil, err
 	}
 	if len(in.RequestIds) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "group request ids are required")
 	}
 	var counts receiptCounts
-	err := l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
-		if err := markReceiptsRead(tx, in.UserId, receiptTypeGroup, in.RequestIds); err != nil {
+	err = l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
+		if err := markReceiptsRead(tx, actor, receiptTypeGroup, in.RequestIds); err != nil {
 			return err
 		}
 		var err error
-		counts, err = countUnreadReceipts(tx, in.UserId, true)
+		counts, err = countUnreadReceipts(tx, actor, true)
 		return err
 	})
 	if err != nil {

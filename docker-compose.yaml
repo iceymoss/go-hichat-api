@@ -259,6 +259,7 @@ services:
     image: hichat-im-rpc
     environment:
       CONFIG_FILE: apps/im/rpc/etc/im-local.yaml
+      HICHAT_IM_RPC_AUTH_SECRET: ${HICHAT_IM_RPC_AUTH_SECRET:?set HICHAT_IM_RPC_AUTH_SECRET to a random 32-byte-or-longer secret}
       TZ: Asia/Shanghai
     volumes:
       - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
@@ -283,6 +284,7 @@ services:
     ports: ["${IM_API_PORT:-8890}:8890"]
     environment:
       CONFIG_FILE: apps/im/api/etc/im-local.yaml
+      HICHAT_IM_RPC_AUTH_SECRET: ${HICHAT_IM_RPC_AUTH_SECRET:?set HICHAT_IM_RPC_AUTH_SECRET to the same value used by im-rpc}
       TZ: Asia/Shanghai
     volumes:
       - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro

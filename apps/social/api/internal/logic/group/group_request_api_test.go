@@ -18,24 +18,67 @@ import (
 
 type groupAPIRecorder struct {
 	socialclient.Social
-	markReadActor   string
-	invitationActor string
-	countActor      string
+	actors []string
+	legacy []string
 }
 
 func (r *groupAPIRecorder) MarkGroupReqRead(_ context.Context, in *socialclient.MarkGroupReqReadReq, _ ...grpc.CallOption) (*socialclient.MarkGroupReqReadResp, error) {
-	r.markReadActor = in.UserId
+	r.record(in.ActorUid, in.UserId)
 	return &socialclient.MarkGroupReqReadResp{}, nil
 }
 
 func (r *groupAPIRecorder) GroupInvitationRead(_ context.Context, in *socialclient.GroupInvitationReadReq, _ ...grpc.CallOption) (*socialclient.GroupInvitationReadResp, error) {
-	r.invitationActor = in.ActorUid
+	r.record(in.ActorUid, in.ActorUid)
 	return &socialclient.GroupInvitationReadResp{}, nil
 }
 
 func (r *groupAPIRecorder) GroupRequestMessageCount(_ context.Context, in *socialclient.GroupRequestMessageCountReq, _ ...grpc.CallOption) (*socialclient.GroupRequestMessageCountResp, error) {
-	r.countActor = in.UserId
+	r.record(in.ActorUid, in.UserId)
 	return &socialclient.GroupRequestMessageCountResp{}, nil
+}
+
+func (r *groupAPIRecorder) GroupPutinList(_ context.Context, in *socialclient.GroupPutinListReq, _ ...grpc.CallOption) (*socialclient.GroupPutinListResp, error) {
+	r.record(in.ActorUid, in.UserId)
+	return nil, status.Error(codes.Internal, "stop after recording request")
+}
+
+func (r *groupAPIRecorder) GetGroupPutListByUid(_ context.Context, in *socialclient.GetGroupPutListByUidReq, _ ...grpc.CallOption) (*socialclient.GroupPutinListResp, error) {
+	legacy := ""
+	if len(in.Ids) == 1 {
+		legacy = in.Ids[0]
+	}
+	r.record(in.ActorUid, legacy)
+	return &socialclient.GroupPutinListResp{}, nil
+}
+
+func (r *groupAPIRecorder) GroupSetAdmin(_ context.Context, in *socialclient.GroupSetAdminReq, _ ...grpc.CallOption) (*socialclient.GroupSetAdminResp, error) {
+	r.record(in.ActorUid, in.UserId)
+	return &socialclient.GroupSetAdminResp{}, nil
+}
+
+func (r *groupAPIRecorder) GroupInviteLinkCreate(_ context.Context, in *socialclient.GroupInviteLinkCreateReq, _ ...grpc.CallOption) (*socialclient.GroupInviteLinkCreateResp, error) {
+	r.record(in.ActorUid, in.UserId)
+	return &socialclient.GroupInviteLinkCreateResp{}, nil
+}
+
+func (r *groupAPIRecorder) GroupInviteLinkList(_ context.Context, in *socialclient.GroupInviteLinkListReq, _ ...grpc.CallOption) (*socialclient.GroupInviteLinkListResp, error) {
+	r.record(in.ActorUid, in.UserId)
+	return &socialclient.GroupInviteLinkListResp{}, nil
+}
+
+func (r *groupAPIRecorder) GroupInviteLinkRevoke(_ context.Context, in *socialclient.GroupInviteLinkRevokeReq, _ ...grpc.CallOption) (*socialclient.GroupInviteLinkRevokeResp, error) {
+	r.record(in.ActorUid, in.UserId)
+	return &socialclient.GroupInviteLinkRevokeResp{}, nil
+}
+
+func (r *groupAPIRecorder) GroupJoinByToken(_ context.Context, in *socialclient.GroupJoinByTokenReq, _ ...grpc.CallOption) (*socialclient.GroupJoinByTokenResp, error) {
+	r.record(in.ActorUid, in.UserId)
+	return &socialclient.GroupJoinByTokenResp{}, nil
+}
+
+func (r *groupAPIRecorder) record(actor, legacy string) {
+	r.actors = append(r.actors, actor)
+	r.legacy = append(r.legacy, legacy)
 }
 
 func TestGroupReadAndCountBindJWTActor(t *testing.T) {
@@ -49,10 +92,26 @@ func TestGroupReadAndCountBindJWTActor(t *testing.T) {
 	require.NoError(t, err)
 	_, err = NewGroupRequestMessageCountLogic(ctx, svcCtx).GroupRequestMessageCount(&types.GroupRequestMessageCountReq{})
 	require.NoError(t, err)
+	_, err = NewGroupPutInListLogic(ctx, svcCtx).GroupPutInList(&types.GroupPutInListReq{Class: 1})
+	require.Equal(t, codes.Internal, status.Code(err))
+	_, err = NewGetGroupPutListByUidLogic(ctx, svcCtx).GetGroupPutListByUid(&types.GetGroupPutListByUidReq{Class: "1"})
+	require.NoError(t, err)
+	_, err = NewGroupSetAdminLogic(ctx, svcCtx).GroupSetAdmin(&types.GroupSetAdminReq{GroupId: "1"})
+	require.NoError(t, err)
+	_, err = NewGroupInviteLinkCreateLogic(ctx, svcCtx).GroupInviteLinkCreate(&types.GroupInviteLinkCreateReq{GroupId: "1"})
+	require.NoError(t, err)
+	_, err = NewGroupInviteLinkListLogic(ctx, svcCtx).GroupInviteLinkList(&types.GroupInviteLinkListReq{GroupId: "1"})
+	require.NoError(t, err)
+	_, err = NewGroupInviteLinkRevokeLogic(ctx, svcCtx).GroupInviteLinkRevoke(&types.GroupInviteLinkRevokeReq{GroupId: "1", Token: "token"})
+	require.NoError(t, err)
+	_, err = NewGroupJoinByTokenLogic(ctx, svcCtx).GroupJoinByToken(&types.GroupJoinByTokenReq{Token: "token"})
+	require.NoError(t, err)
 
-	require.Equal(t, "9007199254740993", recorder.markReadActor)
-	require.Equal(t, "9007199254740993", recorder.invitationActor)
-	require.Equal(t, "9007199254740993", recorder.countActor)
+	require.Len(t, recorder.actors, 10)
+	for _, actor := range recorder.actors {
+		require.Equal(t, "9007199254740993", actor)
+	}
+	require.Equal(t, recorder.actors, recorder.legacy)
 }
 
 func TestGroupReadAndCountRejectInvalidJWTActor(t *testing.T) {

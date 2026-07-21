@@ -33,6 +33,10 @@ func NewGroupSetAdminLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Gro
 }
 
 func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social.GroupSetAdminResp, error) {
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
+	if err != nil {
+		return nil, err
+	}
 	role := int(constants.AtLargeGroupRoleLevel)
 	if in.IsAdmin {
 		role = int(constants.ManagerGroupRoleLevel)
@@ -41,7 +45,7 @@ func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social
 	// 不允许操作群主本人
 	filtered := make([]string, 0, len(in.MemberIds))
 	for _, id := range in.MemberIds {
-		if id == "" || id == in.UserId {
+		if id == "" || id == actor {
 			continue
 		}
 		filtered = append(filtered, id)
@@ -50,7 +54,7 @@ func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	ownerID, parseErr := parsePositiveID(in.UserId, "owner uid")
+	ownerID, parseErr := parsePositiveID(actor, "owner uid")
 	if parseErr != nil {
 		return nil, parseErr
 	}
@@ -68,7 +72,7 @@ func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social
 		memberIDs = append(memberIDs, memberID)
 	}
 	var changedIDs []uint64
-	err := transactionWithSQLiteRetry(l.ctx, l.svcCtx.DB, func(tx *gorm.DB) error {
+	err = transactionWithSQLiteRetry(l.ctx, l.svcCtx.DB, func(tx *gorm.DB) error {
 		attemptChanged := make([]uint64, 0, len(memberIDs))
 		query := tx
 		if tx.Dialector.Name() != "sqlite" {
@@ -124,7 +128,7 @@ func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social
 		emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
 			NotifyType: notifyType,
 			ReceiverId: id,
-			ActorId:    in.UserId,
+			ActorId:    actor,
 			BizId:      fmt.Sprintf("%s:%s:%s:%d", notifyType, in.GroupId, id, time.Now().Unix()),
 			GroupId:    in.GroupId,
 		})

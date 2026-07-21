@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/logic/actor"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
-	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -32,7 +32,10 @@ func NewFriendPutInListLogic(ctx context.Context, svcCtx *svc.ServiceContext, r 
 }
 
 func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (resp *types.FriendPutInListResp, err error) {
-	curUid := ctxdata.GetUId(l.ctx)
+	curUid, err := actor.UID(l.ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	// 从请求参数获取type和class，如果没有则使用默认值
 	reqType := req.Type
@@ -68,12 +71,13 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 	//Type: 0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
 	//Class: 0-我发起的申请列表, 1-我收到的申请列表
 	res, err := l.svcCtx.Social.FriendPutInList(l.ctx, &social.FriendPutInListReq{
-		UserId: curUid,
-		Type:   legacyType,
-		Class:  class,
-		Status: statusFilter,
-		Page:   req.Page,
-		Size:   req.Size,
+		UserId:   curUid,
+		ActorUid: curUid,
+		Type:     legacyType,
+		Class:    class,
+		Status:   statusFilter,
+		Page:     req.Page,
+		Size:     req.Size,
 	})
 	if err != nil {
 		return nil, err

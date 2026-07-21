@@ -2,11 +2,15 @@ package svc
 
 import (
 	"context"
+	"fmt"
+	"time"
+
 	models "github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/rpcauth"
 	"github.com/zeromicro/go-zero/zrpc"
-	"time"
 )
 
 type ServiceContext struct {
@@ -25,10 +29,16 @@ type ServiceContext struct {
 	models.NotificationModel
 
 	// 社交模块
-	Social socialclient.Social
+	Social    socialclient.Social
+	RPCAuth   *rpcauth.Auth
+	RPCReplay rpcauth.ReplayStore
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
+	rpcAuth, err := rpcauth.New(rpcauth.LoadSecret(c.RpcAuthSecret))
+	if err != nil {
+		panic(fmt.Errorf("im rpc startup: HICHAT_IM_RPC_AUTH_SECRET is required: %w", err))
+	}
 	conversationModel := models.NewConversationModel()
 	conversationsModel := models.NewConversationsModel()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -87,5 +97,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		ConversationsModel: conversationsModel,
 		NotificationModel:  models.NewNotificationModel(),
 		Social:             socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
+		RPCAuth:            rpcAuth,
+		RPCReplay:          rpcauth.NewRedisReplayStore(db.GetRedisConn()),
 	}
 }

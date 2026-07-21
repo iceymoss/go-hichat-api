@@ -26,13 +26,11 @@ func NewGroupRequestMessageCountLogic(ctx context.Context, svcCtx *svc.ServiceCo
 }
 
 func (l *GroupRequestMessageCountLogic) GroupRequestMessageCount(in *social.GroupRequestMessageCountReq) (*social.GroupRequestMessageCountResp, error) {
-	if in.UserId == "" {
-		return nil, status.Error(codes.Unauthenticated, "user id is required")
-	}
-	if _, err := parsePositiveID(in.UserId, "user id"); err != nil {
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
+	if err != nil {
 		return nil, err
 	}
-	counts, err := countUnreadReceipts(l.svcCtx.DB.WithContext(l.ctx), in.UserId, true)
+	counts, err := countUnreadReceipts(l.svcCtx.DB.WithContext(l.ctx), actor, true)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to count group request receipts")
 	}

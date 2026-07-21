@@ -60,7 +60,7 @@ HiChat 2.0 — 基于 go-zero 的微服务 IM + 社交 + 动态空间。前后�
 入口契约：
 - HTTP: `apps/<svc>/api/<svc>.api`
 - gRPC: `apps/<svc>/rpc/<svc>.proto`
-- 自动汇总文档见 `docs/specs/api.md`（运行 `/sync-api-docs` 更新）。
+- 自动汇总文档见 `docs/api.md`（运行 `/sync-api-docs` 更新）。
 
 ## 启动 / 测试
 

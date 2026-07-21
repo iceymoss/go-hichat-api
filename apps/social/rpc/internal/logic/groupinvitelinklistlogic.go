@@ -30,8 +30,12 @@ func NewGroupInviteLinkListLogic(ctx context.Context, svcCtx *svc.ServiceContext
 }
 
 func (l *GroupInviteLinkListLogic) GroupInviteLinkList(in *social.GroupInviteLinkListReq) (*social.GroupInviteLinkListResp, error) {
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
+	if err != nil {
+		return nil, err
+	}
 	// 权限：至少管理员/群主可查看链接列表
-	member, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.UserId, in.GroupId)
+	member, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, actor, in.GroupId)
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewMsg("no permission"), "not in group")
 	}

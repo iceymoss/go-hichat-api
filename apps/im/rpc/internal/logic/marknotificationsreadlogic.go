@@ -9,6 +9,7 @@ import (
 	models "github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
+	"github.com/iceymoss/go-hichat-api/pkg/rpcauth"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
@@ -31,8 +32,11 @@ func NewMarkNotificationsReadLogic(ctx context.Context, svcCtx *svc.ServiceConte
 
 // MarkNotificationsRead 公共通知通道：标记通知已读（ids 为空表示该接收者全部未读）。
 func (l *MarkNotificationsReadLogic) MarkNotificationsRead(in *im.MarkNotificationsReadReq) (*im.MarkNotificationsReadResp, error) {
-	if parsed, err := strconv.ParseUint(in.ReceiverId, 10, 64); err != nil || parsed == 0 {
-		return nil, status.Error(codes.Unauthenticated, "missing or invalid receiver identity")
+	if !rpcauth.CanonicalUID(in.ReceiverId) {
+		return nil, status.Error(codes.InvalidArgument, "receiver identity must be a canonical positive decimal string")
+	}
+	if err := requireNotificationUser(l.ctx, l.svcCtx.RPCAuth, in.ReceiverId); err != nil {
+		return nil, err
 	}
 	legacyFiltered := len(in.NotifyTypes) > 0 || len(in.BizIds) > 0
 	if legacyFiltered && (len(in.NotifyTypes) == 0 || len(in.BizIds) == 0 || len(in.NotifyTypes) != len(in.BizIds)) {

@@ -4,15 +4,13 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/logic/actor"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
-	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type GetGroupPutListByUidLogic struct {
@@ -35,21 +33,22 @@ func NewGetGroupPutListByUidLogic(ctx context.Context, svcCtx *svc.ServiceContex
 // class: 类别：1-我发起的申请，2-我接受到的申请
 // type: 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
 func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(req *types.GetGroupPutListByUidReq) (resp *types.GetGroupPutListByUidResp, err error) {
-	uid := ctxdata.GetUId(l.ctx)
-	if id, parseErr := strconv.ParseUint(uid, 10, 64); parseErr != nil || id == 0 {
-		return nil, status.Error(codes.Unauthenticated, "missing or invalid user identity")
+	uid, err := actor.UID(l.ctx)
+	if err != nil {
+		return nil, err
 	}
 	// Public callers are always scoped to the JWT actor; legacy ids cannot expand visibility.
 	ids := []string{uid}
 
 	// 调用RPC
 	res, err := l.svcCtx.Social.GetGroupPutListByUid(l.ctx, &social.GetGroupPutListByUidReq{
-		Ids:    ids,
-		Class:  req.Class,
-		Type:   req.Type,
-		Status: req.Status,
-		Page:   req.Page,
-		Size:   req.Size,
+		Ids:      ids,
+		ActorUid: uid,
+		Class:    req.Class,
+		Type:     req.Type,
+		Status:   req.Status,
+		Page:     req.Page,
+		Size:     req.Size,
 	})
 	if err != nil {
 		return nil, err

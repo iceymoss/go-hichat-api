@@ -4,14 +4,12 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/logic/actor"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type GroupInvitationCreateLogic struct {
@@ -25,7 +23,7 @@ func NewGroupInvitationCreateLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *GroupInvitationCreateLogic) GroupInvitationCreate(req *types.GroupInvitationCreateReq) (*types.GroupInvitationCreateResp, error) {
-	uid, err := apiActor(l.ctx)
+	uid, err := actor.UID(l.ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -36,14 +34,6 @@ func (l *GroupInvitationCreateLogic) GroupInvitationCreate(req *types.GroupInvit
 		return nil, err
 	}
 	return &types.GroupInvitationCreateResp{Invitation: invitationType(res.Invitation)}, nil
-}
-
-func apiActor(ctx context.Context) (string, error) {
-	uid := ctxdata.GetUId(ctx)
-	if id, err := strconv.ParseUint(uid, 10, 64); err != nil || id == 0 {
-		return "", status.Error(codes.Unauthenticated, "missing or invalid user identity")
-	}
-	return uid, nil
 }
 
 func invitationType(invitation *social.GroupInvitation) types.GroupInvitation {

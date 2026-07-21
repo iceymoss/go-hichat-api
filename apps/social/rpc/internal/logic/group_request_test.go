@@ -34,7 +34,7 @@ func newGroupTestContext(t *testing.T) (*svc.ServiceContext, *notifyRecorder) {
 	} else {
 		require.NoError(t, database.AutoMigrate(
 			&objects.Group{}, &objects.GroupMember{}, &objects.GroupRequest{},
-			&objects.GroupInvitation{}, &objects.RelationOutbox{}, &objects.SocialRequestReceipt{}, &objects.SocialNotificationOutbox{},
+			&objects.GroupInvitation{}, &objects.GroupInviteLink{}, &objects.RelationOutbox{}, &objects.SocialRequestReceipt{}, &objects.SocialNotificationOutbox{},
 		))
 	}
 	recorder := &notifyRecorder{}
@@ -62,14 +62,14 @@ func TestGroupRequestListPaginationAndFields(t *testing.T) {
 		require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroup, id, "1", receiptKindApply, 1, result, now, true, nil))
 	}
 	statusFilter := int32(0)
-	filtered, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, Class: "2", Status: &statusFilter, Page: 1, Size: 20})
+	filtered, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, ActorUid: "1", Class: "2", Status: &statusFilter, Page: 1, Size: 20})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), filtered.Total)
 	require.Greater(t, filtered.List[0].RequestId, uint64(math.MaxInt32))
 	require.Equal(t, "3", filtered.List[0].ApplicantUid)
 	require.True(t, filtered.List[0].Actionable)
 	require.Equal(t, int32(2), filtered.List[0].SourceType)
-	all, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, Class: "2", Page: 2, Size: 2})
+	all, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, ActorUid: "1", Class: "2", Page: 2, Size: 2})
 	require.NoError(t, err)
 	require.Equal(t, int64(3), all.Total)
 	require.Len(t, all.List, 1)
@@ -85,19 +85,167 @@ func TestGroupRequestListSeparatesSentAndReceiptOwnedReceived(t *testing.T) {
 	require.NoError(t, svcCtx.DB.Create(&own).Error)
 	require.NoError(t, svcCtx.DB.Create(&other).Error)
 
-	sent, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, Class: "1"})
+	sent, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, ActorUid: "1", Class: "1"})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), sent.Total)
 	require.Equal(t, own.ID, sent.List[0].RequestId)
 
-	received, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, Class: "2"})
+	received, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, ActorUid: "1", Class: "2"})
 	require.NoError(t, err)
 	require.Zero(t, received.Total)
 	require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroup, other.ID, "1", receiptKindApply, 0, receiptPending, now, false, nil))
-	received, err = NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, Class: "2"})
+	received, err = NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"1"}, ActorUid: "1", Class: "2"})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), received.Total)
 	require.False(t, received.List[0].Actionable)
+}
+
+func TestGroupRequestSentProjectionRedactsHandler(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	now := time.Now()
+	handler := uint64(2)
+	request := objects.GroupRequest{ReqID: "1", GroupID: 1, ReqTime: &now, HandleResult: intPtr(1), HandleUserID: &handler, SourceType: 1}
+	require.NoError(t, svcCtx.DB.Create(&request).Error)
+
+	resp, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{
+		ActorUid: "1", Ids: []string{"1"}, Class: "1",
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.List, 1)
+	require.Empty(t, resp.List[0].HandleUid)
+}
+
+func TestGetGroupPutListByUidRepeatedActorCompatibility(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	now := time.Now()
+	require.NoError(t, svcCtx.DB.Create(&objects.GroupRequest{ReqID: "1", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}).Error)
+
+	resp, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{
+		ActorUid: "1", Ids: []string{"1", "1"}, Class: "1",
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), resp.Total)
+
+	_, err = NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{
+		ActorUid: "1", Ids: []string{"1", "2"}, Class: "1",
+	})
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+}
+
+func TestGroupScopedActorValidationAndForgery(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	for _, tc := range []struct {
+		name, actor, legacy string
+		code                codes.Code
+	}{
+		{name: "missing", legacy: "1", code: codes.Unauthenticated},
+		{name: "malformed", actor: "invalid", legacy: "invalid", code: codes.InvalidArgument},
+		{name: "mismatch", actor: "1", legacy: "2", code: codes.PermissionDenied},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewGroupPutinListLogic(context.Background(), svcCtx).GroupPutinList(&social.GroupPutinListReq{ActorUid: tc.actor, UserId: tc.legacy, Class: 1})
+			require.Equal(t, tc.code, status.Code(err))
+			_, err = NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{ActorUid: tc.actor, UserId: tc.legacy, RequestIds: []uint64{1}})
+			require.Equal(t, tc.code, status.Code(err))
+			_, err = NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{ActorUid: tc.actor, UserId: tc.legacy})
+			require.Equal(t, tc.code, status.Code(err))
+			_, err = NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{ActorUid: tc.actor, UserId: tc.legacy, GroupId: "1"})
+			require.Equal(t, tc.code, status.Code(err))
+			_, err = NewGroupInviteLinkCreateLogic(context.Background(), svcCtx).GroupInviteLinkCreate(&social.GroupInviteLinkCreateReq{ActorUid: tc.actor, UserId: tc.legacy, GroupId: "1"})
+			require.Equal(t, tc.code, status.Code(err))
+			_, err = NewGroupInviteLinkListLogic(context.Background(), svcCtx).GroupInviteLinkList(&social.GroupInviteLinkListReq{ActorUid: tc.actor, UserId: tc.legacy, GroupId: "1"})
+			require.Equal(t, tc.code, status.Code(err))
+			_, err = NewGroupInviteLinkRevokeLogic(context.Background(), svcCtx).GroupInviteLinkRevoke(&social.GroupInviteLinkRevokeReq{ActorUid: tc.actor, UserId: tc.legacy, GroupId: "1", Token: "token"})
+			require.Equal(t, tc.code, status.Code(err))
+			_, err = NewGroupJoinByTokenLogic(context.Background(), svcCtx).GroupJoinByToken(&social.GroupJoinByTokenReq{ActorUid: tc.actor, UserId: tc.legacy, Token: "token"})
+			require.Equal(t, tc.code, status.Code(err))
+		})
+	}
+
+	_, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{ActorUid: "1", Ids: []string{"2"}, Class: "1"})
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+}
+
+func TestGroupJoinByTokenRequiresNormalActor(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, false)).Error)
+	seedInviteLink(t, svcCtx.DB, "disabled", 1, 1, 1)
+	_, err := NewGroupJoinByTokenLogic(context.Background(), svcCtx).GroupJoinByToken(&social.GroupJoinByTokenReq{
+		ActorUid: "20", UserId: "20", Token: "disabled",
+	})
+	require.Equal(t, codes.NotFound, status.Code(err), err)
+}
+
+func TestGroupJoinByTokenAtomicSuccessAccounting(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, false)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedInviteLink(t, svcCtx.DB, "success", 1, 1, 1)
+
+	resp, err := NewGroupJoinByTokenLogic(context.Background(), svcCtx).GroupJoinByToken(&social.GroupJoinByTokenReq{
+		ActorUid: "3", UserId: "3", Token: "success",
+	})
+	require.NoError(t, err)
+	require.Equal(t, int32(1), resp.IsPass)
+	require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.GroupMember{}))
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.GroupRequest{}))
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.SocialRequestReceipt{}))
+	var link objects.GroupInviteLink
+	require.NoError(t, svcCtx.DB.Where("token = ?", "success").First(&link).Error)
+	require.Equal(t, uint(1), link.UsedCount)
+}
+
+func TestGroupJoinByTokenAccountingFailureRollsBackApplication(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	if svcCtx.DB.Dialector.Name() != "sqlite" {
+		t.Skip("SQLite trigger injects usage accounting failure")
+	}
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, false)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedInviteLink(t, svcCtx.DB, "rollback", 1, 1, 1)
+	require.NoError(t, svcCtx.DB.Exec(`CREATE TRIGGER fail_token_usage BEFORE UPDATE OF used_count ON group_invite_links BEGIN SELECT RAISE(ABORT, 'usage failure'); END`).Error)
+
+	_, err := NewGroupJoinByTokenLogic(context.Background(), svcCtx).GroupJoinByToken(&social.GroupJoinByTokenReq{
+		ActorUid: "3", UserId: "3", Token: "rollback",
+	})
+	require.Error(t, err)
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.GroupMember{}))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.GroupRequest{}))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.SocialRequestReceipt{}))
+	var link objects.GroupInviteLink
+	require.NoError(t, svcCtx.DB.Where("token = ?", "rollback").First(&link).Error)
+	require.Zero(t, link.UsedCount)
+}
+
+func TestGroupJoinByTokenCommitFailureRollsBackEverything(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	if svcCtx.DB.Dialector.Name() != "sqlite" {
+		t.Skip("SQLite deferred foreign key injects commit failure")
+	}
+	sqlDB, err := svcCtx.DB.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	require.NoError(t, svcCtx.DB.Exec("PRAGMA foreign_keys = ON").Error)
+	require.NoError(t, svcCtx.DB.Exec(`CREATE TABLE token_commit_parent (id INTEGER PRIMARY KEY)`).Error)
+	require.NoError(t, svcCtx.DB.Exec(`CREATE TABLE token_commit_guard (parent_id INTEGER, FOREIGN KEY(parent_id) REFERENCES token_commit_parent(id) DEFERRABLE INITIALLY DEFERRED)`).Error)
+	require.NoError(t, svcCtx.DB.Exec(`CREATE TRIGGER fail_token_commit AFTER UPDATE OF used_count ON group_invite_links BEGIN INSERT INTO token_commit_guard(parent_id) VALUES (1); END`).Error)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, false)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedInviteLink(t, svcCtx.DB, "commit", 1, 1, 1)
+
+	_, err = NewGroupJoinByTokenLogic(context.Background(), svcCtx).GroupJoinByToken(&social.GroupJoinByTokenReq{
+		ActorUid: "3", UserId: "3", Token: "commit",
+	})
+	require.Error(t, err)
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.GroupMember{}))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.GroupRequest{}))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.SocialRequestReceipt{}))
+	var link objects.GroupInviteLink
+	require.NoError(t, svcCtx.DB.Where("token = ?", "commit").First(&link).Error)
+	require.Zero(t, link.UsedCount)
 }
 
 func TestGroupCreateEmitsCreatorMembershipEvent(t *testing.T) {
@@ -140,6 +288,12 @@ func createGroupSQLiteSchema(t *testing.T, database *gorm.DB) {
 			message TEXT NOT NULL DEFAULT '', status INTEGER NOT NULL DEFAULT 0,
 			reject_reason TEXT NOT NULL DEFAULT '', created_at DATETIME NOT NULL,
 			handled_at DATETIME, expires_at DATETIME NOT NULL
+		)`,
+		`CREATE TABLE group_invite_links (
+			id INTEGER PRIMARY KEY AUTOINCREMENT, group_id INTEGER NOT NULL, token TEXT NOT NULL UNIQUE,
+			created_by INTEGER NOT NULL, expire_at DATETIME, max_uses INTEGER NOT NULL DEFAULT 0,
+			used_count INTEGER NOT NULL DEFAULT 0, revoked INTEGER NOT NULL DEFAULT 0,
+			revoked_at DATETIME, created_at DATETIME
 		)`,
 		`CREATE TABLE relation_outbox (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, group_id TEXT NOT NULL DEFAULT '',
@@ -312,10 +466,10 @@ func TestGroupRequestReceiptsArePersonal(t *testing.T) {
 	require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
 	require.Equal(t, []string{"1", "2"}, []string{receipts[0].ReceiverID, receipts[1].ReceiverID})
 
-	read, err := NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: "1", RequestIds: []uint64{created.RequestId}})
+	read, err := NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: "1", ActorUid: "1", RequestIds: []uint64{created.RequestId}})
 	require.NoError(t, err)
 	require.Equal(t, int32(0), read.Apply)
-	otherCount, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "2"})
+	otherCount, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "2", ActorUid: "2"})
 	require.NoError(t, err)
 	require.Equal(t, int32(1), otherCount.Apply)
 
@@ -332,7 +486,7 @@ func TestGroupRequestReceiptsArePersonal(t *testing.T) {
 	var applicantResult objects.SocialRequestReceipt
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeGroup, created.RequestId, "3", receiptKindResult).First(&applicantResult).Error)
 	require.Zero(t, applicantResult.IsRead)
-	applicantCount, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "3"})
+	applicantCount, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "3", ActorUid: "3"})
 	require.NoError(t, err)
 	require.Equal(t, int32(1), applicantCount.Result)
 }
@@ -343,7 +497,7 @@ func TestGroupInvitationReceiptLifecycle(t *testing.T) {
 	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
 	created, err := NewGroupInvitationCreateLogic(context.Background(), svcCtx).GroupInvitationCreate(&social.GroupInvitationCreateReq{ActorUid: "1", GroupId: "1", InviteeUid: "3"})
 	require.NoError(t, err)
-	count, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "3"})
+	count, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "3", ActorUid: "3"})
 	require.NoError(t, err)
 	require.Equal(t, int32(1), count.Invite)
 	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
@@ -387,18 +541,18 @@ func TestGroupAdminRoleChangesConvergePendingReceipts(t *testing.T) {
 	request := objects.GroupRequest{ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}
 	require.NoError(t, svcCtx.DB.Create(&request).Error)
 
-	_, err := NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{UserId: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: true})
+	_, err := NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{UserId: "1", ActorUid: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: true})
 	require.NoError(t, err)
 	var receipt objects.SocialRequestReceipt
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ?", receiptTypeGroup, request.ID, "2").First(&receipt).Error)
 	require.Zero(t, receipt.IsRead)
 	require.Equal(t, 1, receipt.IsActionable)
 
-	_, err = NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{UserId: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: false})
+	_, err = NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{UserId: "1", ActorUid: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: false})
 	require.NoError(t, err)
 	require.NoError(t, svcCtx.DB.First(&receipt, receipt.ID).Error)
 	require.Zero(t, receipt.IsActionable)
-	received, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"2"}, Class: "2"})
+	received, err := NewGetGroupPutListByUidLogic(context.Background(), svcCtx).GetGroupPutListByUid(&social.GetGroupPutListByUidReq{Ids: []string{"2"}, ActorUid: "2", Class: "2"})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), received.Total)
 	require.False(t, received.List[0].Actionable)
@@ -407,14 +561,14 @@ func TestGroupAdminRoleChangesConvergePendingReceipts(t *testing.T) {
 func TestGroupReadAndCountValidateActor(t *testing.T) {
 	svcCtx, _ := newGroupTestContext(t)
 	for _, actor := range []string{"", "0", "invalid"} {
-		_, err := NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: actor, RequestIds: []uint64{1}})
+		_, err := NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: actor, ActorUid: actor, RequestIds: []uint64{1}})
 		require.NotEqual(t, codes.OK, status.Code(err))
 		_, err = NewGroupInvitationReadLogic(context.Background(), svcCtx).GroupInvitationRead(&social.GroupInvitationReadReq{ActorUid: actor, InvitationIds: []uint64{1}})
 		require.NotEqual(t, codes.OK, status.Code(err))
-		_, err = NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: actor})
+		_, err = NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: actor, ActorUid: actor})
 		require.NotEqual(t, codes.OK, status.Code(err))
 	}
-	_, err := NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: "1"})
+	_, err := NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: "1", ActorUid: "1"})
 	require.Equal(t, codes.InvalidArgument, status.Code(err))
 }
 
@@ -899,7 +1053,7 @@ func TestGroupRoleRevocationSerializesWithRequestApproval(t *testing.T) {
 	go func() {
 		<-start
 		_, err := NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{
-			UserId: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: false,
+			UserId: "1", ActorUid: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: false,
 		})
 		errs <- err
 	}()
@@ -947,7 +1101,7 @@ func TestGroupRoleRevocationSerializesWithInvitationConfirmation(t *testing.T) {
 	go func() {
 		<-start
 		_, err := NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{
-			UserId: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: false,
+			UserId: "1", ActorUid: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: false,
 		})
 		roleErr <- err
 	}()
@@ -1110,6 +1264,14 @@ func seedInvitation(t *testing.T, database *gorm.DB, groupID, inviter, invitee u
 	}
 	require.NoError(t, database.Create(&invitation).Error)
 	return invitation
+}
+
+func seedInviteLink(t *testing.T, database *gorm.DB, token string, groupID, creator uint64, maxUses uint) {
+	t.Helper()
+	now := time.Now()
+	require.NoError(t, database.Create(&objects.GroupInviteLink{
+		GroupID: groupID, Token: token, CreatedBy: creator, MaxUses: maxUses, CreatedAt: &now,
+	}).Error)
 }
 
 func assertGroupRequestState(t *testing.T, database *gorm.DB, id uint64, result int) {

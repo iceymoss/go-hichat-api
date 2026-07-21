@@ -31,22 +31,26 @@ func NewGroupPutinListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Gr
 
 // GroupPutinList 获取用户加群申请列表
 func (l *GroupPutinListLogic) GroupPutinList(in *social.GroupPutinListReq) (*social.GroupPutinListResp, error) {
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
+	if err != nil {
+		return nil, err
+	}
 	if len(in.Type) == 0 {
 		in.Type = []int32{0, 1, 2}
 	}
 
 	var list []*socialmodels.GroupRequests
-	var err error
+	var listErr error
 	if in.GetClass() == 1 {
 		// 用户发起的申请
-		list, err = l.svcCtx.ListReqByUser(l.ctx, in.UserId)
-		if err != nil {
-			zLog.Error("GroupPutinList.ListReqByUser: ", zap.Any("groupId", in.GroupId), zap.Error(err))
-			return nil, err
+		list, listErr = l.svcCtx.ListReqByUser(l.ctx, actor)
+		if listErr != nil {
+			zLog.Error("GroupPutinList.ListReqByUser: ", zap.Any("groupId", in.GroupId), zap.Error(listErr))
+			return nil, listErr
 		}
 	} else {
 		// 只能管理员和群主可以看到，获取群信息
-		member, findErr := l.svcCtx.GroupMembersModel.FindMemberByUid(l.ctx, in.GroupId, in.UserId, []string{"role_level"})
+		member, findErr := l.svcCtx.GroupMembersModel.FindMemberByUid(l.ctx, in.GroupId, actor, []string{"role_level"})
 		if findErr != nil {
 			zLog.Error("GroupPutinList.FindOne: ", zap.Any("groupId", in.GroupId), zap.Any("userId", in.UserId), zap.Error(findErr))
 			return nil, findErr
@@ -57,7 +61,7 @@ func (l *GroupPutinListLogic) GroupPutinList(in *social.GroupPutinListReq) (*soc
 		}
 
 		// 获取当前群的加入申请
-		list, err = l.svcCtx.ListHandlerByGroup(l.ctx, in.GroupId, in.Type)
+		list, listErr = l.svcCtx.ListHandlerByGroup(l.ctx, in.GroupId, in.Type)
 	}
 
 	respList := make([]*social.GroupRequests, 0, len(list))
@@ -84,7 +88,7 @@ func (l *GroupPutinListLogic) GroupPutinList(in *social.GroupPutinListReq) (*soc
 			kind = receiptKindResult
 		}
 		var rows []objects.SocialRequestReceipt
-		if findErr := l.svcCtx.DB.WithContext(l.ctx).Where("request_type=? AND request_id IN ? AND receiver_id=? AND receipt_kind=?", receiptTypeGroup, ids, in.UserId, kind).Find(&rows).Error; findErr != nil {
+		if findErr := l.svcCtx.DB.WithContext(l.ctx).Where("request_type=? AND request_id IN ? AND receiver_id=? AND receipt_kind=?", receiptTypeGroup, ids, actor, kind).Find(&rows).Error; findErr != nil {
 			return nil, findErr
 		}
 		for _, row := range rows {
@@ -112,6 +116,10 @@ func (l *GroupPutinListLogic) GroupPutinList(in *social.GroupPutinListReq) (*soc
 		if row.ActualJoinSource != nil {
 			actual = int32(*row.ActualJoinSource)
 		}
+		handleUID := v.HandleUserId.String
+		if in.GetClass() == 1 {
+			handleUID = ""
+		}
 		respList = append(respList, &social.GroupRequests{
 			Id:               legacyID,
 			RequestId:        id,
@@ -121,7 +129,7 @@ func (l *GroupPutinListLogic) GroupPutinList(in *social.GroupPutinListReq) (*soc
 			ReqTime:          v.ReqTime.Time.Unix(),
 			JoinSource:       int32(v.JoinSource.Int64),
 			InviterUid:       v.InviterUserId.String,
-			HandleUid:        v.HandleUserId.String,
+			HandleUid:        handleUID,
 			HandleResult:     int32(v.HandleResult.Int64),
 			HandleResultTime: v.HandleTime.Unix(),
 			ApplicantUid:     v.ReqId, HandleMsg: row.HandleMsg, InvalidReason: row.InvalidReason, ActualJoinSource: actual, SourceType: int32(row.SourceType), SourceInvitationId: sourceInvitation, ReadState: read, ReceiverRead: read, Actionable: actionable,
@@ -130,5 +138,5 @@ func (l *GroupPutinListLogic) GroupPutinList(in *social.GroupPutinListReq) (*soc
 	return &social.GroupPutinListResp{
 		List:  respList,
 		Total: int64(len(respList)),
-	}, err
+	}, listErr
 }

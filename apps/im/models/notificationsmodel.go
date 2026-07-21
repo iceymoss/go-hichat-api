@@ -2,13 +2,20 @@ package model
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/rpcauth"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+)
+
+var (
+	ErrInvalidNotificationReceiver   = errors.New("notification receiver must be a canonical positive decimal string")
+	ErrInvalidNotificationPagination = errors.New("notification pagination requires offset >= 0 and limit <= 100")
 )
 
 // Notification 公共通知表行模型（运行时读写）。
@@ -132,6 +139,12 @@ func (m *customNotificationModel) Insert(ctx context.Context, data *Notification
 }
 
 func (m *customNotificationModel) ListByReceiver(ctx context.Context, receiverId string, unreadOnly bool, offset, limit int) ([]*Notification, error) {
+	if !rpcauth.CanonicalUID(receiverId) {
+		return nil, ErrInvalidNotificationReceiver
+	}
+	if offset < 0 || limit < 0 || limit > 100 {
+		return nil, ErrInvalidNotificationPagination
+	}
 	if limit <= 0 {
 		limit = 20
 	}
@@ -148,6 +161,9 @@ func (m *customNotificationModel) ListByReceiver(ctx context.Context, receiverId
 }
 
 func (m *customNotificationModel) CountUnread(ctx context.Context, receiverId string) (int64, error) {
+	if !rpcauth.CanonicalUID(receiverId) {
+		return 0, ErrInvalidNotificationReceiver
+	}
 	var cnt int64
 	err := m.conn().WithContext(ctx).Table(m.table).
 		Where("receiver_id = ?", receiverId).Where("is_read = ?", 0).
@@ -159,6 +175,9 @@ func (m *customNotificationModel) CountUnread(ctx context.Context, receiverId st
 }
 
 func (m *customNotificationModel) MarkRead(ctx context.Context, receiverId string, ids []uint64) (affected, unreadCount int64, err error) {
+	if !rpcauth.CanonicalUID(receiverId) {
+		return 0, 0, ErrInvalidNotificationReceiver
+	}
 	err = m.conn().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		query := tx.Table(m.table).Where("receiver_id = ? AND is_read = ?", receiverId, 0)
 		if len(ids) > 0 {
@@ -175,6 +194,9 @@ func (m *customNotificationModel) MarkRead(ctx context.Context, receiverId strin
 }
 
 func (m *customNotificationModel) MarkReadByBusiness(ctx context.Context, receiverId string, targets []NotificationReadTarget) (affected, unreadCount int64, err error) {
+	if !rpcauth.CanonicalUID(receiverId) {
+		return 0, 0, ErrInvalidNotificationReceiver
+	}
 	targets = append([]NotificationReadTarget(nil), targets...)
 	sort.Slice(targets, func(i, j int) bool {
 		if targets[i].NotifyType == targets[j].NotifyType {

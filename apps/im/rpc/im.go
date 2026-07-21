@@ -35,6 +35,12 @@ func main() {
 			reflection.Register(grpcServer)
 		}
 	})
+	s.AddUnaryInterceptors(ctx.RPCAuth.UnaryServerInterceptor(ctx.RPCReplay,
+		im.Im_CreateNotification_FullMethodName,
+		im.Im_ListNotifications_FullMethodName,
+		im.Im_MarkNotificationsRead_FullMethodName,
+		im.Im_GetUnreadNotificationCount_FullMethodName,
+	))
 	defer s.Stop()
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)

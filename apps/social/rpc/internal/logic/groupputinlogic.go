@@ -152,9 +152,8 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 	return response, nil
 }
 
-// groupPutInByToken preserves the existing invite-link flow without reopening public
-// GroupPutin's legacy source and inviter controls.
-func (l *GroupPutinLogic) groupPutinByToken(in *social.GroupPutinReq) (*social.GroupPutinResp, error) {
+// groupPutInByTokenTx keeps invite-link application writes in the caller's token transaction.
+func (l *GroupPutinLogic) groupPutInByTokenTx(tx *gorm.DB, in *social.GroupPutinReq) (*social.GroupPutinResp, error) {
 	actor, groupID, err := validateDirectGroupRequest(in)
 	if err != nil {
 		return nil, err
@@ -163,66 +162,56 @@ func (l *GroupPutinLogic) groupPutinByToken(in *social.GroupPutinReq) (*social.G
 	if err != nil {
 		return nil, err
 	}
-	var response *social.GroupPutinResp
-	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
-		response = nil
-		group, err := loadNormalGroup(tx, groupID)
-		if err != nil {
-			return err
-		}
-		member, err := loadGroupMember(tx, groupID, actor)
-		if err != nil {
-			return err
-		}
-		if member != nil {
-			response = groupPutinResponse(groupID, 0, groupRequestAccepted, true, false)
-			return nil
-		}
-		inviterMember, err := loadGroupMember(tx, groupID, inviter)
-		if err != nil {
-			return err
-		}
-		now := time.Now()
-		accepted := group.IsVerify == 0 || (inviterMember != nil && (inviterMember.RoleLevel == 1 || inviterMember.RoleLevel == 2))
-		result := groupRequestPending
-		if accepted {
-			result = groupRequestAccepted
-		}
-		joinSource := int(in.JoinSource)
-		request := objects.GroupRequest{
-			ReqID: strconv.FormatUint(actor, 10), GroupID: groupID, ReqMsg: in.ReqMsg, ReqTime: &now,
-			JoinSource: &joinSource, InviterUserID: &inviter, HandleResult: &result, SourceType: 2,
-		}
-		if accepted {
-			request.HandleTime = &now
-			request.ActualJoinSource = &joinSource
-		}
-		if err := tx.Create(&request).Error; err != nil {
-			return err
-		}
-		if accepted {
-			if _, err := createGroupMemberAndOutbox(tx, l.ServiceContext, groupID, actor, 0, joinSource, &inviter, inviter); err != nil {
-				return err
-			}
-			if err := createResultReceipt(tx, receiptTypeGroup, request.ID, in.ActorUid, receiptAccepted, now, now, true); err != nil {
-				return err
-			}
-			if err := resolvePendingGroupRequests(tx, l.ServiceContext, groupID, actor, now, joinSource, true, in.ActorUid); err != nil {
-				return err
-			}
-			if err := invalidatePendingGroupInvitations(tx, groupID, actor, now); err != nil {
-				return err
-			}
-		} else if err := createGroupApplyReceipts(tx, l.ServiceContext, groupID, request.ID, in.ActorUid, in.ReqMsg, now); err != nil {
-			return err
-		}
-		response = groupPutinResponse(groupID, request.ID, result, false, false)
-		return nil
-	})
+	group, err := loadNormalGroup(tx, groupID)
 	if err != nil {
-		return nil, normalizeGroupWriteError(err, "failed to join group by token")
+		return nil, err
 	}
-	return response, nil
+	member, err := loadGroupMember(tx, groupID, actor)
+	if err != nil {
+		return nil, err
+	}
+	if member != nil {
+		return groupPutinResponse(groupID, 0, groupRequestAccepted, true, false), nil
+	}
+	inviterMember, err := loadGroupMember(tx, groupID, inviter)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	accepted := group.IsVerify == 0 || (inviterMember != nil && (inviterMember.RoleLevel == 1 || inviterMember.RoleLevel == 2))
+	result := groupRequestPending
+	if accepted {
+		result = groupRequestAccepted
+	}
+	joinSource := int(in.JoinSource)
+	request := objects.GroupRequest{
+		ReqID: strconv.FormatUint(actor, 10), GroupID: groupID, ReqMsg: in.ReqMsg, ReqTime: &now,
+		JoinSource: &joinSource, InviterUserID: &inviter, HandleResult: &result, SourceType: 2,
+	}
+	if accepted {
+		request.HandleTime = &now
+		request.ActualJoinSource = &joinSource
+	}
+	if err := tx.Create(&request).Error; err != nil {
+		return nil, err
+	}
+	if accepted {
+		if _, err := createGroupMemberAndOutbox(tx, l.ServiceContext, groupID, actor, 0, joinSource, &inviter, inviter); err != nil {
+			return nil, err
+		}
+		if err := createResultReceipt(tx, receiptTypeGroup, request.ID, in.ActorUid, receiptAccepted, now, now, true); err != nil {
+			return nil, err
+		}
+		if err := resolvePendingGroupRequests(tx, l.ServiceContext, groupID, actor, now, joinSource, true, in.ActorUid); err != nil {
+			return nil, err
+		}
+		if err := invalidatePendingGroupInvitations(tx, groupID, actor, now); err != nil {
+			return nil, err
+		}
+	} else if err := createGroupApplyReceipts(tx, l.ServiceContext, groupID, request.ID, in.ActorUid, in.ReqMsg, now); err != nil {
+		return nil, err
+	}
+	return groupPutinResponse(groupID, request.ID, result, false, false), nil
 }
 
 func validateDirectGroupRequest(in *social.GroupPutinReq) (uint64, uint64, error) {

@@ -574,7 +574,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 13 已完成。下一会话从步骤 14 开始：HTTP actor/JWT helper、生成契约和跨服务边界统一复核。
+步骤 14 已完成。下一会话从步骤 15 开始：公共通知消费者改走 authenticated idempotent IM RPC，移除 task 对 IM notification model 的直接写入。
 
 ### 步骤 5 实施结果
 
@@ -665,6 +665,18 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - WS Social toast 与通知类型完成中英文，group request/relationship 导航显式分类；被移出群不再跳转无效群详情。
 - IM model/API/RPC/task/deploy 全量目标 test/race、重复 SQLite 顺序测试和 47 个 Bun tests 通过；lint 无 error，typecheck 仅保留两个既有 CSS 类型错误。
 
+### 步骤 14 实施结果
+
+- Social request 相关 HTTP 统一使用 canonical positive JWT actor helper；friend/group list/read/count/delete/admin/invite-link/token RPC 追加 `actorUid` 并拒绝 legacy identity mismatch。
+- 普通群申请移除 token 旁路和客户端 `req_time`；token join 校验正常用户并将 token lock、申请/成员、receipt/outbox 和 `used_count` 纳入同一事务，提交失败完整回滚。
+- applicant/sent 群申请投影不再返回处理管理员；好友审批 remark/tags 方向补测试确认，双方关系元数据写入正确 owner 方向。
+- IM notification RPC 使用独立 `HICHAT_IM_RPC_AUTH_SECRET` 的 HMAC principal，签名绑定 full method、deterministic protobuf digest、timestamp 和 256-bit nonce。
+- IM RPC 通过共享 Redis `SET NX` 消费 nonce，跨实例防重放且 Redis 故障 fail closed；terminal 方法要求 user principal 与 receiver 一致，CreateNotification 仅允许 task principal。
+- IM API/RPC 统一从环境加载独立 secret，Docker Compose 要求显式注入；tracked 启动文档明确本地 `hichat2.sh` 前置变量，sample 配置和脚本保持未修改。
+- notification list/create 增加 offset/limit、storage-sized payload、canonical UID 和 createTime 边界；bufconn 覆盖 method/body substitution、wrong secret、duplicate metadata 和 replay。
+- 新增 dirty-worktree/committed 双模式生成一致性脚本及 CI，固定 goctl/protoc 工具版本，校验 Social/IM generated files 和 GET `form` 标签；API 文档路径统一为 `docs/api.md`。
+- Social/IM 全量目标 test/race/vet、Docker 配置和两种生成检查通过；完整 API 文档内容重建仍需单独运行 `/sync-api-docs`。
+
 步骤 4 暂不提前实现：
 
 - 个人 receipt 和 read/unread API 属于步骤 5。
@@ -693,7 +705,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 11. [x] FriendRequestList 改为分页单请求、顺序标读、字段正确映射和通知定位。
 12. [x] GroupList/GroupProfileCard 接入三个群申请 Tab、分页、个人回执、邀请确认、直接入群结果、群/会话刷新和通知定位。
 13. [x] 联动业务 receipt 与通知中心标读；补中英文文案和可重试错误态。
-14. [ ] 统一 JWT 安全取值、修正好友 remark/tags 方向，重新生成 `.api/.proto/model` 代码并增加生成一致性检查。
+14. [x] 统一 JWT 安全取值、修正好友 remark/tags 方向，重新生成 `.api/.proto/model` 代码并增加生成一致性检查。
 15. [ ] 公共通知消费者改走幂等 IM RPC，移除 task 对 IM notification model 的直接写入。
 16. [ ] 管理员角色授予/撤销接入 pending receipt 补发/收口，增加邀请过期 cron 和确认接口过期 CAS。
 17. [ ] 执行后端三库测试、Kafka/WS 集成测试、前端类型/组件测试及双账号多端 E2E。

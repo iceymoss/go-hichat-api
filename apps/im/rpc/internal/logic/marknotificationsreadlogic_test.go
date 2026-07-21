@@ -17,7 +17,7 @@ func TestMarkNotificationsReadValidation(t *testing.T) {
 	t.Run("receiver required", func(t *testing.T) {
 		logic := NewMarkNotificationsReadLogic(context.Background(), &svc.ServiceContext{})
 		_, err := logic.MarkNotificationsRead(&im.MarkNotificationsReadReq{ReceiverId: "not-a-user"})
-		require.Equal(t, codes.Unauthenticated, status.Code(err))
+		require.Equal(t, codes.InvalidArgument, status.Code(err))
 	})
 
 	t.Run("rejects more than one hundred", func(t *testing.T) {
@@ -25,8 +25,10 @@ func TestMarkNotificationsReadValidation(t *testing.T) {
 		for i := range targets {
 			targets[i] = &im.NotificationReadTarget{NotifyType: "friend.apply", BizId: "friend:" + strconv.Itoa(i+1) + ":apply"}
 		}
-		logic := NewMarkNotificationsReadLogic(context.Background(), &svc.ServiceContext{})
-		_, err := logic.MarkNotificationsRead(&im.MarkNotificationsReadReq{ReceiverId: "1", Targets: targets})
+		request := &im.MarkNotificationsReadReq{ReceiverId: "1", Targets: targets}
+		ctx, auth := verifiedUserContext(t, "1", im.Im_MarkNotificationsRead_FullMethodName, request)
+		logic := NewMarkNotificationsReadLogic(ctx, &svc.ServiceContext{RPCAuth: auth})
+		_, err := logic.MarkNotificationsRead(request)
 		require.Equal(t, codes.InvalidArgument, status.Code(err))
 	})
 }

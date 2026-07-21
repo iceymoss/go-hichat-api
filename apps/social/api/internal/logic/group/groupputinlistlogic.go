@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/logic/actor"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -44,15 +45,16 @@ func NewGroupPutInListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Gr
 //		"class": 2
 //	}
 func (l *GroupPutInListLogic) GroupPutInList(req *types.GroupPutInListReq) (resp *types.GroupPutInListResp, err error) {
-	uid, err := apiActor(l.ctx)
+	uid, err := actor.UID(l.ctx)
 	if err != nil {
 		return nil, err
 	}
 	res, err := l.svcCtx.Social.GroupPutinList(l.ctx, &social.GroupPutinListReq{
-		GroupId: req.GroupId,
-		Type:    req.Type,  // []int32
-		Class:   req.Class, // int32
-		UserId:  uid,
+		GroupId:  req.GroupId,
+		Type:     req.Type,  // []int32
+		Class:    req.Class, // int32
+		UserId:   uid,
+		ActorUid: uid,
 	})
 	if err != nil {
 		return nil, err

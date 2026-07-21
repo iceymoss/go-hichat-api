@@ -25,10 +25,18 @@ func NewGetGroupPutListByUidLogic(ctx context.Context, s *svc.ServiceContext) *G
 }
 
 func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(in *social.GetGroupPutListByUidReq) (*social.GroupPutinListResp, error) {
-	if len(in.Ids) != 1 || (in.Class != "1" && in.Class != "2") {
+	actor, err := validateScopedActor(in.ActorUid)
+	if err != nil {
+		return nil, err
+	}
+	if len(in.Ids) == 0 || (in.Class != "1" && in.Class != "2") {
 		return nil, status.Error(codes.InvalidArgument, "invalid group request list scope")
 	}
-	actor := in.Ids[0]
+	for _, id := range in.Ids {
+		if id != actor {
+			return nil, status.Error(codes.PermissionDenied, "actor uid does not match requested scope")
+		}
+	}
 	page, size := int(in.Page), int(in.Size)
 	if page <= 0 {
 		page = 1
@@ -111,6 +119,9 @@ func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(in *social.GetGroupPutL
 		}
 		if r.HandleUserID != nil {
 			handler = fmt.Sprint(*r.HandleUserID)
+		}
+		if in.Class == "1" {
+			handler = ""
 		}
 		sourceInvitation := uint64(0)
 		if r.SourceInvitationID != nil {

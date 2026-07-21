@@ -8,6 +8,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/im/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
+	"github.com/iceymoss/go-hichat-api/pkg/rpcauth"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
@@ -31,7 +32,11 @@ func NewMarkNotificationsReadLogic(ctx context.Context, svcCtx *svc.ServiceConte
 
 func (l *MarkNotificationsReadLogic) MarkNotificationsRead(req *types.MarkNotificationsReadReq) (resp *types.MarkNotificationsReadResp, err error) {
 	uid := ctxdata.GetUId(l.ctx)
-	if parsed, parseErr := strconv.ParseUint(uid, 10, 64); parseErr != nil || parsed == 0 {
+	if parsed, parseErr := strconv.ParseUint(uid, 10, 64); parseErr != nil || parsed == 0 || strconv.FormatUint(parsed, 10) != uid {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user identity")
+	}
+	rpcCtx, err := rpcauth.WithUser(l.ctx, uid)
+	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "missing or invalid user identity")
 	}
 	ids, err := parseNotificationIDs(req.Ids)
@@ -43,7 +48,7 @@ func (l *MarkNotificationsReadLogic) MarkNotificationsRead(req *types.MarkNotifi
 		targets = append(targets, &im.NotificationReadTarget{NotifyType: target.NotifyType, BizId: target.BizId})
 	}
 
-	res, err := l.svcCtx.IM.MarkNotificationsRead(l.ctx, &im.MarkNotificationsReadReq{
+	res, err := l.svcCtx.IM.MarkNotificationsRead(rpcCtx, &im.MarkNotificationsReadReq{
 		ReceiverId:  uid,
 		Ids:         ids,
 		NotifyTypes: req.NotifyTypes,

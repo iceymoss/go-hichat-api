@@ -122,10 +122,9 @@ type FriendPutInReadResp struct {
 }
 
 type FriendPutInReq struct {
-	ReqMsg  string `json:"req_msg,omitempty"`
-	ReqTime int64  `json:"req_time,omitempty"`
-	UserId  string `json:"user_uid"`
-	Remark  string `json:"remark,optional"` // 申请人为对方预设的备注
+	ReqMsg string `json:"req_msg,omitempty"`
+	UserId string `json:"user_uid"`
+	Remark string `json:"remark,optional"` // 申请人为对方预设的备注
 }
 
 type FriendPutInResp struct {
@@ -502,9 +501,8 @@ type GroupPutInListResp struct {
 }
 
 type GroupPutInReq struct {
-	GroupId string `json:"group_id,optional"` // 群ID（普通申请时必传，token入群时可为空）
-	ReqMsg  string `json:"req_msg,optional"`  // 申请消息
-	Token   string `json:"token,optional"`    // 邀请链接token
+	GroupId string `json:"group_id"`
+	ReqMsg  string `json:"req_msg,optional"` // 申请消息
 }
 
 type GroupPutInResp struct {

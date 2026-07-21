@@ -45,7 +45,7 @@ goctl 只会生成**缺失的** handler/logic 骨架，不会覆盖你已有的�
 - 手工：`go run apps/<svc>/api/<svc>.go -f apps/<svc>/api/etc/<svc>-sample.yaml`，再 curl
 
 ### 6. 同步文档
-跑 `/sync-api-docs` 更新 `docs/specs/api.md`。
+跑 `/sync-api-docs` 更新 `docs/api.md`。
 
 ## 严格约束
 

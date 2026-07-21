@@ -43,13 +43,13 @@ func TestFriendRequestListPaginationAndFields(t *testing.T) {
 		require.NoError(t, createReceipt(svcCtx.DB, receiptTypeFriend, id, "2", receiptKindApply, 1, result, now, false, nil))
 	}
 	statusFilter := int32(0)
-	filtered, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{UserId: "2", Class: "1", Status: &statusFilter, Page: 1, Size: 20})
+	filtered, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{UserId: "2", ActorUid: "2", Class: "1", Status: &statusFilter, Page: 1, Size: 20})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), filtered.Total)
 	require.Greater(t, filtered.List[0].RequestId, uint64(math.MaxInt32))
 	require.Equal(t, "1", filtered.List[0].PeerUid)
 	require.Equal(t, "handled", filtered.List[0].HandleMsg)
-	all, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{UserId: "2", Class: "1", Type: -1, Page: 2, Size: 2})
+	all, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{UserId: "2", ActorUid: "2", Class: "1", Type: -1, Page: 2, Size: 2})
 	require.NoError(t, err)
 	require.Equal(t, int64(3), all.Total)
 	require.Len(t, all.List, 1)
@@ -247,7 +247,7 @@ func TestFriendRequestReceiptsAndReadCount(t *testing.T) {
 	require.Equal(t, 1, apply.IsActionable)
 	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
 
-	count, err := NewFriendPutInMessageCountLogic(context.Background(), svcCtx).FriendPutInMessageCount(&social.FriendPutInMessageCountReq{UserId: "2"})
+	count, err := NewFriendPutInMessageCountLogic(context.Background(), svcCtx).FriendPutInMessageCount(&social.FriendPutInMessageCountReq{UserId: "2", ActorUid: "2"})
 	require.NoError(t, err)
 	require.Equal(t, int32(1), count.Count)
 	require.Equal(t, int32(1), count.Apply)
@@ -267,7 +267,7 @@ func TestFriendRequestReceiptsAndReadCount(t *testing.T) {
 	require.Equal(t, receiptRejected, result.Result)
 	require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
 
-	read, err := NewFriendPutInReadLogic(context.Background(), svcCtx).FriendPutInRead(&social.FriendPutInReadReq{UserId: "1", RequestIds: []uint64{uint64(created.RequestId)}})
+	read, err := NewFriendPutInReadLogic(context.Background(), svcCtx).FriendPutInRead(&social.FriendPutInReadReq{UserId: "1", ActorUid: "1", RequestIds: []uint64{uint64(created.RequestId)}})
 	require.NoError(t, err)
 	require.Zero(t, read.Count)
 	require.NoError(t, svcCtx.DB.First(&result, result.ID).Error)
@@ -305,7 +305,7 @@ func TestFriendDeletePreservesSharedHistory(t *testing.T) {
 		ActorUid: "1", UserId: "1", ReqUid: "2", ReqTime: time.Now().Unix(),
 	})
 	require.NoError(t, err)
-	_, err = NewFriendPutInDeleteLogic(context.Background(), svcCtx).FriendPutInDelete(&social.FriendPutInDeleteReq{UserId: "2", FriendReqId: int32(created.RequestId)})
+	_, err = NewFriendPutInDeleteLogic(context.Background(), svcCtx).FriendPutInDelete(&social.FriendPutInDeleteReq{UserId: "2", ActorUid: "2", FriendReqId: int32(created.RequestId)})
 	require.NoError(t, err)
 	var request objects.FriendRequest
 	require.NoError(t, svcCtx.DB.First(&request, uint64(created.RequestId)).Error)
@@ -323,7 +323,7 @@ func TestFriendDeletePreservesSharedHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ?", receiptTypeFriend, created.RequestId, "2").First(&receipt).Error)
 	require.Equal(t, receiptInvalidated, receipt.Result)
-	list, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{UserId: "2", Class: "1", Type: -1})
+	list, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{UserId: "2", ActorUid: "2", Class: "1", Type: -1})
 	require.NoError(t, err)
 	require.Empty(t, list.List)
 }
@@ -505,11 +505,34 @@ func assertRequestState(t *testing.T, db *gorm.DB, id uint64, result int) {
 
 func assertFriendDirections(t *testing.T, db *gorm.DB) {
 	t.Helper()
-	var applicant, actor objects.Friend
-	require.NoError(t, db.Where("user_id = ? AND friend_uid = ?", 1, 2).First(&applicant).Error)
-	require.NoError(t, db.Where("user_id = ? AND friend_uid = ?", 2, 1).First(&actor).Error)
-	require.Equal(t, "preset", applicant.Remark)
-	require.Empty(t, applicant.FriendTags)
-	require.Equal(t, "reviewer", actor.Remark)
-	require.JSONEq(t, `["work"]`, actor.FriendTags)
+	var applicantToApprover, approverToApplicant objects.Friend
+	require.NoError(t, db.Where("user_id = ? AND friend_uid = ?", 1, 2).First(&applicantToApprover).Error)
+	require.NoError(t, db.Where("user_id = ? AND friend_uid = ?", 2, 1).First(&approverToApplicant).Error)
+	require.Equal(t, "preset", applicantToApprover.Remark)
+	require.Empty(t, applicantToApprover.FriendTags)
+	require.Equal(t, "reviewer", approverToApplicant.Remark)
+	require.JSONEq(t, `["work"]`, approverToApplicant.FriendTags)
+}
+
+func TestFriendScopedActorValidation(t *testing.T) {
+	svcCtx, _ := newFriendTestContext(t)
+	for _, tc := range []struct {
+		name, actor, legacy string
+		code                codes.Code
+	}{
+		{name: "missing", legacy: "1", code: codes.Unauthenticated},
+		{name: "malformed", actor: "invalid", legacy: "invalid", code: codes.InvalidArgument},
+		{name: "mismatch", actor: "1", legacy: "2", code: codes.PermissionDenied},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{ActorUid: tc.actor, UserId: tc.legacy, Class: "0"})
+			require.Equal(t, tc.code, status.Code(err))
+			_, err = NewFriendPutInReadLogic(context.Background(), svcCtx).FriendPutInRead(&social.FriendPutInReadReq{ActorUid: tc.actor, UserId: tc.legacy})
+			require.Equal(t, tc.code, status.Code(err))
+			_, err = NewFriendPutInMessageCountLogic(context.Background(), svcCtx).FriendPutInMessageCount(&social.FriendPutInMessageCountReq{ActorUid: tc.actor, UserId: tc.legacy})
+			require.Equal(t, tc.code, status.Code(err))
+			_, err = NewFriendPutInDeleteLogic(context.Background(), svcCtx).FriendPutInDelete(&social.FriendPutInDeleteReq{ActorUid: tc.actor, UserId: tc.legacy, RequestId: 1})
+			require.Equal(t, tc.code, status.Code(err))
+		})
+	}
 }

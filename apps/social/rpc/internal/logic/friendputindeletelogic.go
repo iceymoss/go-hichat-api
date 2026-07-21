@@ -32,6 +32,10 @@ func NewFriendPutInDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 
 // FriendPutInDelete hides no shared history; it only closes the caller's personal receipt.
 func (l *FriendPutInDeleteLogic) FriendPutInDelete(in *social.FriendPutInDeleteReq) (*social.FriendPutInDeleteResp, error) {
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
+	if err != nil {
+		return nil, err
+	}
 	requestID := in.RequestId
 	if requestID == 0 && in.FriendReqId > 0 {
 		requestID = uint64(in.FriendReqId)
@@ -39,10 +43,7 @@ func (l *FriendPutInDeleteLogic) FriendPutInDelete(in *social.FriendPutInDeleteR
 	if requestID == 0 {
 		return nil, status.Error(codes.InvalidArgument, "friend request id must be positive")
 	}
-	if _, err := strconv.ParseUint(in.UserId, 10, 64); err != nil || in.UserId == "0" {
-		return nil, status.Error(codes.InvalidArgument, "user id must be a positive integer")
-	}
-	err := l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
+	err = l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
 		var request objects.FriendRequest
 		if err := tx.First(&request, requestID).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
@@ -50,16 +51,16 @@ func (l *FriendPutInDeleteLogic) FriendPutInDelete(in *social.FriendPutInDeleteR
 			}
 			return err
 		}
-		if strconv.FormatUint(request.UserID, 10) != in.UserId && strconv.FormatUint(request.ReqUID, 10) != in.UserId {
+		if strconv.FormatUint(request.UserID, 10) != actor && strconv.FormatUint(request.ReqUID, 10) != actor {
 			return status.Error(codes.PermissionDenied, "friend request does not belong to current user")
 		}
 		now := time.Now()
 		kind := receiptKindApply
-		if strconv.FormatUint(request.UserID, 10) == in.UserId {
+		if strconv.FormatUint(request.UserID, 10) == actor {
 			kind = receiptKindResult
 		}
 		receipt := objects.SocialRequestReceipt{
-			RequestType: receiptTypeFriend, RequestID: request.ID, ReceiverID: in.UserId,
+			RequestType: receiptTypeFriend, RequestID: request.ID, ReceiverID: actor,
 			ReceiptKind: kind, IsRead: 1, IsActionable: 0, Result: receiptInvalidated,
 			ReadAt: &now, ResolvedAt: &now, CreatedAt: request.ReqTime,
 		}

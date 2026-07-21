@@ -2,10 +2,9 @@ package logic
 
 import (
 	"context"
-	"strconv"
-
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/svc"
+	"github.com/iceymoss/go-hichat-api/pkg/rpcauth"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
@@ -28,8 +27,14 @@ func NewListNotificationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 
 // ListNotifications 公共通知通道：拉取接收者通知列表（分页，按 id 倒序）。
 func (l *ListNotificationsLogic) ListNotifications(in *im.ListNotificationsReq) (*im.ListNotificationsResp, error) {
-	if parsed, err := strconv.ParseUint(in.ReceiverId, 10, 64); err != nil || parsed == 0 {
-		return nil, status.Error(codes.Unauthenticated, "missing or invalid receiver identity")
+	if !rpcauth.CanonicalUID(in.ReceiverId) {
+		return nil, status.Error(codes.InvalidArgument, "receiver identity must be a canonical positive decimal string")
+	}
+	if err := requireNotificationUser(l.ctx, l.svcCtx.RPCAuth, in.ReceiverId); err != nil {
+		return nil, err
+	}
+	if err := validateNotificationPagination(in.Offset, in.Limit); err != nil {
+		return nil, err
 	}
 	rows, err := l.svcCtx.NotificationModel.ListByReceiver(l.ctx, in.ReceiverId, in.UnreadOnly, int(in.Offset), int(in.Limit))
 	if err != nil {
@@ -58,4 +63,11 @@ func (l *ListNotificationsLogic) ListNotifications(in *im.ListNotificationsReq) 
 	}
 
 	return &im.ListNotificationsResp{List: list}, nil
+}
+
+func validateNotificationPagination(offset, limit int32) error {
+	if offset < 0 || offset > 100000 || limit < 0 || limit > 100 {
+		return status.Error(codes.InvalidArgument, "notification pagination requires offset between 0 and 100000 and limit <= 100")
+	}
+	return nil
 }
