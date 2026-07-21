@@ -15,3 +15,18 @@ MsgMarkRead:
   Topic: msgReadTransfer
   Addrs:
     - 127.0.0.1:9092
+
+# 仅用于 @所有人 的生产端角色校验
+SocialRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: social.rpc
+    Timeout: 2000     # 热路径，2s 超时即放行降级
+    NonBlock: true
+
+# 发送鉴权灰度开关：默认 false=现状行为（不校验，fail-open）
+AuthzGate:
+  Enabled: true
+  GroupChat: true
+  SingleChat: true

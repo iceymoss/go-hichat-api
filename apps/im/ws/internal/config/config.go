@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/zeromicro/go-zero/core/service"
+	"github.com/zeromicro/go-zero/zrpc"
 )
 
 type Config struct {
@@ -20,6 +21,16 @@ type Config struct {
 	MsgChatTransfer kafkaCfg
 
 	MsgMarkRead kafkaCfg
+
+	// SocialRpc 仅用于 @所有人 的生产端角色校验（点查 GetMemberRole）
+	SocialRpc zrpc.RpcClientConf
+
+	// AuthzGate 发送鉴权灰度开关（默认全 false = 现状行为，fail-open）
+	AuthzGate struct {
+		Enabled    bool
+		GroupChat  bool
+		SingleChat bool
+	}
 }
 
 type kafkaCfg struct {

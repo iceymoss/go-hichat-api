@@ -39,13 +39,6 @@ func (l *GetTrendDetailLogic) GetTrendDetail(req *types.GetTrendDetailRequest) (
 		return nil, errors.New("动态id不能为0")
 	}
 
-	// 获取用户好友列表
-	friendList, err := l.svcCtx.Social.FriendList(l.ctx, &social.FriendListReq{UserId: strconv.Itoa(uid)})
-	if err != nil {
-		zLog.Error("获取好友列表失败", zap.Error(err))
-		return nil, err
-	}
-
 	// 获取动态
 	trendDetail, err := l.svcCtx.Trend.GetTrendDetail(l.ctx, &trend.GetTrendDetailRequest{TrendId: int64(req.TrendID)})
 	if err != nil {
@@ -53,14 +46,37 @@ func (l *GetTrendDetailLogic) GetTrendDetail(req *types.GetTrendDetailRequest) (
 		return nil, err
 	}
 
-	for _, v := range friendList.List {
-		if v.FriendUid == strconv.Itoa(int(trendDetail.Trend.UserId)) || v.FriendUid == strconv.Itoa(uid) {
-			break
+	authorID := strconv.Itoa(int(trendDetail.Trend.UserId))
+	currentUID := strconv.Itoa(uid)
+
+	// 可见性判定:
+	// scope = 1 仅自己可见 → uid == author
+	// scope = 2 仅好友可见 → uid == author 或 uid ∈ author 的好友
+	// scope = 3 所有人可见 → 直接放行
+	scope := trendDetail.Trend.Scope
+	if authorID != currentUID && scope != 3 {
+		if scope == 1 {
+			return nil, errors.New("该动态仅作者可见")
 		}
-		return nil, errors.New("该动态不是您的好友发布的")
+		friendList, err := l.svcCtx.Social.FriendList(l.ctx, &social.FriendListReq{UserId: currentUID})
+		if err != nil {
+			zLog.Error("获取好友列表失败", zap.Error(err))
+			return nil, err
+		}
+		isFriend := false
+		for _, v := range friendList.List {
+			if v.FriendUid == authorID {
+				isFriend = true
+				break
+			}
+		}
+		if !isFriend {
+			return nil, errors.New("该动态不是您的好友发布的")
+		}
 	}
 
-	userIdList := []string{strconv.Itoa(uid)}
+	// 一次性拉作者 + 被 @ 的用户信息
+	userIdList := []string{authorID}
 	for _, v := range trendDetail.Trend.AtUserIds {
 		userIdList = append(userIdList, strconv.Itoa(int(v)))
 	}
@@ -74,22 +90,25 @@ func (l *GetTrendDetailLogic) GetTrendDetail(req *types.GetTrendDetailRequest) (
 	}
 
 	detail := trendRpc2api(trendDetail.Trend)
+	if authorID != currentUID {
+		detail.IsTop = 0
+	}
 	for _, v := range userInfo.User {
-		if strconv.Itoa(uid) != v.Id {
-			detail.AtUserIds = append(detail.AtUserIds, &types.User{
+		if v.Id == authorID {
+			detail.User = &types.User{
 				Id:       v.Id,
 				Nickname: v.Nickname,
 				Sex:      int(v.Sex),
 				Avatar:   v.Avatar,
-			})
+			}
 			continue
 		}
-		detail.User = &types.User{
+		detail.AtUserIds = append(detail.AtUserIds, &types.User{
 			Id:       v.Id,
 			Nickname: v.Nickname,
 			Sex:      int(v.Sex),
 			Avatar:   v.Avatar,
-		}
+		})
 	}
 
 	resp = &types.GetTrendDetailResponse{Trend: detail}

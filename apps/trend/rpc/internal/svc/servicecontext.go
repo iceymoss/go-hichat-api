@@ -15,6 +15,10 @@ type ServiceContext struct {
 	TrendDiscuss models.TrendDiscussModel
 
 	TrendAgree models.TrendAgreeModel
+
+	TrendDraft models.TrendDraftModel
+
+	TrendMessage models.TrendMessageModel
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -25,5 +29,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Trend:        models.NewTrendModel(sqlConn, c.Cache),
 		TrendDiscuss: models.NewTrendDiscussModel(sqlConn, c.Cache),
 		TrendAgree:   models.NewTrendAgreeModel(sqlConn, c.Cache),
+		TrendDraft:   models.NewTrendDraftModel(),
+		TrendMessage: models.NewTrendMessageModel(sqlConn, c.Cache),
 	}
 }

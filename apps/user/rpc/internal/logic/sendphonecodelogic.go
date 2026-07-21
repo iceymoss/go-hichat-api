@@ -5,6 +5,7 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
+	pkcCfg "github.com/iceymoss/go-hichat-api/pkg/config"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	libErr "github.com/iceymoss/go-hichat-api/pkg/errors"
 	"github.com/iceymoss/go-hichat-api/pkg/logger"
@@ -62,8 +63,25 @@ func (l *SendPhoneCodeLogic) SendPhoneCode(in *user.SendPhoneCodeRequest) (*user
 
 	logger.Info("手机验证码已发送", zap.String("phone", in.Phone), zap.String("code", code)) // 打印到控制台
 
+	// 测试/演示模式（未配置真实短信服务商）：把验证码随响应回传，前端可自动填入输入框，
+	// 免去真实短信也能完成注册体验；生产环境配置了 aliyun/tencent 等服务商后自动关闭。
+	message := "验证码已发送"
+	if isDemoSMSMode() {
+		message = code
+	}
+
 	return &user.SendPhoneCodeResponse{
 		Success: true,
-		Message: "验证码已发送",
+		Message: message,
 	}, nil
+}
+
+// isDemoSMSMode 未配置真实短信服务商（provider 为空或 console）时视为测试/演示模式。
+func isDemoSMSMode() bool {
+	c := pkcCfg.ServiceConf
+	if c == nil || c.Verification == nil {
+		return true
+	}
+	p := c.Verification.SMS.Provider
+	return p == "" || p == "console"
 }

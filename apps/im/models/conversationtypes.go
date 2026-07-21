@@ -22,6 +22,15 @@ type Conversation struct {
 	// 是否展示（不能用 omitempty，否则 false 不会存储）
 	IsShow bool `bson:"isShow"`
 
+	// 会话置顶（不能用 omitempty，否则 false 不会存储）
+	IsTop bool `bson:"isTop"`
+
+	// 消息免打扰（不能用 omitempty，否则 false 不会存储）
+	IsMute bool `bson:"isMute"`
+
+	// 是否有未读的 @我（仅群聊，进会话/markRead 后清除；不能用 omitempty，否则 false 不会存储）
+	HasAtMe bool `bson:"hasAtMe"`
+
 	// 会话下消息总数（不能用 omitempty，否则 0 不会存储）
 	Total int `bson:"total"`
 
@@ -30,6 +39,10 @@ type Conversation struct {
 
 	// 当前会话的最晚的一条聊天记录，用于在会用会话聊天，展示给用户看最新的未读消息内容
 	Msg *ChatLog `bson:"msg,omitempty"`
+
+	// 被移出群的时刻（UnixMilli）：>0 表示该用户已被移出此群会话，
+	// 拉取群历史时只返回 sendTime <= RemovedAt 的消息（冻结历史）；重新入群时清零。
+	RemovedAt int64 `bson:"removedAt,omitempty"`
 
 	UpdateAt time.Time `bson:"updateAt,omitempty" json:"updateAt,omitempty"`
 	CreateAt time.Time `bson:"createAt,omitempty" json:"createAt,omitempty"`

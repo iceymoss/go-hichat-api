@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useIMStore } from '@/lib/im-store';
-import { getAvatarColor } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
+import { getAvatarColor, tagColor } from '@/lib/utils';
 import {
   ArrowLeft, Camera, Loader2, Copy, ChevronRight, MapPin,
   Briefcase, Mail, Phone, Tag, User, Pen, X, Check,
@@ -72,7 +73,7 @@ function Pill({ active, children, onClick }: { active: boolean; children: React.
   return (
     <button onClick={onClick} style={{
       padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer',
-      background: active ? '#3390EC' : '#F0F2F5',
+      background: active ? '#1BB45B' : '#F0F2F5',
       color: active ? '#fff' : '#646A73',
       transition: 'all 0.2s',
     }}>{children}</button>
@@ -84,6 +85,7 @@ function Pill({ active, children, onClick }: { active: boolean; children: React.
    ═══════════════════════════════════════════════ */
 export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
   const { currentUser: user, updateCurrentUser } = useIMStore();
+  const t = useT();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -124,7 +126,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
   if (!user) return null;
 
   const avatarColor = getAvatarColor(user.name);
-  const genderLabel = user.sex === 1 ? '男' : user.sex === 2 ? '女' : '未设置';
+  const genderLabel = user.sex === 1 ? t('pe.gender.male') : user.sex === 2 ? t('pe.gender.female') : t('pe.gender.unset');
   const genderEmoji = user.sex === 1 ? '🚹' : user.sex === 2 ? '🚺' : '';
 
   let parsedTags: string[] = [];
@@ -141,7 +143,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
       fd.append('file', file);
       const uploadRes = await fetch('/api/user/avatar', { method: 'POST', headers: { Authorization: `Bearer ${user.token}` }, body: fd });
       const uploadData = await uploadRes.json();
-      if (!uploadData.success || !uploadData.data?.url) { toast.error(uploadData.message || '上传失败'); return; }
+      if (!uploadData.success || !uploadData.data?.url) { toast.error(uploadData.message || t('pe.uploadFail')); return; }
 
       // 2. Save avatar URL to user profile
       const saveRes = await fetch('/api/user/update', {
@@ -150,9 +152,9 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
         body: JSON.stringify({ avatar: uploadData.data.url }),
       });
       const saveData = await saveRes.json();
-      if (saveData.success) { updateCurrentUser({ avatar: uploadData.data.url }); toast.success('头像已更新'); }
-      else toast.error(saveData.message || '保存失败');
-    } catch { toast.error('上传失败'); }
+      if (saveData.success) { updateCurrentUser({ avatar: uploadData.data.url }); toast.success(t('pe.avatarUpdated')); }
+      else toast.error(saveData.message || t('pe.saveFail'));
+    } catch { toast.error(t('pe.uploadFail')); }
     finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
@@ -166,10 +168,10 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
       const d = await res.json();
       if (d.success) {
         updateCurrentUser({ [field]: value } as any);
-        toast.success('已更新');
+        toast.success(t('pe.updated'));
         setEditField(null);
-      } else toast.error(d.message || '更新失败');
-    } catch { toast.error('网络错误'); }
+      } else toast.error(d.message || t('pe.updateFail'));
+    } catch { toast.error(t('pe.networkError')); }
     finally { setSaving(false); }
   };
 
@@ -179,7 +181,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
   };
 
   const handleSendEmailCode = async () => {
-    if (!bindEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bindEmail)) { toast.error('邮箱格式不正确'); return; }
+    if (!bindEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bindEmail)) { toast.error(t('pe.emailFormat')); return; }
     setEmailSending(true);
     try {
       const res = await fetch('/api/auth/send-code', {
@@ -187,14 +189,14 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
         body: JSON.stringify({ target: bindEmail, type: 'register' }),
       });
       const d = await res.json();
-      if (d.success) { setEmailStep('verify'); setEmailCountdown(60); toast.success('验证码已发送'); }
+      if (d.success) { setEmailStep('verify'); setEmailCountdown(60); toast.success(t('pe.codeSent')); }
       else toast.error(d.message);
-    } catch { toast.error('发送失败'); }
+    } catch { toast.error(t('pe.sendFail')); }
     finally { setEmailSending(false); }
   };
 
   const handleBindEmail = async () => {
-    if (!emailCode || emailCode.length !== 6) { toast.error('请输入6位验证码'); return; }
+    if (!emailCode || emailCode.length !== 6) { toast.error(t('pe.code6')); return; }
     setSaving(true);
     try {
       const res = await fetch('/api/user/email/bind', {
@@ -204,16 +206,16 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
       const d = await res.json();
       if (d.success) {
         updateCurrentUser({ email: bindEmail });
-        toast.success('邮箱绑定成功');
+        toast.success(t('pe.emailBound'));
         setEditField(null); setBindEmail(''); setEmailCode(''); setEmailStep('input');
       } else toast.error(d.message);
-    } catch { toast.error('绑定失败'); }
+    } catch { toast.error(t('pe.bindFail')); }
     finally { setSaving(false); }
   };
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(`${label}已复制`);
+    toast.success(t('pe.copied').replace('{label}', label));
   };
 
   /* ── Info Row (menu-item style) ── */
@@ -229,14 +231,14 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(51,144,236,0.08)', color: '#3390EC', flexShrink: 0,
+          background: 'rgba(27,180,91,0.08)', color: '#1BB45B', flexShrink: 0,
         }}>{icon}</div>
-        <span style={{ fontSize: 14, color: '#646A73', width: 56, flexShrink: 0 }}>{label}</span>
+        <span style={{ fontSize: 14, color: '#646A73', minWidth: 56, flexShrink: 0, whiteSpace: 'nowrap', marginRight: 8 }}>{label}</span>
         <span style={{
-          flex: 1, fontSize: 14, fontWeight: 500,
+          flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500,
           color: value ? '#1C2733' : '#A2ACB5',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>{value || placeholder || '未设置'}</span>
+        }}>{value || placeholder || t('pe.notSet')}</span>
       </div>
       {suffix || (onClick && <ChevronRight size={16} style={{ color: '#A2ACB5', flexShrink: 0 }} />)}
     </div>
@@ -254,13 +256,13 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
       }}>
         <button onClick={onBack} style={{
           background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-          color: '#3390EC', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
+          color: '#1BB45B', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
           transition: 'background 0.15s',
         }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(51,144,236,0.06)'; }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(27,180,91,0.06)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-        ><ArrowLeft size={18} /> 返回</button>
-        <span style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: 600, color: '#1C2733', marginRight: 72 }}>个人信息</span>
+        ><ArrowLeft size={18} /> {t('common.back')}</button>
+        <span style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: 600, color: '#1C2733', marginRight: 72 }}>{t('pe.title')}</span>
       </div>
 
       {/* ── Scroll content ── */}
@@ -290,7 +292,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
                 </div>
                 <div style={{
                   position: 'absolute', bottom: -2, right: -2,
-                  width: 26, height: 26, borderRadius: '50%', background: '#3390EC',
+                  width: 26, height: 26, borderRadius: '50%', background: '#1BB45B',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   border: '2.5px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
                 }}>
@@ -312,16 +314,16 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
                     background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 2, display: 'flex',
                     transition: 'color 0.15s',
                   }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#3390EC'; }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#1BB45B'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#A2ACB5'; }}
                   ><Copy size={13} /></button>
                   <button onClick={() => setShowQR(true)} style={{
                     background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 2, display: 'flex',
                     transition: 'color 0.15s',
                   }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#3390EC'; }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#1BB45B'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#A2ACB5'; }}
-                    title="我的二维码"
+                    title={t('pe.qrTitle')}
                   ><QrCode size={14} /></button>
                 </div>
 
@@ -355,7 +357,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
                 {parsedTags.map((t, i) => (
                   <span key={i} style={{
                     padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 500,
-                    background: 'rgba(51,144,236,0.08)', color: '#3390EC',
+                    background: tagColor(t).b, color: tagColor(t).c,
                   }}>{t}</span>
                 ))}
               </div>
@@ -366,27 +368,27 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
         {/* ── Editable info section ── */}
         <div className="mx-4 mt-3">
           <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <Row icon={<User size={16} />} label="昵称" value={user.name}
+            <Row icon={<User size={16} />} label={t('pe.label.nickname')} value={user.name}
               onClick={() => openEdit('name', user.name)} />
             <Divider />
-            <Row icon={<span style={{ fontSize: 15 }}>{genderEmoji || '⚪'}</span>} label="性别" value={genderLabel}
+            <Row icon={<span style={{ fontSize: 15 }}>{genderEmoji || '⚪'}</span>} label={t('pe.label.gender')} value={genderLabel}
               onClick={() => { setEditField('sex'); setEditValue(String(user.sex)); }} />
             <Divider />
-            <Row icon={<Pen size={16} />} label="签名" value={user.introduction}
-              placeholder="介绍一下自己吧"
+            <Row icon={<Pen size={16} />} label={t('pe.label.signature')} value={user.introduction}
+              placeholder={t('pe.signaturePlaceholder')}
               onClick={() => openEdit('introduction', user.introduction)} />
             <Divider />
-            <Row icon={<MapPin size={16} />} label="地区" value={user.region}
-              placeholder="请输入所在地区"
+            <Row icon={<MapPin size={16} />} label={t('pe.label.region')} value={user.region}
+              placeholder={t('pe.regionPlaceholder')}
               onClick={() => openEdit('region', user.region)} />
             <Divider />
-            <Row icon={<Briefcase size={16} />} label="职业" value={user.occupation}
-              placeholder="请输入职业"
+            <Row icon={<Briefcase size={16} />} label={t('pe.label.occupation')} value={user.occupation}
+              placeholder={t('pe.occupationPlaceholder')}
               onClick={() => openEdit('occupation', user.occupation)} />
             <Divider />
-            <Row icon={<Tag size={16} />} label="标签"
+            <Row icon={<Tag size={16} />} label={t('pe.label.tags')}
               value={parsedTags.length > 0 ? parsedTags.join('、') : ''}
-              placeholder="添加个人标签"
+              placeholder={t('pe.tagsPlaceholder')}
               onClick={() => { setEditField('tags'); setEditTags([...parsedTags]); setTagInput(''); }} />
           </div>
         </div>
@@ -394,14 +396,14 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
         {/* ── Contact info section ── */}
         <div className="mx-4 mt-3">
           <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <Row icon={<Smartphone size={16} />} label="手机" value={user.phone}
-              suffix={<span style={{ fontSize: 12, color: '#4DCD5E', fontWeight: 500 }}>已绑定</span>} />
+            <Row icon={<Smartphone size={16} />} label={t('pe.label.phone')} value={user.phone}
+              suffix={<span style={{ fontSize: 12, color: '#4DCD5E', fontWeight: 500 }}>{t('pe.bound')}</span>} />
             <Divider />
-            <Row icon={<Mail size={16} />} label="邮箱" value={user.email || ''}
-              placeholder="点击绑定邮箱"
+            <Row icon={<Mail size={16} />} label={t('pe.label.email')} value={user.email || ''}
+              placeholder={t('pe.emailPlaceholder')}
               onClick={() => { setEditField('email'); setBindEmail(user.email || ''); setEmailCode(''); setEmailStep('input'); }}
               suffix={user.email
-                ? <span style={{ fontSize: 12, color: '#4DCD5E', fontWeight: 500 }}>已绑定</span>
+                ? <span style={{ fontSize: 12, color: '#4DCD5E', fontWeight: 500 }}>{t('pe.bound')}</span>
                 : <ChevronRight size={16} style={{ color: '#A2ACB5' }} />
               } />
           </div>
@@ -427,30 +429,30 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
       {/* Text field edit (name / introduction / region / occupation) */}
       <EditDialog open={editField === 'name' || editField === 'introduction' || editField === 'region' || editField === 'occupation'}
         onClose={() => setEditField(null)}
-        title={editField === 'name' ? '修改昵称' : editField === 'introduction' ? '修改签名' : editField === 'region' ? '修改地区' : '修改职业'}>
+        title={editField === 'name' ? t('pe.editNickname') : editField === 'introduction' ? t('pe.editSignature') : editField === 'region' ? t('pe.editRegion') : t('pe.editOccupation')}>
         {editField === 'introduction' ? (
           <textarea
             autoFocus value={editValue} onChange={e => setEditValue(e.target.value)}
-            maxLength={100} rows={3} placeholder="说点什么吧..."
+            maxLength={100} rows={3} placeholder={t('pe.signatureDialogPlaceholder')}
             style={{
               width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid #E0E3E8',
               fontSize: 14, color: '#1C2733', background: '#FAFBFC', outline: 'none', resize: 'none',
               fontFamily: 'inherit', lineHeight: 1.6, transition: 'border-color 0.2s',
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+            onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
           />
         ) : (
           <input
             autoFocus value={editValue} onChange={e => setEditValue(e.target.value)}
             maxLength={64}
-            placeholder={editField === 'name' ? '请输入昵称' : editField === 'region' ? '如: 广东省深圳市' : '如: 工程师'}
+            placeholder={editField === 'name' ? t('pe.nicknameInputPlaceholder') : editField === 'region' ? t('pe.regionInputPlaceholder') : t('pe.occupationInputPlaceholder')}
             style={{
               width: '100%', height: 44, padding: '0 14px', borderRadius: 10, border: '1.5px solid #E0E3E8',
               fontSize: 14, color: '#1C2733', background: '#FAFBFC', outline: 'none',
               transition: 'border-color 0.2s',
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+            onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
             onKeyDown={e => { if (e.key === 'Enter' && editField) saveField(editField, editValue); }}
           />
@@ -461,36 +463,36 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
         <button className="hc-btn-primary" disabled={saving || !editValue.trim()}
           onClick={() => editField && saveField(editField, editValue.trim())}
           style={{ marginTop: 16, padding: '12px 24px', borderRadius: 22 }}>
-          {saving ? <Loader2 size={16} className="animate-spin" /> : '保存'}
+          {saving ? <Loader2 size={16} className="animate-spin" /> : t('common.save')}
         </button>
       </EditDialog>
 
       {/* Gender select */}
-      <EditDialog open={editField === 'sex'} onClose={() => setEditField(null)} title="选择性别">
+      <EditDialog open={editField === 'sex'} onClose={() => setEditField(null)} title={t('pe.selectGender')}>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 20 }}>
-          <Pill active={editValue === '0'} onClick={() => setEditValue('0')}>未设置</Pill>
-          <Pill active={editValue === '1'} onClick={() => setEditValue('1')}>🚹 男</Pill>
-          <Pill active={editValue === '2'} onClick={() => setEditValue('2')}>🚺 女</Pill>
+          <Pill active={editValue === '0'} onClick={() => setEditValue('0')}>{t('pe.gender.unset')}</Pill>
+          <Pill active={editValue === '1'} onClick={() => setEditValue('1')}>🚹 {t('pe.gender.male')}</Pill>
+          <Pill active={editValue === '2'} onClick={() => setEditValue('2')}>🚺 {t('pe.gender.female')}</Pill>
         </div>
         <button className="hc-btn-primary" disabled={saving}
           onClick={() => saveField('sex', Number(editValue))}
           style={{ padding: '12px 24px', borderRadius: 22 }}>
-          {saving ? <Loader2 size={16} className="animate-spin" /> : '确定'}
+          {saving ? <Loader2 size={16} className="animate-spin" /> : t('common.confirm')}
         </button>
       </EditDialog>
 
       {/* Tags editor */}
-      <EditDialog open={editField === 'tags'} onClose={() => setEditField(null)} title="编辑个人标签">
+      <EditDialog open={editField === 'tags'} onClose={() => setEditField(null)} title={t('pe.editTags')}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, minHeight: 36, marginBottom: 12 }}>
           {editTags.map((t, i) => (
             <span key={i} style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '5px 12px', borderRadius: 16, fontSize: 13, fontWeight: 500,
-              background: 'rgba(51,144,236,0.08)', color: '#3390EC',
+              background: tagColor(t).b, color: tagColor(t).c,
             }}>
               {t}
               <button onClick={() => setEditTags(editTags.filter((_, j) => j !== i))} style={{
-                background: 'none', border: 'none', cursor: 'pointer', color: '#3390EC', padding: 0,
+                background: 'none', border: 'none', cursor: 'pointer', color: tagColor(t).c, padding: 0,
                 display: 'flex', opacity: 0.6, transition: 'opacity 0.15s',
               }}
                 onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
@@ -498,7 +500,7 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
               ><X size={14} /></button>
             </span>
           ))}
-          {editTags.length === 0 && <span style={{ fontSize: 13, color: '#A2ACB5', lineHeight: '28px' }}>还没有标签，添加一个吧</span>}
+          {editTags.length === 0 && <span style={{ fontSize: 13, color: '#A2ACB5', lineHeight: '28px' }}>{t('pe.noTags')}</span>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
@@ -508,13 +510,13 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
                 setEditTags([...editTags, tagInput.trim()]); setTagInput('');
               }
             }}
-            placeholder="输入标签，回车添加" maxLength={20}
+            placeholder={t('pe.tagInputPlaceholder')} maxLength={20}
             style={{
               flex: 1, height: 40, padding: '0 14px', borderRadius: 10, border: '1.5px solid #E0E3E8',
               fontSize: 14, color: '#1C2733', background: '#FAFBFC', outline: 'none',
               transition: 'border-color 0.2s',
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+            onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
           />
           <button onClick={() => {
@@ -523,78 +525,78 @@ export default function MyProfileEditPage({ onBack }: { onBack: () => void }) {
             }
           }} style={{
             height: 40, padding: '0 16px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-            background: tagInput.trim() ? '#3390EC' : '#F0F2F5',
+            background: tagInput.trim() ? '#1BB45B' : '#F0F2F5',
             color: tagInput.trim() ? '#fff' : '#A2ACB5',
             border: 'none', cursor: 'pointer', transition: 'all 0.2s',
-          }}>添加</button>
+          }}>{t('pe.add')}</button>
         </div>
-        <div style={{ fontSize: 12, color: '#A2ACB5', marginTop: 8 }}>最多 10 个标签 ({editTags.length}/10)</div>
+        <div style={{ fontSize: 12, color: '#A2ACB5', marginTop: 8 }}>{t('pe.maxTags').replace('{count}', String(editTags.length))}</div>
         <button className="hc-btn-primary" disabled={saving}
           onClick={async () => {
             await saveField('tags', JSON.stringify(editTags));
           }}
           style={{ marginTop: 12, padding: '12px 24px', borderRadius: 22 }}>
-          {saving ? <Loader2 size={16} className="animate-spin" /> : '保存'}
+          {saving ? <Loader2 size={16} className="animate-spin" /> : t('common.save')}
         </button>
       </EditDialog>
 
       {/* Email bind dialog */}
-      <EditDialog open={editField === 'email'} onClose={() => { setEditField(null); setEmailStep('input'); }} title={user.email ? '更换邮箱' : '绑定邮箱'}>
+      <EditDialog open={editField === 'email'} onClose={() => { setEditField(null); setEmailStep('input'); }} title={user.email ? t('pe.changeEmail') : t('pe.bindEmail')}>
         {emailStep === 'input' ? (
           <>
             {user.email && (
               <div style={{ fontSize: 13, color: '#646A73', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <CheckCircle2 size={14} color="#4DCD5E" /> 当前邮箱: {user.email}
+                <CheckCircle2 size={14} color="#4DCD5E" /> {t('pe.currentEmail').replace('{email}', user.email)}
               </div>
             )}
             <input
               autoFocus value={bindEmail} onChange={e => setBindEmail(e.target.value)}
-              placeholder="请输入邮箱地址" type="email"
+              placeholder={t('pe.emailInputPlaceholder')} type="email"
               style={{
                 width: '100%', height: 44, padding: '0 14px', borderRadius: 10, border: '1.5px solid #E0E3E8',
                 fontSize: 14, color: '#1C2733', background: '#FAFBFC', outline: 'none',
                 transition: 'border-color 0.2s',
               }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
             />
             <button className="hc-btn-primary" disabled={emailSending || !bindEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bindEmail)}
               onClick={handleSendEmailCode}
               style={{ marginTop: 16, padding: '12px 24px', borderRadius: 22 }}>
-              {emailSending ? <Loader2 size={16} className="animate-spin" /> : '发送验证码'}
+              {emailSending ? <Loader2 size={16} className="animate-spin" /> : t('pe.sendCode')}
             </button>
           </>
         ) : (
           <>
             <div style={{ fontSize: 13, color: '#646A73', marginBottom: 12 }}>
-              验证码已发送至 <span style={{ color: '#3390EC', fontWeight: 500 }}>{bindEmail}</span>
+              {t('pe.codeSentTo').replace('{email}', bindEmail)}
             </div>
             <input
               autoFocus value={emailCode} onChange={e => setEmailCode(e.target.value.replace(/\D/g, ''))}
-              placeholder="请输入6位验证码" maxLength={6}
+              placeholder={t('pe.codePlaceholder')} maxLength={6}
               style={{
                 width: '100%', height: 44, padding: '0 14px', borderRadius: 10, border: '1.5px solid #E0E3E8',
                 fontSize: 14, color: '#1C2733', background: '#FAFBFC', outline: 'none',
                 letterSpacing: 4, textAlign: 'center', fontWeight: 600,
                 transition: 'border-color 0.2s',
               }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#3390EC'; }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#1BB45B'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#E0E3E8'; }}
               onKeyDown={e => { if (e.key === 'Enter' && emailCode.length === 6) handleBindEmail(); }}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
               <button onClick={() => setEmailStep('input')} style={{
-                background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#3390EC',
-              }}>更换邮箱</button>
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#1BB45B',
+              }}>{t('pe.changeEmailLink')}</button>
               <button disabled={emailCountdown > 0} onClick={handleSendEmailCode} style={{
                 background: 'none', border: 'none', cursor: emailCountdown > 0 ? 'default' : 'pointer',
-                fontSize: 13, color: emailCountdown > 0 ? '#A2ACB5' : '#3390EC',
-              }}>{emailCountdown > 0 ? `${emailCountdown}s 后重发` : '重新发送'}</button>
+                fontSize: 13, color: emailCountdown > 0 ? '#A2ACB5' : '#1BB45B',
+              }}>{emailCountdown > 0 ? t('pe.resendIn').replace('{sec}', String(emailCountdown)) : t('pe.resend')}</button>
             </div>
             <button className="hc-btn-primary" disabled={saving || emailCode.length !== 6}
               onClick={handleBindEmail}
               style={{ marginTop: 12, padding: '12px 24px', borderRadius: 22 }}>
-              {saving ? <Loader2 size={16} className="animate-spin" /> : '确认绑定'}
+              {saving ? <Loader2 size={16} className="animate-spin" /> : t('pe.confirmBind')}
             </button>
           </>
         )}

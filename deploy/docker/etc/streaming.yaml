@@ -1,0 +1,96 @@
+Name: streaming.service
+ListenOn: 0.0.0.0:10093
+
+# JWT 鉴权：与 im/user 共用同一 AccessSecret
+JwtAuth:
+  AccessSecret: iceymoss.hichat.hichat2.com
+  AccessExpire: 8640000
+
+Mysql:
+  DataSource: root:123456789@tcp(mysql:3306)/hichat2?charset=utf8mb4&parseTime=true
+
+Cache:
+  - Host: redis:6379
+    Type: node
+
+# WebRTC 配置
+WebRTC:
+  # ICE 服务器：本机/局域网体验用公共 STUN 即可；跨公网通话需自建 TURN 并填到下方。
+  IceServers:
+    - URLs:
+        - "stun:stun.l.google.com:19302"
+        - "stun:stun1.l.google.com:19302"
+  Media:
+    Video:
+      Width: 1280
+      Height: 720
+      FrameRate: 30
+      Bitrate: 1000000
+    Audio:
+      SampleRate: 48000
+      Channels: 2
+      Bitrate: 128000
+
+SFU:
+  MaxRooms: 1000
+  MaxUsersPerRoom: 50
+  ActiveSpeakers: 4
+  RoomTimeout: 3600
+  UserTimeout: 300
+
+Diagnostics:
+  Enabled: true
+  Path: logs/sfu-diagnostics.jsonl
+  MaxMB: 20
+
+Signaling:
+  WebSocket:
+    ReadBufferSize: 4096
+    WriteBufferSize: 4096
+    CheckOrigin: true
+  MessageQueue:
+    BufferSize: 1000
+    WorkerCount: 10
+
+# im ws 地址：streaming 以系统 root 身份连入，推送通话控制信令（push.call）
+Ws:
+  Host: im-ws:10090
+
+Call:
+  RingTimeoutSeconds: 30
+
+# SFU 公网化（Phase 1）。Compose 部署由 PUBLIC_IP / SFU_UDP_* 环境变量覆盖。
+Public:
+  IP: ""
+  UDPPortMin: 50000
+  UDPPortMax: 50200
+
+# coturn 中继（Phase 1）。Compose 部署由 TURN_URLS / TURN_SECRET 环境变量覆盖。
+Turn:
+  URLs: []
+  Secret: ""
+  TTLSeconds: 3600
+
+SocialRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: social.rpc
+    Timeout: 2000
+    NonBlock: true
+
+UserRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: user.rpc
+    Timeout: 2000
+    NonBlock: true
+
+ImRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: im.rpc
+    Timeout: 2000
+    NonBlock: true

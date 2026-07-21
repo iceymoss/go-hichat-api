@@ -1,53 +1,61 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import {
   Heart, MessageCircle, MapPin, Send, Pin, MessageSquareOff,
   Play, ArrowLeft, ExternalLink, ThumbsUp, Users, Lock, Globe,
-  X, Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAvatarColor } from '@/lib/utils';
 import { useIMStore } from '@/lib/im-store';
+import { useT } from '@/hooks/use-i18n';
+import ImageViewer from './ImageViewer';
 import {
-  trends as initTrends,
-  trendComments as initComments,
-  trendLikeUsers as initLikeUsers,
-  initialLikedTrends,
-  currentUser,
-  contacts,
   type Trend,
   type TrendComment,
-} from '@/lib/mock-data';
+} from '@/lib/types';
+import {
+  getTrendDetail,
+  getCommentTree,
+  getLikedUsers,
+  toggleLike as apiToggleLike,
+  createComment,
+  deleteComment as apiDeleteComment,
+  mapBackendTrend,
+  commentTreeToMap,
+} from '@/lib/trend-api';
 
 /* ═══════════════════════════════════════
    Helpers
    ═══════════════════════════════════════ */
 
-function fmtTime(date: Date): string {
+function fmtTime(date: Date, t: (k: string) => string): string {
   const now = Date.now();
   const diff = now - date.getTime();
   const m = Math.floor(diff / 60000);
   const h = Math.floor(diff / 3600000);
   const d = Math.floor(diff / 86400000);
-  if (m < 1) return '刚刚';
-  if (m < 60) return `${m}分钟前`;
-  if (h < 24) return `${h}小时前`;
-  if (d < 30) return `${new Date(date).getMonth() + 1}月${new Date(date).getDate()}日`;
+  if (m < 1) return t('group.time.justNow');
+  if (m < 60) return t('group.time.minutesAgo').replace('{m}', String(m));
+  if (h < 24) return t('group.time.hoursAgo').replace('{h}', String(h));
+  if (d < 30) return t('group.time.monthDay').replace('{month}', String(new Date(date).getMonth() + 1)).replace('{day}', String(new Date(date).getDate()));
   return `${new Date(date).getFullYear()}/${new Date(date).getMonth() + 1}/${new Date(date).getDate()}`;
 }
 
-function getUserName(userId: string): string {
-  if (userId === 'me') return currentUser.name;
-  const c = contacts.find(ct => ct.id === userId);
-  return c ? c.name : userId;
+function getUserName(userId: string, fallback?: string, t?: (k: string) => string): string {
+  if (userId === 'me') return fallback || useIMStore.getState().currentUser?.name || (t ? t('trend.me') : '我');
+  // 好友备注优先，其次后端昵称兜底
+  const c = useIMStore.getState().friends.find(ct => ct.id === userId);
+  if (c?.remark) return c.remark;
+  return fallback || c?.name || userId;
 }
 
-const scopeLabels: Record<number, { label: string; icon: React.ReactNode }> = {
-  1: { label: '仅自己', icon: <Lock className="w-3 h-3" /> },
-  2: { label: '仅好友', icon: <Users className="w-3 h-3" /> },
-  3: { label: '所有人', icon: <Globe className="w-3 h-3" /> },
+const scopeLabels: Record<number, { labelKey: string; icon: React.ReactNode }> = {
+  1: { labelKey: 'trend.vis.private', icon: <Lock className="w-3 h-3" /> },
+  2: { labelKey: 'trend.vis.friends', icon: <Users className="w-3 h-3" /> },
+  3: { labelKey: 'trend.vis.public', icon: <Globe className="w-3 h-3" /> },
 };
 
 /* ═══════════════════════════════════════
@@ -62,9 +70,12 @@ interface CommentItemProps {
 
 function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
   const [showActions, setShowActions] = useState(false);
+  const showUserCard = useIMStore(s => s.showUserCard);
+  const t = useT();
   const isOwn = comment.replyer.id === 'me';
-  const userName = comment.replyer.name;
-  const replyToName = comment.user?.name;
+  const userName = getUserName(comment.replyer.id, comment.replyer.name, t);
+  const userAvatar = comment.replyer.avatar;
+  const replyToName = comment.user ? getUserName(comment.user.id, comment.user.name, t) : undefined;
 
   return (
     <div
@@ -75,24 +86,30 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
     >
       <div className="flex gap-2.5">
         <div
+          className="overflow-hidden cursor-pointer"
           style={{
             width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
             backgroundColor: getAvatarColor(userName),
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 13, fontWeight: 600, color: '#FFF',
           }}
+          onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}
         >
-          {userName[0]}
+          {userAvatar ? (
+            <img src={userAvatar} alt="" className="w-full h-full object-cover" />
+          ) : (
+            userName[0]
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#3390EC' }}>{userName}</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#576b95', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{userName}</span>
             {replyToName && (
               <span style={{ fontSize: '12px', color: '#A2ACB5' }}>
-                回复 <span style={{ color: '#3390EC' }}>{replyToName}</span>
+                {t('trend.replyConnector')} <span style={{ color: '#576b95', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); comment.user && showUserCard(comment.user.id); }}>{replyToName}</span>
               </span>
             )}
-            <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', flexShrink: 0 }}>{fmtTime(comment.createTime)}</span>
+            <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', flexShrink: 0 }}>{fmtTime(comment.createTime, t)}</span>
           </div>
           <p style={{ fontSize: '13px', color: '#1C2733', marginTop: 3, lineHeight: '1.5' }}>{comment.content}</p>
           {/* Actions */}
@@ -100,16 +117,16 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
             <div className="flex items-center gap-3" style={{ marginTop: 4 }}>
               <button
                 onClick={() => onReply(comment)}
-                style={{ fontSize: '12px', color: '#3390EC', background: 'none', border: 'none', cursor: 'pointer' }}
+                style={{ fontSize: '12px', color: '#1BB45B', background: 'none', border: 'none', cursor: 'pointer' }}
               >
-                回复
+                {t('trend.reply')}
               </button>
               {isOwn && (
                 <button
                   onClick={() => onDelete(comment)}
                   style={{ fontSize: '12px', color: '#E53935', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
-                  删除
+                  {t('trend.delete')}
                 </button>
               )}
             </div>
@@ -135,12 +152,14 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
 const LIKE_COLLAPSE_LIMIT = 70;
 
 function LikeAvatarItem({ user }: { user: { id: string; name: string; avatar: string } }) {
-  const name = user.name;
+  const t = useT();
+  const name = getUserName(user.id, user.name, t);
   const [showTip, setShowTip] = useState(false);
-  const displayName = user.id === 'me' ? '我' : (name || user.id);
+  const showUserCard = useIMStore(s => s.showUserCard);
+  const displayName = user.id === 'me' ? t('trend.me') : (name || user.id);
   return (
     <div
-      className="relative"
+      className="relative overflow-hidden"
       style={{
         width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
         backgroundColor: getAvatarColor(name),
@@ -149,10 +168,15 @@ function LikeAvatarItem({ user }: { user: { id: string; name: string; avatar: st
         border: '2px solid #FFF', boxShadow: '0 0 0 1px rgba(0,0,0,0.06)',
         transition: 'transform 0.15s',
       }}
+      onClick={(e) => { e.stopPropagation(); showUserCard(user.id); }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.15)'; setShowTip(true); }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; setShowTip(false); }}
     >
-      {name[0]}
+      {user.avatar ? (
+        <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+      ) : (
+        name[0]
+      )}
       {showTip && (
         <div
           className="absolute"
@@ -175,108 +199,156 @@ function LikeAvatarItem({ user }: { user: { id: string; name: string; avatar: st
    ═══════════════════════════════════════ */
 
 export default function TrendDetailPanel() {
-  const { selectedTrendId, setSelectedTrendId } = useIMStore();
+  const { selectedTrendId, setSelectedTrendId, currentUser: meAuth, trendVersions, bumpTrendVersion, showUserCard } = useIMStore();
+  const t = useT();
+  const trendVersion = selectedTrendId != null ? (trendVersions[selectedTrendId] || 0) : 0;
+  const token = meAuth?.token || '';
+  const meUserId = meAuth?.id || '';
+  const meName = meAuth?.name || '';
+  const meAvatar = meAuth?.avatar || '';
 
-  // Local state for detail view
-  const [trends] = useState<Trend[]>(() => [...initTrends]);
-  const [likedMap, setLikedMap] = useState<Record<number, boolean>>(() => {
-    const m: Record<number, boolean> = {};
-    initialLikedTrends.forEach(id => { m[id] = true; });
-    return m;
-  });
-  const [commentsMap, setCommentsMap] = useState<Record<number, TrendComment[]>>(() => ({ ...initComments }));
-  const [likeUsersMap, setLikeUsersMap] = useState<Record<number, { id: string; name: string; avatar: string }[]>>(() => ({ ...initLikeUsers }));
+  const [trend, setTrend] = useState<Trend | null>(null);
+  const [comments, setComments] = useState<TrendComment[]>([]);
+  const [likeUsers, setLikeUsers] = useState<{ id: string; name: string; avatar: string }[]>([]);
+  const [liked, setLiked] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [replyTarget, setReplyTarget] = useState<TrendComment | null>(null);
   const [likeAnim, setLikeAnim] = useState(false);
   const [likeExpanded, setLikeExpanded] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(-1);
 
-  const trend = useMemo(() => trends.find(t => t.id === selectedTrendId) || null, [trends, selectedTrendId]);
-  const comments = useMemo(() => selectedTrendId ? (commentsMap[selectedTrendId] || []) : [], [commentsMap, selectedTrendId]);
-  const liked = useMemo(() => selectedTrendId ? !!likedMap[selectedTrendId] : false, [likedMap, selectedTrendId]);
   const likeCount = trend?.agreeCount || 0;
-  const likeUsers = useMemo(() => selectedTrendId ? (likeUsersMap[selectedTrendId] || []) : [], [likeUsersMap, selectedTrendId]);
+
+  // Load trend + comments + like users when the selected id changes.
+  useEffect(() => {
+    if (!selectedTrendId || !token) {
+      setTrend(null);
+      setComments([]);
+      setLikeUsers([]);
+      setLiked(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const [detailRes, treeRes, likedUsersRes] = await Promise.all([
+        getTrendDetail(token, selectedTrendId),
+        getCommentTree(token, [selectedTrendId]),
+        getLikedUsers(token, selectedTrendId, 0, 100),
+      ]);
+      if (cancelled) return;
+      if (detailRes.success && detailRes.data?.trend) {
+        setTrend(mapBackendTrend(detailRes.data.trend, meUserId));
+      } else {
+        setTrend(null);
+      }
+      if (treeRes.success && treeRes.data) {
+        const map = commentTreeToMap(treeRes.data, meUserId);
+        setComments(map[selectedTrendId] || []);
+      } else {
+        setComments([]);
+      }
+      if (likedUsersRes.success && likedUsersRes.data) {
+        const users = (likedUsersRes.data.users || []).map(u => ({
+          id: u.id === meUserId ? 'me' : u.id,
+          name: u.nickname || '',
+          avatar: u.avatar || '',
+        }));
+        setLikeUsers(users);
+        setLiked(users.some(u => u.id === 'me'));
+      } else {
+        setLikeUsers([]);
+        setLiked(false);
+      }
+    })().catch(err => console.error('TrendDetailPanel load error', err));
+    return () => { cancelled = true; };
+  }, [selectedTrendId, token, meUserId, trendVersion]);
 
   // Handlers
   const handleClose = useCallback(() => {
     setSelectedTrendId(null);
   }, [setSelectedTrendId]);
 
+  const refreshComments = useCallback(async () => {
+    if (!selectedTrendId || !token) return;
+    const r = await getCommentTree(token, [selectedTrendId]);
+    if (r.success && r.data) {
+      const map = commentTreeToMap(r.data, meUserId);
+      setComments(map[selectedTrendId] || []);
+    }
+  }, [selectedTrendId, token, meUserId]);
+
   const handleToggleLike = useCallback(() => {
-    if (!selectedTrendId || !trend) return;
+    if (!selectedTrendId || !trend || !token) return;
     setLikeAnim(true);
     setTimeout(() => setLikeAnim(false), 300);
-    const isLiked = !!likedMap[selectedTrendId];
-    if (isLiked) {
-      setLikedMap(prev => { const n = { ...prev }; delete n[selectedTrendId]; return n; });
-      setLikeUsersMap(prev => ({
-        ...prev,
-        [selectedTrendId]: (prev[selectedTrendId] || []).filter(u => u.id !== 'me'),
-      }));
-    } else {
-      setLikedMap(prev => ({ ...prev, [selectedTrendId]: true }));
-      setLikeUsersMap(prev => ({
-        ...prev,
-        [selectedTrendId]: [{ id: 'me', name: currentUser.name, avatar: currentUser.avatar }, ...(prev[selectedTrendId] || [])],
-      }));
-    }
-  }, [selectedTrendId, trend, likedMap]);
+    const wasLiked = liked;
+    // Optimistic
+    setLiked(!wasLiked);
+    setLikeUsers(prev => wasLiked
+      ? prev.filter(u => u.id !== 'me')
+      : [{ id: 'me', name: meName, avatar: meAvatar }, ...prev]);
+    setTrend(t => t ? { ...t, agreeCount: wasLiked ? Math.max(0, t.agreeCount - 1) : t.agreeCount + 1 } : t);
+
+    const authorIdStr = trend.userId === 'me' ? meUserId : trend.userId;
+    const authorId = Number(authorIdStr) || 0;
+    // like_type: 1 点赞 / 0 取消 (后端按 LikeType > 0 判加减)
+    apiToggleLike(token, selectedTrendId, authorId, wasLiked ? 0 : 1).then(() => {
+      bumpTrendVersion(selectedTrendId);
+    }).catch(err => {
+      console.error('toggleLike error', err);
+      setLiked(wasLiked);
+      setLikeUsers(prev => wasLiked
+        ? [{ id: 'me', name: meName, avatar: meAvatar }, ...prev]
+        : prev.filter(u => u.id !== 'me'));
+      setTrend(t => t ? { ...t, agreeCount: wasLiked ? t.agreeCount + 1 : Math.max(0, t.agreeCount - 1) } : t);
+      toast.error(t('trend.likeFail'));
+    });
+  }, [selectedTrendId, trend, token, liked, meUserId, meName, meAvatar, bumpTrendVersion]);
 
   const handleSubmitComment = useCallback(() => {
-    if (!selectedTrendId || !commentText.trim()) return;
-    const newComment: TrendComment = {
-      id: Date.now(),
-      trendId: selectedTrendId,
-      rootId: replyTarget ? (replyTarget.rootId || replyTarget.id) : Date.now(),
-      father: replyTarget ? replyTarget.id : 0,
-      replyer: { id: 'me', name: currentUser.name, avatar: currentUser.avatar },
-      user: replyTarget ? replyTarget.replyer : { id: '', name: '', avatar: '' },
-      level: replyTarget ? replyTarget.level + 1 : 1,
+    if (!selectedTrendId || !commentText.trim() || !token || !trend) return;
+    let replyUserIdStr = '';
+    if (replyTarget) {
+      replyUserIdStr = replyTarget.replyer.id === 'me' ? meUserId : replyTarget.replyer.id;
+    } else {
+      replyUserIdStr = trend.userId === 'me' ? meUserId : trend.userId;
+    }
+    const payload = {
+      trend_id: selectedTrendId,
+      father: replyTarget ? replyTarget.id : undefined,
+      user_id: Number(replyUserIdStr) || 0,
       content: commentText.trim(),
-      agreeCount: 0,
-      children: [],
-      createTime: new Date(),
     };
-
-    setCommentsMap(prev => {
-      const existing = prev[selectedTrendId] || [];
-      if (replyTarget && replyTarget.rootId) {
-        const addChild = (cs: TrendComment[]): TrendComment[] =>
-          cs.map(c => {
-            if (c.id === replyTarget.rootId) return { ...c, children: [...(c.children || []), newComment] };
-            if (c.children) return { ...c, children: addChild(c.children) };
-            return c;
-          });
-        return { ...prev, [selectedTrendId]: addChild(existing) };
-      } else if (replyTarget) {
-        const addChild = (cs: TrendComment[]): TrendComment[] =>
-          cs.map(c => {
-            if (c.id === replyTarget.id) return { ...c, children: [...(c.children || []), newComment] };
-            if (c.children) return { ...c, children: addChild(c.children) };
-            return c;
-          });
-        return { ...prev, [selectedTrendId]: addChild(existing) };
-      }
-      return { ...prev, [selectedTrendId]: [...existing, { ...newComment, rootId: newComment.id }] };
-    });
     setCommentText('');
     setReplyTarget(null);
-    toast.success('评论已发布');
-  }, [selectedTrendId, commentText, replyTarget]);
+    createComment(token, payload).then(async r => {
+      if (!r.success) {
+        toast.error(r.message || t('trend.commentFail'));
+        return;
+      }
+      await refreshComments();
+      setTrend(t => t ? { ...t, replyCount: t.replyCount + 1 } : t);
+      bumpTrendVersion(selectedTrendId);
+      toast.success(t('trend.commentPublished'));
+    }).catch(err => {
+      console.error('createComment error', err);
+      toast.error(t('trend.commentFail'));
+    });
+  }, [selectedTrendId, commentText, replyTarget, token, trend, meUserId, refreshComments, bumpTrendVersion]);
 
   const handleDeleteComment = useCallback((comment: TrendComment) => {
-    if (!selectedTrendId) return;
-    const removeComment = (cs: TrendComment[]): TrendComment[] =>
-      cs.filter(c => c.id !== comment.id).map(c => ({
-        ...c,
-        children: c.children ? removeComment(c.children) : [],
-      }));
-    setCommentsMap(prev => ({
-      ...prev,
-      [selectedTrendId]: removeComment(prev[selectedTrendId] || []),
-    }));
-    toast.success('评论已删除');
-  }, [selectedTrendId]);
+    if (!selectedTrendId || !token) return;
+    apiDeleteComment(token, comment.id).then(async r => {
+      if (!r.success) {
+        toast.error(r.message || t('trend.deleteFail'));
+        return;
+      }
+      await refreshComments();
+      setTrend(t => t ? { ...t, replyCount: Math.max(0, t.replyCount - 1) } : t);
+      bumpTrendVersion(selectedTrendId);
+      toast.success(t('trend.commentDeleted'));
+    }).catch(() => toast.error(t('trend.deleteFail')));
+  }, [selectedTrendId, token, refreshComments, bumpTrendVersion]);
 
   const imageGridClass = (count: number) => {
     if (count === 1) return 'grid-cols-1';
@@ -290,14 +362,15 @@ export default function TrendDetailPanel() {
     return parts.map((part, i) => {
       if (part.startsWith('@')) {
         const atUser = trend.atUsers.find(u => `@${u.name}` === part);
-        return <span key={i} style={{ color: '#3390EC', cursor: 'pointer' }}>{atUser ? atUser.name : part}</span>;
+        return <span key={i} style={{ color: '#576b95', cursor: 'pointer' }}>{atUser ? atUser.name : part}</span>;
       }
       return <span key={i}>{part}</span>;
     });
   };
 
   if (!trend) return null;
-  const userName = getUserName(trend.userId);
+  const userName = getUserName(trend.userId, trend.userName);
+  const userAvatar = trend.userAvatar || '';
 
   return (
     <div className="h-full flex flex-col" style={{ background: '#F0F2F5' }}>
@@ -317,13 +390,13 @@ export default function TrendDetailPanel() {
           style={{
             width: 40, height: 40, borderRadius: '50%',
             border: 'none', background: 'transparent',
-            color: '#3390EC', cursor: 'pointer',
+            color: '#1BB45B', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>动态详情</span>
+        <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>{t('trend.detail')}</span>
         <div style={{ width: 40 }} />
       </header>
 
@@ -335,34 +408,40 @@ export default function TrendDetailPanel() {
             {/* User header */}
             <div className="flex items-center gap-3 mb-4">
               <div
+                className="overflow-hidden"
                 style={{
                   width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
                   backgroundColor: getAvatarColor(userName),
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 18, fontWeight: 600, color: '#FFF',
+                  fontSize: 18, fontWeight: 600, color: '#FFF', cursor: 'pointer',
                 }}
+                onClick={() => showUserCard(trend.userId)}
               >
-                {userName[0]}
+                {userAvatar ? (
+                  <img src={userAvatar} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  userName[0]
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span style={{ fontSize: '15px', fontWeight: 600, color: '#3390EC' }}>{userName}</span>
+                  <span style={{ fontSize: '15px', fontWeight: 600, color: '#576b95', cursor: 'pointer' }} onClick={() => showUserCard(trend.userId)}>{userName}</span>
                   {trend.isTop && (
                     <span style={{ fontSize: '10px', fontWeight: 500, color: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: '4px', padding: '1px 6px', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                      <Pin className="w-3 h-3" />置顶
+                      <Pin className="w-3 h-3" />{t('trend.top')}
                     </span>
                   )}
                   {!trend.openReply && (
                     <span style={{ fontSize: '10px', fontWeight: 500, color: '#A2ACB5', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: '4px', padding: '1px 6px', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                      <MessageSquareOff className="w-3 h-3" />评论已关闭
+                      <MessageSquareOff className="w-3 h-3" />{t('trend.commentClosed')}
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{fmtTime(trend.createTime)}</span>
+                  <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{fmtTime(trend.createTime, t)}</span>
                   {trend.scope !== 3 && (
                     <span style={{ fontSize: '11px', color: '#708499', display: 'flex', alignItems: 'center', gap: 3 }}>
-                      {scopeLabels[trend.scope].icon}{scopeLabels[trend.scope].label}
+                      {scopeLabels[trend.scope].icon}{t(scopeLabels[trend.scope].labelKey)}
                     </span>
                   )}
                 </div>
@@ -391,7 +470,12 @@ export default function TrendDetailPanel() {
             {trend.type === 2 && trend.resources.length > 0 && (
               <div className={`grid ${imageGridClass(trend.resources.length)} gap-2`} style={{ marginBottom: 12 }}>
                 {trend.resources.map((img, idx) => (
-                  <div key={idx} className="overflow-hidden" style={{ borderRadius: 8, background: '#E8EDEF' }}>
+                  <div
+                    key={idx}
+                    className="overflow-hidden cursor-pointer"
+                    style={{ borderRadius: 8, background: '#E8EDEF' }}
+                    onClick={() => setViewerIndex(idx)}
+                  >
                     <img
                       src={img}
                       alt=""
@@ -419,11 +503,11 @@ export default function TrendDetailPanel() {
                 }}
                 onClick={() => window.open(trend.shareUrl, '_blank')}
               >
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(51,144,236,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <ExternalLink className="w-4 h-4" style={{ color: '#3390EC' }} />
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(27,180,91,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <ExternalLink className="w-4 h-4" style={{ color: '#1BB45B' }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>分享链接</div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#1C2733', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('trend.shareLink')}</div>
                   <div style={{ fontSize: '11px', color: '#A2ACB5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{trend.shareUrl}</div>
                 </div>
               </div>
@@ -447,24 +531,24 @@ export default function TrendDetailPanel() {
                 className="flex items-center gap-1.5 transition-all duration-200"
                 style={{
                   padding: '6px 16px', borderRadius: '18px', border: 'none',
-                  background: liked ? 'rgba(51,144,236,0.1)' : 'transparent',
+                  background: liked ? 'rgba(27,180,91,0.1)' : 'transparent',
                   cursor: 'pointer',
                   transform: likeAnim ? 'scale(1.15)' : 'scale(1)',
                   transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                 }}
               >
-                <Heart className="w-4 h-4" style={{ color: liked ? '#3390EC' : '#A2ACB5', fill: liked ? '#3390EC' : 'none' }} />
-                <span style={{ fontSize: '13px', color: liked ? '#3390EC' : '#708499', fontWeight: liked ? 600 : 400 }}>
-                  {likeCount > 0 ? likeCount : '赞'}
+                <Heart className="w-4 h-4" style={{ color: liked ? '#FA5151' : '#A2ACB5', fill: liked ? '#FA5151' : 'none' }} />
+                <span style={{ fontSize: '13px', color: liked ? '#FA5151' : '#708499', fontWeight: liked ? 600 : 400 }}>
+                  {likeCount > 0 ? likeCount : t('trend.like')}
                 </span>
               </button>
               <div className="flex items-center gap-1.5" style={{ padding: '6px 16px', borderRadius: '18px', color: '#708499' }}>
                 <MessageCircle className="w-4 h-4" />
-                <span style={{ fontSize: '13px' }}>{trend.replyCount || '评论'}</span>
+                <span style={{ fontSize: '13px' }}>{trend.replyCount || t('trend.comment')}</span>
               </div>
               <button
                 style={{ padding: '6px 16px', borderRadius: '18px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#708499' }}
-                onClick={() => toast.success('链接已复制')}
+                onClick={() => toast.success(t('trend.linkCopied'))}
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -478,12 +562,12 @@ export default function TrendDetailPanel() {
               style={{ padding: '14px 20px', borderBottom: likeUsers.length > 0 ? '1px solid rgba(0,0,0,0.06)' : 'none' }}
             >
               <div className="flex items-center gap-2">
-                <ThumbsUp className="w-4 h-4" style={{ color: '#3390EC' }} />
+                <ThumbsUp className="w-4 h-4" style={{ color: '#1BB45B' }} />
                 <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>
-                  点赞好友
+                  {t('trend.likeFriends')}
                 </span>
               </div>
-              <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{likeUsers.length} 人</span>
+              <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{t('trend.peopleUnit').replace('{count}', String(likeUsers.length))}</span>
             </div>
             {likeUsers.length > 0 ? (
               <div style={{ padding: '16px 20px' }}>
@@ -497,7 +581,7 @@ export default function TrendDetailPanel() {
                     onClick={() => setLikeExpanded(prev => !prev)}
                     className="flex items-center gap-1 mt-3"
                     style={{
-                      fontSize: '12px', color: '#3390EC', background: 'none',
+                      fontSize: '12px', color: '#1BB45B', background: 'none',
                       border: 'none', cursor: 'pointer', padding: '4px 0',
                       fontWeight: 500,
                     }}
@@ -505,12 +589,12 @@ export default function TrendDetailPanel() {
                     {likeExpanded ? (
                       <>
                         <ChevronUp className="w-3.5 h-3.5" />
-                        收起
+                        {t('trend.collapse')}
                       </>
                     ) : (
                       <>
                         <ChevronDown className="w-3.5 h-3.5" />
-                        展开全部 {likeUsers.length} 人
+                        {t('trend.expandAllPeople').replace('{count}', String(likeUsers.length))}
                       </>
                     )}
                   </button>
@@ -519,7 +603,7 @@ export default function TrendDetailPanel() {
             ) : (
               <div className="flex flex-col items-center justify-center" style={{ padding: '32px 0' }}>
                 <Heart className="w-10 h-10" style={{ color: '#E8EDEF', marginBottom: 8 }} />
-                <div style={{ fontSize: '13px', color: '#A2ACB5' }}>暂无人点赞</div>
+                <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{t('trend.noLikesYet')}</div>
               </div>
             )}
           </div>
@@ -531,12 +615,12 @@ export default function TrendDetailPanel() {
               style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}
             >
               <div className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4" style={{ color: '#3390EC' }} />
+                <MessageCircle className="w-4 h-4" style={{ color: '#1BB45B' }} />
                 <span style={{ fontSize: '14px', fontWeight: 600, color: '#1C2733' }}>
-                  动态评论区
+                  {t('trend.commentSection')}
                 </span>
               </div>
-              <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{trend.replyCount} 条</span>
+              <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{t('trend.commentsUnit').replace('{count}', String(trend.replyCount))}</span>
             </div>
             {comments.length > 0 ? (
               <div style={{ padding: '4px 20px 8px' }}>
@@ -552,7 +636,7 @@ export default function TrendDetailPanel() {
             ) : (
               <div className="flex flex-col items-center justify-center" style={{ padding: '32px 0' }}>
                 <MessageCircle className="w-10 h-10" style={{ color: '#E8EDEF', marginBottom: 8 }} />
-                <div style={{ fontSize: '13px', color: '#A2ACB5' }}>暂无评论</div>
+                <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{t('trend.noComments')}</div>
               </div>
             )}
           </div>
@@ -574,8 +658,8 @@ export default function TrendDetailPanel() {
         >
           {replyTarget && (
             <div className="flex items-center gap-1 shrink-0" style={{ fontSize: '11px', color: '#708499', maxWidth: 120, overflow: 'hidden', whiteSpace: 'nowrap' }}>
-              <span>回复</span>
-              <span style={{ color: '#3390EC', fontWeight: 500 }}>{replyTarget.replyer.name}</span>
+              <span>{t('trend.reply')}</span>
+              <span style={{ color: '#576b95', fontWeight: 500 }}>{getUserName(replyTarget.replyer.id, replyTarget.replyer.name, t)}</span>
               <button
                 onClick={() => setReplyTarget(null)}
                 style={{ marginLeft: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#A2ACB5', padding: 0, display: 'flex' }}
@@ -588,7 +672,7 @@ export default function TrendDetailPanel() {
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && commentText.trim()) handleSubmitComment(); }}
-            placeholder={replyTarget ? `回复 ${replyTarget.replyer.name}...` : '写评论...'}
+            placeholder={replyTarget ? t('trend.replyPlaceholder').replace('{name}', getUserName(replyTarget.replyer.id, replyTarget.replyer.name, t)) : t('trend.writeComment')}
             style={{
               flex: 1, borderRadius: '20px',
               border: '1px solid rgba(0,0,0,0.1)',
@@ -596,7 +680,7 @@ export default function TrendDetailPanel() {
               outline: 'none', background: '#F5F7FA',
               transition: 'border-color 0.2s, box-shadow 0.2s',
             }}
-            onFocus={(e) => { e.target.style.borderColor = '#3390EC'; e.target.style.boxShadow = '0 0 0 3px rgba(51,144,236,0.15)'; }}
+            onFocus={(e) => { e.target.style.borderColor = '#1BB45B'; e.target.style.boxShadow = '0 0 0 3px rgba(27,180,91,0.15)'; }}
             onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }}
           />
           {commentText.trim() && (
@@ -604,7 +688,7 @@ export default function TrendDetailPanel() {
               onClick={handleSubmitComment}
               style={{
                 width: 34, height: 34, borderRadius: '50%',
-                border: 'none', background: '#3390EC', color: '#FFF',
+                border: 'none', background: '#1BB45B', color: '#FFF',
                 cursor: 'pointer', display: 'flex', alignItems: 'center',
                 justifyContent: 'center', flexShrink: 0,
               }}
@@ -614,6 +698,8 @@ export default function TrendDetailPanel() {
           )}
         </div>
       )}
+
+      <ImageViewer images={trend.resources} index={viewerIndex} onClose={() => setViewerIndex(-1)} onIndexChange={setViewerIndex} />
     </div>
   );
 }

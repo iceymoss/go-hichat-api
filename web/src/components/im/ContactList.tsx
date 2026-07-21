@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { contactGroups, type Contact } from '@/lib/mock-data';
+import { contactGroups, type Contact } from '@/lib/types';
 import { useIMStore } from '@/lib/im-store';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Search, UserPlus, Users, Tag, Megaphone, ChevronRight } from 'lucide-react';
 import { getAvatarColor } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
 // Contact detail is shown via ContactDetailPanel in IMLayout right panel
 
 /**
@@ -28,29 +29,51 @@ const iconMap: Record<string, React.ReactNode> = {
   Megaphone: <Megaphone className="w-[22px] h-[22px]" />,
 };
 
+// Quick-access group titles come from types.ts as Chinese literals; map them to i18n keys for display.
+// (Comparisons against the data value below stay in Chinese — they match the data source, not the UI.)
+const groupTitleKeys: Record<string, string> = {
+  '新的朋友': 'contact.newFriends',
+  '群聊': 'contact.groupChats',
+  '标签': 'contact.tags',
+  '公众号': 'contact.officialAccounts',
+};
+
 export default function ContactList() {
+  const t = useT();
   const [searchQuery, setSearchQuery] = useState('');
   const [backendResults, setBackendResults] = useState<Contact[]>([]);
-  const { setSelectedContactId, selectedContactId, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, setShowGroupPanel, groupAppUnreadCount, currentUser, friends, setFriends, friendsVersion } = useIMStore();
+  const { setSelectedContactId, selectedContactId, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, setShowGroupPanel, groupAppUnreadCount, setGroupAppUnreadCount, currentUser, friends, setFriends, friendsVersion } = useIMStore();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Poll friend request unread count every 10s
+  // 好友申请未读数：挂载时拉一次（拿离线累计），之后由 ws.on('notify') 实时 +1，无需轮询
   useEffect(() => {
     if (!currentUser?.token) return;
-    const fetchCount = () => {
-      fetch('/api/social/friend/putIn/messageCount', {
-        headers: { Authorization: `Bearer ${currentUser.token}` },
+    fetch('/api/social/friend/putIn/messageCount', {
+      headers: { Authorization: `Bearer ${currentUser.token}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) setFriendRequestUnreadCount(d.data?.count ?? 0);
       })
-        .then(r => r.json())
-        .then(d => {
-          if (d.success) setFriendRequestUnreadCount(d.data?.count ?? 0);
-        })
-        .catch(() => {});
-    };
-    fetchCount(); // 立即拉一次
-    const timer = setInterval(fetchCount, 10000); // 每 10 秒轮询
-    return () => clearInterval(timer);
+      .catch(() => {});
   }, [currentUser?.token, setFriendRequestUnreadCount]);
+
+  // 入群申请未读数：挂载时拉一次（持久化「我的群组」气泡），否则刷新后需进群申请视图才算出来。
+  // 已读模型：未读 = 我收到的(申请人≠我) 且 receiver_read=0。
+  useEffect(() => {
+    const myId = currentUser?.id;
+    if (!currentUser?.token || !myId) return;
+    fetch('/api/social/group/putInsByUid?class=2', {
+      headers: { Authorization: `Bearer ${currentUser.token}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        const list: Array<{ user_id?: string; receiver_read?: number }> = d?.data?.list || [];
+        const cnt = list.filter(x => String(x.user_id) !== String(myId) && (x.receiver_read ?? 0) === 0).length;
+        setGroupAppUnreadCount(cnt);
+      })
+      .catch(() => {});
+  }, [currentUser?.token, currentUser?.id, setGroupAppUnreadCount]);
 
   // Fetch friends list from API
   useEffect(() => {
@@ -93,8 +116,12 @@ export default function ContactList() {
               phone: f.phone || undefined,
               region: f.region || undefined,
               signature: f.introduction || undefined,
+              introduction: f.introduction || undefined,
+              occupation: f.occupation || undefined,
+              tags: f.tags || undefined,
               account: String(f.friend_uid),
               remark: f.remark || undefined,
+              nickname: f.nickname || undefined,
             };
           });
           setFriends(mapped);
@@ -192,7 +219,7 @@ export default function ContactList() {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索"
+            placeholder={t('common.search')}
             style={{
               backgroundColor: '#F0F2F5',
               border: 'none',
@@ -232,14 +259,14 @@ export default function ContactList() {
                   height: '44px',
                   borderRadius: '12px',
                   backgroundColor: group.title === '新的朋友'
-                    ? 'rgba(51,144,236,0.1)'
-                    : 'rgba(51,144,236,0.1)',
+                    ? 'rgba(27,180,91,0.1)'
+                    : 'rgba(27,180,91,0.1)',
                 }}
               >
-                <span style={{ color: '#3390EC' }}>{iconMap[group.icon]}</span>
+                <span style={{ color: '#1BB45B' }}>{iconMap[group.icon]}</span>
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-sm" style={{ color: '#1C2733' }}>{group.title}</span>
+                <span className="text-sm" style={{ color: '#1C2733' }}>{t(groupTitleKeys[group.title] || group.title)}</span>
               </div>
               {group.title === '新的朋友' && friendRequestUnreadCount > 0 && (
                 <span
@@ -293,8 +320,8 @@ export default function ContactList() {
                 padding: '6px 16px',
                 fontSize: '13px',
                 fontWeight: 600,
-                color: '#3390EC',
-                backgroundColor: 'rgba(51,144,236,0.06)',
+                color: '#1BB45B',
+                backgroundColor: 'rgba(27,180,91,0.06)',
               }}
             >
               {letter}
@@ -379,7 +406,7 @@ export default function ContactList() {
                 className="flex items-center justify-center h-32 text-sm"
                 style={{ color: '#A2ACB5' }}
               >
-                没有找到联系人
+                {t('contact.noResults')}
               </div>
             )}
           </div>
@@ -395,7 +422,7 @@ export default function ContactList() {
               color: '#A2ACB5',
             }}
           >
-            {totalContacts} 位联系人
+            {t('contact.count').replace('{count}', String(totalContacts))}
           </div>
         )}
 

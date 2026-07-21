@@ -1,0 +1,100 @@
+package sfu
+
+import (
+	"testing"
+
+	"github.com/pion/webrtc/v3"
+)
+
+func Test_SFU_AddPeer_DuplicateReturnsExistingPeer(t *testing.T) {
+	s := NewSFU()
+
+	first, err := s.AddPeer("call1", "alice", nil)
+	if err != nil {
+		t.Fatalf("first AddPeer: %v", err)
+	}
+	defer first.Close()
+
+	second, err := s.AddPeer("call1", "alice", nil)
+	if err != nil {
+		t.Fatalf("duplicate AddPeer: %v", err)
+	}
+	if second != first {
+		t.Fatal("duplicate AddPeer created a second peer")
+	}
+	if got := len(s.rooms["call1"].Participants()); got != 1 {
+		t.Fatalf("participants = %d, want 1", got)
+	}
+}
+
+func Test_SFU_RemovePeer_LastParticipantDeletesRoomState(t *testing.T) {
+	s := NewSFU()
+	if _, err := s.AddPeer("call1", "alice", nil); err != nil {
+		t.Fatalf("AddPeer: %v", err)
+	}
+	s.setPubSSRC("alice", "video", 42)
+
+	s.RemovePeer("alice")
+
+	if s.GetPeer("alice") != nil {
+		t.Fatal("peer still registered after RemovePeer")
+	}
+	if _, ok := s.rooms["call1"]; ok {
+		t.Fatal("empty room still registered after RemovePeer")
+	}
+	if _, ok := s.getPubSSRC("alice", "video"); ok {
+		t.Fatal("publisher SSRC still registered after RemovePeer")
+	}
+}
+
+func Test_SFU_RemoveRoom_ClosesAllParticipants(t *testing.T) {
+	s := NewSFU()
+	for _, uid := range []string{"alice", "bob"} {
+		if _, err := s.AddPeer("call1", uid, nil); err != nil {
+			t.Fatalf("AddPeer(%s): %v", uid, err)
+		}
+	}
+
+	s.RemoveRoom("call1")
+
+	if _, ok := s.rooms["call1"]; ok {
+		t.Fatal("room still registered after RemoveRoom")
+	}
+	for _, uid := range []string{"alice", "bob"} {
+		if s.GetPeer(uid) != nil {
+			t.Fatalf("peer %s still registered after RemoveRoom", uid)
+		}
+	}
+}
+
+func Test_SFU_ReplacePeer_RebuildsConnectionWithoutDuplicatingMembership(t *testing.T) {
+	s := NewSFU()
+	old, err := s.AddPeer("call1", "alice", nil)
+	if err != nil {
+		t.Fatalf("AddPeer: %v", err)
+	}
+	s.rooms["call1"].Join("bob")
+	s.rooms["call1"].WantVideo("bob", "alice", "q")
+
+	replacement, err := s.ReplacePeer("call1", "alice", nil)
+	if err != nil {
+		t.Fatalf("ReplacePeer: %v", err)
+	}
+	defer replacement.Close()
+
+	if replacement == old {
+		t.Fatal("ReplacePeer returned the old peer")
+	}
+	if old.pc.ConnectionState() != webrtc.PeerConnectionStateClosed {
+		t.Fatalf("old peer state = %s, want closed", old.pc.ConnectionState())
+	}
+	if s.GetPeer("alice") != replacement {
+		t.Fatal("replacement peer is not registered")
+	}
+	if got := len(s.rooms["call1"].Participants()); got != 2 {
+		t.Fatalf("participants = %d, want 2", got)
+	}
+	if _, ok := s.rooms["call1"].VideoWant("bob", "alice"); !ok {
+		t.Fatal("ReplacePeer deleted subscriber video intent")
+	}
+}

@@ -85,34 +85,51 @@ func (l *GetConversationsLogic) GetConversations(in *im.GetConversationsReq) (*i
 	}
 
 	for _, conversation := range list {
-		if _, ok := res.ConversationList[conversation.ConversationId]; !ok {
+		entry, ok := res.ConversationList[conversation.ConversationId]
+		if !ok {
 			continue
 		}
 
-		// 用户读取的消息量
-		total := res.ConversationList[conversation.ConversationId].Total
-		if total < int32(conversation.Total) { // 如果读取的消息量 < 会话实际的消息量 => 存在未读消息
-			// 有新的消息，记录新的实际消息量给前端
-			res.ConversationList[conversation.ConversationId].Total = int32(conversation.Total)
-			// 待读消息量
-			res.ConversationList[conversation.ConversationId].ToRead = int32(conversation.Total) - total
-			// 有新消息一定要显示（即使用户之前删除过会话）
-			res.ConversationList[conversation.ConversationId].IsShow = true
+		// 该会话上请求者的「被移出群时刻」（0=正常会话/未被移出）。
+		var removedAt int64
+		if mEntry, ok := data.ConversationList[conversation.ConversationId]; ok && mEntry != nil {
+			removedAt = mEntry.RemovedAt
 		}
 
-		if conversation.Msg != nil {
-			readRecords := make([]byte, 0)
-			if conversation.Msg.ReadRecords != nil {
-				readRecords = conversation.Msg.ReadRecords
+		// 未读量：正常会话按实际消息量算增量；被移出群成员冻结未读（被移出后的新消息不计未读）。
+		if removedAt == 0 {
+			total := entry.Total
+			if total < int32(conversation.Total) { // 如果读取的消息量 < 会话实际的消息量 => 存在未读消息
+				entry.Total = int32(conversation.Total)
+				entry.ToRead = int32(conversation.Total) - total
+				// 有新消息一定要显示（即使用户之前删除过会话）
+				entry.IsShow = true
 			}
-			res.ConversationList[conversation.ConversationId].Msg = &im.ChatLog{
-				ConversationId: conversation.Msg.ConversationId,
-				SendId:         conversation.Msg.SendId,
-				RecvId:         conversation.Msg.RecvId,
-				MsgType:        int32(conversation.Msg.MsgType),
-				MsgContent:     conversation.Msg.MsgContent,
-				ChatType:       int32(conversation.Msg.ChatType),
-				SendTime:       conversation.Msg.SendTime,
+		}
+
+		// 列表预览消息：默认用会话最新一条；被移出群成员只展示「被移出前的最后一条」，
+		// 既不泄漏被移出后的内容，也不至于空预览（与 GetChatLog 历史截断一致）。
+		previewMsg := conversation.Msg
+		if removedAt > 0 && (previewMsg == nil || previewMsg.SendTime > removedAt) {
+			if frozen, err := l.svcCtx.ChatLogModel.ListBySendTime(l.ctx, conversation.ConversationId, 0, removedAt, 1); err == nil && len(frozen) > 0 {
+				previewMsg = frozen[0]
+			} else {
+				previewMsg = nil
+			}
+		}
+		if previewMsg != nil {
+			readRecords := make([]byte, 0)
+			if previewMsg.ReadRecords != nil {
+				readRecords = previewMsg.ReadRecords
+			}
+			entry.Msg = &im.ChatLog{
+				ConversationId: previewMsg.ConversationId,
+				SendId:         previewMsg.SendId,
+				RecvId:         previewMsg.RecvId,
+				MsgType:        int32(previewMsg.MsgType),
+				MsgContent:     previewMsg.MsgContent,
+				ChatType:       int32(previewMsg.ChatType),
+				SendTime:       previewMsg.SendTime,
 				ReadRecords:    readRecords,
 			}
 		}

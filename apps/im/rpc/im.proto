@@ -18,6 +18,16 @@ message ChatLog {
   bytes readRecords = 9;
   // 每个成员的已读时间戳（unix nano），仅群聊/已读详情场景填充
   map<string, int64> readTimes = 10;
+  // 引用/回复消息（JSON 字符串：{"id","name","preview"}）
+  string quote = 11;
+  // 消息状态：0=正常 1=已撤回
+  int32 status = 12;
+  // 撤回操作者 uid（本人或群管理员）
+  string recalledBy = 13;
+  // 被 @ 的成员 uid 列表（仅群聊）
+  repeated string atUsers = 14;
+  // 是否 @所有人（仅群聊）
+  bool atAll = 15;
 }
 
 message Conversation {
@@ -33,6 +43,12 @@ message Conversation {
   // 已读消息
   int32 Read = 9;
   ChatLog msg = 8;
+  // 会话置顶（每用户每会话设置）
+  bool isTop = 10;
+  // 消息免打扰（每用户每会话设置）
+  bool isMute = 11;
+  // 是否有未读的 @我（仅群聊，进会话/markRead 后清除）
+  bool hasAtMe = 12;
 }
 
 // ------------ req resp ---------------
@@ -57,6 +73,10 @@ message GetChatLogReq {
   int64 endSendTime = 3;
   int64 count = 4;
   string msgId = 5;
+  // 分页方向：""/older=查更早（默认）, newer=查更新, around=目标消息及其前若干条（含目标）
+  string direction = 6;
+  // 请求者 uid：用于「被移出群成员只能看被移出前的消息」的历史截断（0/空=不截断）
+  string userId = 7;
 }
 message GetChatLogResp {
   repeated ChatLog List = 1;
@@ -76,6 +96,94 @@ message CreateGroupConversationReq {
 }
 message CreateGroupConversationResp {}
 
+message SetConversationSettingsReq {
+  string userId = 1;
+  string conversationId = 2;
+  bool isTop = 3;
+  bool isMute = 4;
+}
+message SetConversationSettingsResp {}
+
+message RecallMsgReq {
+  string conversationId = 1;
+  string msgId = 2;
+  string operatorUid = 3; // 操作者（本人或群管理员）
+  int32  chatType = 4;
+}
+message RecallMsgResp {
+  bool   recalled = 1;   // 本次调用是否真正执行了撤回（幂等：已撤回则为 false）
+  string sendId = 2;     // 原消息发送者，供上游构造推送路由
+  string recvId = 3;     // 原消息接收者（群=groupId，私聊=对端）
+  string recalledBy = 4; // 撤回操作者
+}
+
+message GetAtMeMessagesReq {
+  string conversationId = 1;
+  string userId = 2;       // 当前用户（被 @ 方）
+  int64  count = 3;        // 返回上限，0 取默认值
+}
+message GetAtMeMessagesResp {
+  // 该会话中 @我 且我尚未读的消息，按 sendTime 升序（最早的 @ 在前）
+  repeated ChatLog list = 1;
+}
+
+// ------------ 公共通知 -----------------
+
+message Notification {
+  uint64 id = 1;
+  string receiverId = 2;
+  string notifyType = 3;   // friend.apply / friend.accept / group.apply ...
+  string bizId = 4;        // 业务关联ID（幂等键）
+  string actorId = 5;      // 触发者 uid
+  string groupId = 6;      // 群相关通知的群 id
+  string title = 7;
+  string content = 8;
+  string payload = 9;      // 扩展字段 JSON
+  int32  isRead = 10;      // 0未读 1已读
+  int64  createTime = 11;  // unix 秒
+}
+
+message CreateNotificationReq {
+  string receiverId = 1;
+  string notifyType = 2;
+  string bizId = 3;
+  string actorId = 4;
+  string groupId = 5;
+  string title = 6;
+  string content = 7;
+  string payload = 8;
+  int64  createTime = 9;
+}
+message CreateNotificationResp {
+  uint64 id = 1;
+  bool   inserted = 2; // false=命中幂等键被跳过（已存在）
+}
+
+message ListNotificationsReq {
+  string receiverId = 1;
+  bool   unreadOnly = 2;
+  int32  offset = 3;
+  int32  limit = 4;
+}
+message ListNotificationsResp {
+  repeated Notification list = 1;
+}
+
+message MarkNotificationsReadReq {
+  string receiverId = 1;
+  repeated uint64 ids = 2; // 为空表示标记该接收者全部未读为已读
+}
+message MarkNotificationsReadResp {
+  int64 affected = 1;
+}
+
+message GetUnreadNotificationCountReq {
+  string receiverId = 1;
+}
+message GetUnreadNotificationCountResp {
+  int64 count = 1;
+}
+
 service Im {
   // 获取会话记录
   rpc GetChatLog(GetChatLogReq) returns(GetChatLogResp);
@@ -91,5 +199,26 @@ service Im {
 
   // 创建群会话
   rpc CreateGroupConversation(CreateGroupConversationReq) returns(CreateGroupConversationResp);
+
+  // 设置会话置顶/免打扰
+  rpc SetConversationSettings(SetConversationSettingsReq) returns(SetConversationSettingsResp);
+
+  // 撤回消息（本人限时 / 群管理员不限时）
+  rpc RecallMsg(RecallMsgReq) returns(RecallMsgResp);
+
+  // 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+  rpc GetAtMeMessages(GetAtMeMessagesReq) returns(GetAtMeMessagesResp);
+
+  // 公共通知通道：落库一条通知（幂等）
+  rpc CreateNotification(CreateNotificationReq) returns(CreateNotificationResp);
+
+  // 公共通知通道：拉取接收者通知列表（分页）
+  rpc ListNotifications(ListNotificationsReq) returns(ListNotificationsResp);
+
+  // 公共通知通道：标记通知已读（单条/批量/全部）
+  rpc MarkNotificationsRead(MarkNotificationsReadReq) returns(MarkNotificationsReadResp);
+
+  // 公共通知通道：接收者未读数
+  rpc GetUnreadNotificationCount(GetUnreadNotificationCountReq) returns(GetUnreadNotificationCountResp);
 }
 

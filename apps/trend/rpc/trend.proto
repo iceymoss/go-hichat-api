@@ -24,9 +24,9 @@ enum TrendType {
 // 动态可见范围
 enum VisibilityScope {
   SCOPE_UNSPECIFIED = 0;  // 未指定范围（应避免使用）
-  PRIVATE = 1;      // 好友圈可见（朋友圈）
-  FRIENDS = 2;      // 仅自己可见
-  ALL     = 3;      // 全部
+  PRIVATE = 1;      // 仅自己可见
+  FRIENDS = 2;      // 仅好友可见
+  ALL     = 3;      // 所有人可见
 }
 
 // 公共论坛状态
@@ -128,6 +128,7 @@ message CreateTrendRequest {
 message CreateTrendResponse {
   int64 trend_id = 1;                       // 新创建的动态ID
   int64 code = 3;                           // 状态信息：1000:成功，2000:动态内容包含敏感信息
+  repeated TrendMessageInfo created_messages = 4; // 本次发动态@产生的消息（供 api 层推送）
 }
 
 // 2. 删除目标枚举
@@ -280,6 +281,7 @@ message CreateDiscussReq {
 // 创建评论响应
 message CreateDiscussResp {
   Discuss discuss = 1;      // 创建的评论信息
+  repeated TrendMessageInfo created_messages = 2; // 本次评论/回复/@产生的消息（供 api 层推送）
 }
 
 // 获取评论请求
@@ -380,6 +382,7 @@ message LikeToggleRequest {
 message LikeToggleResponse {
   bool success = 1;              // 操作是否成功
   string error_message = 4;      // 错误信息
+  repeated TrendMessageInfo created_messages = 5; // 本次点赞产生的消息（取消点赞为空，供 api 层推送）
 }
 
 // 获取动态点赞摘要请求
@@ -442,6 +445,103 @@ message BatchTrendLikeSummaryRequest {
 // 批量获取点赞摘要响应
 message BatchTrendLikeSummaryResponse {
   map<uint32, TrendLikeSummary> summaries = 1; // key=trend_id
+}
+
+message TrendDraft {
+  uint64 id = 1;
+  uint64 user_id = 2;
+  int32 type = 3;
+  string content = 4;
+  string title = 5;
+  repeated string resources = 6;
+  string cover_url = 7;
+  string share_url = 8;
+  string position_name = 9;
+  double longitude = 10;
+  double latitude = 11;
+  int32 scope = 12;
+  int32 open_reply = 13;
+  int32 state = 14;
+  int64 create_time = 15;
+  int64 update_time = 16;
+}
+
+message SaveTrendDraftRequest {
+  TrendDraft draft = 1;
+}
+
+message SaveTrendDraftResponse {
+  TrendDraft draft = 1;
+}
+
+message GetTrendDraftRequest {
+  uint64 user_id = 1;
+  uint64 draft_id = 2;
+}
+
+message GetTrendDraftResponse {
+  TrendDraft draft = 1;
+}
+
+message DeleteTrendDraftRequest {
+  uint64 user_id = 1;
+  uint64 draft_id = 2;
+}
+
+message DeleteTrendDraftResponse {
+  bool success = 1;
+}
+
+// ========== 动态消息通知 ==========
+
+// 动态消息通知信息
+message TrendMessageInfo {
+  uint64 id = 1;                 // 消息ID
+  uint64 receiver_id = 2;        // 接收者uid
+  uint64 actor_id = 3;           // 触发者uid
+  int32  type = 4;               // 1点赞 2评论 3回复 4发动态@ 5评论@
+  uint64 trend_id = 5;           // 动态ID
+  uint64 comment_id = 6;         // 评论ID
+  uint64 parent_comment_id = 7;  // 父评论ID
+  string content = 8;            // 内容快照
+  bool   is_read = 9;            // 是否已读
+  int64  create_time = 10;       // 创建时间(时间戳)
+}
+
+// 消息列表请求
+message ListTrendMessagesReq {
+  uint64 user_id = 1;   // 接收者uid
+  int32  last_id = 2;   // 游标（消息id倒序，0为首页）
+  int32  limit = 3;     // 每页数量
+}
+
+// 消息列表响应
+message ListTrendMessagesResp {
+  repeated TrendMessageInfo messages = 1; // 消息列表
+  int32 last_id = 2;                      // 本页最后一条id，供下次分页
+}
+
+// 未读数请求
+message GetTrendMessageUnreadReq {
+  uint64 user_id = 1;   // 接收者uid
+}
+
+// 未读数响应（总数 + 按类型明细）
+message GetTrendMessageUnreadResp {
+  int64 total = 1;      // 未读总数
+  int64 like = 2;       // 点赞未读
+  int64 comment = 3;    // 评论未读
+  int64 reply = 4;      // 回复未读
+  int64 at_trend = 5;   // 发动态@未读
+  int64 at_comment = 6; // 评论@未读
+}
+
+// 标记已读请求（全部标已读）
+message MarkTrendMessagesReadReq {
+  uint64 user_id = 1;   // 接收者uid
+}
+
+message MarkTrendMessagesReadResp {
 }
 
 // 动态服务接口定义
@@ -513,4 +613,23 @@ service TrendService {
 
   // 标记点赞为已读
   rpc MarkLikesRead(MarkLikesReadRequest) returns (MarkLikesReadResponse);
+
+  // 保存动态草稿
+  rpc SaveTrendDraft(SaveTrendDraftRequest) returns (SaveTrendDraftResponse);
+
+  // 获取动态草稿
+  rpc GetTrendDraft(GetTrendDraftRequest) returns (GetTrendDraftResponse);
+
+  // 删除动态草稿
+  rpc DeleteTrendDraft(DeleteTrendDraftRequest) returns (DeleteTrendDraftResponse);
+
+  // ===== 动态消息通知 =====
+  // 获取动态消息列表
+  rpc ListTrendMessages(ListTrendMessagesReq) returns (ListTrendMessagesResp);
+
+  // 获取动态消息未读数（总数 + 按类型明细）
+  rpc GetTrendMessageUnread(GetTrendMessageUnreadReq) returns (GetTrendMessageUnreadResp);
+
+  // 全部标记为已读
+  rpc MarkTrendMessagesRead(MarkTrendMessagesReadReq) returns (MarkTrendMessagesReadResp);
 }

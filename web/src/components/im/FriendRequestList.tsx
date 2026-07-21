@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   ArrowLeft,
   Bell,
@@ -18,12 +18,12 @@ import {
   XCircle,
   MinusCircle,
   AlertCircle,
-  Search,
-  Send,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIMStore } from '@/lib/im-store';
-import { getAvatarColor } from '@/lib/utils';
+import { getAvatarColor, tagColor } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
+import AddFriendPanel from './AddFriendPanel';
 
 /* ═══════════════════════════════════════
    Types (previously from mock-data)
@@ -193,78 +193,49 @@ async function apiMarkAsRead(token: string, friendReqId: number): Promise<boolea
   }
 }
 
-async function apiSendFriendRequest(token: string, userUid: string, reqMsg?: string): Promise<boolean> {
-  const resp = await fetch('/api/social/friend/putIn', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ user_uid: userUid, ...(reqMsg ? { req_msg: reqMsg } : {}) }),
-  });
-  const json = await resp.json();
-  return json.success === true;
-}
-
-async function apiSearchUsers(token: string, query: string): Promise<any[]> {
-  const isPhone = /^1[3-9]\d{2,10}$/.test(query);
-  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(query);
-  const params = isPhone ? `phone=${query}` : isEmail ? `email=${query}` : `name=${query}`;
-  try {
-    const resp = await fetch(`/api/user/search?${params}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const json = await resp.json();
-    if (json.success && json.data?.users) return json.data.users;
-    return [];
-  } catch {
-    return [];
-  }
-}
-
 /* ═══════════════════════════════════════
    Helpers
    ═══════════════════════════════════════ */
 
-function formatRelativeTime(date: Date): string {
+function formatRelativeTime(date: Date, t: (k: string) => string): string {
   const now = Date.now();
   const diff = now - date.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes}分钟前`;
-  if (hours < 24) return `${hours}小时前`;
+  if (minutes < 1) return t('group.time.justNow');
+  if (minutes < 60) return t('group.time.minutesAgo').replace('{m}', String(minutes));
+  if (hours < 24) return t('group.time.hoursAgo').replace('{h}', String(hours));
   if (days < 30) {
     const d = new Date(date);
-    return `${d.getMonth() + 1}月${d.getDate()}日`;
+    return t('group.time.monthDay').replace('{month}', String(d.getMonth() + 1)).replace('{day}', String(d.getDate()));
   }
   const d = new Date(date);
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  return t('group.time.yearMonthDay').replace('{year}', String(d.getFullYear())).replace('{month}', String(d.getMonth() + 1)).replace('{day}', String(d.getDate()));
 }
 
-const statusConfig: Record<FriendRequestStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+const statusConfig: Record<FriendRequestStatus, { labelKey: string; color: string; bg: string; icon: React.ReactNode }> = {
   pending: {
-    label: '待处理',
+    labelKey: 'friend.status.pending',
     color: '#F5A623',
     bg: 'rgba(245,166,35,0.1)',
     icon: <AlertCircle className="w-3.5 h-3.5" />,
   },
   accepted: {
-    label: '已同意',
+    labelKey: 'friend.status.accepted',
     color: '#4DCD5E',
     bg: 'rgba(77,205,94,0.1)',
     icon: <CheckCircle className="w-3.5 h-3.5" />,
   },
   rejected: {
-    label: '已拒绝',
+    labelKey: 'friend.status.rejected',
     color: '#FF5252',
     bg: 'rgba(255,82,82,0.1)',
     icon: <XCircle className="w-3.5 h-3.5" />,
   },
   ignored: {
-    label: '已忽略',
+    labelKey: 'friend.status.ignored',
     color: '#A2ACB5',
     bg: 'rgba(162,172,181,0.1)',
     icon: <MinusCircle className="w-3.5 h-3.5" />,
@@ -295,22 +266,23 @@ interface ConfirmDialogProps {
 
 function ConfirmDialog({ open, type, nickname, loading, onClose, onConfirm }: ConfirmDialogProps) {
   const [message, setMessage] = useState('');
+  const t = useT();
 
   if (!open) return null;
 
   const isDelete = type === 'delete';
   const title = isDelete
-    ? '删除记录'
+    ? t('friend.confirm.deleteTitle')
     : type === 'accept'
-      ? '同意好友请求'
-      : '拒绝好友请求';
+      ? t('friend.confirm.acceptTitle')
+      : t('friend.confirm.rejectTitle');
   const description = isDelete
-    ? `确定要删除与 ${nickname} 的好友请求记录吗？`
+    ? t('friend.confirm.deleteDesc').replace('{name}', nickname)
     : type === 'accept'
-      ? `确定同意 ${nickname} 的好友请求吗？`
-      : `确定拒绝 ${nickname} 的好友请求吗？`;
-  const confirmLabel = isDelete ? '删除' : type === 'accept' ? '同意' : '拒绝';
-  const confirmColor = isDelete ? '#E53935' : type === 'accept' ? '#3390EC' : '#E53935';
+      ? t('friend.confirm.acceptDesc').replace('{name}', nickname)
+      : t('friend.confirm.rejectDesc').replace('{name}', nickname);
+  const confirmLabel = isDelete ? t('friend.delete') : type === 'accept' ? t('group.agree') : t('group.reject');
+  const confirmColor = isDelete ? '#E53935' : type === 'accept' ? '#1BB45B' : '#E53935';
 
   const handleConfirm = () => {
     onConfirm(message);
@@ -377,7 +349,7 @@ function ConfirmDialog({ open, type, nickname, loading, onClose, onConfirm }: Co
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={type === 'accept' ? '附言（选填）' : '拒绝原因（选填）'}
+              placeholder={type === 'accept' ? t('friend.acceptMsgPh') : t('friend.rejectMsgPh')}
               rows={3}
               style={{
                 width: '100%',
@@ -392,8 +364,8 @@ function ConfirmDialog({ open, type, nickname, loading, onClose, onConfirm }: Co
                 lineHeight: '1.5',
               }}
               onFocus={(e) => {
-                e.target.style.borderColor = '#3390EC';
-                e.target.style.boxShadow = '0 0 0 3px rgba(51,144,236,0.15)';
+                e.target.style.borderColor = '#1BB45B';
+                e.target.style.boxShadow = '0 0 0 3px rgba(27,180,91,0.15)';
               }}
               onBlur={(e) => {
                 e.target.style.borderColor = 'rgba(0,0,0,0.1)';
@@ -419,7 +391,7 @@ function ConfirmDialog({ open, type, nickname, loading, onClose, onConfirm }: Co
               cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleConfirm}
@@ -461,6 +433,7 @@ interface DetailModalProps {
 }
 
 function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailModalProps) {
+  const t = useT();
   if (!request) return null;
 
   const sc = statusConfig[request.status];
@@ -546,7 +519,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
               {request.nickname}
             </span>
             {request.sex === 'male' && (
-              <span style={{ fontSize: '11px', color: '#3390EC', backgroundColor: 'rgba(51,144,236,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♂</span>
+              <span style={{ fontSize: '11px', color: '#2D7FF9', backgroundColor: 'rgba(45,127,249,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♂</span>
             )}
             {request.sex === 'female' && (
               <span style={{ fontSize: '11px', color: '#E91E63', backgroundColor: 'rgba(233,30,99,0.1)', borderRadius: '4px', padding: '1px 5px' }}>♀</span>
@@ -573,8 +546,8 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
                   key={i}
                   style={{
                     fontSize: '11px',
-                    color: '#3390EC',
-                    backgroundColor: 'rgba(51,144,236,0.08)',
+                    color: tagColor(tag).c,
+                    backgroundColor: tagColor(tag).b,
                     borderRadius: '4px',
                     padding: '2px 8px',
                   }}
@@ -589,7 +562,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
         {/* Request info section */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#1C2733', marginBottom: '12px' }}>
-            申请信息
+            {t('friend.reqInfo')}
           </div>
 
           {/* Request message */}
@@ -603,7 +576,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
           {/* Time */}
           <div className="flex items-center gap-2" style={{ marginBottom: '10px' }}>
             <Clock className="w-3.5 h-3.5" style={{ color: '#A2ACB5' }} />
-            <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{formatRelativeTime(request.reqTime)}</span>
+            <span style={{ fontSize: '12px', color: '#A2ACB5' }}>{formatRelativeTime(request.reqTime, t)}</span>
           </div>
 
           {/* Status */}
@@ -619,10 +592,10 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
                 padding: '2px 8px',
               }}
             >
-              {sc.label}
+              {t(sc.labelKey)}
             </span>
             <span style={{ fontSize: '12px', color: '#A2ACB5' }}>
-              ({request.class === 'received' ? '我收到的' : '我发起的'})
+              ({request.class === 'received' ? t('group.app.received') : t('group.app.sent')})
             </span>
           </div>
 
@@ -631,7 +604,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
             <div className="flex gap-2" style={{ marginTop: '10px' }}>
               <CheckCircle className="w-4 h-4 shrink-0" style={{ color: '#4DCD5E', marginTop: 2 }} />
               <span style={{ fontSize: '13px', color: '#646A73' }}>
-                回复：{request.handleMsg}
+                {t('friend.replyPrefix').replace('{msg}', request.handleMsg)}
               </span>
             </div>
           )}
@@ -640,14 +613,14 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
         {/* Personal info section */}
         <div style={{ padding: '16px 20px' }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#1C2733', marginBottom: '12px' }}>
-            个人信息
+            {t('friend.personalInfo')}
           </div>
           <div className="flex flex-col gap-3">
             {request.hiChatId && (
               <div className="flex items-center gap-2">
                 <UserCircle className="w-4 h-4" style={{ color: '#A2ACB5' }} />
                 <span style={{ fontSize: '13px', color: '#646A73' }}>
-                  HiChat: <span style={{ color: '#3390EC' }}>{request.hiChatId}</span>
+                  HiChat: <span style={{ color: '#1C2733' }}>{request.hiChatId}</span>
                 </span>
               </div>
             )}
@@ -692,7 +665,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
                   cursor: 'pointer',
                 }}
               >
-                拒绝
+                {t('group.reject')}
               </button>
               <button
                 onClick={() => onAccept(request.id)}
@@ -700,14 +673,14 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
                   padding: '8px 20px',
                   borderRadius: '8px',
                   border: 'none',
-                  background: '#3390EC',
+                  background: '#1BB45B',
                   color: '#FFFFFF',
                   fontSize: '14px',
                   fontWeight: 500,
                   cursor: 'pointer',
                 }}
               >
-                同意
+                {t('group.agree')}
               </button>
             </>
           ) : (
@@ -728,7 +701,7 @@ function DetailModal({ request, onClose, onAccept, onReject, onDelete }: DetailM
               }}
             >
               <Trash2 className="w-4 h-4" />
-              删除
+              {t('friend.delete')}
             </button>
           )}
         </div>
@@ -750,6 +723,7 @@ interface RequestCardProps {
 }
 
 function RequestCard({ request, onClick, onAccept, onReject, onDelete }: RequestCardProps) {
+  const t = useT();
   const sc = statusConfig[request.status];
   const canAction = request.status === 'pending' && request.class === 'received';
 
@@ -757,20 +731,20 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
     <div
       className="relative"
       style={{
-        background: request.readState ? '#FFFFFF' : 'rgba(51,144,236,0.03)',
-        borderLeft: request.readState ? 'none' : '3px solid #3390EC',
+        background: request.readState ? '#FFFFFF' : 'rgba(27,180,91,0.03)',
+        borderLeft: request.readState ? 'none' : '3px solid #1BB45B',
         borderBottom: '1px solid rgba(0,0,0,0.05)',
         padding: '12px 16px 12px 16px',
         cursor: 'pointer',
         transition: 'background 0.15s',
-        boxShadow: request.readState ? 'none' : 'inset 3px 0 8px -4px rgba(51,144,236,0.15)',
+        boxShadow: request.readState ? 'none' : 'inset 3px 0 8px -4px rgba(27,180,91,0.15)',
       }}
       onClick={() => onClick(request)}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.02)';
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.background = request.readState ? '#FFFFFF' : 'rgba(51,144,236,0.03)';
+        (e.currentTarget as HTMLElement).style.background = request.readState ? '#FFFFFF' : 'rgba(27,180,91,0.03)';
       }}
     >
       <div className="flex gap-3">
@@ -825,7 +799,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
               {request.nickname}
             </span>
             {request.sex === 'male' && (
-              <span style={{ fontSize: '10px', color: '#3390EC', backgroundColor: 'rgba(51,144,236,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♂</span>
+              <span style={{ fontSize: '10px', color: '#2D7FF9', backgroundColor: 'rgba(45,127,249,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♂</span>
             )}
             {request.sex === 'female' && (
               <span style={{ fontSize: '10px', color: '#E91E63', backgroundColor: 'rgba(233,30,99,0.1)', borderRadius: '3px', padding: '0px 4px', lineHeight: '16px' }}>♀</span>
@@ -844,10 +818,10 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
               }}
             >
               {React.cloneElement(sc.icon as React.ReactElement<any>, { style: { color: sc.color, width: 12, height: 12 } })}
-              {sc.label}
+              {t(sc.labelKey)}
             </span>
             <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-              {formatRelativeTime(request.reqTime)}
+              {formatRelativeTime(request.reqTime, t)}
             </span>
           </div>
 
@@ -880,8 +854,8 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                   key={i}
                   style={{
                     fontSize: '10px',
-                    color: '#3390EC',
-                    backgroundColor: 'rgba(51,144,236,0.08)',
+                    color: tagColor(tag).c,
+                    backgroundColor: tagColor(tag).b,
                     borderRadius: '3px',
                     padding: '1px 6px',
                   }}
@@ -901,14 +875,14 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                   padding: '5px 16px',
                   borderRadius: '6px',
                   border: 'none',
-                  background: '#3390EC',
+                  background: '#1BB45B',
                   color: '#FFFFFF',
                   fontSize: '12px',
                   fontWeight: 500,
                   cursor: 'pointer',
                 }}
               >
-                同意
+                {t('group.agree')}
               </button>
               <button
                 onClick={() => onReject(request.id)}
@@ -923,7 +897,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                   cursor: 'pointer',
                 }}
               >
-                拒绝
+                {t('group.reject')}
               </button>
             </div>
           ) : (
@@ -944,7 +918,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
                 }}
               >
                 <Trash2 className="w-3 h-3" />
-                删除
+                {t('friend.delete')}
               </button>
             </div>
           )}
@@ -959,25 +933,28 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
    ═══════════════════════════════════════ */
 
 export default function FriendRequestList() {
-  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, invalidateFriends } = useIMStore();
+  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, setFriendRequestUnreadCount, invalidateFriends, friendReqNavTab, clearFriendReqNavTab } = useIMStore();
+  const t = useT();
   const token = currentUser?.token || '';
 
   // Local state
   const [activeTab, setActiveTab] = useState<FriendRequestClass>('received');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  // 通知点击带来的子 tab 跳转意图（received=我收到 / sent=我发起），消费后清除
+  useEffect(() => {
+    if (!friendReqNavTab) return;
+    setActiveTab(friendReqNavTab);
+    setStatusFilter('all');
+    clearFriendReqNavTab();
+  }, [friendReqNavTab, clearFriendReqNavTab]);
+
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [detailRequest, setDetailRequest] = useState<FriendRequest | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Send request panel state
   const [showSendPanel, setShowSendPanel] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [sendMsg, setSendMsg] = useState('');
-  const [sendingTo, setSendingTo] = useState<string | null>(null);
-  const [sendLoading, setSendLoading] = useState(false);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Confirm dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -1005,7 +982,7 @@ export default function FriendRequestList() {
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error('加载好友请求失败');
+        if (!cancelled) toast.error(t('friend.loadReqFail'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1073,31 +1050,31 @@ export default function FriendRequestList() {
 
       if (confirmType === 'accept') {
         const ok = await apiHandleRequest(token, reqId, 1, msg || undefined);
-        if (!ok) { toast.error('操作失败，请重试'); return; }
+        if (!ok) { toast.error(t('friend.opFailRetry')); return; }
         setRequests(prev => prev.map(r =>
           r.id === confirmTargetId
             ? { ...r, status: 'accepted' as const, handleMsg: msg, readState: true }
             : r
         ));
         const req = requests.find(r => r.id === confirmTargetId);
-        toast.success(`已同意 ${req?.nickname || ''} 的好友请求`);
+        toast.success(t('friend.acceptedToast').replace('{name}', req?.nickname || ''));
         invalidateFriends();
       } else if (confirmType === 'reject') {
         const ok = await apiHandleRequest(token, reqId, 2, msg || undefined);
-        if (!ok) { toast.error('操作失败，请重试'); return; }
+        if (!ok) { toast.error(t('friend.opFailRetry')); return; }
         setRequests(prev => prev.map(r =>
           r.id === confirmTargetId
             ? { ...r, status: 'rejected' as const, handleMsg: msg, readState: true }
             : r
         ));
         const req = requests.find(r => r.id === confirmTargetId);
-        toast.success(`已拒绝 ${req?.nickname || ''} 的好友请求`);
+        toast.success(t('friend.rejectedToast').replace('{name}', req?.nickname || ''));
       } else {
         // delete
         const ok = await apiDeleteRequest(token, reqId);
-        if (!ok) { toast.error('删除失败，请重试'); return; }
+        if (!ok) { toast.error(t('friend.deleteFailRetry')); return; }
         setRequests(prev => prev.filter(r => r.id !== confirmTargetId));
-        toast.success('已删除记录');
+        toast.success(t('friend.recordDeleted'));
         if (detailRequest?.id === confirmTargetId) {
           setDetailRequest(null);
         }
@@ -1107,7 +1084,7 @@ export default function FriendRequestList() {
       fetchUnreadCount(token).then((count) => setFriendRequestUnreadCount(count));
       setConfirmOpen(false);
     } catch {
-      toast.error('操作失败，请稍后重试');
+      toast.error(t('friend.opFailLater'));
     } finally {
       setConfirmLoading(false);
     }
@@ -1135,67 +1112,30 @@ export default function FriendRequestList() {
 
   // Status filter options
   const filterOptions: { key: StatusFilter; label: string }[] = [
-    { key: 'all', label: '全部' },
-    { key: 'pending', label: '待处理' },
-    { key: 'accepted', label: '已同意' },
-    { key: 'rejected', label: '已拒绝' },
-    { key: 'ignored', label: '已忽略' },
+    { key: 'all', label: t('group.filter.all') },
+    { key: 'pending', label: t('friend.status.pending') },
+    { key: 'accepted', label: t('friend.status.accepted') },
+    { key: 'rejected', label: t('friend.status.rejected') },
+    { key: 'ignored', label: t('friend.status.ignored') },
   ];
 
   // Empty state messages
   const getEmptyMessage = () => {
     if (statusFilter === 'all') {
       return activeTab === 'received'
-        ? { title: '暂无收到的请求', desc: '当有人添加你为好友时，会显示在这里' }
-        : { title: '暂无发出的请求', desc: '当你添加好友时，会记录在这里' };
+        ? { title: t('friend.emptyReceivedTitle'), desc: t('friend.emptyReceivedDesc') }
+        : { title: t('friend.emptySentTitle'), desc: t('friend.emptySentDesc') };
     }
     const filterLabels: Record<FriendRequestStatus, string> = {
-      pending: '待处理', accepted: '已同意', rejected: '已拒绝', ignored: '已忽略',
+      pending: t('friend.status.pending'), accepted: t('friend.status.accepted'), rejected: t('friend.status.rejected'), ignored: t('friend.status.ignored'),
     };
     return {
-      title: `暂无${filterLabels[statusFilter]}的请求`,
-      desc: '换个筛选条件看看',
+      title: t('friend.emptyFilterTitle').replace('{status}', filterLabels[statusFilter]),
+      desc: t('group.emptyMatchHint'),
     };
   };
 
   const emptyMsg = getEmptyMessage();
-
-  // Search users for send panel
-  const handleSearchUsers = useCallback((q: string) => {
-    setSearchQuery(q);
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (!q.trim()) { setSearchResults([]); setSearching(false); return; }
-    setSearching(true);
-    searchTimerRef.current = setTimeout(() => {
-      if (!token) return;
-      apiSearchUsers(token, q.trim()).then((users) => {
-        setSearchResults(users);
-        setSearching(false);
-      });
-    }, 400);
-  }, [token]);
-
-  const handleSendRequest = useCallback(async (userId: string) => {
-    if (!token) return;
-    setSendLoading(true);
-    try {
-      const ok = await apiSendFriendRequest(token, userId, sendMsg || undefined);
-      if (ok) {
-        toast.success('好友请求已发送');
-        setSendingTo(null);
-        setSendMsg('');
-        // Refresh requests list and count from backend
-        fetchAllRequests(token).then(setRequests);
-        fetchUnreadCount(token).then(setFriendRequestUnreadCount);
-      } else {
-        toast.error('发送失败，请重试');
-      }
-    } catch {
-      toast.error('发送失败，请稍后重试');
-    } finally {
-      setSendLoading(false);
-    }
-  }, [token, sendMsg]);
 
   return (
     <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
@@ -1217,7 +1157,7 @@ export default function FriendRequestList() {
             borderRadius: '50%',
             border: 'none',
             background: 'transparent',
-            color: '#3390EC',
+            color: '#1BB45B',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -1228,7 +1168,7 @@ export default function FriendRequestList() {
         </button>
 
         <span style={{ fontSize: '17px', fontWeight: 600, color: '#1C2733' }}>
-          新的朋友
+          {t('contact.newFriends')}
         </span>
 
         <div className="flex items-center gap-1">
@@ -1240,7 +1180,7 @@ export default function FriendRequestList() {
               borderRadius: '50%',
               border: 'none',
               background: 'transparent',
-              color: '#3390EC',
+              color: '#1BB45B',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -1311,7 +1251,7 @@ export default function FriendRequestList() {
                 padding: '6px 20px',
                 borderRadius: '17px',
                 border: 'none',
-                background: activeTab === tab ? '#3390EC' : 'transparent',
+                background: activeTab === tab ? '#1BB45B' : 'transparent',
                 color: activeTab === tab ? '#FFFFFF' : '#646A73',
                 fontSize: '13px',
                 fontWeight: 500,
@@ -1319,7 +1259,7 @@ export default function FriendRequestList() {
                 transition: 'all 0.2s',
               }}
             >
-              {tab === 'received' ? '我收到的' : '我发起的'}
+              {tab === 'received' ? t('group.app.received') : t('group.app.sent')}
               {tab === 'received' && friendRequestUnreadCount > 0 && activeTab !== tab && (
                 <span
                   className="inline-flex items-center justify-center"
@@ -1358,8 +1298,8 @@ export default function FriendRequestList() {
               padding: '4px 14px',
               borderRadius: '14px',
               border: 'none',
-              background: statusFilter === opt.key ? 'rgba(51,144,236,0.1)' : 'rgba(0,0,0,0.04)',
-              color: statusFilter === opt.key ? '#3390EC' : '#646A73',
+              background: statusFilter === opt.key ? 'rgba(27,180,91,0.1)' : 'rgba(0,0,0,0.04)',
+              color: statusFilter === opt.key ? '#1BB45B' : '#646A73',
               fontSize: '12px',
               fontWeight: statusFilter === opt.key ? 500 : 400,
               cursor: 'pointer',
@@ -1376,8 +1316,8 @@ export default function FriendRequestList() {
       <div className="flex-1 overflow-y-auto im-scroll">
         {loading ? (
           <div className="flex flex-col items-center justify-center" style={{ padding: '60px 24px' }}>
-            <Loader2 className="w-8 h-8" style={{ color: '#3390EC', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
-            <div style={{ fontSize: '13px', color: '#A2ACB5' }}>加载中...</div>
+            <Loader2 className="w-8 h-8" style={{ color: '#1BB45B', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
+            <div style={{ fontSize: '13px', color: '#A2ACB5' }}>{t('common.loading')}</div>
           </div>
         ) : filteredRequests.length > 0 ? (
           <div style={{ background: '#FFFFFF', borderRadius: '12px', margin: '8px', overflow: 'hidden' }}>
@@ -1430,191 +1370,15 @@ export default function FriendRequestList() {
       />
 
       {/* ── Send Friend Request Panel ── */}
-      {showSendPanel && (
-        <div
-          className="fixed inset-0"
-          style={{ zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          onClick={(e) => { if (e.target === e.currentTarget) { setShowSendPanel(false); setSearchQuery(''); setSearchResults([]); setSendingTo(null); setSendMsg(''); } }}
-        >
-          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
-          <div
-            className="relative"
-            style={{
-              background: '#FFFFFF',
-              borderRadius: '16px',
-              width: '90%',
-              maxWidth: '440px',
-              maxHeight: '75vh',
-              overflow: 'hidden',
-              boxShadow: '0 8px 40px rgba(0,0,0,0.15)',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {/* Panel header */}
-            <div className="flex items-center justify-between" style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-              <span style={{ fontSize: '16px', fontWeight: 600, color: '#1C2733' }}>添加好友</span>
-              <button
-                onClick={() => { setShowSendPanel(false); setSearchQuery(''); setSearchResults([]); setSendingTo(null); setSendMsg(''); }}
-                style={{
-                  width: 28, height: 28,
-                  borderRadius: '50%',
-                  border: 'none',
-                  background: 'rgba(0,0,0,0.04)',
-                  color: '#A2ACB5',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Search input */}
-            <div style={{ padding: '12px 20px' }}>
-              <div className="flex items-center gap-2" style={{ background: '#F5F7FA', borderRadius: '10px', padding: '8px 12px' }}>
-                <Search className="w-4 h-4" style={{ color: '#A2ACB5' }} />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => handleSearchUsers(e.target.value)}
-                  placeholder="搜索手机号/邮箱/昵称"
-                  style={{
-                    flex: 1,
-                    border: 'none',
-                    background: 'transparent',
-                    outline: 'none',
-                    fontSize: '14px',
-                    color: '#1C2733',
-                  }}
-                  autoFocus
-                />
-                {searching && <Loader2 className="w-4 h-4" style={{ color: '#3390EC', animation: 'spin 1s linear infinite' }} />}
-              </div>
-            </div>
-
-            {/* Search results */}
-            <div className="flex-1 overflow-y-auto im-scroll" style={{ padding: '0 20px 16px' }}>
-              {searchResults.length > 0 ? (
-                searchResults.map((user: any) => (
-                  <div
-                    key={user.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '10px 0',
-                      borderBottom: '1px solid rgba(0,0,0,0.05)',
-                    }}
-                  >
-                    <div style={{ width: 40, height: 40, flexShrink: 0 }}>
-                      {user.avatar ? (
-                        <img
-                          src={user.avatar}
-                          alt={user.nickname || '?'}
-                          style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const next = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (next) next.style.display = 'flex'; }}
-                        />
-                      ) : null}
-                      <div
-                        className="items-center justify-center"
-                        style={{
-                          width: 40, height: 40,
-                          borderRadius: '50%',
-                          backgroundColor: getAvatarColor(user.nickname || '?'),
-                          fontSize: '16px',
-                          fontWeight: 600,
-                          color: '#FFFFFF',
-                          display: user.avatar ? 'none' : 'flex',
-                        }}
-                      >
-                        {(user.nickname || '?')[0]}
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div style={{ fontSize: '14px', fontWeight: 500, color: '#1C2733' }}>{user.nickname || '未知'}</div>
-                      {user.region && <div style={{ fontSize: '12px', color: '#A2ACB5' }}>{user.region}</div>}
-                    </div>
-                    {sendingTo === user.id ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={sendMsg}
-                          onChange={(e) => setSendMsg(e.target.value)}
-                          placeholder="附言"
-                          style={{
-                            width: 100,
-                            border: '1px solid rgba(0,0,0,0.1)',
-                            borderRadius: '6px',
-                            padding: '4px 8px',
-                            fontSize: '12px',
-                            outline: 'none',
-                          }}
-                          onFocus={(e) => { e.target.style.borderColor = '#3390EC'; }}
-                          onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; }}
-                        />
-                        <button
-                          onClick={() => handleSendRequest(user.id)}
-                          disabled={sendLoading}
-                          style={{
-                            padding: '4px 12px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            background: '#3390EC',
-                            color: '#FFFFFF',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            cursor: sendLoading ? 'not-allowed' : 'pointer',
-                            opacity: sendLoading ? 0.7 : 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}
-                        >
-                          {sendLoading ? <Loader2 className="w-3 h-3" style={{ animation: 'spin 1s linear infinite' }} /> : <Send className="w-3 h-3" />}
-                          发送
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => { setSendingTo(user.id); setSendMsg(''); }}
-                        style={{
-                          padding: '5px 14px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          background: '#3390EC',
-                          color: '#FFFFFF',
-                          fontSize: '12px',
-                          fontWeight: 500,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                        }}
-                      >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        添加
-                      </button>
-                    )}
-                  </div>
-                ))
-              ) : searchQuery.trim() && !searching ? (
-                <div className="flex flex-col items-center" style={{ padding: '30px 0' }}>
-                  <UserCircle className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: '8px' }} />
-                  <div style={{ fontSize: '13px', color: '#A2ACB5' }}>未找到用户</div>
-                </div>
-              ) : !searchQuery.trim() ? (
-                <div className="flex flex-col items-center" style={{ padding: '30px 0' }}>
-                  <Search className="w-12 h-12" style={{ color: '#D1D5DB', marginBottom: '8px' }} />
-                  <div style={{ fontSize: '13px', color: '#A2ACB5' }}>输入手机号、邮箱或昵称搜索用户</div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      )}
+      <AddFriendPanel
+        open={showSendPanel}
+        onClose={() => setShowSendPanel(false)}
+        onSent={() => {
+          // 发送成功后刷新请求列表与未读数
+          fetchAllRequests(token).then(setRequests);
+          fetchUnreadCount(token).then(setFriendRequestUnreadCount);
+        }}
+      />
     </div>
   );
 }

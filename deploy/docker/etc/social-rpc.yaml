@@ -1,0 +1,33 @@
+Name: social.rpc
+ListenOn: 0.0.0.0:10001
+Etcd:
+  Hosts:
+    - etcd:2379
+  Key: social.rpc
+
+Mysql:
+  DataSource: root:123456789@tcp(mysql:3306)/hichat2?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+
+Cache:
+  - Host: redis:6379
+    Type: node
+
+UserRpc:
+  Target: dns:///user-rpc:10000
+  NonBlock: true
+  Timeout: 10000
+
+Log:
+  Level: error
+
+# 关系变更事件 Kafka 生产端（relay 投递到 task/mq 消费）
+RelationChangeTransfer:
+  Addrs:
+    - kafka:9092
+  Topic: relationChangeTransfer
+
+# 公共通知事件 Kafka 生产端（好友/群申请等实时通知，直接 Push 到 task/mq 消费）
+CommonNotifyTransfer:
+  Addrs:
+    - kafka:9092
+  Topic: commonNotifyTransfer

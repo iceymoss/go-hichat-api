@@ -19,11 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Im_GetChatLog_FullMethodName              = "/im.Im/GetChatLog"
-	Im_SetUpUserConversation_FullMethodName   = "/im.Im/SetUpUserConversation"
-	Im_GetConversations_FullMethodName        = "/im.Im/GetConversations"
-	Im_PutConversations_FullMethodName        = "/im.Im/PutConversations"
-	Im_CreateGroupConversation_FullMethodName = "/im.Im/CreateGroupConversation"
+	Im_GetChatLog_FullMethodName                 = "/im.Im/GetChatLog"
+	Im_SetUpUserConversation_FullMethodName      = "/im.Im/SetUpUserConversation"
+	Im_GetConversations_FullMethodName           = "/im.Im/GetConversations"
+	Im_PutConversations_FullMethodName           = "/im.Im/PutConversations"
+	Im_CreateGroupConversation_FullMethodName    = "/im.Im/CreateGroupConversation"
+	Im_SetConversationSettings_FullMethodName    = "/im.Im/SetConversationSettings"
+	Im_RecallMsg_FullMethodName                  = "/im.Im/RecallMsg"
+	Im_GetAtMeMessages_FullMethodName            = "/im.Im/GetAtMeMessages"
+	Im_CreateNotification_FullMethodName         = "/im.Im/CreateNotification"
+	Im_ListNotifications_FullMethodName          = "/im.Im/ListNotifications"
+	Im_MarkNotificationsRead_FullMethodName      = "/im.Im/MarkNotificationsRead"
+	Im_GetUnreadNotificationCount_FullMethodName = "/im.Im/GetUnreadNotificationCount"
 )
 
 // ImClient is the client API for Im service.
@@ -40,6 +47,20 @@ type ImClient interface {
 	PutConversations(ctx context.Context, in *PutConversationsReq, opts ...grpc.CallOption) (*PutConversationsResp, error)
 	// 创建群会话
 	CreateGroupConversation(ctx context.Context, in *CreateGroupConversationReq, opts ...grpc.CallOption) (*CreateGroupConversationResp, error)
+	// 设置会话置顶/免打扰
+	SetConversationSettings(ctx context.Context, in *SetConversationSettingsReq, opts ...grpc.CallOption) (*SetConversationSettingsResp, error)
+	// 撤回消息（本人限时 / 群管理员不限时）
+	RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc.CallOption) (*RecallMsgResp, error)
+	// 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+	GetAtMeMessages(ctx context.Context, in *GetAtMeMessagesReq, opts ...grpc.CallOption) (*GetAtMeMessagesResp, error)
+	// 公共通知通道：落库一条通知（幂等）
+	CreateNotification(ctx context.Context, in *CreateNotificationReq, opts ...grpc.CallOption) (*CreateNotificationResp, error)
+	// 公共通知通道：拉取接收者通知列表（分页）
+	ListNotifications(ctx context.Context, in *ListNotificationsReq, opts ...grpc.CallOption) (*ListNotificationsResp, error)
+	// 公共通知通道：标记通知已读（单条/批量/全部）
+	MarkNotificationsRead(ctx context.Context, in *MarkNotificationsReadReq, opts ...grpc.CallOption) (*MarkNotificationsReadResp, error)
+	// 公共通知通道：接收者未读数
+	GetUnreadNotificationCount(ctx context.Context, in *GetUnreadNotificationCountReq, opts ...grpc.CallOption) (*GetUnreadNotificationCountResp, error)
 }
 
 type imClient struct {
@@ -100,6 +121,76 @@ func (c *imClient) CreateGroupConversation(ctx context.Context, in *CreateGroupC
 	return out, nil
 }
 
+func (c *imClient) SetConversationSettings(ctx context.Context, in *SetConversationSettingsReq, opts ...grpc.CallOption) (*SetConversationSettingsResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetConversationSettingsResp)
+	err := c.cc.Invoke(ctx, Im_SetConversationSettings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *imClient) RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc.CallOption) (*RecallMsgResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecallMsgResp)
+	err := c.cc.Invoke(ctx, Im_RecallMsg_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *imClient) GetAtMeMessages(ctx context.Context, in *GetAtMeMessagesReq, opts ...grpc.CallOption) (*GetAtMeMessagesResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAtMeMessagesResp)
+	err := c.cc.Invoke(ctx, Im_GetAtMeMessages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *imClient) CreateNotification(ctx context.Context, in *CreateNotificationReq, opts ...grpc.CallOption) (*CreateNotificationResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateNotificationResp)
+	err := c.cc.Invoke(ctx, Im_CreateNotification_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *imClient) ListNotifications(ctx context.Context, in *ListNotificationsReq, opts ...grpc.CallOption) (*ListNotificationsResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNotificationsResp)
+	err := c.cc.Invoke(ctx, Im_ListNotifications_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *imClient) MarkNotificationsRead(ctx context.Context, in *MarkNotificationsReadReq, opts ...grpc.CallOption) (*MarkNotificationsReadResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MarkNotificationsReadResp)
+	err := c.cc.Invoke(ctx, Im_MarkNotificationsRead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *imClient) GetUnreadNotificationCount(ctx context.Context, in *GetUnreadNotificationCountReq, opts ...grpc.CallOption) (*GetUnreadNotificationCountResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUnreadNotificationCountResp)
+	err := c.cc.Invoke(ctx, Im_GetUnreadNotificationCount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ImServer is the server API for Im service.
 // All implementations must embed UnimplementedImServer
 // for forward compatibility.
@@ -114,6 +205,20 @@ type ImServer interface {
 	PutConversations(context.Context, *PutConversationsReq) (*PutConversationsResp, error)
 	// 创建群会话
 	CreateGroupConversation(context.Context, *CreateGroupConversationReq) (*CreateGroupConversationResp, error)
+	// 设置会话置顶/免打扰
+	SetConversationSettings(context.Context, *SetConversationSettingsReq) (*SetConversationSettingsResp, error)
+	// 撤回消息（本人限时 / 群管理员不限时）
+	RecallMsg(context.Context, *RecallMsgReq) (*RecallMsgResp, error)
+	// 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+	GetAtMeMessages(context.Context, *GetAtMeMessagesReq) (*GetAtMeMessagesResp, error)
+	// 公共通知通道：落库一条通知（幂等）
+	CreateNotification(context.Context, *CreateNotificationReq) (*CreateNotificationResp, error)
+	// 公共通知通道：拉取接收者通知列表（分页）
+	ListNotifications(context.Context, *ListNotificationsReq) (*ListNotificationsResp, error)
+	// 公共通知通道：标记通知已读（单条/批量/全部）
+	MarkNotificationsRead(context.Context, *MarkNotificationsReadReq) (*MarkNotificationsReadResp, error)
+	// 公共通知通道：接收者未读数
+	GetUnreadNotificationCount(context.Context, *GetUnreadNotificationCountReq) (*GetUnreadNotificationCountResp, error)
 	mustEmbedUnimplementedImServer()
 }
 
@@ -138,6 +243,27 @@ func (UnimplementedImServer) PutConversations(context.Context, *PutConversations
 }
 func (UnimplementedImServer) CreateGroupConversation(context.Context, *CreateGroupConversationReq) (*CreateGroupConversationResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateGroupConversation not implemented")
+}
+func (UnimplementedImServer) SetConversationSettings(context.Context, *SetConversationSettingsReq) (*SetConversationSettingsResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetConversationSettings not implemented")
+}
+func (UnimplementedImServer) RecallMsg(context.Context, *RecallMsgReq) (*RecallMsgResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RecallMsg not implemented")
+}
+func (UnimplementedImServer) GetAtMeMessages(context.Context, *GetAtMeMessagesReq) (*GetAtMeMessagesResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAtMeMessages not implemented")
+}
+func (UnimplementedImServer) CreateNotification(context.Context, *CreateNotificationReq) (*CreateNotificationResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateNotification not implemented")
+}
+func (UnimplementedImServer) ListNotifications(context.Context, *ListNotificationsReq) (*ListNotificationsResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListNotifications not implemented")
+}
+func (UnimplementedImServer) MarkNotificationsRead(context.Context, *MarkNotificationsReadReq) (*MarkNotificationsReadResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MarkNotificationsRead not implemented")
+}
+func (UnimplementedImServer) GetUnreadNotificationCount(context.Context, *GetUnreadNotificationCountReq) (*GetUnreadNotificationCountResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUnreadNotificationCount not implemented")
 }
 func (UnimplementedImServer) mustEmbedUnimplementedImServer() {}
 func (UnimplementedImServer) testEmbeddedByValue()            {}
@@ -250,6 +376,132 @@ func _Im_CreateGroupConversation_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Im_SetConversationSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetConversationSettingsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImServer).SetConversationSettings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Im_SetConversationSettings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImServer).SetConversationSettings(ctx, req.(*SetConversationSettingsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Im_RecallMsg_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecallMsgReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImServer).RecallMsg(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Im_RecallMsg_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImServer).RecallMsg(ctx, req.(*RecallMsgReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Im_GetAtMeMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAtMeMessagesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImServer).GetAtMeMessages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Im_GetAtMeMessages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImServer).GetAtMeMessages(ctx, req.(*GetAtMeMessagesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Im_CreateNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateNotificationReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImServer).CreateNotification(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Im_CreateNotification_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImServer).CreateNotification(ctx, req.(*CreateNotificationReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Im_ListNotifications_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNotificationsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImServer).ListNotifications(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Im_ListNotifications_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImServer).ListNotifications(ctx, req.(*ListNotificationsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Im_MarkNotificationsRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MarkNotificationsReadReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImServer).MarkNotificationsRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Im_MarkNotificationsRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImServer).MarkNotificationsRead(ctx, req.(*MarkNotificationsReadReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Im_GetUnreadNotificationCount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUnreadNotificationCountReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImServer).GetUnreadNotificationCount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Im_GetUnreadNotificationCount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImServer).GetUnreadNotificationCount(ctx, req.(*GetUnreadNotificationCountReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Im_ServiceDesc is the grpc.ServiceDesc for Im service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -276,6 +528,34 @@ var Im_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateGroupConversation",
 			Handler:    _Im_CreateGroupConversation_Handler,
+		},
+		{
+			MethodName: "SetConversationSettings",
+			Handler:    _Im_SetConversationSettings_Handler,
+		},
+		{
+			MethodName: "RecallMsg",
+			Handler:    _Im_RecallMsg_Handler,
+		},
+		{
+			MethodName: "GetAtMeMessages",
+			Handler:    _Im_GetAtMeMessages_Handler,
+		},
+		{
+			MethodName: "CreateNotification",
+			Handler:    _Im_CreateNotification_Handler,
+		},
+		{
+			MethodName: "ListNotifications",
+			Handler:    _Im_ListNotifications_Handler,
+		},
+		{
+			MethodName: "MarkNotificationsRead",
+			Handler:    _Im_MarkNotificationsRead_Handler,
+		},
+		{
+			MethodName: "GetUnreadNotificationCount",
+			Handler:    _Im_GetUnreadNotificationCount_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

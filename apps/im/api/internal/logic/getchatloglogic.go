@@ -29,13 +29,16 @@ func NewGetChatLogLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetCha
 }
 
 func (l *GetChatLogLogic) GetChatLog(req *types.ChatLogReq) (resp *types.ChatLogResp, err error) {
-	// todo: add your logic here and delete this line
+	// 请求者 uid：供 rpc 做「被移出群成员只看被移出前消息」的历史截断
+	uid, _ := l.ctx.Value(Identify).(string)
 	res, err := l.svcCtx.IM.GetChatLog(l.ctx, &im.GetChatLogReq{
 		ConversationId: req.ConversationId,
 		StartSendTime:  req.StartSendTime,
 		EndSendTime:    req.EndSendTime,
 		Count:          req.Count,
 		MsgId:          req.MsgId,
+		Direction:      req.Direction,
+		UserId:         uid,
 	})
 	if err != nil {
 		zLog.Error("get chatlog failed", zap.Error(err))
@@ -60,6 +63,11 @@ func (l *GetChatLogLogic) GetChatLog(req *types.ChatLogReq) (resp *types.ChatLog
 			ChatType:       v.ChatType,
 			SendTime:       v.SendTime,
 			ReadRecords:    readRec,
+			Quote:          v.Quote,
+			Status:         v.Status,
+			RecalledBy:     v.RecalledBy,
+			AtUsers:        v.AtUsers,
+			AtAll:          v.AtAll,
 		})
 	}
 

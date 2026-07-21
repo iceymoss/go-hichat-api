@@ -1,0 +1,511 @@
+# HiChat 2.0 一键部署编排
+# ------------------------------------------------------------------
+# 启动：  docker compose up -d --build
+# 访问：  http://localhost:2470
+# 停止：  docker compose down       （加 -v 可清空数据卷）
+# 反代：  docker compose --profile proxy up -d   （服务器域名部署，见 deploy/docker/README.md）
+#
+# 启动顺序严格对齐 hichat2.sh：
+#   user-rpc → user-api → social-rpc → social-api → im-rpc → im-api
+#   → im-ws → task-mq → trend-rpc → trend-api → streaming
+# 每个后端服务带 nc -z 端口健康检查，下游 depends_on 上游 service_healthy，
+# 确保上游 RPC/WS 真正就绪后下游才启动（go-zero MustNewClient 在依赖未就绪时会 fatal）。
+# ------------------------------------------------------------------
+
+# 后端 Go 服务公共片段（均由同一个参数化 Dockerfile 构建）
+x-go-build: &go-build
+  context: .
+  dockerfile: deploy/dockerfile/service.Dockerfile
+
+x-go-service: &go-service
+  restart: unless-stopped
+  networks: [hichat]
+
+# 后端服务通用健康检查节奏（test 各服务单独写自己的监听端口）
+x-hc: &hc
+  interval: 5s
+  timeout: 3s
+  retries: 30
+  start_period: 10s
+
+networks:
+  hichat:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  mongo-data:
+  redis-data:
+  etcd-data:
+  kafka-data:
+  uploads:        # user-api / im-api 共享的上传文件目录（头像、图片、语音等）
+  caddy-data:
+  caddy-config:
+
+services:
+  # ==================== 中间件 ====================
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    networks: [hichat]
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456789"
+      MYSQL_DATABASE: hichat2
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p123456789 --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [hichat]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    networks: [hichat]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: hichat2
+      TZ: Asia/Shanghai
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.16
+    restart: unless-stopped
+    networks: [hichat]
+    command:
+      - etcd
+      - --name=etcd0
+      - --data-dir=/etcd-data
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://etcd:2379
+    environment:
+      ETCDCTL_API: "3"
+    volumes:
+      - etcd-data:/etcd-data
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+
+  kafka:
+    image: apache/kafka:3.8.0
+    restart: unless-stopped
+    networks: [hichat]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+  # ==================== 数据库迁移（一次性） ====================
+  # 运行 deploy/sql_init.go 走 GORM AutoMigrate 建好所有 MySQL 表，完成后退出。
+  migrate:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args:
+        SVC_DIR: deploy
+    image: hichat-migrate
+    restart: "no"
+    environment:
+      CONFIG_FILE: ""        # 迁移工具自身读取全局 config，不需要 -f
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+    depends_on:
+      mysql: {condition: service_healthy}
+
+  # ==================== 后端服务（顺序对齐 hichat2.sh） ====================
+  # 1) user-rpc
+  user-rpc:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/user/rpc}
+    image: hichat-user-rpc
+    environment:
+      CONFIG_FILE: apps/user/rpc/etc/user-local.yaml
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/user-rpc.yaml:/app/apps/user/rpc/etc/user-local.yaml:ro
+    healthcheck:
+      <<: *hc
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 10000 || exit 1"]
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      etcd: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+
+  # 2) user-api
+  user-api:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/user/api}
+    image: hichat-user-api
+    ports: ["${USER_API_PORT:-8887}:8887"]
+    environment:
+      CONFIG_FILE: apps/user/api/etc/user-local.yaml
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/user-api.yaml:/app/apps/user/api/etc/user-local.yaml:ro
+      - uploads:/app/temp
+    healthcheck:
+      <<: *hc
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8887 || exit 1"]
+    depends_on:
+      etcd: {condition: service_healthy}
+      user-rpc: {condition: service_healthy}
+
+  # 3) social-rpc
+  social-rpc:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/social/rpc}
+    image: hichat-social-rpc
+    environment:
+      CONFIG_FILE: apps/social/rpc/etc/social-local.yaml
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/social-rpc.yaml:/app/apps/social/rpc/etc/social-local.yaml:ro
+    healthcheck:
+      <<: *hc
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 10001 || exit 1"]
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      etcd: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      user-api: {condition: service_healthy}
+
+  # 4) social-api
+  social-api:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/social/api}
+    image: hichat-social-api
+    ports: ["${SOCIAL_API_PORT:-8889}:8889"]
+    environment:
+      CONFIG_FILE: apps/social/api/etc/social-local.yaml
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/social-api.yaml:/app/apps/social/api/etc/social-local.yaml:ro
+    healthcheck:
+      <<: *hc
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8889 || exit 1"]
+    depends_on:
+      etcd: {condition: service_healthy}
+      social-rpc: {condition: service_healthy}
+
+  # 5) im-rpc
+  im-rpc:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/im/rpc}
+    image: hichat-im-rpc
+    environment:
+      CONFIG_FILE: apps/im/rpc/etc/im-local.yaml
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/im-rpc.yaml:/app/apps/im/rpc/etc/im-local.yaml:ro
+    healthcheck:
+      <<: *hc
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 10002 || exit 1"]
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      etcd: {condition: service_healthy}
+      mongo: {condition: service_healthy}
+      social-api: {condition: service_healthy}
+
+  # 6) im-api
+  im-api:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/im/api}
+    image: hichat-im-api
+    ports: ["${IM_API_PORT:-8890}:8890"]
+    environment:
+      CONFIG_FILE: apps/im/api/etc/im-local.yaml
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/im-api.yaml:/app/apps/im/api/etc/im-local.yaml:ro
+      - uploads:/app/temp
+    healthcheck:
+      <<: *hc
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8890 || exit 1"]
+    depends_on:
+      etcd: {condition: service_healthy}
+      mongo: {condition: service_healthy}
+      im-rpc: {condition: service_healthy}
+
+  # 7) im-ws
+  im-ws:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/im/ws}
+    image: hichat-im-ws
+    ports: ["${IM_WS_PORT:-10090}:10090"]
+    environment:
+      CONFIG_FILE: apps/im/ws/etc/im-local.yaml
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/im-ws.yaml:/app/apps/im/ws/etc/im-local.yaml:ro
+    healthcheck:
+      <<: *hc
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 10090 || exit 1"]
+    depends_on:
+      etcd: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      im-api: {condition: service_healthy}
+
+  # 8) task-mq（纯 Kafka 消费者，不监听端口；启动即连入 im-ws，必须等其就绪）
+  task-mq:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/task/mq}
+    image: hichat-task-mq
+    environment:
+      CONFIG_FILE: apps/task/mq/etc/mq-local.yaml
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/task-mq.yaml:/app/apps/task/mq/etc/mq-local.yaml:ro
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      etcd: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      mongo: {condition: service_healthy}
+      im-ws: {condition: service_healthy}
+
+  # 9) trend-rpc
+  trend-rpc:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/trend/rpc}
+    image: hichat-trend-rpc
+    environment:
+      CONFIG_FILE: apps/trend/rpc/etc/trend-local.yaml
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/trend-rpc.yaml:/app/apps/trend/rpc/etc/trend-local.yaml:ro
+    healthcheck:
+      <<: *hc
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 10003 || exit 1"]
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      etcd: {condition: service_healthy}
+      task-mq: {condition: service_started}   # task-mq 无端口，按序在其后启动即可
+
+  # 10) trend-api
+  trend-api:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/trend/api}
+    image: hichat-trend-api
+    ports: ["${TREND_API_PORT:-8891}:8891"]
+    environment:
+      CONFIG_FILE: apps/trend/api/etc/trend-local.yaml
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/trend-api.yaml:/app/apps/trend/api/etc/trend-local.yaml:ro
+      - uploads:/app/temp   # 动态图片/视频上传目录，与 user-api 共享（经 user-api:8887/static 对外）
+    healthcheck:
+      <<: *hc
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8891 || exit 1"]
+    depends_on:
+      etcd: {condition: service_healthy}
+      trend-rpc: {condition: service_healthy}
+
+  # 11) streaming（启动即连入 im-ws）
+  # coturn TURN 中继（Phase 1 公网穿透对称 NAT）。生产用 host 网络 + 真实公网 IP。
+  # 注意：macOS Docker Desktop 的 host 网络受限，coturn 主要用于 Linux 公网部署。
+  coturn:
+    image: coturn/coturn:4.6.3
+    restart: unless-stopped
+    profiles: ["turn"]
+    network_mode: host
+    command: >
+      -n --log-file=stdout --no-cli
+      --realm=hichat --use-auth-secret
+      --static-auth-secret=${TURN_SECRET:-}
+      --listening-port=${TURN_PORT:-3478}
+      --min-port=${TURN_MIN_PORT:-49160} --max-port=${TURN_MAX_PORT:-49200}
+      --external-ip=${PUBLIC_IP:-}
+      --no-tls --no-dtls
+
+  streaming:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/streaming}
+    image: hichat-streaming
+    ports:
+      - "${STREAMING_PORT:-10093}:10093"
+      - "${SFU_UDP_MIN_PORT:-50000}-${SFU_UDP_MAX_PORT:-50200}:${SFU_UDP_MIN_PORT:-50000}-${SFU_UDP_MAX_PORT:-50200}/udp"
+    environment:
+      CONFIG_FILE: apps/streaming/etc/streaming-local.yaml
+      TZ: Asia/Shanghai
+      PUBLIC_IP: ${PUBLIC_IP:-}
+      SFU_UDP_MIN_PORT: ${SFU_UDP_MIN_PORT:-50000}
+      SFU_UDP_MAX_PORT: ${SFU_UDP_MAX_PORT:-50200}
+      TURN_URLS: ${TURN_URLS:-}
+      TURN_SECRET: ${TURN_SECRET:-}
+      TURN_TTL_SECONDS: ${TURN_TTL_SECONDS:-3600}
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/streaming.yaml:/app/apps/streaming/etc/streaming-local.yaml:ro
+      - ./logs:/app/logs
+    healthcheck:
+      <<: *hc
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 10093 || exit 1"]
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      etcd: {condition: service_healthy}
+      trend-api: {condition: service_healthy}
+
+  # ==================== 前端 ====================
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: hichat-web
+    restart: unless-stopped
+    networks: [hichat]
+    ports: ["${WEB_PORT:-2470}:3001"]
+    environment:
+      # Next.js 服务端代理目标（容器网络内的服务名）
+      BACKEND_API_URL: http://user-api:8887
+      SOCIAL_API_URL: http://social-api:8889
+      TREND_API_URL: http://trend-api:8891
+      IM_API_URL: http://im-api:8890
+      HOSTNAME: 0.0.0.0
+      PORT: "3001"
+      TZ: Asia/Shanghai
+    depends_on:
+      streaming: {condition: service_healthy}   # 链尾就绪即代表全部后端已起
+
+  # ==================== 可选：演示数据填充（一次性） ====================
+  # 仅在 --profile mock 时启用：注册 14 个中文示例用户，并灌入好友、群、单聊/群聊、
+  # 动态/评论/点赞，方便部署后立刻截图体验。复用通用 Dockerfile 在容器网络内运行，
+  # 通过服务名直连各服务与 redis，无需本机 Go 工具链。
+  #
+  #   docker compose up -d --build                     # 先把整套服务起好
+  #   docker compose --profile mock run --rm mockdata  # 再灌入演示数据（跑一次即可）
+  #
+  # 主角登录账号：13800138000 / hichat2024（14 个账号同密码）。
+  # 注意：仅在「全新/空库」上跑一次；重复运行会产生重复的好友申请与群。
+  mockdata:
+    <<: *go-service
+    profiles: ["mock"]
+    build:
+      <<: *go-build
+      args: {SVC_DIR: scripts/mockdata}
+    image: hichat-mockdata
+    restart: "no"
+    environment:
+      USER_API: http://user-api:8887
+      SOCIAL_API: http://social-api:8889
+      IM_API: http://im-api:8890
+      TREND_API: http://trend-api:8891
+      WS_URL: ws://im-ws:10090/ws
+      REDIS_ADDR: redis:6379
+      IMG_DIR: /app/docs/imgs
+      TZ: Asia/Shanghai
+    volumes:
+      - ./docs/imgs:/app/docs/imgs:ro   # 头像素材（运行期读取并上传）
+    depends_on:
+      redis: {condition: service_healthy}
+      user-api: {condition: service_healthy}
+      social-api: {condition: service_healthy}
+      im-api: {condition: service_healthy}
+      im-ws: {condition: service_healthy}
+      trend-api: {condition: service_healthy}
+      task-mq: {condition: service_started}   # 消费者就绪后聊天消息才会落库
+
+  # ==================== 可选：反向代理（服务器域名部署） ====================
+  # 仅在 --profile proxy 时启用：单域名统一入口 + 自动 HTTPS。
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    networks: [hichat]
+    profiles: ["proxy"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./deploy/docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web

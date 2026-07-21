@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 376 96" width="376" height="96">
+  <rect width="376" height="96" rx="18" fill="#15161A"></rect>
+  <g transform="translate(6,16)">
+<path d="M20 15 H34 Q45 15 45 26 V38 Q45 49 34 49 H16 L7.5 50.5 L9 45.5 V26 Q9 15 20 15 Z M20 18.4 H34 Q41.6 18.4 41.6 26 V38 Q41.6 45.6 34 45.6 H20 Q12.4 45.6 12.4 38 V26 Q12.4 18.4 20 18.4 Z" fill="#1BB45B" fill-rule="evenodd"></path><path d="M18 25 V40.5" fill="none" stroke="#1BB45B" stroke-width="2.5" stroke-linecap="round"></path><path d="M18 33.5 Q18 28 23 28 Q28 28 28 33.5 V40.5" fill="none" stroke="#1BB45B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M34 31.5 V40.5" fill="none" stroke="#1BB45B" stroke-width="2.5" stroke-linecap="round"></path><path d="M33 22.6 H34.7 Q36.3 22.6 36.3 24.2 V25.8 Q36.3 27.4 34.7 27.4 H31.3 V24.2 Q31.3 22.6 33 22.6 Z" fill="#1BB45B"></path><path d="M46 12 A8 8 0 0 1 54 20" fill="none" stroke="#1BB45B" stroke-width="3.4" stroke-linecap="round"></path><path d="M46 5 A15 15 0 0 1 61 20" fill="none" stroke="#1BB45B" stroke-width="3.4" stroke-linecap="round"></path>
+  </g>
+  <text x="100" y="64" font-family="Work Sans, Manrope, Arial, sans-serif" font-weight="800" font-size="58" letter-spacing="-1.7"><tspan fill="#1BB45B">Hi</tspan><tspan fill="#F4F4F2">Chat</tspan></text>
+</svg>

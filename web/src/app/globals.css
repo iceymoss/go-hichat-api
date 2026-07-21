@@ -145,17 +145,6 @@
   filter: invert(1) hue-rotate(180deg);
 }
 
-/* Fix: dark background conversations panel → keep dark */
-.hc-app[data-theme="dark"] [style*="background: #2C3E50"],
-.hc-app[data-theme="dark"] [style*="background:#2C3E50"] {
-  filter: invert(1) hue-rotate(180deg);
-}
-
-/* Fix: the blue header of conversation list */
-.hc-app[data-theme="dark"] header[style*="background: #2C3E50"] {
-  filter: invert(1) hue-rotate(180deg);
-}
-
 /* Fix: Network canvas on auth page */
 .hc-app[data-theme="dark"] canvas {
   filter: invert(1) hue-rotate(180deg);
@@ -197,8 +186,8 @@
 }
 
 .im-sidebar-icon.active {
-  background: rgba(51,144,236,0.25);
-  color: #3390EC;
+  background: rgba(27,180,91,0.25);
+  color: #1BB45B;
 }
 
 .im-sidebar-icon .unread-dot {
@@ -209,7 +198,7 @@
   height: 18px;
   padding: 0 4px;
   border-radius: 9px;
-  background: #3390EC;
+  background: #E53935;
   color: white;
   font-size: 11px;
   font-weight: 700;
@@ -229,37 +218,52 @@
   transition: background-color 0.15s;
   border-radius: 0;
   margin: 0;
+  background: rgba(0,0,0,0.04);
 }
 
 .im-conversation-item:hover {
-  background: rgba(255,255,255,0.06);
+  background: #EBEDF0;
 }
 
 .im-conversation-item.active {
-  background: #3390EC;
+  background: rgba(27,180,91,0.10);
+  box-shadow: inset 3px 0 0 #1BB45B;
 }
 
-.im-conversation-item.active .conv-name,
-.im-conversation-item.active .conv-time,
-.im-conversation-item.active .conv-message {
-  color: white !important;
+.im-conversation-item.active .conv-name {
+  color: #1C2733 !important;
 }
-
 .im-conversation-item.active .conv-time {
-  opacity: 0.7;
+  color: #A2ACB5 !important;
 }
-
-.im-conversation-item.active .conv-unread {
-  background: rgba(255,255,255,0.25);
-  color: white;
+.im-conversation-item.active .conv-message {
+  color: #8F959E !important;
 }
 
 .im-conversation-item.active .conv-pin {
-  color: rgba(255,255,255,0.7) !important;
+  color: #A2ACB5 !important;
 }
 
 .im-conversation-item.active .conv-mute {
-  color: rgba(255,255,255,0.7) !important;
+  color: #A2ACB5 !important;
+}
+
+/* Subtle inset divider between conversations (aligned with the text, not the avatar) */
+.im-conversation-item {
+  position: relative;
+}
+.im-conversation-item::after {
+  content: '';
+  position: absolute;
+  left: 74px;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: rgba(0,0,0,0.06);
+  pointer-events: none;
+}
+.im-conversation-item:last-child::after {
+  display: none;
 }
 
 /* ── Contact list ── */
@@ -279,7 +283,7 @@
 }
 
 .im-contact-item.selected {
-  background: rgba(51,144,236,0.08);
+  background: rgba(27,180,91,0.08);
 }
 
 /* ── Chat bubbles: blue sent + white received ── */
@@ -295,7 +299,7 @@
 }
 
 .im-chat-bubble.sent {
-  background: #3390EC;
+  background: #1BB45B;
   color: #FFFFFF;
   border-radius: 12px 12px 4px 12px;
 }
@@ -336,7 +340,7 @@
 }
 
 .im-profile-menu-item:hover {
-  background: rgba(51,144,236,0.06);
+  background: rgba(27,180,91,0.06);
 }
 
 .im-profile-menu-item:last-child {
@@ -372,7 +376,7 @@
   align-items: center;
   padding: 4px 0;
   font-size: 10px;
-  color: #3390EC;
+  color: #1BB45B;
   z-index: 10;
 }
 
@@ -385,7 +389,7 @@
 }
 
 .im-alpha-index span:hover {
-  background: rgba(51,144,236,0.15);
+  background: rgba(27,180,91,0.15);
 }
 
 /* ── Mobile bottom tab bar: TG blue ── */
@@ -403,7 +407,7 @@
 }
 
 .im-bottom-tab.active {
-  color: #3390EC;
+  color: #1BB45B;
 }
 
 .im-bottom-tab .tab-icon {
@@ -418,7 +422,7 @@
   height: 16px;
   padding: 0 3px;
   border-radius: 8px;
-  background: #3390EC;
+  background: #E53935;
   color: white;
   font-size: 10px;
   font-weight: 700;
@@ -447,6 +451,31 @@
   animation: fade-in 0.15s ease-out;
 }
 
+/* 语音播放波形动画（微信风格） */
+@keyframes voice-wave {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+.voice-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  transform-origin: center;
+}
+.voice-bar.playing {
+  animation: voice-wave 0.9s ease-in-out infinite;
+}
+
+/* 点击引用跳转到原消息时的高亮闪烁 */
+@keyframes msg-flash {
+  0%, 100% { background-color: transparent; }
+  30% { background-color: rgba(27,180,91,0.18); }
+}
+.msg-flash {
+  animation: msg-flash 1.5s ease-in-out;
+  border-radius: 8px;
+}
+
 /* ═══════════════════════════════════════════════════════
    HiChat Auth — Telegram Web Color Palette
    ═══════════════════════════════════════════════════════ */
@@ -468,7 +497,7 @@
 .hc-btn-primary {
   width: 100%;
   padding: 16px 24px;
-  background: #2AABEE;
+  background: #1BB45B;
   color: white;
   font-size: 15px;
   font-weight: 600;
@@ -476,26 +505,26 @@
   border-radius: 30px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 16px rgba(42, 171, 238, 0.35);
+  box-shadow: 0 4px 16px rgba(27, 180, 91, 0.35);
   letter-spacing: 0.04em;
 }
 
 .hc-btn-primary:hover:not(:disabled) {
-  background: #3390EC;
+  background: #1BB45B;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(42, 171, 238, 0.4);
+  box-shadow: 0 8px 24px rgba(27, 180, 91, 0.4);
 }
 
 .hc-btn-primary:active:not(:disabled) {
   transform: translateY(0) scale(0.98);
-  box-shadow: 0 2px 8px rgba(42, 171, 238, 0.3);
+  box-shadow: 0 2px 8px rgba(27, 180, 91, 0.3);
 }
 
 .hc-btn-primary:disabled {
-  background: #B8D4E8;
+  background: #C2E0CE;
   box-shadow: none;
   cursor: not-allowed;
-  color: #8CB4CF;
+  color: #93BCA2;
 }
 
 /* ═══════════════════════════════════════════════
@@ -504,7 +533,7 @@
 .hc-btn-text {
   font-size: 13px;
   font-weight: 600;
-  color: #2AABEE;
+  color: #1BB45B;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -514,11 +543,11 @@
 }
 
 .hc-btn-text:hover:not(:disabled) {
-  color: #229ED9;
+  color: #149a4c;
 }
 
 .hc-btn-text:disabled {
-  color: #B0C4D4;
+  color: #A8C2B2;
   cursor: not-allowed;
 }
 
@@ -531,9 +560,9 @@
   justify-content: center;
   font-size: 12px;
   font-weight: 600;
-  color: #2AABEE;
-  background: rgba(42, 171, 238, 0.06);
-  border: 1.5px solid rgba(42, 171, 238, 0.25);
+  color: #1BB45B;
+  background: rgba(27, 180, 91, 0.06);
+  border: 1.5px solid rgba(27, 180, 91, 0.25);
   border-radius: 16px;
   cursor: pointer;
   white-space: nowrap;
@@ -544,9 +573,9 @@
 }
 
 .hc-btn-code:hover:not(:disabled) {
-  background: rgba(42, 171, 238, 0.14);
-  border-color: #2AABEE;
-  box-shadow: 0 2px 8px rgba(42, 171, 238, 0.2);
+  background: rgba(27, 180, 91, 0.14);
+  border-color: #1BB45B;
+  box-shadow: 0 2px 8px rgba(27, 180, 91, 0.2);
 }
 
 .hc-btn-code:active:not(:disabled) {
@@ -555,8 +584,8 @@
 
 .hc-btn-code:disabled {
   color: #A2ACB5;
-  background: rgba(42, 171, 238, 0.04);
-  border-color: rgba(42, 171, 238, 0.12);
+  background: rgba(27, 180, 91, 0.04);
+  border-color: rgba(27, 180, 91, 0.12);
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -585,13 +614,13 @@
   left: 0;
   height: 2.5px;
   width: 0;
-  background: #2AABEE;
+  background: #1BB45B;
   border-radius: 2px;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hc-tab.active {
-  color: #2AABEE;
+  color: #1BB45B;
   font-weight: 600;
 }
 
@@ -609,3 +638,262 @@
   15%, 55%, 85% { transform: translateX(-5px); }
   35%, 75% { transform: translateX(5px); }
 }
+
+/* ═══════════════════════════════════════════════════════
+   HiChat Auth — faithful "顺滑简约" rotating card
+   (full-screen gradient · centered translucent card ·
+    hover-wake · corner clip-path switch · staggered Mac dots)
+   ═══════════════════════════════════════════════════════ */
+
+.auth-stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: linear-gradient(135deg, #15161A, #0E7A43, #1BB45B);
+  overflow: hidden;
+}
+
+/* Translucent shell — height animates to fit the active box */
+.auth-shell {
+  position: relative;
+  width: 600px;
+  max-width: 92vw;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(17, 39, 59, 1);
+  box-shadow: 0 0 16px rgba(17, 39, 59, 0.8);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 1s ease, transform 1s ease,
+    height 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.auth-shell-show { opacity: 1; transform: translateY(0); }
+
+/* Content-height faces (NOT stretched) — rotate around bottom-left corner.
+   Height is content-driven so measuring it can't feed back into a resize loop. */
+.auth-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px 0 34px;
+  transform-origin: 0 100%;
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+.auth-box.is-before { transform: rotate(-90deg); pointer-events: none; }
+.auth-box.is-after  { transform: rotate(90deg);  pointer-events: none; }
+.auth-box.is-active { transform: rotate(0deg); z-index: 2; pointer-events: auto; }
+.auth-box-dark  { background: rgba(17, 39, 59, 0.86); }
+.auth-box-light { background: rgba(255, 255, 255, 0.86); }
+
+/* Mac dots — hidden, slide in on hover with staggered delays */
+.auth-mac { position: absolute; top: 12px; left: 14px; display: flex; gap: 7px; z-index: 3; }
+.auth-mac .dot { width: 13px; height: 13px; border-radius: 50%; opacity: 0; transform: translateY(-50%); }
+.auth-mac .dot.r { background: #ff5f57; transition: 0.3s; }
+.auth-mac .dot.y { background: #febc2e; transition: 0.6s; }
+.auth-mac .dot.g { background: #28c840; transition: 0.9s; }
+.auth-shell:hover .auth-mac .dot { opacity: 1; transform: translateY(0); }
+
+/* Title — shrinks on hover (demo charm) */
+.auth-h {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin: 4px 0;
+  transition: 0.4s;
+}
+.auth-box-dark .auth-h { color: #fff; text-shadow: 0 0 8px rgba(255, 255, 255, 0.6); }
+.auth-box-light .auth-h { color: #17273b; text-shadow: 0 0 10px rgba(200, 200, 200, 0.8); }
+.auth-shell:hover .auth-h { font-size: 22px; }
+
+/* Brand lockup above the title */
+.auth-brand {
+  display: block;
+  margin: 0 auto 6px;
+  user-select: none;
+}
+
+/* Brand copyright footer pinned to the bottom of the viewport */
+.auth-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  z-index: 1;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 3px rgba(17, 39, 59, 0.45);
+  pointer-events: none;
+}
+
+.auth-fields {
+  position: relative;
+  z-index: 3;
+  width: 400px;
+  max-width: 84%;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 22px;
+  transition: 0.4s;
+}
+
+/* Pill input */
+.pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 46px;
+  border-radius: 45px;
+  padding: 0 8px 0 18px;
+  transition: box-shadow 0.3s, background 0.3s;
+}
+.auth-box-dark .pill  { background: rgba(255, 255, 255, 0.16); }
+.auth-box-light .pill { background: rgba(120, 140, 160, 0.14); }
+.pill.focused { box-shadow: 0 0 10px rgba(27, 180, 91, 0.45); }
+.auth-box-light .pill.focused { box-shadow: 0 0 8px rgba(27, 180, 91, 0.5); }
+.pill.err { box-shadow: 0 0 0 2px #e53935 inset; }
+.pill input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 15px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.auth-box-dark .pill input  { color: rgba(255, 255, 255, 0.92); caret-color: #fff; }
+.auth-box-dark .pill input::placeholder  { color: rgba(255, 255, 255, 0.55); }
+.auth-box-light .pill input { color: #17273b; }
+.auth-box-light .pill input::placeholder { color: #8a99a8; }
+.pill-prefix { display: flex; align-items: center; gap: 1px; font-size: 14px; font-weight: 500; white-space: nowrap; }
+.auth-box-dark .pill-prefix  { color: #fff; }
+.auth-box-light .pill-prefix { color: #17273b; }
+.pill-icon { background: none; border: none; cursor: pointer; padding: 6px; display: flex; }
+.auth-box-dark .pill-icon  { color: rgba(255, 255, 255, 0.6); }
+.auth-box-light .pill-icon { color: #708499; }
+
+/* Primary action button — brand green gradient */
+.auth-go {
+  height: 46px;
+  min-width: 160px;
+  padding: 0 26px;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, #1BB45B, #149a4c);
+  box-shadow: 0 6px 18px rgba(27, 180, 91, 0.4);
+  transition: transform 0.25s, box-shadow 0.25s, filter 0.25s;
+}
+.auth-go:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(27, 180, 91, 0.5);
+}
+.auth-go:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 3px 10px rgba(27, 180, 91, 0.4);
+}
+.auth-go:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; filter: grayscale(0.2); }
+
+/* Secondary inline link (forgot password / back) */
+.auth-link { background: none; border: none; cursor: pointer; font-size: 13px; padding: 0; }
+.auth-box-dark .auth-link  { color: #5fd68f; }
+.auth-box-light .auth-link { color: #149a4c; }
+
+/* Corner clip-path switch button — always visible, grows on hover.
+   pointer-events:none so the decoration never eats the button's click. */
+.auth-corner {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 96px;
+  clip-path: polygon(100% 42%, 42% 100%, 100% 100%);
+  transition: height 0.4s;
+  overflow: hidden;
+  z-index: 2;
+  pointer-events: none;
+}
+.auth-shell:hover .auth-corner { height: 200px; }
+.auth-box-dark .auth-corner  { background: rgba(255, 255, 255, 0.82); }
+.auth-box-light .auth-corner { background: rgba(17, 39, 59, 0.82); }
+.auth-change {
+  position: absolute;
+  right: 22px;
+  bottom: 18px;
+  z-index: 3;
+  font-size: 16px;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: text-shadow 0.25s;
+}
+.auth-change:hover { text-shadow: 0 0 4px rgba(150, 150, 150, 0.8); }
+.auth-box-dark .auth-change  { color: #17273b; }
+.auth-box-light .auth-change { color: #fff; }
+
+/* Inline status rows */
+.auth-msg { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+
+/* Top-right CN/EN language switcher */
+.auth-lang {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  z-index: 10;
+  display: flex;
+  gap: 1px;
+  padding: 3px;
+  border-radius: 16px;
+  background: rgba(17, 39, 59, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 3px 10px rgba(17, 39, 59, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.auth-lang button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px 11px;
+  border-radius: 13px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.8);
+  transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.auth-lang button:hover:not(.on) { color: #fff; }
+.auth-lang button.on {
+  background: rgba(255, 255, 255, 0.96);
+  color: #17273b;
+  box-shadow: 0 1px 5px rgba(17, 39, 59, 0.2);
+}

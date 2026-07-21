@@ -14,18 +14,33 @@ import (
 )
 
 type (
-	ChatLog                     = im.ChatLog
-	Conversation                = im.Conversation
-	CreateGroupConversationReq  = im.CreateGroupConversationReq
-	CreateGroupConversationResp = im.CreateGroupConversationResp
-	GetChatLogReq               = im.GetChatLogReq
-	GetChatLogResp              = im.GetChatLogResp
-	GetConversationsReq         = im.GetConversationsReq
-	GetConversationsResp        = im.GetConversationsResp
-	PutConversationsReq         = im.PutConversationsReq
-	PutConversationsResp        = im.PutConversationsResp
-	SetUpUserConversationReq    = im.SetUpUserConversationReq
-	SetUpUserConversationResp   = im.SetUpUserConversationResp
+	ChatLog                        = im.ChatLog
+	Conversation                   = im.Conversation
+	CreateGroupConversationReq     = im.CreateGroupConversationReq
+	CreateGroupConversationResp    = im.CreateGroupConversationResp
+	CreateNotificationReq          = im.CreateNotificationReq
+	CreateNotificationResp         = im.CreateNotificationResp
+	GetAtMeMessagesReq             = im.GetAtMeMessagesReq
+	GetAtMeMessagesResp            = im.GetAtMeMessagesResp
+	GetChatLogReq                  = im.GetChatLogReq
+	GetChatLogResp                 = im.GetChatLogResp
+	GetConversationsReq            = im.GetConversationsReq
+	GetConversationsResp           = im.GetConversationsResp
+	GetUnreadNotificationCountReq  = im.GetUnreadNotificationCountReq
+	GetUnreadNotificationCountResp = im.GetUnreadNotificationCountResp
+	ListNotificationsReq           = im.ListNotificationsReq
+	ListNotificationsResp          = im.ListNotificationsResp
+	MarkNotificationsReadReq       = im.MarkNotificationsReadReq
+	MarkNotificationsReadResp      = im.MarkNotificationsReadResp
+	Notification                   = im.Notification
+	PutConversationsReq            = im.PutConversationsReq
+	PutConversationsResp           = im.PutConversationsResp
+	RecallMsgReq                   = im.RecallMsgReq
+	RecallMsgResp                  = im.RecallMsgResp
+	SetConversationSettingsReq     = im.SetConversationSettingsReq
+	SetConversationSettingsResp    = im.SetConversationSettingsResp
+	SetUpUserConversationReq       = im.SetUpUserConversationReq
+	SetUpUserConversationResp      = im.SetUpUserConversationResp
 
 	Im interface {
 		// 获取会话记录
@@ -38,6 +53,20 @@ type (
 		PutConversations(ctx context.Context, in *PutConversationsReq, opts ...grpc.CallOption) (*PutConversationsResp, error)
 		// 创建群会话
 		CreateGroupConversation(ctx context.Context, in *CreateGroupConversationReq, opts ...grpc.CallOption) (*CreateGroupConversationResp, error)
+		// 设置会话置顶/免打扰
+		SetConversationSettings(ctx context.Context, in *SetConversationSettingsReq, opts ...grpc.CallOption) (*SetConversationSettingsResp, error)
+		// 撤回消息（本人限时 / 群管理员不限时）
+		RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc.CallOption) (*RecallMsgResp, error)
+		// 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+		GetAtMeMessages(ctx context.Context, in *GetAtMeMessagesReq, opts ...grpc.CallOption) (*GetAtMeMessagesResp, error)
+		// 公共通知通道：落库一条通知（幂等）
+		CreateNotification(ctx context.Context, in *CreateNotificationReq, opts ...grpc.CallOption) (*CreateNotificationResp, error)
+		// 公共通知通道：拉取接收者通知列表（分页）
+		ListNotifications(ctx context.Context, in *ListNotificationsReq, opts ...grpc.CallOption) (*ListNotificationsResp, error)
+		// 公共通知通道：标记通知已读（单条/批量/全部）
+		MarkNotificationsRead(ctx context.Context, in *MarkNotificationsReadReq, opts ...grpc.CallOption) (*MarkNotificationsReadResp, error)
+		// 公共通知通道：接收者未读数
+		GetUnreadNotificationCount(ctx context.Context, in *GetUnreadNotificationCountReq, opts ...grpc.CallOption) (*GetUnreadNotificationCountResp, error)
 	}
 
 	defaultIm struct {
@@ -79,4 +108,46 @@ func (m *defaultIm) PutConversations(ctx context.Context, in *PutConversationsRe
 func (m *defaultIm) CreateGroupConversation(ctx context.Context, in *CreateGroupConversationReq, opts ...grpc.CallOption) (*CreateGroupConversationResp, error) {
 	client := im.NewImClient(m.cli.Conn())
 	return client.CreateGroupConversation(ctx, in, opts...)
+}
+
+// 设置会话置顶/免打扰
+func (m *defaultIm) SetConversationSettings(ctx context.Context, in *SetConversationSettingsReq, opts ...grpc.CallOption) (*SetConversationSettingsResp, error) {
+	client := im.NewImClient(m.cli.Conn())
+	return client.SetConversationSettings(ctx, in, opts...)
+}
+
+// 撤回消息（本人限时 / 群管理员不限时）
+func (m *defaultIm) RecallMsg(ctx context.Context, in *RecallMsgReq, opts ...grpc.CallOption) (*RecallMsgResp, error) {
+	client := im.NewImClient(m.cli.Conn())
+	return client.RecallMsg(ctx, in, opts...)
+}
+
+// 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+func (m *defaultIm) GetAtMeMessages(ctx context.Context, in *GetAtMeMessagesReq, opts ...grpc.CallOption) (*GetAtMeMessagesResp, error) {
+	client := im.NewImClient(m.cli.Conn())
+	return client.GetAtMeMessages(ctx, in, opts...)
+}
+
+// 公共通知通道：落库一条通知（幂等）
+func (m *defaultIm) CreateNotification(ctx context.Context, in *CreateNotificationReq, opts ...grpc.CallOption) (*CreateNotificationResp, error) {
+	client := im.NewImClient(m.cli.Conn())
+	return client.CreateNotification(ctx, in, opts...)
+}
+
+// 公共通知通道：拉取接收者通知列表（分页）
+func (m *defaultIm) ListNotifications(ctx context.Context, in *ListNotificationsReq, opts ...grpc.CallOption) (*ListNotificationsResp, error) {
+	client := im.NewImClient(m.cli.Conn())
+	return client.ListNotifications(ctx, in, opts...)
+}
+
+// 公共通知通道：标记通知已读（单条/批量/全部）
+func (m *defaultIm) MarkNotificationsRead(ctx context.Context, in *MarkNotificationsReadReq, opts ...grpc.CallOption) (*MarkNotificationsReadResp, error) {
+	client := im.NewImClient(m.cli.Conn())
+	return client.MarkNotificationsRead(ctx, in, opts...)
+}
+
+// 公共通知通道：接收者未读数
+func (m *defaultIm) GetUnreadNotificationCount(ctx context.Context, in *GetUnreadNotificationCountReq, opts ...grpc.CallOption) (*GetUnreadNotificationCountResp, error) {
+	client := im.NewImClient(m.cli.Conn())
+	return client.GetUnreadNotificationCount(ctx, in, opts...)
 }

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { type Contact } from '@/lib/mock-data';
+import { type Contact } from '@/lib/types';
 
 export type TabType = 'chats' | 'contacts' | 'moments' | 'me';
 export type AuthView = 'login' | 'register' | 'forgot-password';
@@ -19,6 +19,7 @@ export interface AuthUser {
   region: string;
   occupation: string;
   tags: string;
+  momentsCover?: string;
 }
 
 interface IMState {
@@ -40,6 +41,21 @@ interface IMState {
   setSelectedConversationId: (id: string | null) => void;
   selectedContactId: string | null;
   setSelectedContactId: (id: string | null) => void;
+  // Profile of the user currently being viewed in the contact detail panel.
+  // Lets us open detail for self / non-friends (not in the friends list).
+  viewedProfile: Contact | null;
+  openUserProfile: (uid: string) => void;
+  // Floating profile card overlay (does NOT navigate away — used from moments so
+  // closing the card returns to the exact trend underneath).
+  floatingProfile: Contact | null;
+  floatingProfileIsStranger: boolean;
+  showUserCard: (uid: string) => void;
+  closeUserCard: () => void;
+  // One-shot request to open a specific user's trends (朋友圈) in the moments tab.
+  // MomentsFeed consumes it to switch into the userTrends view, then clears it.
+  userTrendsTarget: { id: string; name: string } | null;
+  openUserTrends: (uid: string, name?: string) => void;
+  clearUserTrendsTarget: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   showChatDetail: boolean;
@@ -51,6 +67,32 @@ interface IMState {
   friendRequestUnreadCount: number;
   setFriendRequestUnreadCount: (count: number) => void;
 
+  // Moments (动态) message-center unread + realtime notify version
+  momentsUnreadCount: number;
+  setMomentsUnreadCount: (count: number) => void;
+  trendNotifyVersion: number;
+  bumpTrendNotifyVersion: () => void;
+
+  // 公共通知（好友/群申请等）：收到 ws notify 帧后 bump，供通知中心刷新历史列表
+  notificationVersion: number;
+  bumpNotificationVersion: () => void;
+
+  // 公共通知未读总数：登录拉一次(持久化) + ws 实时 +1，驱动「联系人」tab 气泡 + 铃铛角标（同一真相）
+  notificationUnreadCount: number;
+  setNotificationUnreadCount: (count: number) => void;
+
+  // 通知点击/气泡跳转意图：把用户带到对应入口的具体子 tab（received=我收到 / sent=我发起）
+  friendReqNavTab: 'received' | 'sent' | null;
+  groupAppNavTab: 'received' | 'sent' | null;
+  clearFriendReqNavTab: () => void;
+  clearGroupAppNavTab: () => void;
+  // 从群聊深链到通讯录群详情：携带 groupId，GroupList 读取后自动打开该群详情
+  groupDetailNavId: string | null;
+  openGroupDetail: (groupId: string) => void;
+  clearGroupDetailNav: () => void;
+  // 按 notifyType 跳到来源（好友→新的朋友；群→群申请），并定位子 tab。通知中心点击 + toast 共用。
+  navigateToNotificationSource: (notifyType: string) => void;
+
   // Group panel
   showGroupPanel: boolean;
   setShowGroupPanel: (show: boolean) => void;
@@ -61,15 +103,33 @@ interface IMState {
   selectedTrendId: number | null;
   setSelectedTrendId: (id: number | null) => void;
 
+  // Per-trend version counter: any panel that mutates a trend bumps its version;
+  // other panels subscribe to the map and refetch when the version changes for
+  // an id they care about.
+  trendVersions: Record<number, number>;
+  bumpTrendVersion: (trendId: number) => void;
+
   // Me tab sub-page (shown in right panel)
-  meSubPage: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null;
-  setMeSubPage: (page: 'profile' | 'favorites' | 'album' | 'emojis' | 'settings' | null) => void;
+  meSubPage: 'profile' | 'favorites' | 'album' | 'emojis' | null;
+  setMeSubPage: (page: 'profile' | 'favorites' | 'album' | 'emojis' | null) => void;
+
+  // System panel opened from the sidebar settings gear (independent of activeTab)
+  systemPanel: 'settings' | 'about' | null;
+  setSystemPanel: (panel: 'settings' | 'about' | null) => void;
 
   // Friends list (fetched from API)
   friends: Contact[];
   setFriends: (friends: Contact[]) => void;
   friendsVersion: number;
   invalidateFriends: () => void;
+}
+
+// ── Shared profile resolvers (used by openUserProfile + showUserCard) ──
+function meToContact(me: AuthUser): Contact {
+  return { id: me.id, name: me.name, nickname: me.name, avatar: me.avatar, pinyin: '', letter: '', gender: me.sex === 1 ? 'male' : me.sex === 2 ? 'female' : undefined, phone: me.phone, email: me.email || undefined, region: me.region, signature: me.introduction, introduction: me.introduction, occupation: me.occupation };
+}
+function searchUserToContact(u: { id: string | number; nickname?: string; avatar?: string; sex?: number; region?: string; introduction?: string; occupation?: string }, fallbackId: string): Contact {
+  return { id: String(u.id), name: u.nickname || fallbackId, nickname: u.nickname, avatar: u.avatar || '', pinyin: '', letter: '', gender: u.sex === 1 ? 'male' : u.sex === 2 ? 'female' : undefined, region: u.region, signature: u.introduction, introduction: u.introduction, occupation: u.occupation };
 }
 
 export const useIMStore = create<IMState>()(persist((set) => ({
@@ -103,11 +163,92 @@ export const useIMStore = create<IMState>()(persist((set) => ({
 
   // IM
   activeTab: 'chats',
-  setActiveTab: (tab) => set({ activeTab: tab, selectedConversationId: null, selectedContactId: null, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null, meSubPage: null }),
+  setActiveTab: (tab) => set({ activeTab: tab, selectedConversationId: null, selectedContactId: null, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null, meSubPage: null, systemPanel: null, groupDetailNavId: null }),
   selectedConversationId: null,
   setSelectedConversationId: (id) => set({ selectedConversationId: id, showChatDetail: true }),
   selectedContactId: null,
   setSelectedContactId: (id) => set({ selectedContactId: id }),
+  viewedProfile: null,
+  openUserProfile: (uid) => {
+    if (!uid) return;
+    const st = useIMStore.getState();
+    set({ activeTab: 'contacts', selectedContactId: uid, showChatDetail: false, showFriendRequests: false, showGroupPanel: false, selectedTrendId: null, meSubPage: null });
+
+    const friend = st.friends.find(f => f.id === uid);
+    if (friend) { set({ viewedProfile: friend }); return; }
+
+    const me = st.currentUser;
+    if (me && uid === me.id) {
+      set({ viewedProfile: meToContact(me) });
+      return;
+    }
+
+    // Non-friend: fetch the basic profile by id.
+    set({ viewedProfile: { id: uid, name: uid, avatar: '', pinyin: '', letter: '' } });
+    if (me?.token) {
+      fetch(`/api/user/search?ids=${encodeURIComponent(uid)}`, { headers: { Authorization: `Bearer ${me.token}` } })
+        .then(r => r.json())
+        .then(j => {
+          const u = (j?.data?.users || j?.users || [])[0];
+          if (u && useIMStore.getState().selectedContactId === uid) {
+            set({ viewedProfile: searchUserToContact(u, uid) });
+          }
+        })
+        .catch(() => {});
+    }
+  },
+  floatingProfile: null,
+  floatingProfileIsStranger: false,
+  showUserCard: (uidRaw) => {
+    if (!uidRaw) return;
+    const st = useIMStore.getState();
+    const me = st.currentUser;
+    // Comment/like ids may be the literal 'me' — normalize to the real id.
+    const uid = (uidRaw === 'me' && me) ? me.id : uidRaw;
+
+    const friend = st.friends.find(f => f.id === uid);
+    if (friend) { set({ floatingProfile: friend, floatingProfileIsStranger: false }); return; }
+
+    if (me && uid === me.id) {
+      set({ floatingProfile: meToContact(me), floatingProfileIsStranger: false });
+      return;
+    }
+
+    // Non-friend: show a placeholder immediately, then refine via search.
+    set({ floatingProfile: { id: uid, name: uid, avatar: '', pinyin: '', letter: '' }, floatingProfileIsStranger: true });
+    if (me?.token) {
+      fetch(`/api/user/search?ids=${encodeURIComponent(uid)}`, { headers: { Authorization: `Bearer ${me.token}` } })
+        .then(r => r.json())
+        .then(j => {
+          const u = (j?.data?.users || j?.users || [])[0];
+          if (u && useIMStore.getState().floatingProfile?.id === uid) {
+            set({ floatingProfile: searchUserToContact(u, uid) });
+          }
+        })
+        .catch(() => {});
+    }
+  },
+  closeUserCard: () => set({ floatingProfile: null }),
+  userTrendsTarget: null,
+  openUserTrends: (uidRaw, name = '') => {
+    if (!uidRaw) return;
+    const me = useIMStore.getState().currentUser;
+    // Comment/like ids may be the literal 'me' — normalize to the real id.
+    const uid = (uidRaw === 'me' && me) ? me.id : uidRaw;
+    set({
+      activeTab: 'moments',
+      userTrendsTarget: { id: uid, name },
+      floatingProfile: null,
+      selectedConversationId: null,
+      selectedContactId: null,
+      showChatDetail: false,
+      showFriendRequests: false,
+      showGroupPanel: false,
+      selectedTrendId: null,
+      meSubPage: null,
+    });
+  },
+  clearUserTrendsTarget: () => set({ userTrendsTarget: null }),
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
   showChatDetail: false,
@@ -119,6 +260,42 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   friendRequestUnreadCount: 0,
   setFriendRequestUnreadCount: (count) => set({ friendRequestUnreadCount: count }),
 
+  momentsUnreadCount: 0,
+  setMomentsUnreadCount: (count) => set({ momentsUnreadCount: count }),
+  trendNotifyVersion: 0,
+  bumpTrendNotifyVersion: () => set((s) => ({ trendNotifyVersion: s.trendNotifyVersion + 1 })),
+
+  notificationVersion: 0,
+  bumpNotificationVersion: () => set((s) => ({ notificationVersion: s.notificationVersion + 1 })),
+
+  notificationUnreadCount: 0,
+  setNotificationUnreadCount: (count) => set({ notificationUnreadCount: Math.max(0, count) }),
+
+  friendReqNavTab: null,
+  groupAppNavTab: null,
+  clearFriendReqNavTab: () => set({ friendReqNavTab: null }),
+  clearGroupAppNavTab: () => set({ groupAppNavTab: null }),
+  groupDetailNavId: null,
+  openGroupDetail: (groupId) => set({
+    activeTab: 'contacts', showGroupPanel: true, showFriendRequests: false,
+    selectedContactId: null, showChatDetail: false, selectedTrendId: null, meSubPage: null,
+    groupDetailNavId: groupId,
+  }),
+  clearGroupDetailNav: () => set({ groupDetailNavId: null }),
+  navigateToNotificationSource: (notifyType) => {
+    // 公共导航字段，避免被 setActiveTab/setShowXxx 互相重置：一次 set 落定目标视图 + 子 tab 意图
+    const base = { selectedContactId: null, showChatDetail: false, selectedTrendId: null, meSubPage: null };
+    if (notifyType.startsWith('friend.')) {
+      // friend.apply=被申请人(我收到)；friend.accept/reject=申请人看结果(我发起)
+      const tab = notifyType === 'friend.apply' ? 'received' : 'sent';
+      set({ ...base, activeTab: 'contacts', showGroupPanel: false, showFriendRequests: true, friendReqNavTab: tab });
+    } else if (notifyType.startsWith('group.')) {
+      // group.apply=群主/管理员(我收到)；group.accept/reject=申请人看结果(我发起)
+      const tab = notifyType === 'group.apply' ? 'received' : 'sent';
+      set({ ...base, activeTab: 'contacts', showFriendRequests: false, showGroupPanel: true, groupAppNavTab: tab });
+    }
+  },
+
   // Group panel
   showGroupPanel: false,
   setShowGroupPanel: (show) => set({ showGroupPanel: show, selectedContactId: null, showFriendRequests: false }),
@@ -128,10 +305,18 @@ export const useIMStore = create<IMState>()(persist((set) => ({
   // Trend detail panel
   selectedTrendId: null,
   setSelectedTrendId: (id) => set({ selectedTrendId: id }),
+  trendVersions: {},
+  bumpTrendVersion: (trendId) => set((state) => ({
+    trendVersions: { ...state.trendVersions, [trendId]: (state.trendVersions[trendId] || 0) + 1 },
+  })),
 
   // Me tab sub-page
   meSubPage: null,
   setMeSubPage: (page) => set({ meSubPage: page }),
+
+  // System panel (settings / about) opened from the sidebar gear
+  systemPanel: null,
+  setSystemPanel: (panel) => set({ systemPanel: panel }),
 
   // Friends list
   friends: [],
@@ -145,3 +330,13 @@ export const useIMStore = create<IMState>()(persist((set) => ({
     currentUser: state.currentUser,
   }),
 }));
+
+/**
+ * 按 userId 解析展示名：好友备注优先，其次用传入的后端昵称兜底。
+ * 用于动态评论 / 点赞 / 消息中心等显示他人名字的地方，统一"备注优先"。
+ */
+export function friendDisplayName(userId: string, fallback: string): string {
+  if (!userId) return fallback;
+  const f = useIMStore.getState().friends.find(c => c.id === userId);
+  return f?.remark || fallback;
+}

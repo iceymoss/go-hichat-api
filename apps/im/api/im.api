@@ -8,33 +8,47 @@ info (
 // ------- domain.api --------------------
 type (
 	ChatLog {
-		Id             string `json:"id,omitempty"`
-		ConversationId string `json:"conversationId,omitempty"`
-		SendId         string `json:"sendId,omitempty"`
-		RecvId         string `json:"recvId,omitempty"`
-		MsgType        int32  `json:"msgType,omitempty"`
-		MsgContent     string `json:"msgContent,omitempty"`
-		ChatType       int32  `json:"chatType,omitempty"`
-		SendTime       int64  `json:"sendTime,omitempty"` // 修正字段名统一小写
+		Id             string   `json:"id,omitempty"`
+		ConversationId string   `json:"conversationId,omitempty"`
+		SendId         string   `json:"sendId,omitempty"`
+		RecvId         string   `json:"recvId,omitempty"`
+		MsgType        int32    `json:"msgType,omitempty"`
+		MsgContent     string   `json:"msgContent,omitempty"`
+		ChatType       int32    `json:"chatType,omitempty"`
+		SendTime       int64    `json:"sendTime,omitempty"` // 修正字段名统一小写
+		ReadRecords    string   `json:"readRecords,omitempty"` // base64(bitmap)。私聊为 "AQ=="（对方已读）/空（未读），群聊为每成员 bit 位图
+		Quote          string   `json:"quote,omitempty"` // 引用/回复消息（JSON 字符串：{"id","name","preview"}）
+		Status         int32    `json:"status,omitempty"` // 0=正常 1=已撤回
+		RecalledBy     string   `json:"recalledBy,omitempty"` // 撤回操作者 uid
+		AtUsers        []string `json:"atUsers,omitempty"` // 被 @ 的成员 uid 列表（群聊）
+		AtAll          bool     `json:"atAll,omitempty"` // 是否 @所有人（群聊）
 	}
 	Conversation {
-		ConversationId string  `json:"conversationId,omitempty"`
-		ChatType       int32   `json:"chatType,omitempty"` // 修正字段名统一小写
-		IsShow         bool    `json:"isShow,omitempty"`
-		Seq            int64   `json:"seq,omitempty"`
-		Read           int32   `json:"read"`
-		Msg            ChatLog `json:"message, optional"`
+		ConversationId string  `json:"conversationId,optional,omitempty"`
+		ChatType       int32   `json:"chatType,optional,omitempty"`
+		IsShow         bool    `json:"isShow,optional,omitempty"`
+		IsTop          bool    `json:"isTop,optional,omitempty"` // 会话置顶
+		IsMute         bool    `json:"isMute,optional,omitempty"` // 消息免打扰
+		HasAtMe        bool    `json:"hasAtMe,optional,omitempty"` // 是否有未读的 @我（群聊）
+		Seq            int64   `json:"seq,optional,omitempty"`
+		Read           int32   `json:"read,optional,omitempty"`
+		Msg            ChatLog `json:"message,optional,omitempty"`
+		// 附带的用户/群信息（API 层填充，前端无需二次查询）
+		TargetName   string `json:"targetName,optional,omitempty"`
+		TargetAvatar string `json:"targetAvatar,optional,omitempty"`
+		MemberCount  int    `json:"memberCount,optional,omitempty"`
 	}
 )
 
 // -------------- im api v1 --------------
 type (
 	ChatLogReq {
-		MsgId          string `json:"msgId"`
-		ConversationId string `json:"conversationId"`
-		StartSendTime  int64  `json:"startSendTime,omitempty"`
-		EndSendTime    int64  `json:"endSendTime,omitempty"`
-		Count          int64  `json:"count,omitempty"`
+		MsgId          string `form:"msgId,optional"`
+		ConversationId string `form:"conversationId"`
+		StartSendTime  int64  `form:"startSendTime,optional"`
+		EndSendTime    int64  `form:"endSendTime,optional"`
+		Count          int64  `form:"count,optional"`
+		Direction      string `form:"direction,optional"` // older(默认)/newer/around
 	}
 	ChatLogResp {
 		List []ChatLog `json:"list"` // 移除多余星号*
@@ -54,11 +68,75 @@ type (
 	}
 	SetUpUserConversationResp  {} // 类型名首字母必须大写
 	GetChatLogReadRecordsReq {
-		MsgId string `json:"msgId"`
+		MsgId string `form:"msgId"`
+	}
+	ReadRecordUser {
+		Id       string `json:"id"`
+		Nickname string `json:"nickname"`
+		Avatar   string `json:"avatar"`
+		ReadAt   int64  `json:"readAt,omitempty"` // 已读时间戳（unix nano），仅已读列表里有值；未读列表里为 0
 	}
 	GetChatLogReadRecordsResp {
-		Reads   []string `json:"reads"`
-		UnReads []string `json:"unReads"`
+		Reads   []ReadRecordUser `json:"reads"`
+		UnReads []ReadRecordUser `json:"unReads"`
+	}
+	SetConversationSettingsReq {
+		ConversationId string `json:"conversationId"`
+		IsTop          bool   `json:"isTop,optional"`
+		IsMute         bool   `json:"isMute,optional"`
+	}
+	SetConversationSettingsResp  {}
+	RecallMsgReq {
+		ConversationId string `json:"conversationId"`
+		MsgId          string `json:"msgId"`
+		ChatType       int32  `json:"chatType"`
+	}
+	RecallMsgResp  {}
+	UploadResp {
+		Url      string `json:"url"`
+		Name     string `json:"name"`
+		Size     int64  `json:"size"`
+		FileType string `json:"fileType"` // image/video/voice/file
+	}
+	GetAtMeMessagesReq {
+		ConversationId string `form:"conversationId"`
+		Count          int64  `form:"count,optional"`
+	}
+	GetAtMeMessagesResp {
+		List []ChatLog `json:"list"` // @我且未读的消息，按 sendTime 升序
+	}
+)
+
+// -------------- 公共通知 --------------
+type (
+	NotificationItem {
+		Id         uint64 `json:"id"`
+		NotifyType string `json:"notifyType"` // friend.apply / group.accept ...
+		BizId      string `json:"bizId,omitempty"`
+		ActorId    string `json:"actorId,omitempty"`
+		GroupId    string `json:"groupId,omitempty"`
+		Title      string `json:"title,omitempty"`
+		Content    string `json:"content,omitempty"`
+		Payload    string `json:"payload,omitempty"`
+		IsRead     int32  `json:"isRead"`
+		CreateTime int64  `json:"createTime"`
+	}
+	ListNotificationsReq {
+		UnreadOnly bool  `form:"unreadOnly,optional"`
+		Offset     int32 `form:"offset,optional"`
+		Limit      int32 `form:"limit,optional"`
+	}
+	ListNotificationsResp {
+		List []NotificationItem `json:"list"`
+	}
+	NotificationUnreadCountResp {
+		Count int64 `json:"count"`
+	}
+	MarkNotificationsReadReq {
+		Ids []uint64 `json:"ids,optional"` // 为空表示全部已读
+	}
+	MarkNotificationsReadResp {
+		Affected int64 `json:"affected"`
 	}
 )
 
@@ -75,6 +153,10 @@ service im {
 	@handler getChatLogReadRecords
 	get /chatlog/readRecords (GetChatLogReadRecordsReq) returns (GetChatLogReadRecordsResp)
 
+	@doc "获取会话中@我且未读的消息列表(用于有人@我快速跳转)"
+	@handler getAtMeMessages
+	get /chatlog/atme (GetAtMeMessagesReq) returns (GetAtMeMessagesResp)
+
 	@doc "建立会话"
 	@handler setUpUserConversation
 	post /setup/conversation (SetUpUserConversationReq) returns (SetUpUserConversationResp) // 响应类型首字母大写
@@ -86,5 +168,29 @@ service im {
 	@doc "更新会话"
 	@handler putConversations
 	put /conversation (PutConversationsReq) returns (PutConversationsResp)
+
+	@doc "设置会话置顶/免打扰"
+	@handler setConversationSettings
+	put /conversation/settings (SetConversationSettingsReq) returns (SetConversationSettingsResp)
+
+	@doc "撤回消息"
+	@handler recallMsg
+	post /chatlog/recall (RecallMsgReq) returns (RecallMsgResp)
+
+	@doc "上传富媒体文件(图片/视频/文件/语音)"
+	@handler upload
+	post /upload returns (UploadResp)
+
+	@doc "拉取当前用户的通知列表(公共通知通道)"
+	@handler listNotifications
+	get /notifications (ListNotificationsReq) returns (ListNotificationsResp)
+
+	@doc "当前用户未读通知数"
+	@handler getNotificationUnreadCount
+	get /notifications/unreadCount returns (NotificationUnreadCountResp)
+
+	@doc "标记通知已读(单条/批量/全部)"
+	@handler markNotificationsRead
+	post /notifications/read (MarkNotificationsReadReq) returns (MarkNotificationsReadResp)
 }
 

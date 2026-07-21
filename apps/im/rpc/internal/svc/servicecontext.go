@@ -19,6 +19,9 @@ type ServiceContext struct {
 	// 会话下聊天相关
 	models.ConversationModel
 
+	// 公共通知
+	models.NotificationModel
+
 	// 社交模块
 	Social socialclient.Social
 }
@@ -70,6 +73,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		ChatLogModel:       models.NewChatLogModel(),
 		ConversationModel:  models.NewConversationModel(),
 		ConversationsModel: models.NewConversationsModel(),
+		NotificationModel:  models.NewNotificationModel(),
 		Social:             socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
 	}
 }

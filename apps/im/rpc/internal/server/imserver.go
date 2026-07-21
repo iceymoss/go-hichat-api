@@ -52,3 +52,45 @@ func (s *ImServer) CreateGroupConversation(ctx context.Context, in *im.CreateGro
 	l := logic.NewCreateGroupConversationLogic(ctx, s.svcCtx)
 	return l.CreateGroupConversation(in)
 }
+
+// 设置会话置顶/免打扰
+func (s *ImServer) SetConversationSettings(ctx context.Context, in *im.SetConversationSettingsReq) (*im.SetConversationSettingsResp, error) {
+	l := logic.NewSetConversationSettingsLogic(ctx, s.svcCtx)
+	return l.SetConversationSettings(in)
+}
+
+// 撤回消息（本人限时 / 群管理员不限时）
+func (s *ImServer) RecallMsg(ctx context.Context, in *im.RecallMsgReq) (*im.RecallMsgResp, error) {
+	l := logic.NewRecallMsgLogic(ctx, s.svcCtx)
+	return l.RecallMsg(in)
+}
+
+// 获取会话中 @我 且未读的消息列表（用于"有人@我"快速跳转）
+func (s *ImServer) GetAtMeMessages(ctx context.Context, in *im.GetAtMeMessagesReq) (*im.GetAtMeMessagesResp, error) {
+	l := logic.NewGetAtMeMessagesLogic(ctx, s.svcCtx)
+	return l.GetAtMeMessages(in)
+}
+
+// 公共通知通道：落库一条通知（幂等）
+func (s *ImServer) CreateNotification(ctx context.Context, in *im.CreateNotificationReq) (*im.CreateNotificationResp, error) {
+	l := logic.NewCreateNotificationLogic(ctx, s.svcCtx)
+	return l.CreateNotification(in)
+}
+
+// 公共通知通道：拉取接收者通知列表（分页）
+func (s *ImServer) ListNotifications(ctx context.Context, in *im.ListNotificationsReq) (*im.ListNotificationsResp, error) {
+	l := logic.NewListNotificationsLogic(ctx, s.svcCtx)
+	return l.ListNotifications(in)
+}
+
+// 公共通知通道：标记通知已读（单条/批量/全部）
+func (s *ImServer) MarkNotificationsRead(ctx context.Context, in *im.MarkNotificationsReadReq) (*im.MarkNotificationsReadResp, error) {
+	l := logic.NewMarkNotificationsReadLogic(ctx, s.svcCtx)
+	return l.MarkNotificationsRead(in)
+}
+
+// 公共通知通道：接收者未读数
+func (s *ImServer) GetUnreadNotificationCount(ctx context.Context, in *im.GetUnreadNotificationCountReq) (*im.GetUnreadNotificationCountResp, error) {
+	l := logic.NewGetUnreadNotificationCountLogic(ctx, s.svcCtx)
+	return l.GetUnreadNotificationCount(in)
+}

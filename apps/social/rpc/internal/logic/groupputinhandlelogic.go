@@ -3,11 +3,13 @@ package logic
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/xerr"
@@ -88,6 +90,14 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 	if constants.HandlerResult(groupReq.HandleResult.Int64) != constants.PassHandlerResult {
 		//拒绝加入群
 		tx.Commit()
+		// 公共通知：申请人收到入群被拒结果
+		emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
+			NotifyType: NotifyGroupReject,
+			ReceiverId: groupReq.ReqId,
+			ActorId:    in.HandleUid,
+			BizId:      fmt.Sprintf("group.handle:%d:%d", groupReq.Id, in.HandleResult),
+			GroupId:    groupReq.GroupId,
+		})
 		return &social.GroupPutInHandleResp{GroupId: groupReq.GroupId, ReqId: groupReq.ReqId}, nil
 	}
 
@@ -102,6 +112,8 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		JoinSource:  int(groupReq.JoinSource.Int64),
 	}
 
+	// inviter_uid/operator_uid 是 INT 列：空值归一为 "0"（无邀请人），避免写空串报错、读 NULL 失败
+	normalizeGroupMemberUid(groupMember)
 	res = tx.Create(&groupMember)
 	if res.Error != nil {
 		tx.Rollback()
@@ -111,6 +123,13 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 	if res.RowsAffected == 0 {
 		tx.Rollback()
 		return nil, errors.New("join  group err:" + groupReq.ReqId + " groupId" + groupReq.GroupId)
+	}
+
+	// 同事务写 outbox（群成员新增事件），relay 投递后消费端版本门把新成员加入群成员集
+	if err := emitRelationChangeInTx(tx, l.svcCtx, constants.RelationEventGroupMemberAdded, groupReq.GroupId,
+		&mq.RelationChangeTransfer{GroupId: groupReq.GroupId, UserId: groupReq.ReqId, OperatorId: in.HandleUid}); err != nil {
+		tx.Rollback()
+		return nil, err
 	}
 
 	//为新成员添加会话
@@ -125,6 +144,15 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 	//}
 
 	tx.Commit()
+
+	// 公共通知：申请人收到入群通过结果
+	emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
+		NotifyType: NotifyGroupAccept,
+		ReceiverId: groupReq.ReqId,
+		ActorId:    in.HandleUid,
+		BizId:      fmt.Sprintf("group.handle:%d:%d", groupReq.Id, in.HandleResult),
+		GroupId:    groupReq.GroupId,
+	})
 
 	return &social.GroupPutInHandleResp{
 		GroupId: groupReq.GroupId,

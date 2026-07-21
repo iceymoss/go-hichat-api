@@ -1,268 +1,590 @@
-# go-hichat-api
-go-hichat-api是HiChat的2.0版本，其模块拆分，使用微服务架构，功能点：优化社交模块、记录重构聊天存储项目、添加用户在线/离线，消息已读/未读状态、添加动态空间模块。
-### 调整点
-* 调整为微服务架构
-* 项目前后端分离
+<p align="center">
+  <img src="assets/brand/hichat-green-lockup.svg" alt="HiChat" width="320" />
+</p>
 
-### 优化点
-* 优化社交模块，添加或者好友申请，管理员，以及相应消息实时通知
-* 优化文件消息存储方式
-* 重构聊天模块，修复内存泄漏问题，优化消息流，解耦和异步话聊天模块
-* 优化心跳检查，添加消息可靠性ack确认机制
-* 完善聊天记录持久化
+<h1 align="center">go-hichat-api</h1>
 
-### 新增功能点
-* 添加消息已读/未读功能
-* 添加好友在线状态
-* 添加动态空间模块，点赞，评论，屏蔽动态等
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go 1.25+" />
+  <img src="https://img.shields.io/badge/go--zero-1.8.2-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="go-zero 1.8.2" />
+  <img src="https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js 16" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/Bun-1.x-000000?style=for-the-badge&logo=bun&logoColor=white" alt="Bun 1.x" />
+  <img src="https://img.shields.io/badge/License-Apache_2.0-green?style=for-the-badge" alt="Apache License 2.0" />
+  <img src="https://img.shields.io/badge/Status-Active_Development-orange?style=for-the-badge" alt="Active Development" />
+</p>
 
+<p align="center">
+  <a href="README.md">English</a> | <a href="docs/README.zh-CN.md">简体中文</a>
+</p>
 
-## GO-ZERO框架配置搭建
-```sql
-# 安装 Go-Zero 核心工具
-go install github.com/zeromicro/go-zero/tools/goctl@latest
+<p align="center">
+  <a href="#highlights">Highlights</a> •
+  <a href="#core-capabilities">Core Capabilities</a> •
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#getting-started">Getting Started</a> •
+  <a href="#license">License</a>
+</p>
 
-# 安装 protoc 编译器 (macOS)
-brew install protobuf
+---
 
-# 安装 protoc 编译器 (Ubuntu)
-sudo apt install -y protobuf-compiler
+go-hichat-api is the backend and web client repository for HiChat 2.0, a go-zero based instant messaging and social platform. It combines REST APIs, zRPC services, WebSocket long connections, Kafka async pipelines, MongoDB chat storage, MySQL business data, Redis runtime state, and an independent WebRTC streaming service.
 
-# 安装 Go 插件
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+The repository is intended as a practical reference for building a modern IM system with clear service boundaries, message delivery, read receipts, online presence, activity notifications, media messages, social relationships, activity feeds, and a Next.js web client.
 
-# 验证安装
-goctl -v
-protoc --version
+## Highlights
+
+- Microservice architecture built on go-zero REST and zRPC.
+- API-first contracts through `.api` and `.proto` files.
+- WebSocket gateway for authentication, heartbeat, online state, message ACK, read receipts, and real-time push.
+- Kafka pipeline for chat delivery, read events, message recall, activity notifications, and background processing.
+- MongoDB for chat logs, MySQL for business data, Redis for sessions, cache, online state, and runtime coordination.
+- Independent WebRTC streaming service for calls, meetings, screen sharing, live streaming, rooms, and SFU workflows.
+- Full web client under `web/` using Next.js 16, React 19, Bun, TypeScript, Tailwind CSS, and Radix UI.
+
+## Core Capabilities
+
+| Domain | Capabilities |
+| --- | --- |
+| User and account | Phone/password login, JWT issuing, phone/email verification codes, password reset, profile management, avatar upload, account deactivation, user search, and internal user lookup RPCs. |
+| Social graph | Friend requests, friend list, remarks, blocking, moments permissions, notification settings, tags, friend reports, and online status queries. |
+| Groups | Group creation, search, join requests, invitations, invite tokens, member management, announcements, roles, admin operations, ownership transfer, and group mentions. |
+| Instant messaging | Single and group conversations, conversation pin/mute, MongoDB chat history, text/file/voice/image/video messages, quotes, mentions, unread state, read records, recall, and media upload. |
+| Realtime gateway | WebSocket authentication, route dispatch, Redis-backed online state, Kafka message publishing, server push, ACK tracking, retry handling, duplicate filtering, and trend notifications. |
+| Activity feed | Trend publishing, visibility control, media resources, comments, replies, likes, drafts, unread counters, message notifications, and online push. |
+| Async tasks | Kafka consumers for chat, read, recall, and trend notification events, plus cron task extension points. |
+| Streaming | WebRTC one-to-one calls, group calls, meetings, screen sharing, live streaming, signaling, rooms, and SFU components. |
+| Web client | Next.js application with Bun scripts, TypeScript, Tailwind CSS, Radix UI, and a development server on port `3001`. |
+
+## Screenshots
+
+Captured from the web client running on the live demo dataset (14 seeded users with friends, groups, conversations, and moments — generated by [`scripts/mockdata`](scripts/mockdata)).
+
+### Account
+
+<table>
+  <tr>
+    <td width="33%" align="center"><img src="docs/screenshots/login.png" alt="Sign in"/><br/><sub><b>Sign in</b></sub></td>
+    <td width="33%" align="center"><img src="docs/screenshots/register.png" alt="Sign up"/><br/><sub><b>Sign up</b></sub></td>
+    <td width="33%" align="center"><img src="docs/screenshots/forgot-password.png" alt="Reset password"/><br/><sub><b>Reset password</b></sub></td>
+  </tr>
+</table>
+
+### Messaging
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/conversation-list.png" alt="Conversation list"/><br/><sub><b>Conversation list</b></sub></td>
+    <td width="50%" align="center"><img src="docs/screenshots/single-chat.png" alt="One-on-one chat"/><br/><sub><b>One-on-one chat</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/group-chat.png" alt="Group chat"/><br/><sub><b>Group chat</b></sub></td>
+    <td width="50%" align="center"><img src="docs/screenshots/create-group.png" alt="Create group"/><br/><sub><b>Create group</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/conversation-batch-actions.png" alt="Batch actions, mute, pin"/><br/><sub><b>Batch select · mute · pin</b></sub></td>
+    <td width="50%" align="center"><img src="docs/screenshots/chat-user-card.png" alt="In-chat profile card"/><br/><sub><b>In-chat profile card</b></sub></td>
+  </tr>
+</table>
+
+### Voice &amp; Video Calls
+
+<table>
+  <tr>
+    <td width="33%" align="center"><img src="docs/screenshots/call-incoming.png" alt="Incoming call"/><br/><sub><b>Incoming call</b></sub></td>
+    <td width="33%" align="center"><img src="docs/screenshots/group-call.png" alt="Group call"/><br/><sub><b>Group call</b></sub></td>
+    <td width="33%" align="center"><img src="docs/screenshots/group-call-active.png" alt="Group call in progress"/><br/><sub><b>Group call in progress</b></sub></td>
+  </tr>
+</table>
+
+### Friends
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/friend-list-and-settings.png" alt="Friend list, detail and settings"/><br/><sub><b>Friend list · detail · settings</b></sub></td>
+    <td width="50%" align="center"><img src="docs/screenshots/friend-request-detail.png" alt="Friend request detail"/><br/><sub><b>Friend request detail</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/friend-requests-received.png" alt="Received friend requests"/><br/><sub><b>Received requests</b></sub></td>
+    <td width="50%" align="center"><img src="docs/screenshots/friend-requests-sent.png" alt="Sent friend requests"/><br/><sub><b>Sent requests</b></sub></td>
+  </tr>
+</table>
+
+### Moments (Activity Feed)
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/publish-moment.png" alt="Publish a moment"/><br/><sub><b>Publish a moment</b></sub></td>
+    <td width="50%" align="center"><img src="docs/screenshots/moments-feed-and-detail.png" alt="Feed, detail, comments, likes"/><br/><sub><b>Feed · detail · comments · likes</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/moments.png" alt="Moments"/><br/><sub><b>Moments</b></sub></td>
+    <td width="50%" align="center"><img src="docs/screenshots/moments-space.png" alt="Moments space"/><br/><sub><b>Moments space</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/moments-notifications.png" alt="Likes and comments inbox"/><br/><sub><b>Likes &amp; comments inbox</b></sub></td>
+    <td width="50%"></td>
+  </tr>
+</table>
+
+### Profile &amp; Settings
+
+<table>
+  <tr>
+    <td width="33%" align="center"><img src="docs/screenshots/profile-home.png" alt="My profile"/><br/><sub><b>My profile</b></sub></td>
+    <td width="33%" align="center"><img src="docs/screenshots/favorites.png" alt="Favorites"/><br/><sub><b>Favorites</b></sub></td>
+    <td width="33%" align="center"><img src="docs/screenshots/settings.png" alt="Settings"/><br/><sub><b>Settings</b></sub></td>
+  </tr>
+  <tr>
+    <td width="33%" align="center"><img src="docs/screenshots/settings-more.png" alt="More settings"/><br/><sub><b>More settings</b></sub></td>
+    <td width="33%"></td>
+    <td width="33%"></td>
+  </tr>
+</table>
+
+## Architecture
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ L0 Client Layer                                                              │
+│                                                                              │
+│  Web Client (web/: Next.js + React)        Mobile / Third-party Clients       │
+└───────────────┬────────────────────────────┬───────────────────────────┬─────┘
+                │ REST                       │ WebSocket                 │ WebRTC
+                ▼                            ▼                           ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ L1 Access Layer                                                              │
+│                                                                              │
+│  HTTP APIs                         Realtime Access              Media Access  │
+│  ┌─────────────────────────────┐   ┌───────────────────────┐    ┌──────────┐ │
+│  │ user/api   social/api       │   │ im/ws                 │    │streaming │ │
+│  │ im/api     trend/api        │   │ auth heartbeat ack    │    │signaling │ │
+│  │ REST routes + JWT context   │   │ online push routing   │    │rooms SFU │ │
+│  └──────────────┬──────────────┘   └───────────┬───────────┘    └────┬─────┘ │
+└─────────────────┼──────────────────────────────┼─────────────────────┼───────┘
+                  │ zRPC                         │ publish/consume      │ Redis
+                  ▼                              ▼                     ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ L2 Domain Service Layer                                                      │
+│                                                                              │
+│  ┌────────────┐  ┌──────────────┐  ┌────────────┐  ┌──────────────┐          │
+│  │ user/rpc   │  │ social/rpc   │  │ im/rpc     │  │ trend/rpc    │          │
+│  │ auth       │  │ friends      │  │ convo      │  │ feed         │          │
+│  │ profile    │  │ groups       │  │ chat logs  │  │ comments     │          │
+│  │ verify     │  │ requests     │  │ read/recall│  │ likes/notify │          │
+│  └─────┬──────┘  └──────┬───────┘  └─────┬──────┘  └──────┬───────┘          │
+└────────┼────────────────┼────────────────┼────────────────┼─────────────────┘
+         │                │                │                │
+         │ MySQL          │ MySQL          │ MongoDB        │ MySQL + Kafka
+         ▼                ▼                ▼                ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ L3 Event And Async Layer                                                     │
+│                                                                              │
+│  Kafka Topics                                                                │
+│  ┌────────────────┐ ┌───────────────┐ ┌────────────────┐ ┌───────────────┐  │
+│  │ chat-transfer  │ │ read-transfer │ │ recall-transfer│ │ trend-notify  │  │
+│  └───────┬────────┘ └──────┬────────┘ └───────┬────────┘ └──────┬────────┘  │
+│          └─────────────────┴──────────┬───────┴─────────────────┘           │
+│                                        ▼                                     │
+│  apps/task/mq: persist chat, update read state, push recall/feed events       │
+│  apps/task/cron: scheduled stats, cleanup, and extension jobs                 │
+└────────────────────────────────────────┬─────────────────────────────────────┘
+                                         │ persist/update/push
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ L4 Data And Runtime Infrastructure                                           │
+│                                                                              │
+│  MySQL: users, friends, groups, trends, comments, likes, notifications        │
+│  MongoDB: chat logs, read records, recall state                              │
+│  Redis: session/JWT state, online presence, cache, WS runtime, room state     │
+│  Etcd: service registration and discovery for go-zero RPC services            │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Key Connections
+1. Web/Mobile -> HTTP APIs -> zRPC -> Domain RPC -> MySQL/MongoDB.
+2. Web/Mobile -> im/ws -> Kafka -> task/mq -> MongoDB + im/ws push.
+3. trend/rpc -> Kafka trend-notify -> task/mq -> im/ws -> online clients.
+4. RPC services register in Etcd; API services discover RPC endpoints from Etcd.
+5. im/ws and streaming use Redis for online state, sessions, cache, and room state.
 ```
 
-## 如何快速进行模块开发
-生成代码模块rpc/api/model(user为例)
+## Message Flows
 
-1. 创建proto
-2. 生成代码
-> goctl rpc protoc ./user.proto --go_out=. --go-grpc_out=. --zrpc_out=.
-> 
-3. 生成数据库crud(mysql)
-> goctl model mysql ddl -src="./deploy/sql/user.sql" -dir="./apps/user/models/" -c
+### Chat Delivery
 
-4. 生成数据库模型(mongo)
-> goctl model mongo --type chatLog --dir ./apps/im/models/
-
-5. 生成api
-> goctl api go -api apps/user/api/user.api -dir apps/user/api -style gozero
-6. token验证方式
-> 通过http header传递
-> 例如：
-> GET /v1/user/detail HTTP/1.1
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-
-## 需要的配置
-#### mysql
-```
-# 创建一个持久化目录
-mkdir -p /docker/mysql/data
-
-# 写入配置
-mkdir -p /docker/mysql/conf
-cat > /docker/mysql/conf/my.cnf <<EOF
-[mysqld]
-character-set-server=utf8mb4
-collation-server=utf8mb4_unicode_ci
-default_authentication_plugin=mysql_native_password
-max_connections=200
-innodb_buffer_pool_size=512M
-EOF
-
-
-# 启动服务
-docker run -d \
-  --name mysql-hichat2 \
-  -p 3306:3306 \
-  -e MYSQL_ROOT_PASSWORD=123456789 \
-  -e MYSQL_DATABASE=hichat2 \
-  -v /docker/mysql/data:/var/lib/mysql \
-  -v /docker/mysql/conf:/etc/mysql/conf.d \
-  --restart=always \
-  mysql:8.0
+```mermaid
+sequenceDiagram
+  participant C as Sender
+  participant WS as im/ws
+  participant K as Kafka
+  participant MQ as task/mq
+  participant DB as MongoDB
+  participant R as Receiver
+  C->>WS: chat.user
+  WS->>K: msgChatTransfer
+  K->>MQ: consume
+  MQ->>DB: persist chatlog
+  MQ->>WS: push
+  WS->>R: message frame
+  R-->>WS: ACK
+  WS-->>C: echo (real msgId)
 ```
 
-#### redis
-```
-# 创建持久化目录
-mkdir -p /docker/redis/data
+### Read Receipt
 
-# 添加配置
-mkdir -p /docker/redis/conf
-cat > /docker/redis/conf/redis.conf <<EOF
-# 基本配置
-bind 0.0.0.0
-port 6379
-timeout 0
-tcp-keepalive 300
-
-# 持久化配置
-save 60 1000
-appendonly yes
-appendfilename "appendonly.aof"
-appendfsync everysec
-dir /data
-
-# 内存管理
-maxmemory 1gb
-maxmemory-policy allkeys-lru
-
-# 安全设置
-# requirepass yourpassword  # 取消注释设置密码
-EOF
-
-# 启动服务
-docker run -d \
-  --name redis-hichat \
-  -p 6379:6379 \
-  -v /docker/redis/data:/data \
-  -v /docker/redis/conf:/usr/local/etc/redis \
-  --restart=always \
-  redis:7.0 redis-server /usr/local/etc/redis/redis.conf
+```mermaid
+sequenceDiagram
+  participant C as Reader
+  participant WS as im/ws
+  participant K as Kafka
+  participant MQ as task/mq
+  participant DB as MongoDB
+  participant API as im/api
+  participant S as Sender
+  C->>WS: chat.markChat
+  WS->>K: msgReadTransfer
+  K->>MQ: consume
+  MQ->>DB: update read bitmap + time
+  MQ->>WS: push read receipt
+  WS->>S: readRecords update
+  S->>API: GET /v1/im/chatlog (read detail)
+  API->>DB: query read / unread users
 ```
 
-#### etcd
-```
-# 持久化目录
-mkdir -p /docker/etcd/data
+### Message Recall
 
-# 启动服务
-docker run -d \
-  --name etcd-hichat \
-  -p 2379:2379 \
-  -p 2380:2380 \
-  -v /docker/etcd/data:/etcd-data \
-  --restart=always \
-  quay.io/coreos/etcd:v3.5.0 \
-  /usr/local/bin/etcd \
-  --data-dir=/etcd-data \
-  --name=etcd-single \
-  --initial-advertise-peer-urls=http://127.0.0.1:2380 \
-  --listen-peer-urls=http://0.0.0.0:2380 \
-  --listen-client-urls=http://0.0.0.0:2379 \
-  --advertise-client-urls=http://127.0.0.1:2379 \
-  --initial-cluster=etcd-single=http://127.0.0.1:2380
-
-```
-#### kafka
-```
-# 创建目录
-mkdir -p /docker/kafka
-
-# 创建 docker-compose.yml
-cat > /docker/kafka/docker-compose.yml <<EOF
-version: '3.8'
-
-services:
-  zookeeper:
-    image: bitnami/zookeeper:3.8
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    environment:
-      - ALLOW_ANONYMOUS_LOGIN=yes
-    volumes:
-      - zookeeper_data:/bitnami/zookeeper
-
-  kafka:
-    image: bitnami/kafka:3.7
-    container_name: kafka
-    ports:
-      - "9092:9092"
-    environment:
-      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
-      - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092
-    volumes:
-      - kafka_data:/bitnami/kafka
-    depends_on:
-      - zookeeper
-
-volumes:
-  zookeeper_data:
-  kafka_data:
-EOF
-
-# 启动服务
-cd /docker/kafka
-docker compose up -d
+```mermaid
+sequenceDiagram
+  participant C as Operator
+  participant API as im/api
+  participant RPC as im/rpc
+  participant DB as MongoDB
+  participant K as Kafka
+  participant MQ as task/mq
+  participant WS as im/ws
+  C->>API: POST /v1/im/chatlog/recall
+  API->>RPC: RecallMsg
+  RPC->>DB: mark recalled
+  API->>K: msgRecallTransfer
+  K->>MQ: consume
+  MQ->>WS: push recall
+  WS->>C: recall frame (online clients)
 ```
 
-#### mongo
-使用以下命令：
-```
-# 创建持久化
-sudo mkdir -p /docker/mongodb/data
-sudo chmod 777 /docker/mongodb/data  # 简化权限
+### Activity Notification
 
-# 写配置
-sudo mkdir -p /docker/mongodb/conf
-sudo tee /docker/mongodb/conf/mongod.conf <<EOF
-storage:
-  dbPath: /data/db
-  journal:
-    enabled: true
-
-systemLog:
-  destination: file
-  logAppend: true
-  path: /var/log/mongodb/mongod.log
-
-net:
-  port: 27017
-  bindIp: 0.0.0.0
-
-security:
-  authorization: enabled
-EOF
-
-# 启动服务
-docker run -d \
-  --name mongodb-hichat \
-  -p 27017:27017 \
-  -v /docker/mongodb/data:/data/db \
-  -v /docker/mongodb/conf:/etc/mongodb \
-  -e MONGO_INITDB_ROOT_USERNAME=root \
-  -e MONGO_INITDB_ROOT_PASSWORD=hichat2 \
-  --restart=always \
-  mongo:6.0 \
-  --config /etc/mongodb/mongod.conf
+```mermaid
+sequenceDiagram
+  participant C as Actor
+  participant API as trend/api
+  participant RPC as trend/rpc
+  participant DB as MySQL
+  participant K as Kafka
+  participant MQ as task/mq
+  participant WS as im/ws
+  participant R as Receiver
+  C->>API: mention / comment / reply / like
+  API->>RPC: apply business logic
+  RPC->>DB: write feed + notification
+  RPC->>K: trendNotifyTransfer
+  K->>MQ: consume
+  MQ->>WS: push.trend
+  WS->>R: trend.notify (if online)
 ```
 
-仅做参考：
-MongoDB：
-```shell
-docker run -d \
-  --name mongo \
-  -p 27017:27017 \
-  -e MONGO_INITDB_ROOT_USERNAME=root \
-  -e MONGO_INITDB_ROOT_PASSWORD=hichat2 \
-  -v "/Users/iceymoss/docker-volume/mongo-data:/data/db" \
-  --restart always \
-  mongo:4.0
+## Voice / Video Calls
+
+The independent `streaming` service delivers WebRTC real-time audio/video. Call **control** signaling reuses the im ws channel (`push.call` → client `call.signal`); **media negotiation** (offer/answer/ICE) runs over the streaming service's own WebSocket relay, while the media itself flows **peer-to-peer and never touches the server**. One-to-one is direct P2P; group calls use a **full-mesh** topology (each pair connects directly, up to 4 participants). SFU and TURN are reserved extension points for meetings, live streaming, and stricter NAT traversal.
+
+### One-to-one Call
+
+```mermaid
+sequenceDiagram
+  participant A as Caller
+  participant ST as streaming
+  participant SR as social/rpc
+  participant WS as im/ws
+  participant B as Callee
+  A->>ST: call_invite (callee, type)
+  ST->>SR: verify friendship
+  ST-->>A: call created (callId)
+  ST->>WS: push.call invite
+  WS->>B: call.signal invite (ring)
+  B->>ST: call_accept
+  ST->>A: call.signal accept
+  A->>ST: offer / ICE
+  ST->>B: relay offer / ICE
+  B->>ST: answer / ICE
+  ST->>A: relay answer / ICE
+  Note over A,B: P2P media flows directly, not via server
+  A->>ST: call_end
+  ST->>B: call.signal end
+  Note over A,B: a call record is posted to the chat
 ```
 
-## 如何启动
-直接运行hichat2.sh启动
-```shell
+### Group Call (Mesh)
+
+```mermaid
+sequenceDiagram
+  participant I as Initiator
+  participant ST as streaming
+  participant SR as social/rpc
+  participant WS as im/ws
+  participant M as Member
+  I->>ST: group_invite (group, members, type)
+  ST->>SR: verify group members
+  ST-->>I: group_created (callId)
+  ST->>WS: push.call group.invite (per member)
+  WS->>M: call.signal group.invite (ring)
+  ST->>M: group.state broadcast (banner / badge)
+  M->>ST: group_join (callId)
+  ST->>I: peer_joined (new uid)
+  Note over I,M: existing peer offers to the newcomer (avoids glare)
+  I->>ST: offer (to = Member)
+  ST->>M: relay offer
+  M->>ST: answer (to = Initiator)
+  ST->>I: relay answer
+  Note over I,M: every pair connects P2P (full mesh)
+  M->>ST: group_leave
+  ST->>I: peer_left
+  ST->>WS: group.state broadcast (update / clear)
+```
+
+## Services
+
+| Service | Layers | Responsibility |
+| --- | --- | --- |
+| `user` | `api`, `rpc`, `models` | Account, authentication, profile, verification codes, user lookup |
+| `social` | `api`, `rpc`, `socialmodels` | Friends, friend requests, groups, group members, invite links, announcements |
+| `im` | `api`, `rpc`, `ws`, `models`, `immodels` | Conversations, chat logs, read receipts, message recall, WebSocket gateway |
+| `trend` | `api`, `rpc`, `models` | Activity feed, comments, likes, drafts, media, activity notifications |
+| `task` | `mq`, `cron` | Kafka consumers and scheduled jobs |
+| `streaming` | `internal`, `room`, `sfu`, `webrtc` | WebRTC calls, rooms, meetings, screen sharing, live streaming |
+| `demo` | standalone demo | Internal demo service, not part of the main startup script |
+
+## Tech Stack
+
+- Backend: Go 1.25, go-zero, zRPC, gRPC, goctl.
+- Realtime: WebSocket, Kafka, WebRTC, Pion.
+- Storage: MySQL, MongoDB, Redis.
+- Service discovery: Etcd.
+- Frontend: Next.js 16, React 19, Bun, TypeScript, Tailwind CSS, Radix UI.
+
+## Repository Layout
+
+Generated with `tree -L 2`.
+
+```text
+.
+├── CLAUDE.md
+├── LICENSE
+├── README.md
+├── apps
+│   ├── im
+│   ├── social
+│   ├── streaming
+│   ├── task
+│   ├── trend
+│   └── user
+├── cmd
+├── common
+├── config
+│   ├── config-local.yaml
+│   └── config-sample.yaml
+├── deploy
+│   ├── dockerfile
+│   ├── sql
+│   ├── sql_init.go
+│   └── trendmig
+├── docker-compose.yaml
+├── docs
+│   ├── README.zh-CN.md
+│   ├── api.md
+│   ├── development-guide.md
+│   ├── development-guide.zh-CN.md
+│   ├── imgs
+│   ├── screenshots
+│   └── specs
+├── go.mod
+├── go.sum
+├── hichat2.sh
+├── logs
+│   ├── im-api
+│   ├── im-im
+│   ├── im-rpc
+│   ├── im-ws
+│   ├── social-api
+│   ├── social-rpc
+│   ├── task-mq
+│   ├── task-task
+│   ├── trend-api
+│   ├── trend-rpc
+│   ├── user-api
+│   └── user-rpc
+├── pkg
+│   ├── 2fa
+│   ├── bitmap
+│   ├── config
+│   ├── constants
+│   ├── ctxdata
+│   ├── db
+│   ├── encrypt
+│   ├── errors
+│   ├── http
+│   ├── interceptor
+│   ├── logger
+│   ├── message
+│   ├── relationcache
+│   ├── sensitive
+│   ├── storage
+│   ├── systemconfig
+│   ├── test
+│   ├── transaction
+│   ├── utils
+│   ├── wuid
+│   └── xerr
+├── resources
+│   └── sensitive
+└── web
+    ├── Caddyfile
+    ├── bun.lock
+    ├── components.json
+    ├── dev.log
+    ├── dist
+    ├── download
+    ├── eslint.config.mjs
+    ├── examples
+    ├── next-env.d.ts
+    ├── next.config.ts
+    ├── node_modules
+    ├── package.json
+    ├── postcss.config.mjs
+    ├── public
+    ├── scripts
+    ├── src
+    ├── tailwind.config.ts
+    ├── tsconfig.json
+    ├── tsconfig.tsbuildinfo
+    ├── upload
+    └── worklog.md
+
+```
+
+## Getting Started
+
+### One-Click Deploy (Docker Compose)
+
+The fastest way to run the whole stack (6 microservices + middleware + web client) with a single command — no local toolchain needed, just Docker:
+
+```bash
+git clone https://github.com/iceymoss/go-hichat-api.git
+cd go-hichat-api
+docker compose up -d --build
+```
+
+Then open **http://localhost:2470**. On first use click **Register** — in demo mode the verification code is auto-filled into the input box (no real SMS), so you can sign up and log in right away.
+
+```bash
+docker compose ps            # service status
+docker compose logs -f web   # follow a service's logs
+docker compose down          # stop (keep data)
+docker compose down -v       # stop and wipe all data volumes
+
+# one-shot cleanup: drop volumes + the images this project built
+docker compose down -v --remove-orphans && docker images 'hichat-*' -q | xargs -r docker rmi
+```
+
+See the [Docker deployment guide](deploy/docker/README.md) for architecture, ports, cleanup, server/domain (reverse proxy + HTTPS) deployment, and audio/video (TURN) notes.
+
+### Seed Demo Data (Optional)
+
+Want realistic data to click through — or screenshot — right after deploying? A built-in seeder registers **14 demo users** and fills in friends, groups, one-on-one and group chats, and moments with comments and likes — the exact dataset shown in [Screenshots](#screenshots).
+
+If you deployed with Docker Compose (no Go toolchain required), run the bundled one-off service:
+
+```bash
+docker compose --profile mock run --rm mockdata
+```
+
+If you run from source (Go installed):
+
+```bash
+go run ./scripts/mockdata              # full dataset
+go run ./scripts/mockdata -trends-only # re-seed only moments/comments/likes
+```
+
+Then open **http://localhost:2470** and sign in as the protagonist:
+
+- Phone `13800138000`, password `hichat2024`. All 14 demo accounts share this password; phone numbers run `13800138000`–`13800138013`.
+
+> Run it **once on a fresh/empty database** — re-running creates duplicate friend requests and groups. The seeder only inserts demo data and never deletes anything. See [`scripts/mockdata`](scripts/mockdata) for the personas and content scripts.
+
+### Prerequisites
+
+- Go 1.25 or newer (matches the `go` directive in `go.mod`).
+- Bun for the web client.
+- MySQL, Redis, Etcd, MongoDB, and Kafka.
+- go-zero tooling: `goctl`, `protoc`, `protoc-gen-go`, and `protoc-gen-go-grpc`.
+
+See the [English Developer Guide](docs/development-guide.md) for local dependency setup and code generation notes.
+
+### Start Backend Services
+
+Start the required infrastructure first, then run the main backend services:
+
+```bash
 ./hichat2.sh
 ```
 
-## docker镜像部署
-这里以user-rpc服务为例
+The script starts the user, social, IM, task, and trend services, and writes logs under `logs/`.
 
-构建镜像
-```
-docker build -t hichat2/user-rpc:v1.0 -f deploy/dockerfile/user-rpc.Dockerfile .
+Start a single service manually when needed:
+
+```bash
+go run apps/<service>/<layer>/<service>.go -f apps/<service>/<layer>/etc/<service>-sample.yaml
 ```
 
-启动镜像
+Start the streaming service separately:
+
+```bash
+apps/streaming/start.sh
 ```
-docker run -d   --name user-rpc   --network host   -e ENV_MODE=production   hichat2/user-rpc:v1.0
+
+### Start Web Client
+
+```bash
+cd web
+bun install
+bun dev
 ```
+
+The web development server runs on port `3001` by default.
+
+## Development
+
+- [English Developer Guide](docs/development-guide.md): local middleware setup, go-zero tooling, code generation, startup notes, and Docker examples.
+- [API Reference](docs/api.md): generated REST and gRPC contract summary.
+- [Feature Specs](docs/specs): feature analysis, design notes, and implementation records.
+
+## Testing
+
+Run backend tests from the repository root:
+
+```bash
+go test ./... -count=1
+```
+
+Run frontend linting from `web/`:
+
+```bash
+bun lint
+```
+
+## Contributing
+
+Please see the [Contribution Guide](https://github.com/iceymoss/go-hichat-api/issues/207) for contribution guidelines.
+
+## License
+
+This project is licensed under the [Apache License 2.0](LICENSE).

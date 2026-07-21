@@ -24,9 +24,17 @@ func (l *Listen) Services() []service.Service {
 	// NewMsgChatTransfer 结构体实现了 kq.ConsumeHandle接口
 	msgChatConsumeHandle := msgTransfer.NewMsgChatTransfer(l.svc)
 	msgChatMarkReadConsumeHandle := msgTransfer.NewMsgReadTransfer(l.svc)
+	msgRecallConsumeHandle := msgTransfer.NewMsgRecallTransfer(l.svc)
+	trendNotifyConsumeHandle := msgTransfer.NewTrendNotifyTransfer(l.svc)
+	relationChangeConsumeHandle := msgTransfer.NewRelationChangeTransfer(l.svc)
+	commonNotifyConsumeHandle := msgTransfer.NewCommonNotifyTransfer(l.svc)
 	// 注册处理逻辑
 	return []service.Service{
 		kq.MustNewQueue(l.svc.Config.MsgChatTransfer, msgChatConsumeHandle),
 		kq.MustNewQueue(l.svc.Config.MsgReadTransfer, msgChatMarkReadConsumeHandle),
+		kq.MustNewQueue(l.svc.Config.MsgRecallTransfer, msgRecallConsumeHandle),
+		kq.MustNewQueue(l.svc.Config.TrendNotifyTransfer, trendNotifyConsumeHandle),
+		kq.MustNewQueue(l.svc.Config.RelationChangeTransfer, relationChangeConsumeHandle),
+		kq.MustNewQueue(l.svc.Config.CommonNotifyTransfer, commonNotifyConsumeHandle),
 	}
 }

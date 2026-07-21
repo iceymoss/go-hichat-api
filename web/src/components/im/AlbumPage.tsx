@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useIMStore } from '@/lib/im-store';
+import { useT } from '@/hooks/use-i18n';
 import {
   ArrowLeft, Image as ImageIcon, Play, MapPin, Heart, MessageCircle,
   Loader2, X, ChevronLeft, ChevronRight,
@@ -130,6 +131,7 @@ function Lightbox({ items, index, onClose, onPrev, onNext }: {
    ═══════════════════════════════════════════════ */
 export default function AlbumPage({ onBack }: { onBack: () => void }) {
   const { currentUser: user } = useIMStore();
+  const t = useT();
   const [items, setItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastId, setLastId] = useState(0);
@@ -159,7 +161,7 @@ export default function AlbumPage({ onBack }: { onBack: () => void }) {
   // Group items by month
   const grouped = items.reduce<Record<string, MediaItem[]>>((acc, item) => {
     const d = new Date(item.createTime * 1000);
-    const key = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+    const key = t('album.month').replace('{y}', String(d.getFullYear())).replace('{m}', String(d.getMonth() + 1));
     if (!acc[key]) acc[key] = [];
     acc[key].push(item);
     return acc;
@@ -178,15 +180,15 @@ export default function AlbumPage({ onBack }: { onBack: () => void }) {
       }}>
         <button onClick={onBack} style={{
           background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-          color: '#3390EC', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
+          color: '#1BB45B', fontSize: 14, fontWeight: 500, padding: '8px 12px', borderRadius: 8,
           transition: 'background 0.15s',
         }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(51,144,236,0.06)'; }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(27,180,91,0.06)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         ><ArrowLeft size={18} /></button>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <ImageIcon size={18} style={{ color: '#3390EC' }} />
-          <span style={{ fontSize: 17, fontWeight: 600, color: '#1C2733' }}>我的相册</span>
+          <ImageIcon size={18} style={{ color: '#1BB45B' }} />
+          <span style={{ fontSize: 17, fontWeight: 600, color: '#1C2733' }}>{t('album.title')}</span>
         </div>
         {totalCount > 0 && (
           <div style={{ display: 'flex', gap: 10, paddingRight: 8 }}>
@@ -200,13 +202,13 @@ export default function AlbumPage({ onBack }: { onBack: () => void }) {
       <div style={{ flex: 1, overflowY: 'auto' }} className="im-scroll">
         {loading && items.length === 0 ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-            <Loader2 size={24} className="animate-spin" style={{ color: '#3390EC' }} />
+            <Loader2 size={24} className="animate-spin" style={{ color: '#1BB45B' }} />
           </div>
         ) : items.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <ImageIcon size={48} style={{ color: '#E0E3E8', margin: '0 auto 16px' }} />
-            <div style={{ fontSize: 15, color: '#646A73', fontWeight: 500 }}>暂无照片和视频</div>
-            <div style={{ fontSize: 13, color: '#A2ACB5', marginTop: 4 }}>发布动态时添加的图片和视频会出现在这里</div>
+            <div style={{ fontSize: 15, color: '#646A73', fontWeight: 500 }}>{t('album.empty')}</div>
+            <div style={{ fontSize: 13, color: '#A2ACB5', marginTop: 4 }}>{t('album.emptyHint')}</div>
           </div>
         ) : (
           <div>
@@ -219,7 +221,7 @@ export default function AlbumPage({ onBack }: { onBack: () => void }) {
                 }}>
                   {month}
                   <span style={{ fontSize: 12, color: '#A2ACB5', fontWeight: 400, marginLeft: 8 }}>
-                    {monthItems.length} 项
+                    {t('album.itemCount').replace('{count}', String(monthItems.length))}
                   </span>
                 </div>
 
@@ -272,7 +274,7 @@ export default function AlbumPage({ onBack }: { onBack: () => void }) {
                             padding: '2px 6px', borderRadius: 4,
                             background: 'rgba(0,0,0,0.5)', fontSize: 10, color: '#fff',
                           }}>
-                            {new Date(item.createTime * 1000).getDate()}日
+                            {t('album.dayBadge').replace('{d}', String(new Date(item.createTime * 1000).getDate()))}
                           </div>
                         )}
                       </div>
@@ -288,16 +290,16 @@ export default function AlbumPage({ onBack }: { onBack: () => void }) {
                 <button onClick={() => fetchAlbum(lastId)} disabled={loading}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 13, color: '#3390EC', fontWeight: 500,
+                    fontSize: 13, color: '#1BB45B', fontWeight: 500,
                   }}>
-                  {loading ? <Loader2 size={14} className="animate-spin" /> : '加载更多'}
+                  {loading ? <Loader2 size={14} className="animate-spin" /> : t('common.loadMore')}
                 </button>
               </div>
             )}
 
             {!hasMore && items.length > 0 && (
               <div style={{ textAlign: 'center', padding: '12px 0 24px', fontSize: 12, color: '#A2ACB5' }}>
-                已加载全部 {totalCount} 张照片和视频
+                {t('album.allLoaded').replace('{count}', String(totalCount))}
               </div>
             )}
           </div>

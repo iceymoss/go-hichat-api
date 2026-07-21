@@ -1,0 +1,22 @@
+# Docker 部署专用全局配置（pkg/config 读取，对应代码里硬编码的 "local" 环境）。
+# compose 以只读卷挂载到容器内 /app/config/config-local.yaml，覆盖镜像里的本地开发版本。
+# 主机名均为 docker-compose 中的服务名，仅在容器网络内可达。
+mysql:
+  host: 'mysql'
+  port: '3306'
+  name: 'hichat2'
+  user: 'root'
+  password: '123456789'
+redis:
+  host: 'redis'
+  port: '6379'
+  user: ''
+  passWord: ''
+  url: 'redis://redis:6379'
+mongo:
+  link: 'mongodb://root:hichat2@mongo:27017/?authSource=admin&connectTimeoutMS=3000&socketTimeoutMS=5000&maxPoolSize=120&minPoolSize=20&retryWrites=true'
+mailer:
+  host: 'smtp.163.com'
+  port: '465'
+  username: 'hichat2'
+  password: 'hichat2'

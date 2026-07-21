@@ -28,6 +28,9 @@ func main() {
 	pkcCfg.InitConfig("local", "", "config")
 
 	conf.MustLoad(*configFile, &c)
+	if err := c.ApplyEnvironment(); err != nil {
+		panic(err)
+	}
 	if err := c.SetUp(); err != nil {
 		panic(err)
 	}
@@ -38,8 +41,15 @@ func main() {
 	// 初始化信令服务器
 	signalingServer := handler.NewSignalingServer(svcCtx)
 
+	// JWT 鉴权（HTTP 接口共用）
+	auth := handler.NewJwtAuth(svcCtx)
+
 	// 设置HTTP路由
 	http.HandleFunc("/ws", signalingServer.HandleWebSocket)
+	// ICE（STUN/TURN）配置下发，前端发起通话前拉取
+	http.HandleFunc("/v1/streaming/ice-servers", handler.ICEServersHandler(svcCtx, auth))
+	// 群通话活跃状态查询（进群聊补拉「通话中」横幅 / 加入通话）
+	http.HandleFunc("/v1/streaming/group-call", signalingServer.GroupCallStateHandler(auth))
 
 	// 启动服务
 	if err := svcCtx.Start(); err != nil {

@@ -30,11 +30,26 @@ type ChatLog struct {
 	// 消息内容
 	MsgContent string `bson:"msgContent"`
 
+	// 引用/回复消息（JSON 字符串：{"id","name","preview"}）
+	Quote string `bson:"quote,omitempty"`
+
 	// 发送时间
 	SendTime int64 `bson:"sendTime"`
 
-	// 消息状态
+	// 消息状态：0=正常 1=已撤回（见 constants.MsgStatusNormal/Recalled）
 	Status int `bson:"status"`
+
+	// 撤回操作者 uid（本人或群管理员）。前端据此区分"你/对方/管理员撤回了一条消息"
+	RecalledBy string `bson:"recalledBy,omitempty" json:"recalledBy,omitempty"`
+
+	// 撤回时间（unix nano）
+	RecalledAt int64 `bson:"recalledAt,omitempty" json:"recalledAt,omitempty"`
+
+	// 被 @ 的成员 uid 列表（仅群聊）
+	AtUsers []string `bson:"atUsers,omitempty" json:"atUsers,omitempty"`
+
+	// 是否 @所有人（仅群聊，权限已在生产端把关）
+	AtAll bool `bson:"atAll,omitempty" json:"atAll,omitempty"`
 
 	// 聊天类型
 	ChatType constants.ChatType `bson:"chatType"`

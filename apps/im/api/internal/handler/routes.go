@@ -21,10 +21,22 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: getChatLogHandler(serverCtx),
 			},
 			{
+				// 获取会话中@我且未读的消息列表(用于有人@我快速跳转)
+				Method:  http.MethodGet,
+				Path:    "/chatlog/atme",
+				Handler: getAtMeMessagesHandler(serverCtx),
+			},
+			{
 				// 获取聊天记录已读情况
 				Method:  http.MethodGet,
 				Path:    "/chatlog/readRecords",
 				Handler: getChatLogReadRecordsHandler(serverCtx),
+			},
+			{
+				// 撤回消息
+				Method:  http.MethodPost,
+				Path:    "/chatlog/recall",
+				Handler: recallMsgHandler(serverCtx),
 			},
 			{
 				// 获取会话
@@ -39,10 +51,40 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: putConversationsHandler(serverCtx),
 			},
 			{
+				// 设置会话置顶/免打扰
+				Method:  http.MethodPut,
+				Path:    "/conversation/settings",
+				Handler: setConversationSettingsHandler(serverCtx),
+			},
+			{
+				// 拉取当前用户的通知列表(公共通知通道)
+				Method:  http.MethodGet,
+				Path:    "/notifications",
+				Handler: listNotificationsHandler(serverCtx),
+			},
+			{
+				// 标记通知已读(单条/批量/全部)
+				Method:  http.MethodPost,
+				Path:    "/notifications/read",
+				Handler: markNotificationsReadHandler(serverCtx),
+			},
+			{
+				// 当前用户未读通知数
+				Method:  http.MethodGet,
+				Path:    "/notifications/unreadCount",
+				Handler: getNotificationUnreadCountHandler(serverCtx),
+			},
+			{
 				// 建立会话
 				Method:  http.MethodPost,
 				Path:    "/setup/conversation",
 				Handler: setUpUserConversationHandler(serverCtx),
+			},
+			{
+				// 上传富媒体文件(图片/视频/文件/语音)
+				Method:  http.MethodPost,
+				Path:    "/upload",
+				Handler: uploadHandler(serverCtx),
 			},
 		},
 		rest.WithJwt(serverCtx.Config.JwtAuth.AccessSecret),

@@ -69,6 +69,7 @@ message GroupRequests { //
   string handleUid = 8; //处理人
   int32  handleResult = 9; // 处理结果
   int64  handleResultTime = 10; // 处理时间
+  int32  receiverRead = 11; // 接收方(群主/管理员)已读 0未读 1已读
 }
 
 message GroupQuitReq {
@@ -202,6 +203,15 @@ message GroupAtListResp {
   repeated AtMember list = 1;
 }
 
+message GetMemberRoleReq {
+  string groupId = 1;
+  string userId = 2;
+}
+message GetMemberRoleResp {
+  int32 roleLevel = 1; // 0=普通 1=管理员 2=群主
+  bool  isMember = 2;  // 不在群时为 false，roleLevel 无意义
+}
+
 // ---------------- 公告历史/置顶 ----------------
 message GroupAnnouncement {
   int64  id = 1;
@@ -271,6 +281,7 @@ message FriendPutInReq {
   string reqUid = 3;
   string reqMsg = 4;
   int64  reqTime = 5;
+  string remark = 6; // 申请人为对方预设的备注（对方通过后写入申请人侧好友关系）
 }
 message FriendPutInResp {}
 
@@ -469,6 +480,30 @@ message GetGroupPutListByUidReq {
   string type = 3;          // 状态： 0未处理，1已通过，2已拒绝，3忽略
 }
 
+// 群搜索（群号精确 + 群名模糊，分页）
+message GroupSearchReq {
+  string keyword = 1; // 群号(精确) 或 群名(模糊)
+  int64  page = 2;    // 页码，从1开始
+  int64  size = 3;    // 每页大小
+}
+message GroupSearchItem {
+  string id = 1;
+  string name = 2;
+  string icon = 3;
+  string description = 4;
+  string creator_uid = 5;
+  int64  member_count = 6; // 群成员数
+}
+message GroupSearchResp {
+  repeated GroupSearchItem list = 1;
+  int64 total = 2; // 匹配总数
+}
+
+message MarkGroupReqReadReq {
+  string userId = 1; // 当前用户（群主/管理员），把其管理的群收到的申请标记已读
+}
+message MarkGroupReqReadResp {}
+
 
 // svc
 service social {
@@ -497,10 +532,12 @@ service social {
   rpc GroupPutin(GroupPutinReq) returns (GroupPutinResp); // 申请群:1.发起加群申请；2.群主或者管理员邀请加入；3.群成员邀请加入
   rpc GroupPutinList(GroupPutinListReq) returns (GroupPutinListResp); // 群的角度：获取群申请列表，包括：1.我发起的申请列表；2. 获取我接受到的申请列表
   rpc GetGroupPutListByUid(GetGroupPutListByUidReq) returns (GroupPutinListResp); // 用户的角度：获取群申请列表
+  rpc MarkGroupReqRead(MarkGroupReqReadReq) returns(MarkGroupReqReadResp); // 把我管理的群收到的申请标记已读
   rpc GroupPutInHandle(GroupPutInHandleReq) returns(GroupPutInHandleResp); // 处理群申请
   rpc GroupList(GroupListReq) returns (GroupListResp); // 获取群列表
   rpc GroupUsers(GroupUsersReq) returns (GroupUsersResp); // 获取群成员列表
   rpc FindGroupList(FindGroupListReq) returns (FindGroupListResp); // 获取多个用户的群列表
+  rpc GroupSearch(GroupSearchReq) returns (GroupSearchResp); // 搜索群（群号精确+群名模糊，分页）
   
   rpc GroupQuit(GroupQuitReq) returns (GroupQuitResp); // 退出群
   rpc GroupKick(GroupKickReq) returns (GroupKickResp); // 踢群成员
@@ -521,6 +558,7 @@ service social {
   rpc GetMyGroupMemberSetting(GetMyGroupMemberSettingReq) returns (GetMyGroupMemberSettingResp); // 获取群成员资料
   rpc UpdateMyGroupMemberSetting(UpdateMyGroupMemberSettingReq) returns (UpdateMyGroupMemberSettingResp); // 修改群成员资料
   rpc GroupAtList(GroupAtListReq) returns (GroupAtListResp); // 获取群@列表
+  rpc GetMemberRole(GetMemberRoleReq) returns (GetMemberRoleResp); // 点查群成员角色（撤回/@所有人鉴权用）
 
   // 公告历史/置顶
   rpc GroupAnnouncementCreate(GroupAnnouncementCreateReq) returns (GroupAnnouncementCreateResp); // 创建群公告

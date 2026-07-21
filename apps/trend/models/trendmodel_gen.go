@@ -44,6 +44,7 @@ type (
 		SetTop(ctx context.Context, id uint64, isTop bool) error
 		OpenReply(ctx context.Context, id uint64, isOpen bool) error
 		SetCircleState(ctx context.Context, id uint64, ran int) error
+		SetScope(ctx context.Context, id uint64, scope int, circleState int) error
 		List(ctx context.Context, lastId int, lastTime int64, userIds []string, filter []string, sort string, sortType int) (*[]Trend, error)
 		ListByUserIds(ctx context.Context, userList []string, lastId int, scpoe int32, filter []string) (*[]Trend, error)
 		SetTrendReplyCount(ctx context.Context, id uint64, resIncCount int) error
@@ -68,6 +69,7 @@ type (
 		Createtime    time.Time    `db:"createtime"`    // 原始创建时间
 		Updatetime    time.Time    `db:"updatetime"`    // 最后更新时间
 		CircleState   int64        `db:"circle_state"`  // 朋友圈状态：2-不可见，1-可见，0-朋友圈删除,
+		Scope         int64        `db:"scope"`         // 可见范围：1-仅自己，2-仅好友，3-所有人
 		State         int64        `db:"state"`         // 是否删除 0-删除，1-正常
 		IsAd          int64        `db:"is_ad"`         // 是否广告：0-普通，1-广告
 		Url           string       `db:"url"`           // 广告/视频链接（类型5使用）
@@ -229,6 +231,21 @@ func (m *defaultTrendModel) SetCircleState(ctx context.Context, id uint64, ran i
 	return nil
 }
 
+// SetScope 同时更新真实可见范围(scope)与派生的朋友圈可见状态(circle_state)
+func (m *defaultTrendModel) SetScope(ctx context.Context, id uint64, scope int, circleState int) error {
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	res := mysqlConn.Table(m.table).Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"scope":        scope,
+			"circle_state": circleState,
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+
+	return nil
+}
+
 func (m *defaultTrendModel) OpenReply(ctx context.Context, id uint64, isOpen bool) error {
 	open := 0
 	if isOpen {
@@ -287,6 +304,9 @@ func (m *defaultTrendModel) IncAgreeOrReply(ctx context.Context, id uint64, clas
 	updateData := "agree_count"
 	if inc < 0 {
 		count = trend.AgreeCount - 1
+		if trend.AgreeCount == 0 {
+			count = 0
+		}
 	}
 
 	if class == 1 {
@@ -294,6 +314,9 @@ func (m *defaultTrendModel) IncAgreeOrReply(ctx context.Context, id uint64, clas
 		count = trend.ReplyCount + 1
 		if inc < 0 {
 			count = trend.ReplyCount - 1
+			if trend.ReplyCount == 0 {
+				count = 0
+			}
 		}
 	}
 
@@ -365,7 +388,7 @@ func (m *defaultTrendModel) Update(ctx context.Context, data *Trend) error {
 	}
 
 	if res.RowsAffected == 0 {
-		return errors.New(fmt.Sprintf("update failed id: %s", data.Id))
+		return errors.New(fmt.Sprintf("update failed id: %d", data.Id))
 	}
 
 	return nil

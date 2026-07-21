@@ -22,6 +22,8 @@ type (
 	CreateTrendResponse           = trend.CreateTrendResponse
 	DeleteDiscussReq              = trend.DeleteDiscussReq
 	DeleteDiscussResp             = trend.DeleteDiscussResp
+	DeleteTrendDraftRequest       = trend.DeleteTrendDraftRequest
+	DeleteTrendDraftResponse      = trend.DeleteTrendDraftResponse
 	DeleteTrendRequest            = trend.DeleteTrendRequest
 	DeleteTrendResponse           = trend.DeleteTrendResponse
 	Discuss                       = trend.Discuss
@@ -38,8 +40,12 @@ type (
 	GetLikedUsersResponse         = trend.GetLikedUsersResponse
 	GetTrendDetailRequest         = trend.GetTrendDetailRequest
 	GetTrendDetailResponse        = trend.GetTrendDetailResponse
+	GetTrendDraftRequest          = trend.GetTrendDraftRequest
+	GetTrendDraftResponse         = trend.GetTrendDraftResponse
 	GetTrendLikeSummaryRequest    = trend.GetTrendLikeSummaryRequest
 	GetTrendLikeSummaryResponse   = trend.GetTrendLikeSummaryResponse
+	GetTrendMessageUnreadReq      = trend.GetTrendMessageUnreadReq
+	GetTrendMessageUnreadResp     = trend.GetTrendMessageUnreadResp
 	GetUnreadLikesRequest         = trend.GetUnreadLikesRequest
 	GetUnreadLikesResponse        = trend.GetUnreadLikesResponse
 	GetUnreadRepliesReq           = trend.GetUnreadRepliesReq
@@ -49,20 +55,28 @@ type (
 	LikeInfo                      = trend.LikeInfo
 	LikeToggleRequest             = trend.LikeToggleRequest
 	LikeToggleResponse            = trend.LikeToggleResponse
+	ListTrendMessagesReq          = trend.ListTrendMessagesReq
+	ListTrendMessagesResp         = trend.ListTrendMessagesResp
 	ListTrendsRequest             = trend.ListTrendsRequest
 	ListTrendsResponse            = trend.ListTrendsResponse
 	MarkDiscussRequest            = trend.MarkDiscussRequest
 	MarkDiscussResponse           = trend.MarkDiscussResponse
 	MarkLikesReadRequest          = trend.MarkLikesReadRequest
 	MarkLikesReadResponse         = trend.MarkLikesReadResponse
+	MarkTrendMessagesReadReq      = trend.MarkTrendMessagesReadReq
+	MarkTrendMessagesReadResp     = trend.MarkTrendMessagesReadResp
 	PageInfo                      = trend.PageInfo
 	Pagination                    = trend.Pagination
 	Point                         = trend.Point
 	RepliesListResp               = trend.RepliesListResp
 	Resource                      = trend.Resource
+	SaveTrendDraftRequest         = trend.SaveTrendDraftRequest
+	SaveTrendDraftResponse        = trend.SaveTrendDraftResponse
 	Trend                         = trend.Trend
 	TrendDiscusses                = trend.TrendDiscusses
+	TrendDraft                    = trend.TrendDraft
 	TrendLikeSummary              = trend.TrendLikeSummary
+	TrendMessageInfo              = trend.TrendMessageInfo
 	UpdateTrendRequest            = trend.UpdateTrendRequest
 	UpdateTrendResponse           = trend.UpdateTrendResponse
 
@@ -111,6 +125,18 @@ type (
 		GetUnreadLikes(ctx context.Context, in *GetUnreadLikesRequest, opts ...grpc.CallOption) (*GetUnreadLikesResponse, error)
 		// 标记点赞为已读
 		MarkLikesRead(ctx context.Context, in *MarkLikesReadRequest, opts ...grpc.CallOption) (*MarkLikesReadResponse, error)
+		// 保存动态草稿
+		SaveTrendDraft(ctx context.Context, in *SaveTrendDraftRequest, opts ...grpc.CallOption) (*SaveTrendDraftResponse, error)
+		// 获取动态草稿
+		GetTrendDraft(ctx context.Context, in *GetTrendDraftRequest, opts ...grpc.CallOption) (*GetTrendDraftResponse, error)
+		// 删除动态草稿
+		DeleteTrendDraft(ctx context.Context, in *DeleteTrendDraftRequest, opts ...grpc.CallOption) (*DeleteTrendDraftResponse, error)
+		// ===== 动态消息通知 =====
+		ListTrendMessages(ctx context.Context, in *ListTrendMessagesReq, opts ...grpc.CallOption) (*ListTrendMessagesResp, error)
+		// 获取动态消息未读数（总数 + 按类型明细）
+		GetTrendMessageUnread(ctx context.Context, in *GetTrendMessageUnreadReq, opts ...grpc.CallOption) (*GetTrendMessageUnreadResp, error)
+		// 全部标记为已读
+		MarkTrendMessagesRead(ctx context.Context, in *MarkTrendMessagesReadReq, opts ...grpc.CallOption) (*MarkTrendMessagesReadResp, error)
 	}
 
 	defaultTrendService struct {
@@ -254,4 +280,40 @@ func (m *defaultTrendService) GetUnreadLikes(ctx context.Context, in *GetUnreadL
 func (m *defaultTrendService) MarkLikesRead(ctx context.Context, in *MarkLikesReadRequest, opts ...grpc.CallOption) (*MarkLikesReadResponse, error) {
 	client := trend.NewTrendServiceClient(m.cli.Conn())
 	return client.MarkLikesRead(ctx, in, opts...)
+}
+
+// 保存动态草稿
+func (m *defaultTrendService) SaveTrendDraft(ctx context.Context, in *SaveTrendDraftRequest, opts ...grpc.CallOption) (*SaveTrendDraftResponse, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.SaveTrendDraft(ctx, in, opts...)
+}
+
+// 获取动态草稿
+func (m *defaultTrendService) GetTrendDraft(ctx context.Context, in *GetTrendDraftRequest, opts ...grpc.CallOption) (*GetTrendDraftResponse, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.GetTrendDraft(ctx, in, opts...)
+}
+
+// 删除动态草稿
+func (m *defaultTrendService) DeleteTrendDraft(ctx context.Context, in *DeleteTrendDraftRequest, opts ...grpc.CallOption) (*DeleteTrendDraftResponse, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.DeleteTrendDraft(ctx, in, opts...)
+}
+
+// ===== 动态消息通知 =====
+func (m *defaultTrendService) ListTrendMessages(ctx context.Context, in *ListTrendMessagesReq, opts ...grpc.CallOption) (*ListTrendMessagesResp, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.ListTrendMessages(ctx, in, opts...)
+}
+
+// 获取动态消息未读数（总数 + 按类型明细）
+func (m *defaultTrendService) GetTrendMessageUnread(ctx context.Context, in *GetTrendMessageUnreadReq, opts ...grpc.CallOption) (*GetTrendMessageUnreadResp, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.GetTrendMessageUnread(ctx, in, opts...)
+}
+
+// 全部标记为已读
+func (m *defaultTrendService) MarkTrendMessagesRead(ctx context.Context, in *MarkTrendMessagesReadReq, opts ...grpc.CallOption) (*MarkTrendMessagesReadResp, error) {
+	client := trend.NewTrendServiceClient(m.cli.Conn())
+	return client.MarkTrendMessagesRead(ctx, in, opts...)
 }

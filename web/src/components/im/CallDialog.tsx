@@ -4,19 +4,28 @@ import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Phone, Video, Check, Users } from 'lucide-react';
+import { useT } from '@/hooks/use-i18n';
 import { getAvatarColor } from '@/lib/utils';
-import type { GroupMember } from '@/lib/mock-data';
+import type { GroupMember } from '@/lib/types';
+
+interface CallMember extends GroupMember {
+  avatar?: string;
+}
 
 interface CallDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   type: 'voice' | 'video';
   contactName: string;
+  contactAvatar?: string;
   isGroup?: boolean;
-  members?: GroupMember[];
+  members?: CallMember[];
+  /** 点“呼叫”后发起通话（1:1 忽略 selectedIds；群组传选中成员）。 */
+  onConfirm?: (selectedIds: string[]) => void;
 }
 
-export function CallDialog({ open, onOpenChange, type, contactName, isGroup = false, members = [] }: CallDialogProps) {
+export function CallDialog({ open, onOpenChange, type, contactName, contactAvatar, isGroup = false, members = [], onConfirm }: CallDialogProps) {
+  const t = useT();
   const isVoice = type === 'voice';
   const [selectAll, setSelectAll] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(members.map(m => m.id)));
@@ -52,7 +61,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
   const avatarColor = getAvatarColor(contactName);
 
   const handleCall = () => {
-    // TODO: implement actual call logic
+    onConfirm?.(isGroup ? Array.from(selectedIds) : []);
     onOpenChange(false);
   };
 
@@ -71,7 +80,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
         showCloseButton={false}
         className="!border-none !bg-transparent !p-0 !shadow-none !gap-0 data-[state=open]:!animate-none data-[state=closed]:!animate-none"
       >
-        <VisuallyHidden><DialogTitle>通话</DialogTitle></VisuallyHidden>
+        <VisuallyHidden><DialogTitle>{t(isVoice ? 'call.dialog.voice' : 'call.dialog.video')}</DialogTitle></VisuallyHidden>
         <div
           style={{
             display: 'flex',
@@ -103,10 +112,13 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 16,
+                overflow: 'hidden',
               }}
             >
               {isGroup ? (
                 <Users size={30} color="#FFFFFF" />
+              ) : contactAvatar ? (
+                <img src={contactAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : isVoice ? (
                 <Phone size={30} color="#FFFFFF" />
               ) : (
@@ -115,17 +127,17 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
             </div>
             <div style={{ fontSize: 18, fontWeight: 600, color: '#1C2733', marginBottom: 4 }}>
               {isGroup
-                ? `${isVoice ? '语音通话' : '视频通话'} - ${contactName}`
-                : `${isVoice ? '语音通话' : '视频通话'}`}
+                ? `${t(isVoice ? 'call.dialog.voice' : 'call.dialog.video')} - ${contactName}`
+                : t(isVoice ? 'call.dialog.voice' : 'call.dialog.video')}
             </div>
             {!isGroup && (
               <div style={{ fontSize: 13, color: '#708499' }}>
-                向 {contactName} 发起{isVoice ? '语音' : '视频'}通话？
+                {t(isVoice ? 'call.dialog.askVoice' : 'call.dialog.askVideo').replace('{name}', contactName)}
               </div>
             )}
             {isGroup && (
               <div style={{ fontSize: 13, color: '#708499' }}>
-                选择要邀请的成员
+                {t('call.dialog.selectMembers')}
               </div>
             )}
           </div>
@@ -145,7 +157,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                   padding: '0 12px',
                   border: 'none',
                   borderRadius: 10,
-                  background: (selectAll || allSelected) ? 'rgba(51,144,236,0.06)' : 'transparent',
+                  background: (selectAll || allSelected) ? 'rgba(27,180,91,0.06)' : 'transparent',
                   cursor: 'pointer',
                   transition: 'background 0.2s',
                   marginBottom: 4,
@@ -155,7 +167,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                 <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
                   <div style={{
                     width: 36, height: 36, borderRadius: '50%',
-                    background: '#3390EC',
+                    background: '#1BB45B',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     <Users size={16} color="#FFFFFF" />
@@ -164,7 +176,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                     <div style={{
                       position: 'absolute', bottom: -2, right: -2,
                       width: 18, height: 18, borderRadius: '50%',
-                      background: '#3390EC', border: '2px solid #FFFFFF',
+                      background: '#1BB45B', border: '2px solid #FFFFFF',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       <Check size={10} color="#FFFFFF" strokeWidth={3} />
@@ -173,19 +185,19 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                 </div>
                 <div style={{ flex: 1, textAlign: 'left' }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#1C2733' }}>
-                    所有成员
+                    {t('call.dialog.allMembers')}
                   </div>
                   <div style={{ fontSize: 11, color: '#A2ACB5', marginTop: 1 }}>
-                    共 {effectiveMembers.length} 人
+                    {t('call.dialog.memberTotal').replace('{n}', String(effectiveMembers.length))}
                   </div>
                 </div>
                 {(selectAll || allSelected) && (
                   <span style={{
-                    fontSize: 11, color: '#3390EC', fontWeight: 600,
-                    background: 'rgba(51,144,236,0.08)',
+                    fontSize: 11, color: '#1BB45B', fontWeight: 600,
+                    background: 'rgba(27,180,91,0.08)',
                     padding: '2px 8px', borderRadius: 10,
                   }}>
-                    已选 {effectiveMembers.length}
+                    {t('call.dialog.selected').replace('{n}', String(effectiveMembers.length))}
                   </span>
                 )}
               </button>
@@ -206,7 +218,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                       padding: '0 12px',
                       border: 'none',
                       borderRadius: 10,
-                      background: isSelected ? 'rgba(51,144,236,0.04)' : 'transparent',
+                      background: isSelected ? 'rgba(27,180,91,0.04)' : 'transparent',
                       cursor: 'pointer',
                       transition: 'background 0.15s',
                     }}
@@ -214,19 +226,22 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                     <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
                       <div style={{
                         width: 36, height: 36, borderRadius: '50%',
-                        background: getAvatarColor(member.name),
+                        background: member.avatar ? 'transparent' : getAvatarColor(member.name),
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: '#FFFFFF', fontSize: 14, fontWeight: 600,
                         opacity: isSelected ? 1 : 0.5,
                         transition: 'opacity 0.15s',
+                        overflow: 'hidden',
                       }}>
-                        {member.name[0]}
+                        {member.avatar
+                          ? <img src={member.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : member.name[0]}
                       </div>
                       {isSelected && (
                         <div style={{
                           position: 'absolute', bottom: -2, right: -2,
                           width: 18, height: 18, borderRadius: '50%',
-                          background: '#3390EC', border: '2px solid #FFFFFF',
+                          background: '#1BB45B', border: '2px solid #FFFFFF',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
                           <Check size={10} color="#FFFFFF" strokeWidth={3} />
@@ -277,7 +292,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                 transition: 'all 0.2s',
               }}
             >
-              取消
+              {t('call.dialog.cancel')}
             </button>
             <button
               onClick={handleCall}
@@ -287,7 +302,7 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
                 height: 44,
                 borderRadius: 12,
                 border: 'none',
-                backgroundColor: isGroup && selectedCount === 0 ? '#C8D1DA' : '#3390EC',
+                backgroundColor: isGroup && selectedCount === 0 ? '#C8D1DA' : '#1BB45B',
                 color: '#FFFFFF',
                 fontSize: 14,
                 fontWeight: 600,
@@ -297,18 +312,18 @@ export function CallDialog({ open, onOpenChange, type, contactName, isGroup = fa
               }}
               onMouseEnter={(e) => {
                 if (!(isGroup && selectedCount === 0)) {
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2B7FD4';
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#149A4C';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!(isGroup && selectedCount === 0)) {
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#3390EC';
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1BB45B';
                 }
               }}
             >
               {isGroup
-                ? selectedCount > 0 ? `呼叫 (${selectedCount}人)` : '请选择成员'
-                : '呼叫'}
+                ? selectedCount > 0 ? t('call.dialog.callN').replace('{n}', String(selectedCount)) : t('call.dialog.selectPrompt')
+                : t('call.dialog.call')}
             </button>
           </div>
         </div>

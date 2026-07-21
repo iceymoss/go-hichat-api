@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useEffect, useCallback } from 'react';
-import { type Contact } from '@/lib/mock-data';
+import { type Contact } from '@/lib/types';
 import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
 import { toast } from 'sonner';
 import UserProfileCard from './UserProfileCard';
 import { ArrowLeft } from 'lucide-react';
+import { useT } from '@/hooks/use-i18n';
 
 interface ContactDetailPanelProps {
   contact: Contact;
@@ -14,6 +15,7 @@ interface ContactDetailPanelProps {
 
 export default function ContactDetailPanel({ contact }: ContactDetailPanelProps) {
   const { setActiveTab, setSelectedConversationId, setShowChatDetail, setSelectedContactId, currentUser, invalidateFriends } = useIMStore();
+  const t = useT();
   const token = currentUser?.token;
 
   const handleClose = useCallback(() => {
@@ -40,16 +42,16 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
       setSelectedConversationId(conv.id);
       setShowChatDetail(true);
     } catch {
-      toast.error('打开会话失败');
+      toast.error(t('group.openConvFailed'));
     }
   };
 
   const handleVoiceCall = () => {
-    toast('功能开发中');
+    toast(t('upc.featureWip'));
   };
 
   const handleVideoCall = () => {
-    toast('功能开发中');
+    toast(t('upc.featureWip'));
   };
 
   const handleRecommend = useCallback(() => {
@@ -61,14 +63,14 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
     })
       .then(r => r.json())
       .then(d => {
-        if (d.success) toast.success('分享成功');
-        else toast.error(d.message || '分享失败');
+        if (d.success) toast.success(t('contact.shareOk'));
+        else toast.error(d.message || t('contact.shareFail'));
       })
-      .catch(() => toast.error('分享失败'));
+      .catch(() => toast.error(t('contact.shareFail')));
   }, [token, contact.id]);
 
   const handleSetPermissions = useCallback(() => {
-    toast('功能开发中');
+    toast(t('upc.featureWip'));
   }, []);
 
   const handleToggleBlock = useCallback((blocked: boolean) => {
@@ -80,10 +82,10 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
     })
       .then(r => r.json())
       .then(d => {
-        if (d.success) { toast.success(blocked ? '已加入黑名单' : '已移出黑名单'); invalidateFriends(); }
-        else toast.error(d.message || '操作失败');
+        if (d.success) { toast.success(blocked ? t('contact.blockedOk') : t('contact.unblockedOk')); invalidateFriends(); }
+        else toast.error(d.message || t('group.opFailed'));
       })
-      .catch(() => toast.error('操作失败'));
+      .catch(() => toast.error(t('group.opFailed')));
   }, [token, contact.id, invalidateFriends]);
 
   const handleReport = useCallback(() => {
@@ -95,10 +97,10 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
     })
       .then(r => r.json())
       .then(d => {
-        if (d.success) toast.success('举报已提交');
-        else toast.error(d.message || '举报失败');
+        if (d.success) toast.success(t('contact.reportOk'));
+        else toast.error(d.message || t('group.reportFailed'));
       })
-      .catch(() => toast.error('举报失败'));
+      .catch(() => toast.error(t('group.reportFailed')));
   }, [token, contact.id]);
 
   const handleDeleteFriend = useCallback(() => {
@@ -111,14 +113,14 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
       .then(r => r.json())
       .then(d => {
         if (d.success) {
-          toast.success('已删除好友');
+          toast.success(t('contact.friendDeleted'));
           setSelectedContactId(null);
           invalidateFriends();
         } else {
-          toast.error(d.message || '删除失败');
+          toast.error(d.message || t('contact.deleteFail'));
         }
       })
-      .catch(() => toast.error('删除失败'));
+      .catch(() => toast.error(t('contact.deleteFail')));
   }, [token, contact.id, setSelectedContactId, invalidateFriends]);
 
   return (
@@ -146,7 +148,7 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
             borderRadius: 10,
             border: 'none',
             background: 'transparent',
-            color: '#3390EC',
+            color: '#1BB45B',
             cursor: 'pointer',
           }}
         >
@@ -160,7 +162,7 @@ export default function ContactDetailPanel({ contact }: ContactDetailPanelProps)
             marginLeft: 8,
           }}
         >
-          联系人详情
+          {t('contact.detailTitle')}
         </h2>
       </header>
 

@@ -10,12 +10,12 @@ import (
 	"go.uber.org/zap"
 
 	model "github.com/iceymoss/go-hichat-api/apps/im/models"
-	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/bitmap"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 
 	"github.com/zeromicro/go-queue/kq"
 )
@@ -45,6 +45,14 @@ func (m *MsgChatTransfer) Consume(ctx context.Context, key, value string) error 
 
 	fmt.Printf("已经收到消息了: %+v\n", data)
 
+	// 群聊发送鉴权闸门（灰度开关 + fail-open）：被踢/退群者不得发群消息。
+	// 命中拦截则不持久化、不扇出（客户端已由 relation.changed 事件禁用输入）。
+	if data.ChatType == constants.GroupChatType && !m.groupSendAllowed(ctx, &data) {
+		zLog.Error("group send blocked: sender not a member",
+			zap.String("groupId", data.RecvId), zap.String("sendId", data.SendId))
+		return nil
+	}
+
 	// 写入数据库（如 MongoDB 聊天记录）；同时把真实 MsgId 回填到 data，供下游推送
 	if err = m.addChatLog(ctx, &data); err != nil {
 		return err
@@ -61,13 +69,20 @@ func (m *MsgChatTransfer) Consume(ctx context.Context, key, value string) error 
 // addChatLog 将聊天记录消息持久化到数据库中
 // 注意：入参改为指针，以便把 Insert 后生成的 ObjectID.Hex 回写到 data.MsgId
 func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransfer) error {
+	// TODO(SendTime 单位不一致): 这里未透传 data.SendTime，落库时由 Insert 兜底成 UnixMilli（毫秒），
+	// 而生产端 ws 把 data.SendTime 写成 UnixNano（纳秒），导致库里与推送两套单位。
+	// 目前撤回逻辑已在 recallmsglogic.normalizeUnixMillis 做归一兜底，不影响功能；
+	// 若要从源头统一，应在此显式赋 SendTime 并与 ws/前端的 sendTime 口径一起对齐（统一为毫秒）。
 	chatLog := model.ChatLog{
 		ConversationId: data.ConversationId,
 		SendId:         data.SendId,
 		RecvId:         data.RecvId,
 		MsgType:        data.MsgType,
 		MsgContent:     data.MsgContent,
+		Quote:          data.Quote,
 		ChatType:       data.ChatType,
+		AtUsers:        data.AtUsers,
+		AtAll:          data.AtAll,
 	}
 
 	// 消息发起人标记为已读
@@ -108,39 +123,79 @@ func (m *MsgChatTransfer) addChatLog(ctx context.Context, data *mq.MsgChatTransf
 		}
 	}
 
+	// 群聊 @：给被 @的成员置会话级 HasAtMe 角标
+	m.markAtMe(ctx, data)
+
 	return nil
 }
 
-func (m *MsgChatTransfer) single(ctx context.Context, data *mq.MsgChatTransfer) error {
-	return m.svcCtx.WsClient.Send(websocket.Message{
-		FrameType: websocket.FrameNoAck,
-		Method:    "push",
-		FormId:    constants.SYSTEM_ROOT_UID,
-		Data:      data,
-	})
-}
-
-func (m *MsgChatTransfer) group(ctx context.Context, data *mq.MsgChatTransfer) error {
-	res, err := m.svcCtx.Social.GroupUsers(ctx, &socialclient.GroupUsersReq{
-		GroupId: data.RecvId,
-	})
+// groupSendAllowed 群聊发送鉴权：仅当确定"非群成员"时拒绝；灰度关闭 / 缓存未知 / 回源失败一律放行（fail-open）。
+func (m *MsgChatTransfer) groupSendAllowed(ctx context.Context, data *mq.MsgChatTransfer) bool {
+	if !m.svcCtx.Config.AuthzGate.Enabled || !m.svcCtx.Config.AuthzGate.GroupChat {
+		return true // 灰度关闭 = 现状行为，不校验
+	}
+	gid := data.RecvId
+	if m.svcCtx.RelationCache != nil {
+		switch m.svcCtx.RelationCache.IsGroupMember(ctx, gid, data.SendId) {
+		case relationcache.VerdictAllowed:
+			return true
+		case relationcache.VerdictDenied:
+			return false
+		}
+	}
+	// Unknown：回源确认（顺带暖缓存）；回源失败 fail-open
+	members, err := m.resolveGroupMembers(ctx, gid)
 	if err != nil {
-		return err
+		return true
+	}
+	for _, uid := range members {
+		if uid == data.SendId {
+			return true
+		}
+	}
+	return false
+}
+// @所有人时拉群成员（排除发送者）；@具体成员时用 atUsers。非群成员没有该会话条目，天然被跳过。
+func (m *MsgChatTransfer) markAtMe(ctx context.Context, data *mq.MsgChatTransfer) {
+	if data.ChatType != constants.GroupChatType || (!data.AtAll && len(data.AtUsers) == 0) {
+		return
 	}
 
-	data.RecvIdList = make([]string, 0, len(res.List))
-	for _, member := range res.List {
-		// 跳过发送人
-		if member.UserId == data.SendId {
+	targets := make(map[string]struct{})
+	if data.AtAll {
+		res, err := m.svcCtx.Social.GroupUsers(ctx, &socialclient.GroupUsersReq{GroupId: data.RecvId})
+		if err != nil {
+			zLog.Error("markAtMe: group users failed", zap.Error(err), zap.String("groupId", data.RecvId))
+			return
+		}
+		for _, mem := range res.List {
+			if mem.UserId != data.SendId {
+				targets[mem.UserId] = struct{}{}
+			}
+		}
+	} else {
+		for _, uid := range data.AtUsers {
+			if uid != "" && uid != data.SendId {
+				targets[uid] = struct{}{}
+			}
+		}
+	}
+
+	for uid := range targets {
+		conversations, err := m.svcCtx.ConversationsModel.FindByUserId(ctx, uid)
+		if err != nil || conversations == nil || conversations.ConversationList == nil {
 			continue
 		}
-		data.RecvIdList = append(data.RecvIdList, member.UserId)
+		conv, ok := conversations.ConversationList[data.ConversationId]
+		if !ok || conv == nil {
+			continue
+		}
+		if conv.HasAtMe {
+			continue
+		}
+		conv.HasAtMe = true
+		if _, err := m.svcCtx.ConversationsModel.Update(ctx, conversations); err != nil {
+			zLog.Error("markAtMe: update conversations failed", zap.Error(err), zap.String("uid", uid))
+		}
 	}
-
-	return m.svcCtx.WsClient.Send(websocket.Message{
-		FrameType: websocket.FrameNoAck,
-		Method:    "push",
-		FormId:    constants.SYSTEM_ROOT_UID,
-		Data:      data,
-	})
 }

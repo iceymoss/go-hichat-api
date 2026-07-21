@@ -163,10 +163,11 @@ func (m *defaultTrendDiscussModel) FindChildrenByPath(ctx context.Context, path 
 
 // 辅助函数：从路径中提取自身ID
 func extractLastID(path string) uint64 {
-	parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
-	if len(parts) < 2 {
+	trimmed := strings.TrimSuffix(path, "/")
+	if trimmed == "" {
 		return 0
 	}
+	parts := strings.Split(trimmed, "/")
 	idStr := parts[len(parts)-1]
 	id, _ := strconv.ParseUint(idStr, 10, 64)
 	return id
@@ -385,7 +386,7 @@ func (m *defaultTrendDiscussModel) FindChildrenByRootIds(ctx context.Context, ro
 	// 构建查询条件
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
 	var list []*TrendDiscuss
-	err := mysqlConn.Table(m.table).Where("rootid in ?", rootIds).Find(&list).Error
+	err := mysqlConn.Table(m.table).Where("rootid in ?", rootIds).Where("state = ?", 1).Find(&list).Error
 	if err != nil {
 		return nil, err
 	}

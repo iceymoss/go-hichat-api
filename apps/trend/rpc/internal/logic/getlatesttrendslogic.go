@@ -44,7 +44,10 @@ func (l *GetLatestTrendsLogic) GetLatestTrends(in *trend.GetLatestTrendsRequest)
 
 	trendList := make([]*trend.Trend, 0, len(*list))
 	for _, v := range *list {
-		trendList = append(trendList, trendToResp(v))
+		item := trendToResp(v)
+		// 公共朋友圈只按时间流展示；个人主页置顶通过 GetUserTopTrend 单独返回。
+		item.IsTop = 0
+		trendList = append(trendList, item)
 	}
 
 	// TODO: 获取评论和点赞数据
@@ -62,12 +65,15 @@ func (l *GetLatestTrendsLogic) GetLatestTrends(in *trend.GetLatestTrendsRequest)
 }
 
 func trendToResp(v models.Trend) *trend.Trend {
-	readScope := trend.VisibilityScope_SCOPE_UNSPECIFIED
-	switch v.CircleState {
-	case 2:
-		readScope = trend.VisibilityScope_PRIVATE
-	case 1:
-		readScope = trend.VisibilityScope_FRIENDS
+	// 可见范围以 scope 列为准(1-仅自己,2-仅好友,3-所有人)
+	// 历史数据 scope 未回填(0)时，用 circle_state 兜底派生
+	readScope := trend.VisibilityScope(v.Scope)
+	if readScope == trend.VisibilityScope_SCOPE_UNSPECIFIED {
+		if v.CircleState == 1 {
+			readScope = trend.VisibilityScope_FRIENDS // 仅好友
+		} else {
+			readScope = trend.VisibilityScope_PRIVATE // 仅自己
+		}
 	}
 
 	var positionPoint []float32

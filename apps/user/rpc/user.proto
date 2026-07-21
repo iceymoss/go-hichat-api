@@ -20,6 +20,7 @@ message UserEntity {
   string  region = 12;           // 地区
   string  occupation = 13;       // 职业
   string  tags = 14;             // 个人标签（JSON数组）
+  string  moments_cover = 15;    // 朋友圈封面图URL
 }
 
 // req 与 respo
@@ -71,10 +72,13 @@ message FindUserReq {
   string phone = 2;
   repeated string ids = 3;
   string email = 4;
+  int64 page = 5; // 分页页码（从1开始，0/缺省=不分页，仅对 name 模糊搜索生效）
+  int64 size = 6; // 每页大小（0/缺省=不分页）
 }
 
 message FindUserResp {
   repeated UserEntity user = 1;
+  int64 total = 2; // 匹配总数（name 分页搜索时为模糊匹配总数；否则为返回数量）
 }
 
 message UpdateUserReq {
@@ -91,6 +95,7 @@ message UpdateUserReq {
   string occupation = 12;        // 职业
   string tags = 13;              // 个人标签（JSON数组）
   string emailCode = 14;         // 邮箱验证码（绑定或修改邮箱时需要）
+  string moments_cover = 15;     // 朋友圈封面图URL
 }
 
 message UpdateUserResp {

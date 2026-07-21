@@ -40,10 +40,12 @@ const (
 	Social_GroupPutin_FullMethodName                 = "/social.social/GroupPutin"
 	Social_GroupPutinList_FullMethodName             = "/social.social/GroupPutinList"
 	Social_GetGroupPutListByUid_FullMethodName       = "/social.social/GetGroupPutListByUid"
+	Social_MarkGroupReqRead_FullMethodName           = "/social.social/MarkGroupReqRead"
 	Social_GroupPutInHandle_FullMethodName           = "/social.social/GroupPutInHandle"
 	Social_GroupList_FullMethodName                  = "/social.social/GroupList"
 	Social_GroupUsers_FullMethodName                 = "/social.social/GroupUsers"
 	Social_FindGroupList_FullMethodName              = "/social.social/FindGroupList"
+	Social_GroupSearch_FullMethodName                = "/social.social/GroupSearch"
 	Social_GroupQuit_FullMethodName                  = "/social.social/GroupQuit"
 	Social_GroupKick_FullMethodName                  = "/social.social/GroupKick"
 	Social_GroupUpdate_FullMethodName                = "/social.social/GroupUpdate"
@@ -59,6 +61,7 @@ const (
 	Social_GetMyGroupMemberSetting_FullMethodName    = "/social.social/GetMyGroupMemberSetting"
 	Social_UpdateMyGroupMemberSetting_FullMethodName = "/social.social/UpdateMyGroupMemberSetting"
 	Social_GroupAtList_FullMethodName                = "/social.social/GroupAtList"
+	Social_GetMemberRole_FullMethodName              = "/social.social/GetMemberRole"
 	Social_GroupAnnouncementCreate_FullMethodName    = "/social.social/GroupAnnouncementCreate"
 	Social_GroupAnnouncementList_FullMethodName      = "/social.social/GroupAnnouncementList"
 	Social_GroupAnnouncementPin_FullMethodName       = "/social.social/GroupAnnouncementPin"
@@ -94,10 +97,12 @@ type SocialClient interface {
 	GroupPutin(ctx context.Context, in *GroupPutinReq, opts ...grpc.CallOption) (*GroupPutinResp, error)
 	GroupPutinList(ctx context.Context, in *GroupPutinListReq, opts ...grpc.CallOption) (*GroupPutinListResp, error)
 	GetGroupPutListByUid(ctx context.Context, in *GetGroupPutListByUidReq, opts ...grpc.CallOption) (*GroupPutinListResp, error)
+	MarkGroupReqRead(ctx context.Context, in *MarkGroupReqReadReq, opts ...grpc.CallOption) (*MarkGroupReqReadResp, error)
 	GroupPutInHandle(ctx context.Context, in *GroupPutInHandleReq, opts ...grpc.CallOption) (*GroupPutInHandleResp, error)
 	GroupList(ctx context.Context, in *GroupListReq, opts ...grpc.CallOption) (*GroupListResp, error)
 	GroupUsers(ctx context.Context, in *GroupUsersReq, opts ...grpc.CallOption) (*GroupUsersResp, error)
 	FindGroupList(ctx context.Context, in *FindGroupListReq, opts ...grpc.CallOption) (*FindGroupListResp, error)
+	GroupSearch(ctx context.Context, in *GroupSearchReq, opts ...grpc.CallOption) (*GroupSearchResp, error)
 	GroupQuit(ctx context.Context, in *GroupQuitReq, opts ...grpc.CallOption) (*GroupQuitResp, error)
 	GroupKick(ctx context.Context, in *GroupKickReq, opts ...grpc.CallOption) (*GroupKickResp, error)
 	GroupUpdate(ctx context.Context, in *GroupUpdateReq, opts ...grpc.CallOption) (*GroupUpdateResp, error)
@@ -115,6 +120,7 @@ type SocialClient interface {
 	GetMyGroupMemberSetting(ctx context.Context, in *GetMyGroupMemberSettingReq, opts ...grpc.CallOption) (*GetMyGroupMemberSettingResp, error)
 	UpdateMyGroupMemberSetting(ctx context.Context, in *UpdateMyGroupMemberSettingReq, opts ...grpc.CallOption) (*UpdateMyGroupMemberSettingResp, error)
 	GroupAtList(ctx context.Context, in *GroupAtListReq, opts ...grpc.CallOption) (*GroupAtListResp, error)
+	GetMemberRole(ctx context.Context, in *GetMemberRoleReq, opts ...grpc.CallOption) (*GetMemberRoleResp, error)
 	// 公告历史/置顶
 	GroupAnnouncementCreate(ctx context.Context, in *GroupAnnouncementCreateReq, opts ...grpc.CallOption) (*GroupAnnouncementCreateResp, error)
 	GroupAnnouncementList(ctx context.Context, in *GroupAnnouncementListReq, opts ...grpc.CallOption) (*GroupAnnouncementListResp, error)
@@ -339,6 +345,16 @@ func (c *socialClient) GetGroupPutListByUid(ctx context.Context, in *GetGroupPut
 	return out, nil
 }
 
+func (c *socialClient) MarkGroupReqRead(ctx context.Context, in *MarkGroupReqReadReq, opts ...grpc.CallOption) (*MarkGroupReqReadResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MarkGroupReqReadResp)
+	err := c.cc.Invoke(ctx, Social_MarkGroupReqRead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *socialClient) GroupPutInHandle(ctx context.Context, in *GroupPutInHandleReq, opts ...grpc.CallOption) (*GroupPutInHandleResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GroupPutInHandleResp)
@@ -373,6 +389,16 @@ func (c *socialClient) FindGroupList(ctx context.Context, in *FindGroupListReq, 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FindGroupListResp)
 	err := c.cc.Invoke(ctx, Social_FindGroupList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupSearch(ctx context.Context, in *GroupSearchReq, opts ...grpc.CallOption) (*GroupSearchResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupSearchResp)
+	err := c.cc.Invoke(ctx, Social_GroupSearch_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -529,6 +555,16 @@ func (c *socialClient) GroupAtList(ctx context.Context, in *GroupAtListReq, opts
 	return out, nil
 }
 
+func (c *socialClient) GetMemberRole(ctx context.Context, in *GetMemberRoleReq, opts ...grpc.CallOption) (*GetMemberRoleResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMemberRoleResp)
+	err := c.cc.Invoke(ctx, Social_GetMemberRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *socialClient) GroupAnnouncementCreate(ctx context.Context, in *GroupAnnouncementCreateReq, opts ...grpc.CallOption) (*GroupAnnouncementCreateResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GroupAnnouncementCreateResp)
@@ -589,10 +625,12 @@ type SocialServer interface {
 	GroupPutin(context.Context, *GroupPutinReq) (*GroupPutinResp, error)
 	GroupPutinList(context.Context, *GroupPutinListReq) (*GroupPutinListResp, error)
 	GetGroupPutListByUid(context.Context, *GetGroupPutListByUidReq) (*GroupPutinListResp, error)
+	MarkGroupReqRead(context.Context, *MarkGroupReqReadReq) (*MarkGroupReqReadResp, error)
 	GroupPutInHandle(context.Context, *GroupPutInHandleReq) (*GroupPutInHandleResp, error)
 	GroupList(context.Context, *GroupListReq) (*GroupListResp, error)
 	GroupUsers(context.Context, *GroupUsersReq) (*GroupUsersResp, error)
 	FindGroupList(context.Context, *FindGroupListReq) (*FindGroupListResp, error)
+	GroupSearch(context.Context, *GroupSearchReq) (*GroupSearchResp, error)
 	GroupQuit(context.Context, *GroupQuitReq) (*GroupQuitResp, error)
 	GroupKick(context.Context, *GroupKickReq) (*GroupKickResp, error)
 	GroupUpdate(context.Context, *GroupUpdateReq) (*GroupUpdateResp, error)
@@ -610,6 +648,7 @@ type SocialServer interface {
 	GetMyGroupMemberSetting(context.Context, *GetMyGroupMemberSettingReq) (*GetMyGroupMemberSettingResp, error)
 	UpdateMyGroupMemberSetting(context.Context, *UpdateMyGroupMemberSettingReq) (*UpdateMyGroupMemberSettingResp, error)
 	GroupAtList(context.Context, *GroupAtListReq) (*GroupAtListResp, error)
+	GetMemberRole(context.Context, *GetMemberRoleReq) (*GetMemberRoleResp, error)
 	// 公告历史/置顶
 	GroupAnnouncementCreate(context.Context, *GroupAnnouncementCreateReq) (*GroupAnnouncementCreateResp, error)
 	GroupAnnouncementList(context.Context, *GroupAnnouncementListReq) (*GroupAnnouncementListResp, error)
@@ -687,6 +726,9 @@ func (UnimplementedSocialServer) GroupPutinList(context.Context, *GroupPutinList
 func (UnimplementedSocialServer) GetGroupPutListByUid(context.Context, *GetGroupPutListByUidReq) (*GroupPutinListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetGroupPutListByUid not implemented")
 }
+func (UnimplementedSocialServer) MarkGroupReqRead(context.Context, *MarkGroupReqReadReq) (*MarkGroupReqReadResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MarkGroupReqRead not implemented")
+}
 func (UnimplementedSocialServer) GroupPutInHandle(context.Context, *GroupPutInHandleReq) (*GroupPutInHandleResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupPutInHandle not implemented")
 }
@@ -698,6 +740,9 @@ func (UnimplementedSocialServer) GroupUsers(context.Context, *GroupUsersReq) (*G
 }
 func (UnimplementedSocialServer) FindGroupList(context.Context, *FindGroupListReq) (*FindGroupListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindGroupList not implemented")
+}
+func (UnimplementedSocialServer) GroupSearch(context.Context, *GroupSearchReq) (*GroupSearchResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupSearch not implemented")
 }
 func (UnimplementedSocialServer) GroupQuit(context.Context, *GroupQuitReq) (*GroupQuitResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupQuit not implemented")
@@ -743,6 +788,9 @@ func (UnimplementedSocialServer) UpdateMyGroupMemberSetting(context.Context, *Up
 }
 func (UnimplementedSocialServer) GroupAtList(context.Context, *GroupAtListReq) (*GroupAtListResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupAtList not implemented")
+}
+func (UnimplementedSocialServer) GetMemberRole(context.Context, *GetMemberRoleReq) (*GetMemberRoleResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMemberRole not implemented")
 }
 func (UnimplementedSocialServer) GroupAnnouncementCreate(context.Context, *GroupAnnouncementCreateReq) (*GroupAnnouncementCreateResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupAnnouncementCreate not implemented")
@@ -1152,6 +1200,24 @@ func _Social_GetGroupPutListByUid_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Social_MarkGroupReqRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MarkGroupReqReadReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).MarkGroupReqRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_MarkGroupReqRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).MarkGroupReqRead(ctx, req.(*MarkGroupReqReadReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Social_GroupPutInHandle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GroupPutInHandleReq)
 	if err := dec(in); err != nil {
@@ -1220,6 +1286,24 @@ func _Social_FindGroupList_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SocialServer).FindGroupList(ctx, req.(*FindGroupListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupSearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupSearchReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupSearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupSearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupSearch(ctx, req.(*GroupSearchReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1494,6 +1578,24 @@ func _Social_GroupAtList_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Social_GetMemberRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMemberRoleReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GetMemberRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GetMemberRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GetMemberRole(ctx, req.(*GetMemberRoleReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Social_GroupAnnouncementCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GroupAnnouncementCreateReq)
 	if err := dec(in); err != nil {
@@ -1640,6 +1742,10 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Social_GetGroupPutListByUid_Handler,
 		},
 		{
+			MethodName: "MarkGroupReqRead",
+			Handler:    _Social_MarkGroupReqRead_Handler,
+		},
+		{
 			MethodName: "GroupPutInHandle",
 			Handler:    _Social_GroupPutInHandle_Handler,
 		},
@@ -1654,6 +1760,10 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FindGroupList",
 			Handler:    _Social_FindGroupList_Handler,
+		},
+		{
+			MethodName: "GroupSearch",
+			Handler:    _Social_GroupSearch_Handler,
 		},
 		{
 			MethodName: "GroupQuit",
@@ -1714,6 +1824,10 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GroupAtList",
 			Handler:    _Social_GroupAtList_Handler,
+		},
+		{
+			MethodName: "GetMemberRole",
+			Handler:    _Social_GetMemberRole_Handler,
 		},
 		{
 			MethodName: "GroupAnnouncementCreate",

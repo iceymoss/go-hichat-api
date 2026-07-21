@@ -44,7 +44,11 @@ export default function SettingsProvider({ children }: { children: React.ReactNo
       data-font-size={fontSize}
       data-lang={language}
       style={{
-        height: '100%',
+        // Compensate the height for `zoom`: zoom scales the 100dvh child too, so a
+        // scale < 1 would leave a blank strip at the bottom (and > 1 would overflow).
+        // calc(100dvh / scale) renders taller/shorter so that *after* zoom it is
+        // exactly one viewport tall. At scale 1 this is just 100dvh.
+        height: `calc(100dvh / ${fontScale})`,
         // Font size scaling via CSS zoom (affects everything including inline styles)
         zoom: fontScale !== 1 ? fontScale : undefined,
         // Dark mode via CSS filter (affects ALL colors including inline styles)

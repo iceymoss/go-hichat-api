@@ -56,10 +56,13 @@ type SearchUserReq struct {
 	Phone string   `form:"phone,optional"` // 手机号（精准匹配）
 	Email string   `form:"email,optional"` // 邮箱（精准匹配）
 	Ids   []string `form:"ids,optional"`   // 用户ID列表（精准匹配）
+	Page  int64    `form:"page,optional"`  // 分页页码（从1开始，0/缺省=不分页，仅对昵称模糊搜索生效）
+	Size  int64    `form:"size,optional"`  // 每页大小（0/缺省=不分页）
 }
 
 type SearchUserResp struct {
 	Users []User `json:"users"` // 用户列表
+	Total int64  `json:"total"` // 匹配总数（昵称分页搜索时为模糊匹配总数）
 }
 
 type SendPhoneCodeReq struct {
@@ -67,6 +70,7 @@ type SendPhoneCodeReq struct {
 }
 
 type SendPhoneCodeResp struct {
+	Code string `json:"code,omitempty"` // 仅测试/演示模式回传，供前端自动填入验证码输入框
 }
 
 type SendVerificationEmailReq struct {
@@ -87,6 +91,7 @@ type UpdateUserReq struct {
 	Region       string `json:"region,optional"`
 	Occupation   string `json:"occupation,optional"`
 	Tags         string `json:"tags,optional"`
+	MomentsCover string `json:"moments_cover,optional"`
 }
 
 type UpdateUserResp struct {
@@ -111,6 +116,7 @@ type User struct {
 	Region       string `json:"region"`
 	Occupation   string `json:"occupation"`
 	Tags         string `json:"tags"`
+	MomentsCover string `json:"moments_cover"`
 }
 
 type UserInfoReq struct {

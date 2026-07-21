@@ -1,6 +1,11 @@
 Name: streaming.service
 ListenOn: 0.0.0.0:10093
 
+# JWT 鉴权：与 im/user 共用同一 AccessSecret
+JwtAuth:
+  AccessSecret: iceymoss.hichat.hichat2.com
+  AccessExpire: 8640000
+
 Mysql:
   DataSource: root:123456789@tcp(127.0.0.1:3306)/hichat2?charset=utf8mb4&parseTime=true
 
@@ -42,10 +47,17 @@ SFU:
   MaxRooms: 1000
   # 每个房间最大用户数
   MaxUsersPerRoom: 50
+  # 同时转发和高亮的活跃发言人数
+  ActiveSpeakers: 4
   # 房间超时时间(秒)
   RoomTimeout: 3600
   # 用户连接超时时间(秒)
   UserTimeout: 300
+
+Diagnostics:
+  Enabled: true
+  Path: logs/sfu-diagnostics.jsonl
+  MaxMB: 20
 
 # 信令服务器配置
 Signaling:
@@ -54,11 +66,31 @@ Signaling:
     ReadBufferSize: 4096
     WriteBufferSize: 4096
     CheckOrigin: true
-  
+
   # 消息队列配置
   MessageQueue:
     BufferSize: 1000
     WorkerCount: 10
+
+# im ws 地址：streaming 以系统 root 身份连入，推送通话控制信令（push.call）
+Ws:
+  Host: 127.0.0.1:10090
+
+# 通话参数
+Call:
+  RingTimeoutSeconds: 30   # 振铃超时，超时未接转“未接听”
+
+# SFU 公网化（Phase 1）。本地/局域网留空即可；公网部署填公网 IP + 放行的 UDP 端口范围。
+Public:
+  IP: ""            # 公网 IP（NAT1To1），如 "203.0.113.10"
+  UDPPortMin: 0     # 媒体 UDP 端口范围下界，如 50000（需防火墙/docker 放行）
+  UDPPortMax: 0     # 上界，如 50200；<=0 用 pion 随机端口（本地够用）
+
+# coturn 中继（Phase 1）。本地留空不下发 TURN；公网填 coturn 地址 + static-auth-secret。
+Turn:
+  URLs: []          # 公网建议同时配置 UDP 与 TCP；TLS 用 turns: URL + coturn 证书单独部署
+  Secret: ""        # coturn static-auth-secret，签发短期凭证用
+  TTLSeconds: 3600  # 短期凭证有效期
 
 # 各个微服务的RPC配置
 SocialRpc:
@@ -66,15 +98,21 @@ SocialRpc:
     Hosts:
       - 127.0.0.1:2379
     Key: social.rpc
+    Timeout: 2000
+    NonBlock: true
 
 UserRpc:
   Etcd:
     Hosts:
       - 127.0.0.1:2379
     Key: user.rpc
+    Timeout: 2000
+    NonBlock: true
 
 ImRpc:
   Etcd:
     Hosts:
       - 127.0.0.1:2379
     Key: im.rpc
+    Timeout: 2000
+    NonBlock: true

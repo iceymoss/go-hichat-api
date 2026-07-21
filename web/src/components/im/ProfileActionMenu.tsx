@@ -11,6 +11,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useT } from '@/hooks/use-i18n';
 
 interface Position {
   top: number;
@@ -47,7 +48,7 @@ interface MenuGroup {
   divider?: boolean;
 }
 
-function buildMenuItems(props: ProfileActionMenuProps): MenuGroup[] {
+function buildMenuItems(props: ProfileActionMenuProps, t: (k: string) => string): MenuGroup[] {
   const {
     isStranger = false,
     isBlocked = false,
@@ -66,7 +67,7 @@ function buildMenuItems(props: ProfileActionMenuProps): MenuGroup[] {
         items: [
           {
             key: 'add-friend',
-            label: '添加好友',
+            label: t('group.addFriendTitle'),
             icon: UserPlus,
             highlighted: true,
             action: onAddFriend,
@@ -77,13 +78,13 @@ function buildMenuItems(props: ProfileActionMenuProps): MenuGroup[] {
         items: [
           {
             key: 'block',
-            label: '加入黑名单',
+            label: t('upc.block'),
             icon: Ban,
             action: onToggleBlock,
           },
           {
             key: 'report',
-            label: '投诉',
+            label: t('friend.report'),
             icon: Flag,
             action: onReport,
           },
@@ -98,13 +99,13 @@ function buildMenuItems(props: ProfileActionMenuProps): MenuGroup[] {
       items: [
         {
           key: 'set-remark',
-          label: '设置备注和标签',
+          label: t('friend.setRemarkTags'),
           icon: Pencil,
           action: onSetRemark,
         },
         {
           key: 'recommend',
-          label: '把他推荐给朋友',
+          label: t('friend.recommend'),
           icon: Share2,
           action: onRecommend,
         },
@@ -114,13 +115,13 @@ function buildMenuItems(props: ProfileActionMenuProps): MenuGroup[] {
       items: [
         {
           key: 'permissions',
-          label: '朋友权限',
+          label: t('friend.permissions'),
           icon: ShieldCheck,
           action: onSetPermissions,
         },
         {
           key: 'block',
-          label: isBlocked ? '移出黑名单' : '加入黑名单',
+          label: isBlocked ? t('friend.unblock') : t('upc.block'),
           icon: Ban,
           action: onToggleBlock,
         },
@@ -131,13 +132,13 @@ function buildMenuItems(props: ProfileActionMenuProps): MenuGroup[] {
       items: [
         {
           key: 'report',
-          label: '投诉',
+          label: t('friend.report'),
           icon: Flag,
           action: onReport,
         },
         {
           key: 'delete-friend',
-          label: '删除好友',
+          label: t('upc.deleteFriendTitle'),
           icon: Trash2,
           danger: true,
           action: onDeleteFriend,
@@ -149,6 +150,7 @@ function buildMenuItems(props: ProfileActionMenuProps): MenuGroup[] {
 
 export default function ProfileActionMenu(props: ProfileActionMenuProps) {
   const { open, onClose, position } = props;
+  const t = useT();
 
   // Close on Escape
   useEffect(() => {
@@ -162,7 +164,7 @@ export default function ProfileActionMenu(props: ProfileActionMenuProps) {
 
   if (!open) return null;
 
-  const groups = buildMenuItems(props);
+  const groups = buildMenuItems(props, t);
 
   return (
     <>
@@ -221,12 +223,12 @@ export default function ProfileActionMenu(props: ProfileActionMenuProps) {
                     padding: '0 16px',
                     border: 'none',
                     background: item.highlighted
-                      ? 'rgba(51,144,236,0.06)'
+                      ? 'rgba(27,180,91,0.06)'
                       : 'transparent',
                     color: item.danger
                       ? '#FF5252'
                       : item.highlighted
-                        ? '#3390EC'
+                        ? '#1BB45B'
                         : '#1C2733',
                     fontSize: 14,
                     fontWeight: item.highlighted ? 600 : 400,
@@ -239,13 +241,13 @@ export default function ProfileActionMenu(props: ProfileActionMenuProps) {
                     el.style.background = item.danger
                       ? '#FFF0F0'
                       : item.highlighted
-                        ? 'rgba(51,144,236,0.1)'
+                        ? 'rgba(27,180,91,0.1)'
                         : '#F5F7FA';
                   }}
                   onMouseLeave={(e) => {
                     const el = e.currentTarget as HTMLButtonElement;
                     el.style.background = item.highlighted
-                      ? 'rgba(51,144,236,0.06)'
+                      ? 'rgba(27,180,91,0.06)'
                       : 'transparent';
                   }}
                 >

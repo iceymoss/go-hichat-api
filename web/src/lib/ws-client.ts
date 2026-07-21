@@ -26,6 +26,10 @@ export const MsgType = {
   Memes: 5,
   // ContentMakeRead = 6：已读回执，不是正常消息类型
   ContentMakeRead: 6,
+  // Video = 8：视频（追加在 6/7 控制类型之后，与后端 constants/im.go 对应）
+  Video: 8,
+  // Call = 10：音视频通话记录（content 为 JSON {callType,status,duration}）
+  Call: 10,
 } as const;
 
 // ContentType 附加类型（与 MsgType 独立），ws.Chat.contentType 字段
@@ -34,6 +38,8 @@ export const ContentType = {
   MakeRead: 6,
   /** 发送方回响：服务端写库后把消息回推给发送方，携带真实 MongoDB MsgId */
   MsgAck: 7,
+  /** 撤回事件：服务端把被撤回的 msgId + 操作者回推，前端原位置为撤回态 */
+  Recall: 9,
 } as const;
 
 // ========== 聊天类型 ==========
@@ -62,11 +68,15 @@ export interface WsChatData {
   sendId: string;
   recvId: string;
   sendTime: number;
-  contentType?: number;   // 7 表示这是给发送方的回响（ContentType.MsgAck）
+  contentType?: number;   // 7 表示这是给发送方的回响（ContentType.MsgAck），9 表示撤回事件
+  recalledBy?: string;    // 撤回操作者 uid，仅 contentType=Recall 时有值
   msg: {
     mType: number;
     content: string;
+    quote?: string;
     readRecords?: Record<string, string>;
+    atUsers?: string[];   // 被 @ 的成员 uid 列表（群聊）
+    atAll?: boolean;      // 是否 @所有人（群聊）
   };
 }
 
@@ -98,7 +108,7 @@ export interface IMWebSocketOptions {
   reconnectInterval?: number;
   reconnectMaxRetries?: number;
   onStateChange?: (state: ConnState, prev: ConnState) => void;
-  onError?: (err: unknown) => void;
+  onError?: (err: unknown, msgId?: string) => void;
 }
 
 // ========== 唯一 ID 生成 ==========
@@ -212,12 +222,13 @@ export class IMWebSocket {
     });
   }
 
-  /** 发送业务消息 (RigorAck 三次通信)，Promise 在 ACK 完成后 resolve */
-  async send(method: string, data: unknown): Promise<void> {
+  /** 发送业务消息 (RigorAck 三次通信)，Promise 在 ACK 完成后 resolve。
+   *  可传 msgId 让帧 id = 调用方的本地消息 id，便于业务错误帧按消息 id 关联（红感叹号）。 */
+  async send(method: string, data: unknown, msgId?: string): Promise<void> {
     // 等待连接就绪
     await this.waitForOpen();
 
-    const id = genMsgId();
+    const id = msgId || genMsgId();
     const msg: WsMessage = {
       id,
       ackSeq: 0,
@@ -287,10 +298,20 @@ export class IMWebSocket {
       case FrameType.Ack:
         this.handleAck(msg);
         break;
-      case FrameType.Err:
-        console.error('[WS] server error:', msg.data);
-        this.onError?.(msg.data);
+      case FrameType.Err: {
+        // 业务错误帧（如发送鉴权拦截）带原始消息 id。注意：传输层 ACK 已先于业务校验完成并 resolve 了
+        // send promise（pendingAck 已删除），故不走 pendingAck，而是把 id 上交，由上层按消息 id 标记失败（红感叹号）。
+        if (msg.id) {
+          const pending = this.pendingAck.get(msg.id);
+          if (pending) {
+            clearTimeout(pending.timer);
+            this.pendingAck.delete(msg.id);
+            pending.reject(new Error(typeof msg.data === 'string' ? msg.data : '发送失败'));
+          }
+        }
+        this.onError?.(msg.data, msg.id);
         break;
+      }
       case FrameType.Data:
       case FrameType.NoAck:
         this.routeMessage(msg);

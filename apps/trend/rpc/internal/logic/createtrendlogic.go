@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/models"
+	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/notify"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/sensitive"
@@ -88,17 +92,23 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 		}, errors.New(fmt.Sprintf("动态标题或内容包含敏感词:%s", sensitiveWord))
 	}
 
-	// 图片检查
-	if !checkTrendPic(in.Resources) {
+	// 媒体资源检查。上传接口会做文件级安全校验，这里兜底校验数量和类型。
+	if !checkTrendResources(in.Type, in.Resources) {
 		return &trend.CreateTrendResponse{
 			Code: 3000,
-		}, errors.New("The image content is illegal")
+		}, errors.New("动态媒体资源不合法")
 	}
 
-	// 发版 => 朋友圈：直接发
-	circleState := 2                                         //默认可见
-	if int(in.Scope) == int(trend.VisibilityScope_PRIVATE) { //朋友圈
-		circleState = 1
+	// 可见范围(前端语义)：1-仅自己，2-仅好友，3-所有人
+	// circle_state(朋友圈流可见状态)：1-可见，2-不可见
+	// 仅自己(1) 不进好友/朋友圈流；仅好友(2)、所有人(3) 进朋友圈流
+	scope := int(in.Scope)
+	if scope < 1 || scope > 3 {
+		scope = 2 // 容错：非法值默认仅好友
+	}
+	circleState := 1 // 默认进朋友圈
+	if scope == 1 {  // 仅自己
+		circleState = 2
 	}
 
 	var openReply int64
@@ -153,6 +163,7 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 		Createtime:    time.Now(),
 		Updatetime:    time.Now(),
 		CircleState:   int64(circleState),
+		Scope:         int64(scope),
 		State:         1,
 		Idlist:        atUserIdsStr,
 		OpenReply:     openReply,
@@ -169,7 +180,24 @@ func (l *CreateTrendLogic) CreateTrend(in *trend.CreateTrendRequest) (*trend.Cre
 
 	rdb.HSet(l.ctx, key, in.UserId, time.Now().Unix())
 
-	return &trend.CreateTrendResponse{TrendId: int64(id), Code: 1000}, nil
+	resp := &trend.CreateTrendResponse{TrendId: int64(id), Code: 1000}
+
+	// 发动态 @用户：为被 @的人生成 at_trend 消息（@自己由 builder 过滤）
+	if len(in.AtUserIds) > 0 {
+		atUsers := make([]uint64, 0, len(in.AtUserIds))
+		for _, uid := range in.AtUserIds {
+			atUsers = append(atUsers, uint64(uid))
+		}
+		resp.CreatedMessages = persistTrendMessages(l.ctx, l.svcCtx, notify.TrendNotifyEvent{
+			Type:    constants.TrendMsgAtTrend,
+			ActorId: uint64(in.UserId),
+			TrendId: id,
+			AtUsers: atUsers,
+			Content: in.Content,
+		})
+	}
+
+	return resp, nil
 }
 
 func checkTrendContent(content string) (bool, string, error) {
@@ -183,7 +211,39 @@ func checkTrendContent(content string) (bool, string, error) {
 	return pass, sensitiveWord, nil
 }
 
-func checkTrendPic(urls []string) bool {
-	//TODO:
+func checkTrendResources(trendType trend.TrendType, urls []string) bool {
+	if len(urls) == 0 {
+		return true
+	}
+	switch trendType {
+	case trend.TrendType_MIXED:
+		if len(urls) > 9 {
+			return false
+		}
+		for _, url := range urls {
+			if !hasAllowedExt(url, []string{".jpg", ".jpeg", ".png", ".webp", ".gif"}) {
+				return false
+			}
+		}
+	case trend.TrendType_VIDEO:
+		if len(urls) != 1 {
+			return false
+		}
+		return hasAllowedExt(urls[0], []string{".mp4", ".mov", ".webm"})
+	}
 	return true
+}
+
+func hasAllowedExt(rawURL string, allowed []string) bool {
+	path := rawURL
+	if idx := strings.Index(path, "?"); idx >= 0 {
+		path = path[:idx]
+	}
+	ext := strings.ToLower(filepath.Ext(path))
+	for _, item := range allowed {
+		if ext == item {
+			return true
+		}
+	}
+	return false
 }

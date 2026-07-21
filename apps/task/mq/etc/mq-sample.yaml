@@ -26,6 +26,24 @@ MsgReadTransfer:
   Offset: first
   Consumers: 1
 
+MsgRecallTransfer:
+  Name: msgRecallTrans
+  Brokers:
+    - 127.0.0.1:9092
+  Group: kafka
+  Topic: msgRecallTransfer
+  Offset: first
+  Consumers: 1
+
+TrendNotifyTransfer:
+  Name: trendNotifyTrans
+  Brokers:
+    - 127.0.0.1:9092
+  Group: kafka
+  Topic: trendNotifyTransfer
+  Offset: first
+  Consumers: 1
+
 Ws:
   Host: 127.0.0.1:10090
 
@@ -46,3 +64,25 @@ ImRpc:
     Hosts:
       - 127.0.0.1:2379
     Key: im.rpc
+RelationChangeTransfer:
+  Name: relationChangeTrans
+  Brokers:
+    - 127.0.0.1:9092
+  Group: kafka
+  Topic: relationChangeTransfer
+  Offset: first
+
+CommonNotifyTransfer:
+  Name: commonNotifyTrans
+  Brokers:
+    - 127.0.0.1:9092
+  Group: kafka
+  Topic: commonNotifyTransfer
+  Offset: first
+  Consumers: 1
+
+# 发送鉴权灰度开关：默认 false=现状行为（不校验，fail-open）；验证缓存/事件链路无误后分粒度打开
+AuthzGate:
+  Enabled: true
+  GroupChat: true
+  SingleChat: true

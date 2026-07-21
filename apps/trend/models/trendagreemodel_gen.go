@@ -41,7 +41,7 @@ type (
 		FindOneByUseridTrendId(ctx context.Context, userid uint64, trendId uint64, state int) (*TrendAgree, error)
 		Update(ctx context.Context, data *TrendAgree) error
 		Delete(ctx context.Context, id uint64) error
-		AgreeInc(ctx context.Context, userId uint64, authorId uint64, trendId uint64, incType int) error
+		AgreeInc(ctx context.Context, userId uint64, authorId uint64, trendId uint64, incType int) (int, error)
 		MarkRead(ctx context.Context, ids []uint64) error
 		GetAgreeByTrendId(ctx context.Context, trendId uint64, field []string, lastId int, limit int) ([]*TrendAgree, int64, error)
 		GetUnReadAgree(ctx context.Context, userId int, field []string, id int, limit int) ([]*TrendAgree, int64, error)
@@ -113,17 +113,25 @@ func (m *defaultTrendAgreeModel) MarkRead(ctx context.Context, ids []uint64) err
 	return nil
 }
 
-func (m *defaultTrendAgreeModel) AgreeInc(ctx context.Context, userId uint64, authorId uint64, trendId uint64, incType int) error {
+func (m *defaultTrendAgreeModel) AgreeInc(ctx context.Context, userId uint64, authorId uint64, trendId uint64, incType int) (int, error) {
 	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+
+	want := uint64(0)
+	if incType > 0 {
+		want = 1
+	}
+
 	var agreeTemp TrendAgree
 	err := mysqlConn.Table(m.table).Where("trend_id = ?", trendId).Where("userid = ?", userId).First(&agreeTemp).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
-		return err
+		return 0, err
 	}
 
-	// 第一次点赞,创建记录
-	if (err == gorm.ErrRecordNotFound || agreeTemp.Id == 0) && incType > 0 {
-		//insert
+	// 无记录:只有点赞才创建记录;取消点赞则幂等无操作
+	if err == gorm.ErrRecordNotFound || agreeTemp.Id == 0 {
+		if want == 0 {
+			return 0, nil
+		}
 		inserErr := mysqlConn.Create(&TrendAgree{
 			Userid:     userId,
 			AuthorId:   authorId,
@@ -134,22 +142,28 @@ func (m *defaultTrendAgreeModel) AgreeInc(ctx context.Context, userId uint64, au
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 		}).Error
-
-		return inserErr
-	}
-
-	if agreeTemp.Id > 0 {
-		agreeTemp.State = 0
-		if incType > 0 {
-			agreeTemp.State = 1
+		if inserErr != nil {
+			return 0, inserErr
 		}
+		return 1, nil
 	}
 
+	// 已有记录:状态未变化则幂等无操作,不调整点赞总数
+	if agreeTemp.State == want {
+		return 0, nil
+	}
+
+	agreeTemp.State = want
 	agreeTemp.OpTime = time.Now()
 	agreeTemp.UpdateTime = time.Now()
-	upErr := mysqlConn.Table(m.table).Where("id = ?", agreeTemp.Id).Save(&agreeTemp).Error
+	if upErr := mysqlConn.Table(m.table).Where("id = ?", agreeTemp.Id).Save(&agreeTemp).Error; upErr != nil {
+		return 0, upErr
+	}
 
-	return upErr
+	if want == 1 {
+		return 1, nil
+	}
+	return -1, nil
 }
 
 // GetTrendAgreeListBy 获取动态点赞信息
@@ -219,7 +233,7 @@ func (m *defaultTrendAgreeModel) Delete(ctx context.Context, id uint64) error {
 	}
 
 	if res.RowsAffected == 0 {
-		return fmt.Errorf("delete agree failed id: %s", id)
+		return fmt.Errorf("delete agree failed id: %d", id)
 	}
 
 	return err
@@ -263,7 +277,8 @@ func (m *defaultTrendAgreeModel) GetAgreeByTrendId(ctx context.Context, trendId 
 	var list []*TrendAgree
 	query := mysqlConn.Table(m.table).
 		Select(field).
-		Where("trend_id = ?", trendId)
+		Where("trend_id = ?", trendId).
+		Where("state = ?", 1) // 仅统计有效点赞(state=1)，取消点赞的记录(state=0)保留但不计入
 
 	var count int64
 	countQuery := query
@@ -316,7 +331,7 @@ func (m *defaultTrendAgreeModel) Update(ctx context.Context, newData *TrendAgree
 	}
 
 	if res.RowsAffected == 0 {
-		return fmt.Errorf("update agree failed id: %s", data.Id)
+		return fmt.Errorf("update agree failed id: %d", data.Id)
 	}
 
 	return err

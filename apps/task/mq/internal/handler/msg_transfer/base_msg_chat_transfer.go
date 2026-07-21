@@ -55,20 +55,18 @@ func (m *BaseChatTransfer) single(ctx context.Context, data *mq.MsgChatTransfer)
 }
 
 func (m *BaseChatTransfer) group(ctx context.Context, data *mq.MsgChatTransfer) error {
-	res, err := m.svcCtx.Social.GroupUsers(ctx, &socialclient.GroupUsersReq{
-		GroupId: data.RecvId,
-	})
+	members, err := m.resolveGroupMembers(ctx, data.RecvId)
 	if err != nil {
 		return err
 	}
 
-	data.RecvIdList = make([]string, 0, len(res.List))
-	for _, member := range res.List {
+	data.RecvIdList = make([]string, 0, len(members))
+	for _, uid := range members {
 		// 跳过发送人
-		if member.UserId == data.SendId {
+		if uid == data.SendId {
 			continue
 		}
-		data.RecvIdList = append(data.RecvIdList, member.UserId)
+		data.RecvIdList = append(data.RecvIdList, uid)
 	}
 
 	return m.svcCtx.WsClient.Send(websocket.Message{
@@ -77,6 +75,42 @@ func (m *BaseChatTransfer) group(ctx context.Context, data *mq.MsgChatTransfer) 
 		FormId:    constants.SYSTEM_ROOT_UID,
 		Data:      data,
 	})
+}
+
+// resolveGroupMembers 取群成员（鉴权 + 扇出共用）：优先读关系缓存，未命中则单飞回源 GroupUsers 并回填。
+// 缓存任何异常都退化为直连 RPC（fail-open），绝不因缓存问题改变扇出行为。
+// 回源版本用 0：依赖 Kafka 按 gid 分区有序，后续真实事件（version=outbox.id>0）按序覆盖本快照。
+func (m *BaseChatTransfer) resolveGroupMembers(ctx context.Context, gid string) ([]string, error) {
+	if m.svcCtx.RelationCache != nil {
+		if members, loaded, err := m.svcCtx.RelationCache.GroupMembers(ctx, gid); err == nil && loaded {
+			return members, nil
+		}
+	}
+
+	var token string
+	var locked bool
+	if m.svcCtx.RelationCache != nil {
+		token, locked, _ = m.svcCtx.RelationCache.TryLockGroupRebuild(ctx, gid)
+	}
+
+	res, err := m.svcCtx.Social.GroupUsers(ctx, &socialclient.GroupUsersReq{GroupId: gid})
+	if err != nil {
+		if locked {
+			m.svcCtx.RelationCache.UnlockGroupRebuild(ctx, gid, token)
+		}
+		return nil, err
+	}
+
+	members := make([]string, 0, len(res.List))
+	for _, mem := range res.List {
+		members = append(members, mem.UserId)
+	}
+
+	if locked {
+		_ = m.svcCtx.RelationCache.LoadGroupMembers(ctx, gid, members, 0)
+		m.svcCtx.RelationCache.UnlockGroupRebuild(ctx, gid, token)
+	}
+	return members, nil
 }
 
 // 普通聊天消息（非已读回执）需要把 MsgId 回推给 SENDER，让 sender 前端把 local_ 占位 ID 替换为真实 ID。

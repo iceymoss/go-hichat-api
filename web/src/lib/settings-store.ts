@@ -23,9 +23,14 @@ interface SettingsState {
   language: string;
   fontSize: FontSize;
 
+  /** Language picked on the login screen before auth; persisted on next login. */
+  pendingLoginLanguage: string | null;
+
   // Actions
   loadFromBackend: (token: string) => Promise<void>;
   updateSetting: (key: string, value: any, token: string) => void;
+  /** Set language locally (no token, e.g. on the auth page) + remember it for login. */
+  setLanguage: (lang: string) => void;
 }
 
 /* ═══════════════════════════════════════════════
@@ -135,26 +140,32 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   allowSearchById: true,
   momentVisibility: 'all',
   readReceiptEnabled: true,
-  language: 'zh-CN',
+  language: 'en',
   fontSize: 'medium',
+  pendingLoginLanguage: null,
 
   // Load from backend on login
   loadFromBackend: async (token: string) => {
+    const pending = get().pendingLoginLanguage;
     try {
       const res = await fetch('/api/user/settings', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const d = await res.json();
-      if (d.success && d.data) {
-        const merged = { ...get(), ...d.data, loaded: true };
-        set(merged);
-        applyAll(merged);
-      } else {
-        set({ loaded: true });
-        applyAll(get());
+      const base = d.success && d.data ? { ...get(), ...d.data } : { ...get() };
+      const backendLang = d.success && d.data ? d.data.language : undefined;
+      // The language chosen on the login screen wins over the stored one.
+      const merged: any = { ...base, loaded: true, pendingLoginLanguage: null };
+      if (pending) merged.language = pending;
+      set(merged);
+      applyAll(merged);
+      // Persist the login-screen choice to the user's settings (full payload,
+      // so other settings loaded above are preserved).
+      if (pending && pending !== backendLang) {
+        saveToBackend(merged as SettingsState, token);
       }
     } catch {
-      set({ loaded: true });
+      set({ loaded: true, pendingLoginLanguage: null });
       applyAll(get());
     }
   },
@@ -166,5 +177,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     applyAll({ [key]: value } as any);
     // Debounced save
     saveToBackend({ ...get(), [key]: value }, token);
+  },
+
+  // Set language locally (pre-auth, no token) and remember it for login.
+  setLanguage: (lang: string) => {
+    set({ language: lang, pendingLoginLanguage: lang });
+    applyLanguage(lang);
   },
 }));

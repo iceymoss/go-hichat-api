@@ -4,16 +4,20 @@
 package types
 
 type ChatLog struct {
-	Id             string `json:"id,omitempty"`
-	ConversationId string `json:"conversationId,omitempty"`
-	SendId         string `json:"sendId,omitempty"`
-	RecvId         string `json:"recvId,omitempty"`
-	MsgType        int32  `json:"msgType,omitempty"`
-	MsgContent     string `json:"msgContent,omitempty"`
-	ChatType       int32  `json:"chatType,omitempty"`
-	SendTime       int64  `json:"sendTime,omitempty"` // 修正字段名统一小写
-	// ReadRecords base64(bitmap)。私聊为 "AQ=="（对方已读）/空（未读），群聊为每成员 bit 位图
-	ReadRecords string `json:"readRecords,omitempty"`
+	Id             string   `json:"id,omitempty"`
+	ConversationId string   `json:"conversationId,omitempty"`
+	SendId         string   `json:"sendId,omitempty"`
+	RecvId         string   `json:"recvId,omitempty"`
+	MsgType        int32    `json:"msgType,omitempty"`
+	MsgContent     string   `json:"msgContent,omitempty"`
+	ChatType       int32    `json:"chatType,omitempty"`
+	SendTime       int64    `json:"sendTime,omitempty"`    // 修正字段名统一小写
+	ReadRecords    string   `json:"readRecords,omitempty"` // base64(bitmap)。私聊为 "AQ=="（对方已读）/空（未读），群聊为每成员 bit 位图
+	Quote          string   `json:"quote,omitempty"`       // 引用/回复消息（JSON 字符串：{"id","name","preview"}）
+	Status         int32    `json:"status,omitempty"`      // 0=正常 1=已撤回
+	RecalledBy     string   `json:"recalledBy,omitempty"`  // 撤回操作者 uid
+	AtUsers        []string `json:"atUsers,omitempty"`     // 被 @ 的成员 uid 列表（群聊）
+	AtAll          bool     `json:"atAll,omitempty"`       // 是否 @所有人（群聊）
 }
 
 type ChatLogReq struct {
@@ -22,6 +26,7 @@ type ChatLogReq struct {
 	StartSendTime  int64  `form:"startSendTime,optional"`
 	EndSendTime    int64  `form:"endSendTime,optional"`
 	Count          int64  `form:"count,optional"`
+	Direction      string `form:"direction,optional"` // older(默认)/newer/around
 }
 
 type ChatLogResp struct {
@@ -32,26 +37,28 @@ type Conversation struct {
 	ConversationId string  `json:"conversationId,optional,omitempty"`
 	ChatType       int32   `json:"chatType,optional,omitempty"`
 	IsShow         bool    `json:"isShow,optional,omitempty"`
+	IsTop          bool    `json:"isTop,optional,omitempty"`   // 会话置顶
+	IsMute         bool    `json:"isMute,optional,omitempty"`  // 消息免打扰
+	HasAtMe        bool    `json:"hasAtMe,optional,omitempty"` // 是否有未读的 @我（群聊）
 	Seq            int64   `json:"seq,optional,omitempty"`
 	Read           int32   `json:"read,optional,omitempty"`
 	Msg            ChatLog `json:"message,optional,omitempty"`
+	TargetName     string  `json:"targetName,optional,omitempty"`
+	TargetAvatar   string  `json:"targetAvatar,optional,omitempty"`
+	MemberCount    int     `json:"memberCount,optional,omitempty"`
+}
 
-	// 附带的用户/群信息（API 层填充，前端无需二次查询）
-	TargetName   string `json:"targetName,optional,omitempty"`
-	TargetAvatar string `json:"targetAvatar,optional,omitempty"`
-	MemberCount  int    `json:"memberCount,optional,omitempty"`
+type GetAtMeMessagesReq struct {
+	ConversationId string `form:"conversationId"`
+	Count          int64  `form:"count,optional"`
+}
+
+type GetAtMeMessagesResp struct {
+	List []ChatLog `json:"list"` // @我且未读的消息，按 sendTime 升序
 }
 
 type GetChatLogReadRecordsReq struct {
 	MsgId string `form:"msgId"`
-}
-
-type ReadRecordUser struct {
-	Id       string `json:"id"`
-	Nickname string `json:"nickname"`
-	Avatar   string `json:"avatar"`
-	// 已读时间戳（unix nano），仅已读列表里有值；未读列表里为 0
-	ReadAt int64 `json:"readAt,omitempty"`
 }
 
 type GetChatLogReadRecordsResp struct {
@@ -66,11 +73,71 @@ type GetConversationsResp struct {
 	ConversationList map[string]Conversation `json:"conversationList"` // 移除星号*
 }
 
+type ListNotificationsReq struct {
+	UnreadOnly bool  `form:"unreadOnly,optional"`
+	Offset     int32 `form:"offset,optional"`
+	Limit      int32 `form:"limit,optional"`
+}
+
+type ListNotificationsResp struct {
+	List []NotificationItem `json:"list"`
+}
+
+type MarkNotificationsReadReq struct {
+	Ids []uint64 `json:"ids,optional"` // 为空表示全部已读
+}
+
+type MarkNotificationsReadResp struct {
+	Affected int64 `json:"affected"`
+}
+
+type NotificationItem struct {
+	Id         uint64 `json:"id"`
+	NotifyType string `json:"notifyType"` // friend.apply / group.accept ...
+	BizId      string `json:"bizId,omitempty"`
+	ActorId    string `json:"actorId,omitempty"`
+	GroupId    string `json:"groupId,omitempty"`
+	Title      string `json:"title,omitempty"`
+	Content    string `json:"content,omitempty"`
+	Payload    string `json:"payload,omitempty"`
+	IsRead     int32  `json:"isRead"`
+	CreateTime int64  `json:"createTime"`
+}
+
+type NotificationUnreadCountResp struct {
+	Count int64 `json:"count"`
+}
+
 type PutConversationsReq struct {
 	ConversationList map[string]Conversation `json:"conversationList"` // 移除星号*
 }
 
 type PutConversationsResp struct {
+}
+
+type ReadRecordUser struct {
+	Id       string `json:"id"`
+	Nickname string `json:"nickname"`
+	Avatar   string `json:"avatar"`
+	ReadAt   int64  `json:"readAt,omitempty"` // 已读时间戳（unix nano），仅已读列表里有值；未读列表里为 0
+}
+
+type RecallMsgReq struct {
+	ConversationId string `json:"conversationId"`
+	MsgId          string `json:"msgId"`
+	ChatType       int32  `json:"chatType"`
+}
+
+type RecallMsgResp struct {
+}
+
+type SetConversationSettingsReq struct {
+	ConversationId string `json:"conversationId"`
+	IsTop          bool   `json:"isTop,optional"`
+	IsMute         bool   `json:"isMute,optional"`
+}
+
+type SetConversationSettingsResp struct {
 }
 
 type SetUpUserConversationReq struct {
@@ -80,4 +147,11 @@ type SetUpUserConversationReq struct {
 }
 
 type SetUpUserConversationResp struct {
+}
+
+type UploadResp struct {
+	Url      string `json:"url"`
+	Name     string `json:"name"`
+	Size     int64  `json:"size"`
+	FileType string `json:"fileType"` // image/video/voice/file
 }

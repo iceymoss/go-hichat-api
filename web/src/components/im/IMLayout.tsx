@@ -2,12 +2,14 @@
 
 import React from 'react';
 import { useIMStore, TabType } from '@/lib/im-store';
-import { type Contact } from '@/lib/mock-data';
+import { type Contact } from '@/lib/types';
 import { useChatStore } from '@/lib/chat-store';
 import { ChatListProvider, ChatListToolbar, ChatListContent } from './ChatList';
 import ChatDetail from './ChatDetail';
+import { CallOverlay } from './CallOverlay';
 import ContactList from './ContactList';
 import ContactDetailPanel from './ContactDetailPanel';
+import FloatingProfileCard from './FloatingProfileCard';
 import FriendRequestList from './FriendRequestList';
 import GroupList from './GroupList';
 import MomentsFeed from './MomentsFeed';
@@ -18,8 +20,11 @@ import FavoritesPage from './FavoritesPage';
 import AlbumPage from './AlbumPage';
 import EmojisPage from './EmojisPage';
 import SettingsPage from './SettingsPage';
+import AboutPage from './AboutPage';
+import SettingsMenuPopover from './SettingsMenuPopover';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from 'sonner';
 import {
   MessageCircle,
   Users,
@@ -28,6 +33,9 @@ import {
   Search,
 } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
+import { getTrendMessageUnread } from '@/lib/trend-api';
+import { getNotificationUnreadCount } from '@/lib/api-client';
+import Logo from '@/components/brand/Logo';
 
 const navItems: { tab: TabType; icon: React.ReactNode }[] = [
   { tab: 'chats', icon: <MessageCircle className="w-5 h-5" /> },
@@ -37,16 +45,56 @@ const navItems: { tab: TabType; icon: React.ReactNode }[] = [
 ];
 
 export default function IMLayout() {
-  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, currentUser, friends } = useIMStore();
+  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, systemPanel, setSystemPanel, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, showUserCard, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, setNotificationUnreadCount, setGroupAppUnreadCount, friendRequestUnreadCount, groupAppUnreadCount } = useIMStore();
+  // 「联系人」tab 角标 = 好友申请未读 + 群申请未读：看了对应申请列表即各自清零（与铃铛/通知中心解耦）
+  const contactsUnread = friendRequestUnreadCount + groupAppUnreadCount;
   const chatConversations = useChatStore(s => s.conversations);
 
-  // Resolve selected contact for detail panel from store friends
+  // 登录后拉取动态消息未读数，驱动「朋友圈」tab 红点
+  React.useEffect(() => {
+    const token = currentUser?.token;
+    if (!token) return;
+    getTrendMessageUnread(token)
+      .then(r => { if (r.success && r.data) setMomentsUnreadCount(r.data.total); })
+      .catch(() => { /* silent */ });
+  }, [currentUser?.token, setMomentsUnreadCount]);
+
+  // 登录后拉取公共通知未读数（持久化），驱动「联系人」tab 气泡；之后由 ws.on('notify') 实时 +1
+  React.useEffect(() => {
+    const token = currentUser?.token;
+    if (!token) return;
+    getNotificationUnreadCount(token)
+      .then(r => setNotificationUnreadCount(r.count ?? 0))
+      .catch(() => { /* silent */ });
+  }, [currentUser?.token, setNotificationUnreadCount]);
+
+  // 登录后拉取入群申请未读数，驱动「我的群组」气泡。放 IMLayout（始终挂载）：activeTab 不持久化，
+  // 刷新后默认回到「会话」tab，ContactList 此时未挂载，必须在此全局拉取气泡才不会丢。
+  // 已读模型：未读 = 我收到的(申请人≠我) 且 receiver_read=0；进群申请列表会标已读清零。
+  React.useEffect(() => {
+    const token = currentUser?.token;
+    const myId = currentUser?.id;
+    if (!token || !myId) return;
+    fetch('/api/social/group/putInsByUid?class=2', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => {
+        const list: Array<{ user_id?: string; receiver_read?: number }> = d?.data?.list || [];
+        const cnt = list.filter(x => String(x.user_id) !== String(myId) && (x.receiver_read ?? 0) === 0).length;
+        setGroupAppUnreadCount(cnt);
+      })
+      .catch(() => { /* silent */ });
+  }, [currentUser?.token, currentUser?.id, setGroupAppUnreadCount]);
+
+  // Resolve selected contact for detail panel from store friends, falling back
+  // to viewedProfile (set when opening self / a non-friend from moments).
   const selectedContact: Contact | null = React.useMemo(() => {
     if (!selectedContactId) return null;
-    return friends.find(c => c.id === selectedContactId) || null;
-  }, [selectedContactId, friends]);
+    return friends.find(c => c.id === selectedContactId)
+      || (viewedProfile && viewedProfile.id === selectedContactId ? viewedProfile : null);
+  }, [selectedContactId, friends, viewedProfile]);
   const isMobile = useIsMobile();
-  const totalUnread = chatConversations.reduce((sum, c) => sum + c.unreadCount, 0);
+  // 免打扰会话不计入侧边栏总未读气泡（与会话列表只显示小灰点保持一致）
+  const totalUnread = chatConversations.reduce((sum, c) => sum + (c.muted ? 0 : c.unreadCount), 0);
   const t = useT();
 
   const tabLabels: Record<TabType, string> = {
@@ -84,7 +132,7 @@ export default function IMLayout() {
         style={{
           width: 36, height: 36, borderRadius: '50%',
           border: 'none', background: 'transparent',
-          color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+          color: '#646A73', cursor: 'pointer',
         }}
       >
         <Search className="w-5 h-5" />
@@ -95,7 +143,7 @@ export default function IMLayout() {
           style={{
             width: 36, height: 36, borderRadius: '50%',
             border: 'none', background: 'transparent',
-            color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+            color: '#646A73', cursor: 'pointer',
           }}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -108,7 +156,7 @@ export default function IMLayout() {
           style={{
             width: 36, height: 36, borderRadius: '50%',
             border: 'none', background: 'transparent',
-            color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+            color: '#646A73', cursor: 'pointer',
           }}
         >
           <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -119,13 +167,41 @@ export default function IMLayout() {
     </div>
   );
 
+  /* ── Floating user profile card (opened from moments / sidebar avatar; overlays
+        everything, closing returns to the exact view underneath) ── */
+  const floatingIsSelf = !!floatingProfile && !!currentUser?.id && floatingProfile.id === currentUser.id;
+  const floatingCard = floatingProfile ? (
+    <FloatingProfileCard
+      contact={floatingProfile}
+      isStranger={floatingProfileIsStranger}
+      isSelf={floatingIsSelf}
+      zIndex={10020}
+      onClose={closeUserCard}
+      onSendMessage={async () => {
+        if (!currentUser?.token || !currentUser?.id) return;
+        try {
+          const conv = await useChatStore.getState().getOrCreateConversation(currentUser.token, currentUser.id, floatingProfile.id);
+          closeUserCard();
+          setActiveTab('chats');
+          setSelectedConversationId(conv.id);
+          setShowChatDetail(true);
+        } catch {
+          toast.error('打开会话失败');
+        }
+      }}
+      onAddFriend={floatingProfileIsStranger ? () => { toast('请在通讯录中搜索添加好友'); closeUserCard(); } : undefined}
+      onViewProfile={() => { const id = floatingProfile.id; closeUserCard(); openUserProfile(id); }}
+      onEditProfile={() => { closeUserCard(); setActiveTab('me'); setMeSubPage('profile'); }}
+    />
+  ) : null;
+
   /* ═══════════════════════════════════════
      MOBILE LAYOUT
      ═══════════════════════════════════════ */
   if (isMobile) {
     const headerHeight = 52;
     return (
-      <div className="h-full flex flex-col" style={{ background: '#F5F7FA' }}>
+      <div className="h-full flex flex-col relative" style={{ background: '#F5F7FA' }}>
         {activeTab === 'chats' ? (
           /* ── Mobile Chats Tab: provider wraps header + content ── */
           <ChatListProvider>
@@ -133,12 +209,12 @@ export default function IMLayout() {
               className="flex items-center px-4 shrink-0"
               style={{
                 height: headerHeight,
-                background: '#2C3E50',
+                background: '#FFFFFF',
                 border: 'none',
                 gap: 12,
               }}
             >
-              <h1 style={{ fontSize: 17, fontWeight: 600, color: '#FFFFFF', flexShrink: 0 }}>
+              <h1 style={{ fontSize: 17, fontWeight: 600, color: '#1C2733', flexShrink: 0 }}>
                 {tabLabels.chats}
               </h1>
               <ChatListToolbar />
@@ -157,11 +233,11 @@ export default function IMLayout() {
               className="flex items-center justify-between px-4 shrink-0"
               style={{
                 height: headerHeight,
-                background: '#2C3E50',
+                background: '#FFFFFF',
                 border: 'none',
               }}
             >
-              <h1 style={{ fontSize: 17, fontWeight: 600, color: '#FFFFFF' }}>
+              <h1 style={{ fontSize: 17, fontWeight: 600, color: '#1C2733' }}>
                 {tabLabels[activeTab]}
               </h1>
               {renderNonChatHeaderButtons()}
@@ -188,7 +264,7 @@ export default function IMLayout() {
           }}
         >
           {navItems.map(({ tab, icon }) => {
-            const unread = tab === 'chats' ? totalUnread : 0;
+            const unread = tab === 'chats' ? totalUnread : tab === 'moments' ? momentsUnreadCount : tab === 'contacts' ? contactsUnread : 0;
             return (
               <button
                 key={tab}
@@ -207,6 +283,31 @@ export default function IMLayout() {
             );
           })}
         </nav>
+        {/* Me-tab sub-pages — full overlay on mobile (each page has its own back button) */}
+        {activeTab === 'me' && meSubPage && (
+          <div
+            className="animate-fade-in"
+            style={{ position: 'absolute', inset: 0, zIndex: 30, background: '#F0F2F5' }}
+          >
+            {meSubPage === 'profile' && <MyProfileEditPage onBack={() => setMeSubPage(null)} />}
+            {meSubPage === 'favorites' && <FavoritesPage onBack={() => setMeSubPage(null)} />}
+            {meSubPage === 'album' && <AlbumPage onBack={() => setMeSubPage(null)} />}
+            {meSubPage === 'emojis' && <EmojisPage onBack={() => setMeSubPage(null)} />}
+          </div>
+        )}
+        {/* System panel (settings / about) — full overlay on mobile */}
+        {systemPanel && (
+          <div
+            className="animate-fade-in"
+            style={{ position: 'absolute', inset: 0, zIndex: 30, background: '#F0F2F5' }}
+          >
+            {systemPanel === 'settings'
+              ? <SettingsPage onBack={() => setSystemPanel(null)} />
+              : <AboutPage onBack={() => setSystemPanel(null)} />}
+          </div>
+        )}
+        {floatingCard}
+        <CallOverlay />
       </div>
     );
   }
@@ -217,21 +318,30 @@ export default function IMLayout() {
   const desktopHeaderHeight = 56;
 
   return (
-    <div className="h-full flex overflow-hidden" style={{ background: '#F5F7FA' }}>
+    <div className="h-full flex overflow-hidden relative" style={{ background: '#F5F7FA' }}>
       {/* ── Icon Sidebar: TG dark ── */}
       <aside className="im-sidebar flex flex-col items-center py-3 gap-1 shrink-0" style={{ width: 56 }}>
-        {/* User Avatar */}
+        {/* Brand mark */}
+        <div className="mb-2" title="HiChat">
+          <Logo variant="mark" height={26} />
+        </div>
+        {/* User Avatar — click to open own profile card */}
         <div className="mb-3">
-          <Avatar className="w-8 h-8 cursor-pointer" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>
-            <AvatarImage src={currentUser?.avatar} alt={currentUser?.name} />
-            <AvatarFallback>{currentUser?.name}</AvatarFallback>
+          <Avatar
+            className="w-8 h-8 cursor-pointer rounded-lg"
+            style={{ border: '2px solid rgba(255,255,255,0.15)' }}
+            title={currentUser?.name}
+            onClick={() => { if (currentUser?.id) showUserCard(currentUser.id); }}
+          >
+            <AvatarImage src={currentUser?.avatar} alt={currentUser?.name} className="rounded-lg" />
+            <AvatarFallback className="rounded-lg">{currentUser?.name}</AvatarFallback>
           </Avatar>
         </div>
 
         {/* Navigation Icons */}
         <div className="flex flex-col gap-1 flex-1">
           {navItems.map(({ tab, icon }) => {
-            const unread = tab === 'chats' ? totalUnread : 0;
+            const unread = tab === 'chats' ? totalUnread : tab === 'moments' ? momentsUnreadCount : tab === 'contacts' ? contactsUnread : 0;
             return (
               <button
                 key={tab}
@@ -251,12 +361,14 @@ export default function IMLayout() {
 
         {/* Settings */}
         <div className="flex flex-col gap-1 mt-auto">
-          <button className="im-sidebar-icon" title="设置" style={{ width: 38, height: 38, borderRadius: 12 }}>
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
+          <SettingsMenuPopover>
+            <button className={`im-sidebar-icon ${systemPanel ? 'active' : ''}`} title={t('profile.settings')} style={{ width: 38, height: 38, borderRadius: 12 }}>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+          </SettingsMenuPopover>
         </div>
       </aside>
 
@@ -264,7 +376,7 @@ export default function IMLayout() {
       <div
         className="w-[420px] flex flex-col shrink-0"
         style={{
-          background: activeTab === 'chats' ? '#2C3E50' : '#FFFFFF',
+          background: activeTab === 'chats' ? '#FFFFFF' : '#FFFFFF',
           borderRight: (showChatDetail && activeTab === 'chats') || showContactDetail || showFriendRequestPanel || showGroupPanelView || showTrendDetail || (activeTab === 'me' && meSubPage)
             ? '1px solid rgba(0,0,0,0.08)'
             : 'none',
@@ -277,8 +389,8 @@ export default function IMLayout() {
               className="flex items-center px-4 shrink-0"
               style={{
                 height: desktopHeaderHeight,
-                background: '#2C3E50',
-                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                background: '#FFFFFF',
+                borderBottom: '1px solid rgba(0,0,0,0.06)',
                 borderLeft: 'none',
                 borderRight: 'none',
                 borderTop: 'none',
@@ -288,7 +400,7 @@ export default function IMLayout() {
               <h1 style={{
                 fontSize: 17,
                 fontWeight: 600,
-                color: '#FFFFFF',
+                color: '#1C2733',
                 letterSpacing: '-0.01em',
                 flexShrink: 0,
               }}>
@@ -402,11 +514,19 @@ export default function IMLayout() {
           <EmojisPage onBack={() => setMeSubPage(null)} />
         </div>
       )}
-      {activeTab === 'me' && meSubPage === 'settings' && (
-        <div className="flex-1 min-w-0 animate-fade-in">
-          <SettingsPage onBack={() => setMeSubPage(null)} />
+      {/* System panel (settings / about) — overlay covering everything right of the icon sidebar */}
+      {systemPanel && (
+        <div
+          className="animate-fade-in"
+          style={{ position: 'absolute', top: 0, bottom: 0, left: 56, right: 0, zIndex: 30, background: '#F0F2F5' }}
+        >
+          {systemPanel === 'settings'
+            ? <SettingsPage onBack={() => setSystemPanel(null)} />
+            : <AboutPage onBack={() => setSystemPanel(null)} />}
         </div>
       )}
+      {floatingCard}
+      <CallOverlay />
     </div>
   );
 }

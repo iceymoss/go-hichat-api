@@ -42,6 +42,11 @@ func (l *DeleteTrendLogic) DeleteTrend(in *trend.DeleteTrendRequest) (*trend.Del
 		return nil, err
 	}
 
+	// 级联软删该动态下的全部消息（best-effort，失败不影响删动态结果）
+	if err := l.svcCtx.TrendMessage.SoftDeleteByTrend(l.ctx, uint64(in.TrendId)); err != nil {
+		zLog.Error("DeleteTrend: 级联软删动态消息失败", zap.Any("trendId", in.TrendId), zap.Error(err))
+	}
+
 	return &trend.DeleteTrendResponse{
 		Success: true,
 	}, nil

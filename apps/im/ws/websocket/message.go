@@ -58,3 +58,12 @@ func NewErrMessage(err error) *Message {
 		Data:      err.Error(),
 	}
 }
+
+// NewErrMessageWithId 回传原始消息 id 的错误帧，便于客户端把错误关联到具体发送的消息（标记失败/红感叹号）。
+func NewErrMessageWithId(id string, err error) *Message {
+	return &Message{
+		Id:        id,
+		FrameType: FrameErr,
+		Data:      err.Error(),
+	}
+}

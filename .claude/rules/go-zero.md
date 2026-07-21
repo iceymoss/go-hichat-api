@@ -1,0 +1,11 @@
+- HTTP 接口的真相是 `apps/<svc>/api/<svc>.api`，gRPC 的真相是 `apps/<svc>/rpc/<svc>.proto`
+- 改 `.api` 后必须 `goctl api go -api ... -dir ... -style gozero` 重新生成
+- 改 `.proto` 后必须 `goctl rpc protoc ... --zrpc_out=.` 重新生成
+- 不要手写 handler / logic / types 骨架，让 goctl 生成；只填业务逻辑
+- 业务逻辑只放 `internal/logic/`，handler 只做参数绑定 + 调 logic
+- `internal/svc/servicecontext.go` 是依赖注入入口，新依赖（DB、RPC client、Redis）在这里挂
+- `internal/config/config.go` 与 `etc/*-sample.yaml` 必须保持字段一致
+- 服务名 / 端口 / etcd key 在 yaml 里配置，不要硬编码
+- `.proto` 字段编号永不复用，方法只能追加，废弃用注释保留
+- `.api` 可选字段加 `optional`，Go 侧用指针 + omitempty
+- 路由路径前缀必须带版本号 `v1/<svc>`

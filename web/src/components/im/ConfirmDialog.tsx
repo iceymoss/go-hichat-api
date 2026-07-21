@@ -10,6 +10,8 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   confirmVariant?: 'danger' | 'default';
+  /** 隐藏取消按钮，退化为只有一个确认按钮的纯提示弹框（如「知道了」） */
+  hideCancel?: boolean;
   onConfirm: () => void;
 }
 
@@ -21,6 +23,7 @@ export default function ConfirmDialog({
   confirmText = '确认',
   cancelText = '取消',
   confirmVariant = 'danger',
+  hideCancel = false,
   onConfirm,
 }: ConfirmDialogProps) {
   // Close on Escape
@@ -40,8 +43,8 @@ export default function ConfirmDialog({
     onClose();
   };
 
-  const confirmBg = confirmVariant === 'danger' ? '#E53935' : '#3390EC';
-  const confirmHoverBg = confirmVariant === 'danger' ? '#C62828' : '#2A7BD6';
+  const confirmBg = confirmVariant === 'danger' ? '#E53935' : '#1BB45B';
+  const confirmHoverBg = confirmVariant === 'danger' ? '#C62828' : '#149A4C';
 
   return (
     <div
@@ -111,28 +114,30 @@ export default function ConfirmDialog({
             justifyContent: 'flex-end',
           }}
         >
-          <button
-            onClick={onClose}
-            style={{
-              padding: '8px 20px',
-              borderRadius: 8,
-              border: '1px solid rgba(0,0,0,0.1)',
-              background: '#FFFFFF',
-              color: '#646A73',
-              fontSize: 14,
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#F5F7FA';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#FFFFFF';
-            }}
-          >
-            {cancelText}
-          </button>
+          {!hideCancel && (
+            <button
+              onClick={onClose}
+              style={{
+                padding: '8px 20px',
+                borderRadius: 8,
+                border: '1px solid rgba(0,0,0,0.1)',
+                background: '#FFFFFF',
+                color: '#646A73',
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = '#F5F7FA';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = '#FFFFFF';
+              }}
+            >
+              {cancelText}
+            </button>
+          )}
           <button
             onClick={handleConfirm}
             style={{

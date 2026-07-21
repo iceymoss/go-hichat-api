@@ -1,0 +1,8 @@
+- 跨服务调用必须用 `apps/<svc>/rpc/<svc>client/` 提供的 client，**不**走 HTTP，**不**直连对方数据库
+- 在调用方 `internal/config/config.go` 加 `XxxRpc zrpc.RpcClientConf` 字段
+- 在 `internal/svc/servicecontext.go` 注入：`XxxRpc: xxx.NewXxx(zrpc.MustNewClient(c.XxxRpc))`
+- 在 `etc/*-sample.yaml` 配 etcd key + endpoints
+- RPC 错误必须正确传播，不要吞；用 `pkg/xerr` 包装成业务错误返回给前端
+- 上游超时 / 重试用 zrpc 内置中间件配置，不要在 logic 里手写 retry 循环
+- 调用链路传 ctx，不要 `context.Background()`（会丢 trace / 超时）
+- RPC 响应里的零值（0、""、false）也要保留语义，不要在客户端把零值当"未设置"

@@ -4,11 +4,10 @@ import React, { useState, useEffect, useMemo, useCallback, createContext, useCon
 import {
   contacts,
   conversationMessagesMap,
-  formatTime,
   type Conversation,
   type Contact,
   type Message,
-} from '@/lib/mock-data';
+} from '@/lib/types';
 import { useIMStore } from '@/lib/im-store';
 import { useChatStore } from '@/lib/chat-store';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -21,8 +20,14 @@ import {
   Pin,
   Trash2,
   BellOff,
+  Phone,
+  Video,
 } from 'lucide-react';
-import { getAvatarColor } from '@/lib/utils';
+import { formatTime, getAvatarColor } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
+import { useCallStore } from '@/lib/call-store';
+import AddFriendPanel from './AddFriendPanel';
+import NotificationCenter from './NotificationCenter';
 import { toast } from 'sonner';
 
 /* ═══════════════════════════════════════
@@ -32,6 +37,7 @@ import { toast } from 'sonner';
 interface SearchResultMessage {
   conversationId: string;
   conversationName: string;
+  conversationAvatar?: string;
   message: Message;
 }
 
@@ -126,6 +132,7 @@ function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   return (
     <div
       style={{
@@ -142,7 +149,7 @@ function ConfirmDialog({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#2C3E50',
+          background: '#FFFFFF',
           borderRadius: 14,
           padding: '24px 20px 16px',
           width: 320,
@@ -152,7 +159,7 @@ function ConfirmDialog({
       >
         <p
           style={{
-            color: '#FFFFFF',
+            color: '#1C2733',
             fontSize: 15,
             lineHeight: 1.6,
             marginBottom: 20,
@@ -168,22 +175,22 @@ function ConfirmDialog({
               flex: 1,
               padding: '10px 0',
               borderRadius: 10,
-              border: '1px solid rgba(255,255,255,0.15)',
+              border: '1px solid rgba(0,0,0,0.08)',
               background: 'transparent',
-              color: 'rgba(255,255,255,0.7)',
+              color: '#646A73',
               fontSize: 14,
               fontWeight: 500,
               cursor: 'pointer',
               transition: 'background 0.15s',
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)';
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLElement).style.background = 'transparent';
             }}
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -206,7 +213,7 @@ function ConfirmDialog({
               (e.currentTarget as HTMLElement).style.background = '#E53935';
             }}
           >
-            确认删除
+            {t('chatlist.confirmDelete')}
           </button>
         </div>
       </div>
@@ -242,8 +249,11 @@ function ConversationItem({
   onToggleMute?: () => void;
 }) {
   const avatarSize = 48;
+  // 群通话进行中标识（来自 streaming group.state 广播 / 进群聊补拉）
+  const activeCall = useCallStore(s => s.activeGroupCalls[conversation.id]);
   const showCheckbox = editMode;
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  const t = useT();
 
   // 关闭右键菜单
   useEffect(() => {
@@ -272,26 +282,26 @@ function ConversationItem({
         <div
           style={{
             position: 'fixed', left: ctxMenu.x, top: ctxMenu.y, zIndex: 9999,
-            background: '#2C3E50', borderRadius: 10, padding: '4px 0',
+            background: '#FFFFFF', borderRadius: 10, padding: '4px 0',
             boxShadow: '0 4px 20px rgba(0,0,0,0.4)', minWidth: 140,
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '1px solid rgba(0,0,0,0.08)',
           }}
           onClick={(e) => e.stopPropagation()}
         >
           {[
-            { label: conversation.pinned ? '取消置顶' : '置顶', action: onTogglePin },
-            { label: conversation.muted ? '取消免打扰' : '免打扰', action: onToggleMute },
-            { label: '删除会话', action: onDelete, danger: true },
+            { label: conversation.pinned ? t('chatlist.unpin') : t('chatlist.pin'), action: onTogglePin },
+            { label: conversation.muted ? t('chatlist.unmute') : t('chatlist.mute'), action: onToggleMute },
+            { label: t('chatlist.deleteConv'), action: onDelete, danger: true },
           ].map(({ label, action, danger }) => (
             <button
               key={label}
               onClick={() => { setCtxMenu(null); action?.(); }}
               style={{
                 display: 'block', width: '100%', padding: '8px 16px', border: 'none',
-                background: 'transparent', color: danger ? '#E53935' : '#FFFFFF',
+                background: 'transparent', color: danger ? '#E53935' : '#1C2733',
                 fontSize: 13, textAlign: 'left', cursor: 'pointer',
               }}
-              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
+              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'rgba(0,0,0,0.05)'; }}
               onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
             >
               {label}
@@ -306,8 +316,8 @@ function ConversationItem({
             width: 22,
             height: 22,
             borderRadius: '50%',
-            border: editSelected ? 'none' : '2px solid rgba(255,255,255,0.35)',
-            background: editSelected ? '#3390EC' : 'transparent',
+            border: editSelected ? 'none' : '2px solid #A2ACB5',
+            background: editSelected ? '#1BB45B' : 'transparent',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -330,7 +340,7 @@ function ConversationItem({
             width: avatarSize,
             height: avatarSize,
             borderRadius: '50%',
-            background: conversation.avatar ? 'transparent' : (isActive && !editMode ? 'rgba(255,255,255,0.2)' : getAvatarColor(conversation.name)),
+            background: conversation.avatar ? 'transparent' : (getAvatarColor(conversation.name)),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -355,7 +365,7 @@ function ConversationItem({
               width: 12,
               height: 12,
               background: '#4DCD5E',
-              border: `2.5px solid ${isActive && !editMode ? '#3390EC' : '#2C3E50'}`,
+              border: `2.5px solid ${isActive && !editMode ? '#1BB45B' : '#FFFFFF'}`,
             }}
           />
         )}
@@ -369,7 +379,7 @@ function ConversationItem({
             {conversation.pinned && (
               <svg
                 className="conv-pin shrink-0"
-                style={{ width: 13, height: 13, color: isActive && !editMode ? undefined : 'rgba(255,255,255,0.35)' }}
+                style={{ width: 13, height: 13, color: isActive && !editMode ? undefined : '#A2ACB5' }}
                 viewBox="0 0 24 24"
                 fill="currentColor"
               >
@@ -381,16 +391,25 @@ function ConversationItem({
               style={{
                 fontSize: 14,
                 fontWeight: 600,
-                color: isActive && !editMode ? undefined : '#FFFFFF',
+                color: isActive && !editMode ? undefined : '#1C2733',
                 lineHeight: '20px',
               }}
             >
               {conversation.name}
             </span>
+            {activeCall && activeCall.participants.length > 0 && (
+              <span
+                className="shrink-0"
+                title=""
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#1BB45B' }}
+              >
+                {activeCall.callType === 'video' ? <Video size={14} /> : <Phone size={14} />}
+              </span>
+            )}
             {conversation.muted && (
               <svg
                 className="conv-mute shrink-0"
-                style={{ width: 14, height: 14, color: isActive && !editMode ? undefined : 'rgba(255,255,255,0.35)' }}
+                style={{ width: 14, height: 14, color: isActive && !editMode ? undefined : '#A2ACB5' }}
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -406,7 +425,7 @@ function ConversationItem({
             className="conv-time shrink-0"
             style={{
               fontSize: 12,
-              color: isActive && !editMode ? undefined : 'rgba(255,255,255,0.4)',
+              color: isActive && !editMode ? undefined : '#A2ACB5',
               marginLeft: 8,
               lineHeight: '16px',
               whiteSpace: 'nowrap',
@@ -422,7 +441,7 @@ function ConversationItem({
             className="conv-message truncate"
             style={{
               fontSize: 13,
-              color: isActive && !editMode ? undefined : 'rgba(255,255,255,0.5)',
+              color: isActive && !editMode ? undefined : '#8F959E',
               lineHeight: '18px',
               paddingRight: 8,
               display: 'block',
@@ -432,29 +451,48 @@ function ConversationItem({
               whiteSpace: 'nowrap',
             }}
           >
+            {conversation.hasAtMe && (
+              <span style={{ color: '#FA5151', fontWeight: 600, marginRight: 4 }}>{t('chatlist.atMe')}</span>
+            )}
+            {conversation.hasMissedCall && (
+              <span style={{ color: '#FA5151', fontWeight: 600, marginRight: 4 }}>{t('chatlist.missedCall')}</span>
+            )}
             {conversation.lastMessage}
           </span>
           {conversation.unreadCount > 0 && (
-            <span
-              className="conv-unread shrink-0"
-              style={{
-                minWidth: 20,
-                height: 20,
-                padding: '0 6px',
-                borderRadius: 10,
-                background: isActive && !editMode ? undefined : '#3390EC',
-                color: '#FFFFFF',
-                fontSize: 11,
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                lineHeight: 1,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
-            </span>
+            conversation.muted ? (
+              /* 免打扰：仅显示小灰点，不显示数字气泡 */
+              <span
+                className="conv-unread-dot shrink-0"
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  background: '#A2ACB5',
+                }}
+              />
+            ) : (
+              <span
+                className="conv-unread shrink-0"
+                style={{
+                  minWidth: 20,
+                  height: 20,
+                  padding: '0 6px',
+                  borderRadius: 10,
+                  background: isActive && !editMode ? undefined : '#E53935',
+                  color: '#FFFFFF',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+              </span>
+            )
           )}
         </div>
       </div>
@@ -501,17 +539,17 @@ function SearchConversationItem({
       </div>
       <div className="flex-1 min-w-0">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#FFFFFF' }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#1C2733' }}>
             <HighlightText text={conv.name} query={query} />
           </span>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginLeft: 8, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 11, color: '#A2ACB5', marginLeft: 8, whiteSpace: 'nowrap' }}>
             {formatTime(conv.lastMessageTime)}
           </span>
         </div>
         <span
           style={{
             fontSize: 13,
-            color: 'rgba(255,255,255,0.45)',
+            color: '#8F959E',
             display: 'block',
             maxWidth: '100%',
             overflow: 'hidden',
@@ -547,7 +585,7 @@ function SearchContactItem({
             width: 44,
             height: 44,
             borderRadius: '50%',
-            background: getAvatarColor(contact.name),
+            background: contact.avatar ? 'transparent' : getAvatarColor(contact.name),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -558,7 +596,9 @@ function SearchContactItem({
             overflow: 'hidden',
           }}
         >
-          {contact.name[0]}
+          {contact.avatar
+            ? <img src={contact.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : contact.name[0]}
         </div>
         {contact.online && (
           <span
@@ -569,13 +609,13 @@ function SearchContactItem({
               width: 11,
               height: 11,
               background: '#4DCD5E',
-              border: '2px solid #2C3E50',
+              border: '2px solid #FFFFFF',
             }}
           />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#FFFFFF' }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#1C2733' }}>
           <HighlightText text={contact.name} query={query} />
         </span>
       </div>
@@ -604,7 +644,7 @@ function SearchMessageItem({
             width: 44,
             height: 44,
             borderRadius: '50%',
-            background: getAvatarColor(result.conversationName),
+            background: result.conversationAvatar ? 'transparent' : getAvatarColor(result.conversationName),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -615,22 +655,24 @@ function SearchMessageItem({
             overflow: 'hidden',
           }}
         >
-          {result.conversationName[0]}
+          {result.conversationAvatar
+            ? <img src={result.conversationAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : result.conversationName[0]}
         </div>
       </div>
       <div className="flex-1 min-w-0">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#1C2733' }}>
             {result.conversationName}
           </span>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginLeft: 8, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 11, color: '#C2C8CE', marginLeft: 8, whiteSpace: 'nowrap' }}>
             {formatTime(result.message.timestamp)}
           </span>
         </div>
         <span
           style={{
             fontSize: 13,
-            color: 'rgba(255,255,255,0.45)',
+            color: '#8F959E',
             display: 'block',
             maxWidth: '100%',
             overflow: 'hidden',
@@ -656,7 +698,7 @@ function SearchSectionHeader({ title, count }: { title: string; count: number })
         padding: '12px 14px 4px',
         fontSize: 12,
         fontWeight: 600,
-        color: 'rgba(255,255,255,0.35)',
+        color: '#A2ACB5',
         letterSpacing: '0.02em',
       }}
     >
@@ -682,6 +724,7 @@ function FloatingActionBar({
   onDelete: () => void;
   onToggleMute: () => void;
 }) {
+  const t = useT();
   return (
     <div
       style={{
@@ -689,8 +732,8 @@ function FloatingActionBar({
         bottom: 0,
         left: 0,
         right: 0,
-        background: '#2C3E50',
-        borderTop: '1px solid rgba(255,255,255,0.08)',
+        background: '#FFFFFF',
+        borderTop: '1px solid rgba(0,0,0,0.05)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
@@ -701,23 +744,23 @@ function FloatingActionBar({
     >
       <ActionBarButton
         icon={<CheckCheck size={20} />}
-        label="全部已读"
+        label={t('chatlist.markAllRead')}
         onClick={onMarkRead}
       />
       <ActionBarButton
         icon={<Pin size={20} />}
-        label="置顶"
+        label={t('chatlist.pin')}
         onClick={onTogglePin}
       />
       <ActionBarButton
         icon={<Trash2 size={20} />}
-        label="删除"
+        label={t('chatlist.delete')}
         danger
         onClick={onDelete}
       />
       <ActionBarButton
         icon={<BellOff size={20} />}
-        label="免打扰"
+        label={t('chatlist.mute')}
         onClick={onToggleMute}
       />
     </div>
@@ -735,7 +778,7 @@ function ActionBarButton({
   onClick: () => void;
   danger?: boolean;
 }) {
-  const color = danger ? '#E53935' : '#FFFFFF';
+  const color = danger ? '#E53935' : '#1C2733';
 
   return (
     <button
@@ -754,7 +797,7 @@ function ActionBarButton({
         color,
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)';
+        (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)';
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.background = 'transparent';
@@ -773,6 +816,8 @@ function ActionBarButton({
 
 export function ChatListToolbar() {
   const { localSearch, setLocalSearch, editMode, setEditMode, setSelectedIds } = useChatListContext();
+  const [showAddFriend, setShowAddFriend] = useState(false);
+  const t = useT();
 
   const enterEditMode = useCallback(() => {
     setEditMode(true);
@@ -790,7 +835,7 @@ export function ChatListToolbar() {
     borderRadius: 10,
     border: 'none',
     background: 'transparent',
-    color: 'rgba(255,255,255,0.7)',
+    color: '#646A73',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -807,7 +852,7 @@ export function ChatListToolbar() {
           onClick={exitEditMode}
           style={buttonStyle}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
+            (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.05)';
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.background = 'transparent';
@@ -820,7 +865,7 @@ export function ChatListToolbar() {
           onClick={enterEditMode}
           style={buttonStyle}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
+            (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.05)';
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.background = 'transparent';
@@ -838,16 +883,16 @@ export function ChatListToolbar() {
               width: '100%',
               height: 36,
               borderRadius: 20,
-              background: 'rgba(255,255,255,0.06)',
+              background: 'rgba(0,0,0,0.04)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'rgba(255,255,255,0.5)',
+              color: '#8F959E',
               fontSize: 13,
               fontWeight: 500,
             }}
           >
-            选择会话
+            {t('chatlist.selectConv')}
           </div>
         ) : (
           <>
@@ -860,14 +905,14 @@ export function ChatListToolbar() {
                 transform: 'translateY(-50%)',
                 width: 16,
                 height: 16,
-                color: 'rgba(255,255,255,0.35)',
+                color: '#A2ACB5',
                 pointerEvents: 'none',
               }}
             />
             <input
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
-              placeholder="搜索联系人、群聊"
+              placeholder={t('chatlist.searchPlaceholder')}
               className="outline-none"
               style={{
                 width: '100%',
@@ -875,10 +920,10 @@ export function ChatListToolbar() {
                 paddingLeft: 34,
                 paddingRight: 12,
                 borderRadius: 20,
-                background: '#34495E',
+                background: '#F0F2F5',
                 border: 'none',
                 fontSize: 13,
-                color: '#FFFFFF',
+                color: '#1C2733',
                 boxShadow: 'none',
               }}
             />
@@ -888,18 +933,24 @@ export function ChatListToolbar() {
 
       {/* Right: Plus icon (hidden in batch mode) */}
       {!editMode && (
-        <button
-          style={buttonStyle}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'transparent';
-          }}
-        >
-          <UserPlus size={20} />
-        </button>
+        <>
+          <NotificationCenter />
+          <button
+            style={buttonStyle}
+            onClick={() => setShowAddFriend(true)}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.05)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = 'transparent';
+            }}
+          >
+            <UserPlus size={20} />
+          </button>
+        </>
       )}
+
+      <AddFriendPanel open={showAddFriend} onClose={() => setShowAddFriend(false)} />
     </div>
   );
 }
@@ -923,6 +974,7 @@ export function ChatListContent() {
 
   const { setSelectedConversationId, selectedConversationId } = useIMStore();
   const isMobile = useIsMobile();
+  const t = useT();
 
   const searchQuery = localSearch.trim();
 
@@ -953,6 +1005,7 @@ export function ChatListContent() {
             mm.push({
               conversationId: convId,
               conversationName: conv.name,
+              conversationAvatar: conv.avatar,
               message: msg,
             });
           }
@@ -988,24 +1041,33 @@ export function ChatListContent() {
   }, [setSelectedIds]);
 
   const handleMarkRead = useCallback(() => {
+    // 走 store.clearUnread：① 更新 store conversations → 触发同步 effect 清空列表气泡，
+    // 并让侧边栏“会话”tab 的总未读数（IMLayout 从 store 重算）一并扣减；② 同步后端已读数。
+    const { clearUnread } = useChatStore.getState();
+    selectedIds.forEach((id) => clearUnread(id));
+    // 乐观更新本地副本，保证即时反馈（store 同步 effect 随后也会覆盖一致）
     setLocalConversations((prev) =>
       prev.map((c) => (selectedIds.has(c.id) ? { ...c, unreadCount: 0 } : c))
     );
-    toast.success('已标记为已读');
+    toast.success(t('chatlist.markedRead'));
   }, [selectedIds, setLocalConversations]);
 
   const handleTogglePin = useCallback(() => {
-    setLocalConversations((prev) =>
-      prev.map((c) => {
-        if (!selectedIds.has(c.id)) return c;
-        const allSelectedPinned = Array.from(selectedIds).every(
-          (id) => prev.find((conv) => conv.id === id)?.pinned
-        );
-        return { ...c, pinned: !allSelectedPinned };
-      })
+    const token = useIMStore.getState().currentUser?.token;
+    const allSelectedPinned = Array.from(selectedIds).every(
+      (id) => localConversations.find((conv) => conv.id === id)?.pinned
     );
-    toast.success(selectedIds.size > 0 ? '已更新置顶状态' : '');
-  }, [selectedIds, setLocalConversations]);
+    const nextPinned = !allSelectedPinned;
+    setLocalConversations((prev) =>
+      prev.map((c) => (selectedIds.has(c.id) ? { ...c, pinned: nextPinned } : c))
+    );
+    if (token) {
+      selectedIds.forEach(id =>
+        useChatStore.getState().setConversationSettings(token, id, { pinned: nextPinned })
+      );
+    }
+    toast.success(selectedIds.size > 0 ? t('chatlist.pinUpdated') : '');
+  }, [selectedIds, localConversations, setLocalConversations]);
 
   const handleDelete = useCallback(() => {
     setDeleteConfirm(true);
@@ -1020,21 +1082,25 @@ export function ChatListContent() {
     setSelectedIds(new Set());
     setDeleteConfirm(false);
     setEditMode(false);
-    toast.success('会话已删除');
+    toast.success(t('chatlist.convDeleted'));
   }, [selectedIds, setLocalConversations, setSelectedIds, setDeleteConfirm, setEditMode]);
 
   const handleToggleMute = useCallback(() => {
-    setLocalConversations((prev) =>
-      prev.map((c) => {
-        if (!selectedIds.has(c.id)) return c;
-        const allSelectedMuted = Array.from(selectedIds).every(
-          (id) => prev.find((conv) => conv.id === id)?.muted
-        );
-        return { ...c, muted: !allSelectedMuted };
-      })
+    const token = useIMStore.getState().currentUser?.token;
+    const allSelectedMuted = Array.from(selectedIds).every(
+      (id) => localConversations.find((conv) => conv.id === id)?.muted
     );
-    toast.success('已更新免打扰状态');
-  }, [selectedIds, setLocalConversations]);
+    const nextMuted = !allSelectedMuted;
+    setLocalConversations((prev) =>
+      prev.map((c) => (selectedIds.has(c.id) ? { ...c, muted: nextMuted } : c))
+    );
+    if (token) {
+      selectedIds.forEach(id =>
+        useChatStore.getState().setConversationSettings(token, id, { muted: nextMuted })
+      );
+    }
+    toast.success(t('chatlist.muteUpdated'));
+  }, [selectedIds, localConversations, setLocalConversations]);
 
   // ── Handle clicking a contact → open their conversation ──
   const handleContactClick = useCallback(
@@ -1064,7 +1130,7 @@ export function ChatListContent() {
               <>
                 {matchedConversations.length > 0 && (
                   <>
-                    <SearchSectionHeader title="会话" count={matchedConversations.length} />
+                    <SearchSectionHeader title={t('chatlist.section.conv')} count={matchedConversations.length} />
                     {matchedConversations.map((conv) => (
                       <SearchConversationItem
                         key={conv.id}
@@ -1077,7 +1143,7 @@ export function ChatListContent() {
                 )}
                 {matchedContacts.length > 0 && (
                   <>
-                    <SearchSectionHeader title="联系人" count={matchedContacts.length} />
+                    <SearchSectionHeader title={t('chatlist.section.contact')} count={matchedContacts.length} />
                     {matchedContacts.map((contact) => (
                       <SearchContactItem
                         key={contact.id}
@@ -1090,7 +1156,7 @@ export function ChatListContent() {
                 )}
                 {matchedMessages.length > 0 && (
                   <>
-                    <SearchSectionHeader title="聊天记录" count={matchedMessages.length} />
+                    <SearchSectionHeader title={t('chatlist.section.message')} count={matchedMessages.length} />
                     {matchedMessages.slice(0, 20).map((result, idx) => (
                       <SearchMessageItem
                         key={`${result.message.id}-${idx}`}
@@ -1109,11 +1175,11 @@ export function ChatListContent() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   height: 120,
-                  color: 'rgba(255,255,255,0.35)',
+                  color: '#A2ACB5',
                   fontSize: 13,
                 }}
               >
-                没有找到相关结果
+                {t('chatlist.noResults')}
               </div>
             )}
           </div>
@@ -1135,17 +1201,21 @@ export function ChatListContent() {
                   if (token) useChatStore.getState().deleteConversation(token, conv.id);
                   setLocalConversations(prev => prev.filter(c => c.id !== conv.id));
                   if (selectedConversationId === conv.id) setSelectedConversationId(null);
-                  toast.success('会话已删除');
+                  toast.success(t('chatlist.convDeleted'));
                 }}
                 onTogglePin={() => {
+                  const token = useIMStore.getState().currentUser?.token;
                   setLocalConversations(prev => prev.map(c =>
                     c.id === conv.id ? { ...c, pinned: !c.pinned } : c
                   ));
+                  if (token) useChatStore.getState().setConversationSettings(token, conv.id, { pinned: !conv.pinned });
                 }}
                 onToggleMute={() => {
+                  const token = useIMStore.getState().currentUser?.token;
                   setLocalConversations(prev => prev.map(c =>
                     c.id === conv.id ? { ...c, muted: !c.muted } : c
                   ));
+                  if (token) useChatStore.getState().setConversationSettings(token, conv.id, { muted: !conv.muted });
                 }}
               />
             ))}
@@ -1157,11 +1227,11 @@ export function ChatListContent() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   height: 120,
-                  color: 'rgba(255,255,255,0.35)',
+                  color: '#A2ACB5',
                   fontSize: 13,
                 }}
               >
-                暂无会话
+                {t('chatlist.empty')}
               </div>
             )}
           </>
@@ -1182,7 +1252,7 @@ export function ChatListContent() {
       {/* ═══ Delete Confirm Dialog ═══ */}
       {deleteConfirm && (
         <ConfirmDialog
-          message={`确定删除选中的 ${selectedIds.size} 个会话吗？聊天记录将清空。`}
+          message={t('chatlist.deleteConfirm').replace('{count}', String(selectedIds.size))}
           onConfirm={confirmDelete}
           onCancel={() => setDeleteConfirm(false)}
         />

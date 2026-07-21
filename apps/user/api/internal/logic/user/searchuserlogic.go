@@ -39,19 +39,28 @@ func (l *SearchUserLogic) SearchUser(req *types.SearchUserReq) (resp *types.Sear
 		Phone: req.Phone,
 		Email: req.Email,
 		Ids:   req.Ids,
+		Page:  req.Page,
+		Size:  req.Size,
 	})
 	if err != nil {
 		return nil, errors.New(xerr.ErrInternalServer, "搜索用户失败，请稍后重试")
 	}
+
+	// 手机号属隐私：仅当本次为手机号精确搜索时才回填 mobile
+	includeMobile := req.Phone != ""
 
 	// 转换响应
 	var users []types.User
 	if findResp != nil && findResp.User != nil {
 		for _, u := range findResp.User {
 			if u != nil {
+				mobile := ""
+				if includeMobile {
+					mobile = u.Phone
+				}
 				users = append(users, types.User{
 					Id:           u.Id,
-					Mobile:       u.Phone,
+					Mobile:       mobile,
 					Nickname:     u.Nickname,
 					Sex:          int(u.Sex),
 					Avatar:       u.Avatar,
@@ -61,12 +70,19 @@ func (l *SearchUserLogic) SearchUser(req *types.SearchUserReq) (resp *types.Sear
 					Region:       u.Region,
 					Occupation:   u.Occupation,
 					Tags:         u.Tags,
+					MomentsCover: u.MomentsCover,
 				})
 			}
 		}
 	}
 
+	total := int64(len(users))
+	if findResp != nil {
+		total = findResp.Total
+	}
+
 	return &types.SearchUserResp{
 		Users: users,
+		Total: total,
 	}, nil
 }

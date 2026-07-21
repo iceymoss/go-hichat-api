@@ -26,6 +26,9 @@ CREATE TABLE `friend_requests` (
                                    `handle_result` tinyint DEFAULT NULL COMMENT '处理结果（0:待处理 1:同意 2:拒绝）',
                                    `handle_msg` varchar(255) DEFAULT NULL COMMENT '处理结果备注',
                                    `handled_at` timestamp NULL DEFAULT NULL COMMENT '处理操作时间',
+                                   `read_state` tinyint NOT NULL DEFAULT '0' COMMENT '读取状态（0:未读 1:已读）',
+                                   `receiver_read` tinyint NOT NULL DEFAULT '0' COMMENT '接收方已读（0:未读 1:已读）',
+                                   `sender_read` tinyint NOT NULL DEFAULT '0' COMMENT '发起方已读处理结果（0:未读 1:已读）',
                                    PRIMARY KEY (`id`),
                                    KEY `idx_user` (`user_id`) COMMENT '申请人维度索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='好友请求表';
@@ -47,6 +50,7 @@ CREATE TABLE `groups` (
                           `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '自增主键',
                           `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '群名称',
                           `icon` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '群头像URL',
+                          `description` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '群描述',
                           `status` tinyint DEFAULT NULL COMMENT '群状态（0:正常 1:已解散 2:封禁）',
                           `creator_uid` int(11) unsigned NOT NULL COMMENT '群主用户ID',
                           `group_type` int(11) NOT NULL COMMENT '群类型（1:普通群 2:企业群 3:粉丝群...）',
@@ -68,6 +72,8 @@ CREATE TABLE `group_members` (
                                  `join_source` tinyint DEFAULT NULL COMMENT '加入来源（1:扫码 2:邀请 3:搜索...）',
                                  `inviter_uid` int(11) unsigned DEFAULT NULL COMMENT '邀请人用户ID',
                                  `operator_uid` int(11) unsigned DEFAULT NULL COMMENT '操作人用户ID',
+                                 `group_nickname` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '群内昵称',
+                                 `group_remark` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '群备注（仅自己可见）',
                                  PRIMARY KEY (`id`),
                                  UNIQUE KEY `uk_member` (`group_id`,`user_id`) COMMENT '群内成员唯一性约束'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='群成员表';
@@ -84,6 +90,7 @@ CREATE TABLE `group_requests` (
                                   `handle_user_id` int(11) unsigned DEFAULT NULL COMMENT '请求处理人ID',
                                   `handle_time` timestamp NULL DEFAULT NULL COMMENT '处理时间',
                                   `handle_result` tinyint DEFAULT NULL COMMENT '处理结果（0:待处理 1:同意 2:拒绝）',
+                                  `receiver_read` tinyint NOT NULL DEFAULT '0' COMMENT '接收方(群主/管理员)已读 0未读 1已读',
                                   PRIMARY KEY (`id`),
                                   KEY `idx_group` (`group_id`) COMMENT '群组维度查询索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='加群请求表';

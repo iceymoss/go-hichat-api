@@ -53,6 +53,7 @@ func (l *FriendPutInLogic) FriendPutIn(req *types.FriendPutInReq) (resp *types.F
 		UserId:  uid,
 		ReqUid:  req.UserId,
 		ReqMsg:  req.ReqMsg,
+		Remark:  req.Remark,
 		ReqTime: utils.TimeToChinaUnix(chinaNow),
 	})
 	if err != nil {

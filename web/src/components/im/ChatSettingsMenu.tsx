@@ -18,8 +18,12 @@ import {
   Trash2,
   Ban,
   Flag,
+  Info,
+  LogOut,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useT } from '@/hooks/use-i18n';
+import { toast } from 'sonner';
 
 interface ChatSettingsMenuProps {
   conversation: {
@@ -32,6 +36,13 @@ interface ChatSettingsMenuProps {
   onPinnedChange: (pinned: boolean) => void;
   onClearChat: () => void;
   onSearchHistory: () => void;
+  onViewProfile?: () => void;
+  onBlock?: () => void;
+  onReport?: () => void;
+  /** 群聊：渲染「群信息 / 退出群聊」取代私聊的「查看资料 / 拉黑 / 举报」 */
+  isGroup?: boolean;
+  onGroupInfo?: () => void;
+  onQuitGroup?: () => void;
   children: ReactNode;
 }
 
@@ -46,8 +57,16 @@ export default function ChatSettingsMenu({
   onPinnedChange,
   onClearChat,
   onSearchHistory,
+  onViewProfile,
+  onBlock,
+  onReport,
+  isGroup,
+  onGroupInfo,
+  onQuitGroup,
   children,
 }: ChatSettingsMenuProps) {
+  const t = useT();
+  const wip = () => toast(t('common.featureWip'));
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
@@ -65,11 +84,15 @@ export default function ChatSettingsMenu({
         }}
       >
         {/* Group 1 — 会话信息与搜索 */}
-        <MenuItem icon={<User />} label="查看资料" />
+        {isGroup ? (
+          <MenuItem icon={<Info />} label={t('csmenu.groupInfo')} onSelect={onGroupInfo || wip} />
+        ) : (
+          <MenuItem icon={<User />} label={t('csmenu.viewProfile')} onSelect={onViewProfile || wip} />
+        )}
 
         <MenuItem
           icon={<Search />}
-          label="查找聊天记录"
+          label={t('csmenu.searchHistory')}
           onSelect={onSearchHistory}
         />
 
@@ -84,19 +107,19 @@ export default function ChatSettingsMenu({
 
         <SwitchMenuItem
           icon={<BellOff />}
-          label="消息免打扰"
+          label={t('csmenu.mute')}
           checked={conversation.muted}
           onCheckedChange={onMutedChange}
         />
 
         <SwitchMenuItem
           icon={<Pin />}
-          label="置顶会话"
+          label={t('csmenu.pin')}
           checked={conversation.pinned}
           onCheckedChange={onPinnedChange}
         />
 
-        <MenuItem icon={<ImageIcon />} label="设置当前聊天背景" />
+        <MenuItem icon={<ImageIcon />} label={t('csmenu.setBg')} onSelect={wip} />
 
         {/* Group 3 — 媒体与文件 */}
         <DropdownMenuSeparator
@@ -107,7 +130,7 @@ export default function ChatSettingsMenu({
           }}
         />
 
-        <MenuItem icon={<FolderOpen />} label="共享文件/媒体" />
+        <MenuItem icon={<FolderOpen />} label={t('csmenu.sharedFiles')} onSelect={wip} />
 
         {/* Red divider before danger zone */}
         <DropdownMenuSeparator
@@ -121,12 +144,18 @@ export default function ChatSettingsMenu({
         {/* Group 4 — 危险操作 */}
         <MenuItem
           icon={<Trash2 />}
-          label="清空聊天记录"
+          label={t('csmenu.clearHistory')}
           danger
           onSelect={onClearChat}
         />
-        <MenuItem icon={<Ban />} label="拉黑该用户" danger />
-        <MenuItem icon={<Flag />} label="举报..." danger />
+        {isGroup ? (
+          <MenuItem icon={<LogOut />} label={t('csmenu.quitGroup')} danger onSelect={onQuitGroup || wip} />
+        ) : (
+          <>
+            <MenuItem icon={<Ban />} label={t('csmenu.block')} danger onSelect={onBlock || wip} />
+            <MenuItem icon={<Flag />} label={t('csmenu.report')} danger onSelect={onReport || wip} />
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

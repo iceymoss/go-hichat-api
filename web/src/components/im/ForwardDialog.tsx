@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { X } from 'lucide-react';
-import { type Message } from '@/lib/mock-data';
+import { type Message } from '@/lib/types';
+import { mediaPreview } from '@/lib/media-message';
 import { useChatStore } from '@/lib/chat-store';
 import { getAvatarColor } from '@/lib/utils';
 
@@ -73,7 +74,7 @@ export default function ForwardDialog({ message, onClose, onForward }: ForwardDi
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           padding: '6px 0',
         }}>
-          {message.content}
+          {mediaPreview(message.type, message.content)}
         </div>
 
         {/* Conversation list */}
@@ -108,11 +109,13 @@ export default function ForwardDialog({ message, onClose, onForward }: ForwardDi
             >
               <div style={{
                 width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                background: getAvatarColor(conv.name),
+                background: conv.avatar ? 'transparent' : getAvatarColor(conv.name),
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#FFFFFF', fontSize: 14, fontWeight: 600,
+                color: '#FFFFFF', fontSize: 14, fontWeight: 600, overflow: 'hidden',
               }}>
-                {conv.name[0]}
+                {conv.avatar
+                  ? <img src={conv.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : conv.name[0]}
               </div>
               <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
                 <div style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 500 }}>

@@ -19,6 +19,9 @@ import {
   getConversations,
   setupConversation,
   updateConversations,
+  setConversationSettings as apiSetConversationSettings,
+  recallMsg,
+  getAtMeMessages,
   type ChatLogItem,
   type ConversationItem,
   type BackendUser,
@@ -26,23 +29,66 @@ import {
 import { useIMStore } from './im-store';
 import { playMessageSound, vibrate } from './notification';
 import { useSettingsStore } from './settings-store';
-import type { Message, Conversation } from './mock-data';
+import { mediaPreview } from './media-message';
+import { useCallStore } from './call-store';
+import type { CallSignal } from './call-engine';
+import type { Message, Conversation } from './types';
+import { toast } from 'sonner';
+import { sendFriendRequest } from './friend-group-api';
+
+// 私聊被后端鉴权拦截（对方已删好友）时，顶部弹"重新添加好友"通知。
+// 与红感叹号（消息标 failed）并行：感叹号是消息级反馈，这条是关系级引导。
+// 文案硬编码中文，与本模块其余 toast（AddFriendPanel/GroupList 等）保持一致。
+function notifyFriendBlocked(peerId: string) {
+  toast('你们已不是好友，是否重新添加好友', {
+    id: `friend-block-${peerId}`, // 稳定 id：连发多条只弹一个，不堆叠
+    duration: 6000,
+    action: {
+      label: '重新添加',
+      onClick: async () => {
+        const token = useIMStore.getState().currentUser?.token;
+        if (!token) return;
+        const ok = await sendFriendRequest(token, peerId);
+        if (ok) toast.success('好友请求已发送');
+        else toast.error('发送失败，请重试');
+      },
+    },
+  });
+}
 
 // ========== 消息类型映射 ==========
 
 const backMsgTypeMap: Record<number, Message['type']> = {
   [MsgType.Text]: 'text',
-  [MsgType.File]: 'text',     // 暂时作为 text 展示
+  [MsgType.File]: 'file',
   [MsgType.Voice]: 'voice',
   [MsgType.Image]: 'image',
-  [MsgType.Memes]: 'text',
+  [MsgType.Memes]: 'memes',
+  [MsgType.Video]: 'video',
+  [MsgType.Call]: 'call',
 };
 
 const frontMsgTypeMap: Record<string, number> = {
   text: MsgType.Text,
   image: MsgType.Image,
   voice: MsgType.Voice,
+  file: MsgType.File,
+  video: MsgType.Video,
+  memes: MsgType.Memes,
+  call: MsgType.Call,
 };
+
+/** 解析引用消息 JSON（{id,uid,name,preview,mType,thumb}）为 Message.replyTo */
+function quoteToReplyTo(quote?: string): Message['replyTo'] {
+  if (!quote) return undefined;
+  try {
+    const q = JSON.parse(quote);
+    if (q && (q.name || q.preview)) {
+      return { senderName: q.name || '', content: q.preview || '', msgId: q.id, senderId: q.uid, mType: q.mType, thumbUrl: q.thumb };
+    }
+  } catch { /* ignore */ }
+  return undefined;
+}
 
 // ========== Store 接口 ==========
 
@@ -57,7 +103,7 @@ export interface GroupMember {
   user_id: string;
   nickname: string;
   user_avatar_url: string;
-  role_level: number; // 1=member, 2=admin, 3=owner
+  role_level: number; // 与后端 GroupRoleLevel 一致：0=普通成员 1=管理员 2=群主
   group_nickname: string;
 }
 
@@ -86,13 +132,43 @@ interface ChatState {
   destroyWs: () => void;
   fetchConversations: (token: string) => Promise<void>;
   fetchMessages: (token: string, conversationId: string, oldestMsgId?: string) => Promise<void>;
-  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string) => void;
+  /** 哪些会话处于"浏览历史"态（跳转到了非最新窗口） */
+  anchoredConvs: Record<string, boolean>;
+  /** 跳转到某条消息的上下文窗口（替换当前列表），返回是否命中目标 */
+  jumpToContext: (token: string, conversationId: string, msgId: string) => Promise<boolean>;
+  /** 向下增量加载更新的消息（浏览历史态用），返回是否已到最新 */
+  fetchNewer: (token: string, conversationId: string) => Promise<boolean>;
+  /** 回到最新页（退出浏览历史态） */
+  backToLatest: (token: string, conversationId: string) => Promise<void>;  sendMessage: (token: string, userId: string, conversationId: string, content: string, msgType?: string, quote?: string, mentions?: { atUsers?: string[]; atAll?: boolean }) => void;
+  /** 通话结束后由主叫端投递一条通话记录消息（mType=call），双方会话内展示，可点击回拨 */
+  sendCallRecord: (peerId: string, callType: 'voice' | 'video', status: string, duration: number) => void;
+  /** 群通话结束由发起人投递一条群聊通话记录 */
+  sendGroupCallRecord: (groupId: string, callType: 'voice' | 'video', status: string, duration: number) => void;
   resendMessage: (token: string, userId: string, conversationId: string, msgId: string) => void;
   markRead: (userId: string, conversationId: string, msgIds: string[]) => void;
+  /** 撤回消息：调后端校验，成功后原位置为撤回态（ws 事件会同步其它端） */
+  recallMessage: (token: string, conversationId: string, msgId: string) => Promise<void>;
   getOrCreateConversation: (token: string, userId: string, targetId: string) => Promise<Conversation>;
   deleteConversation: (token: string, conversationId: string) => void;
+  setConversationSettings: (token: string, conversationId: string, settings: { pinned?: boolean; muted?: boolean }) => Promise<void>;
   clearUnread: (conversationId: string) => void;
+  /** 各会话中"@我且未读"的消息 id 列表（按时间升序），供"有人@我"横幅逐条跳转 */
+  atMeMap: Record<string, string[]>;
+  /** 拉取某会话 @我未读消息列表（进会话时调用，先于 markRead 生效以避免被标已读清空） */
+  fetchAtMe: (token: string, conversationId: string) => Promise<void>;
+  /** 消费（移除）一条已跳转的 @我消息 */
+  consumeAtMe: (conversationId: string, msgId: string) => void;
+  /** 清空某会话的 @我列表（关闭横幅 / 离开会话） */
+  clearAtMe: (conversationId: string) => void;
   fetchGroupMembers: (token: string, groupId: string) => Promise<void>;
+  ensureUserProfiles: (token: string, userIds: string[]) => void;
+  /** 已播放语音消息 id 集合（控制未读红点），本地持久化 */
+  playedVoices: Record<string, true>;
+  markVoicePlayed: (msgId: string) => void;
+  /** 已失效的会话（被踢/退群/解散/删好友），值含事件类型，前端据此禁用输入 */
+  disabledConversations: Record<string, { eventType: string; operatorId?: string }>;
+  /** 标记某群会话为"已被移出/解散"：禁用输入框 + 插入系统消息（按稳定 id 去重）。relation.changed 与打开会话成员校验共用。 */
+  markGroupRemoved: (conversationId: string, eventType: string) => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -103,6 +179,23 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   userProfiles: {},
   loadingConversations: false,
   loadingMessages: {},
+  disabledConversations: {},
+  playedVoices: (() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem('hichat_played_voices') || '{}'); }
+    catch { return {}; }
+  })(),
+
+  markVoicePlayed: (msgId: string) => {
+    if (get().playedVoices[msgId]) return;
+    set(s => {
+      const next = { ...s.playedVoices, [msgId]: true as const };
+      if (typeof window !== 'undefined') {
+        try { localStorage.setItem('hichat_played_voices', JSON.stringify(next)); } catch { /* ignore */ }
+      }
+      return { playedVoices: next };
+    });
+  },
 
   // ==================== WebSocket 生命周期 ====================
 
@@ -118,7 +211,36 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       url: wsUrl || defaultWsUrl,
       token,
       onStateChange: (state) => set({ wsState: state }),
-      onError: (err) => console.error('[ChatStore] ws error:', err),
+      onError: (err, msgId) => {
+        // 业务错误帧（发送被鉴权拦截）：ACK 已先 resolve 了 send promise，故在此按消息 id 把对应消息标记失败（红感叹号）。
+        if (msgId) {
+          // 先定位消息所在会话（只读），再标失败 + 私聊场景弹"重新添加好友"
+          const state = get();
+          let foundCid: string | undefined;
+          for (const cid of Object.keys(state.messagesMap)) {
+            if (state.messagesMap[cid].some(m => m.id === msgId)) { foundCid = cid; break; }
+          }
+          if (!foundCid) return;
+
+          set(s => {
+            const arr = s.messagesMap[foundCid!];
+            const idx = arr.findIndex(m => m.id === msgId);
+            if (idx < 0) return {};
+            const copy = arr.slice();
+            copy[idx] = { ...copy[idx], status: 'failed' };
+            return { messagesMap: { ...s.messagesMap, [foundCid!]: copy } };
+          });
+
+          // 仅私聊被拦才引导重加好友；群被移出已有横幅 + 系统消息闭环，跳过。
+          const conv = state.conversations.find(c => c.id === foundCid);
+          if (conv?.type === 'private') {
+            const peerId = foundCid.split('_').find(p => p !== userId);
+            if (peerId) notifyFriendBlocked(peerId);
+          }
+          return;
+        }
+        console.warn('[ChatStore] ws error:', err);
+      },
     });
 
     // 服务端推送消息 — push.go NewMessage 不设 method，所以 method 为 ""
@@ -129,6 +251,75 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     });
 
     ws.on('chat.ping', () => { /* pong */ });
+
+    // 动态消息通知（赞/评论/回复/@）：实时 +1 未读并 bump 版本，供 MomentsFeed 刷新列表
+    ws.on('trend.notify', () => {
+      const imStore = useIMStore.getState();
+      imStore.setMomentsUnreadCount(imStore.momentsUnreadCount + 1);
+      imStore.bumpTrendNotifyVersion();
+    });
+
+    // 关系变更：好友删除走隐式（不禁用输入框，发送时红感叹号闭环）；仅群事件（被踢/解散）显式禁用 + 通知
+    ws.on('relation.changed', (data) => {
+      const evt = data as { conversationId?: string; eventType?: string; operatorId?: string } | null;
+      if (!evt?.conversationId) return;
+      if (evt.eventType !== 'group.member.removed' && evt.eventType !== 'group.disbanded') return;
+      get().markGroupRemoved(evt.conversationId, evt.eventType);
+    });
+
+    // 音视频通话控制信令：来电/接听/拒接/挂断/超时 -> 通话 store 驱动来电与通话界面
+    ws.on('call.signal', (data) => {
+      const sig = data as CallSignal | null;
+      if (!sig?.event) return;
+      useCallStore.getState().onSignal(sig);
+    });
+
+    // 公共通知（好友/群申请等）：按 notifyType 分发 —— 实时红点 + 气泡提示（点击跳到对应入口）。
+    // 文案硬编码中文，与本模块其余 toast 保持一致；历史列表/已读由通知中心走 REST 拉取。
+    ws.on('notify', (data) => {
+      const n = data as { notifyType?: string } | null;
+      if (!n?.notifyType) return;
+      const imStore = useIMStore.getState();
+      // 点击气泡跳到来源 + 子 tab（好友→新的朋友；群→群申请）
+      const go = { label: '查看', onClick: () => useIMStore.getState().navigateToNotificationSource(n.notifyType!) };
+      switch (n.notifyType) {
+        case 'friend.apply':
+          imStore.setFriendRequestUnreadCount(imStore.friendRequestUnreadCount + 1);
+          toast('有人申请添加你为好友', { action: go });
+          break;
+        case 'friend.accept':
+          toast.success('对方通过了你的好友申请', { action: go });
+          break;
+        case 'friend.reject':
+          toast('对方拒绝了你的好友申请', { action: go });
+          break;
+        case 'group.apply':
+          imStore.setGroupAppUnreadCount(imStore.groupAppUnreadCount + 1);
+          toast('有人申请加入你管理的群聊', { action: go });
+          break;
+        case 'group.accept':
+          toast.success('你的入群申请已通过', { action: go });
+          break;
+        case 'group.reject':
+          toast('你的入群申请被拒绝', { action: go });
+          break;
+        case 'group.removed':
+          toast('你已被移出群聊');
+          break;
+        case 'group.admin.set':
+          toast.success('你已被设为群管理员');
+          break;
+        case 'group.admin.unset':
+          toast('你已被取消群管理员');
+          break;
+        case 'group.owner.transferred':
+          toast.success('你已成为新群主');
+          break;
+      }
+      // 通知未读总数 +1（驱动「联系人」tab 气泡 + 铃铛角标）并 bump 版本刷新通知中心
+      imStore.setNotificationUnreadCount(imStore.notificationUnreadCount + 1);
+      imStore.bumpNotificationVersion();
+    });
 
     ws.connect();
 
@@ -207,6 +398,15 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         for (const gc of groupConvs) {
           get().fetchGroupMembers(token, gc.id);
         }
+
+        // 预加载私聊对方的用户资料（昵称/头像），保证会话标题、引用归属、回复名稳定可解析
+        const peerIds = new Set<string>();
+        for (const c of list) {
+          if (c.type !== 'private') continue;
+          const peerId = c.id.split('_').find(p => p !== currentUserId);
+          if (peerId && !get().userProfiles[peerId]) peerIds.add(peerId);
+        }
+        if (peerIds.size > 0) resolveUserProfiles(token, Array.from(peerIds));
       }
     } catch (e) {
       console.error('[ChatStore] fetch conversations error:', e);
@@ -226,7 +426,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         const existing = s.messagesMap[conversationId] || [];
         // 加载更早的历史：放在前面；首次加载：替换
         const merged = oldestMsgId ? [...list, ...existing] : list;
-        return { messagesMap: { ...s.messagesMap, [conversationId]: merged } };
+        // 全量加载（无游标）= 回到最新，清除浏览历史态
+        const anchoredConvs = oldestMsgId ? s.anchoredConvs : { ...s.anchoredConvs, [conversationId]: false };
+        return { messagesMap: { ...s.messagesMap, [conversationId]: merged }, anchoredConvs };
       });
     } catch (e) {
       console.error('[ChatStore] fetch messages error:', e);
@@ -235,11 +437,93 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }
   },
 
+  anchoredConvs: {},
+
+  jumpToContext: async (token, conversationId, msgId) => {
+    try {
+      // around：目标消息 + 其前若干条（含目标），API 返回倒序 → reverse 成正序
+      const resp = await getChatLog(token, conversationId, msgId, 30, 'around');
+      const list = (resp?.list || []).map(mapChatLog).reverse();
+      const hit = list.some(m => m.id === msgId);
+      if (!hit) return false;
+      set(s => ({
+        messagesMap: { ...s.messagesMap, [conversationId]: list },
+        anchoredConvs: { ...s.anchoredConvs, [conversationId]: true },
+      }));
+      return true;
+    } catch (e) {
+      console.error('[ChatStore] jumpToContext error:', e);
+      return false;
+    }
+  },
+
+  fetchNewer: async (token, conversationId) => {
+    const existing = get().messagesMap[conversationId] || [];
+    const newest = existing[existing.length - 1];
+    if (!newest) return true;
+    try {
+      // newer：严格晚于游标的若干条，API 已按时间升序返回 → 不 reverse，直接追加
+      const resp = await getChatLog(token, conversationId, newest.id, 30, 'newer');
+      const list = (resp?.list || []).map(mapChatLog);
+      // 去重（防止边界重复）
+      const seen = new Set(existing.map(m => m.id));
+      const fresh = list.filter(m => !seen.has(m.id));
+      const reachedLatest = list.length < 30; // 不足一页 → 已到最新
+      set(s => ({
+        messagesMap: { ...s.messagesMap, [conversationId]: [...(s.messagesMap[conversationId] || []), ...fresh] },
+        anchoredConvs: reachedLatest
+          ? { ...s.anchoredConvs, [conversationId]: false }
+          : s.anchoredConvs,
+      }));
+      return reachedLatest;
+    } catch (e) {
+      console.error('[ChatStore] fetchNewer error:', e);
+      return false;
+    }
+  },
+
+  backToLatest: async (token, conversationId) => {
+    set(s => ({ anchoredConvs: { ...s.anchoredConvs, [conversationId]: false } }));
+    await get().fetchMessages(token, conversationId);
+  },
+
+  atMeMap: {},
+
+  fetchAtMe: async (token, conversationId) => {
+    try {
+      const resp = await getAtMeMessages(token, conversationId);
+      const ids = (resp?.list || []).map(m => m.id).filter(Boolean) as string[];
+      set(s => ({ atMeMap: { ...s.atMeMap, [conversationId]: ids } }));
+    } catch (e) {
+      console.error('[ChatStore] fetchAtMe error:', e);
+    }
+  },
+
+  consumeAtMe: (conversationId, msgId) => {
+    set(s => {
+      const cur = s.atMeMap[conversationId];
+      if (!cur || cur.length === 0) return s;
+      const next = cur.filter(id => id !== msgId);
+      return { atMeMap: { ...s.atMeMap, [conversationId]: next } };
+    });
+  },
+
+  clearAtMe: (conversationId) => {
+    set(s => {
+      if (!s.atMeMap[conversationId]?.length) return s;
+      return { atMeMap: { ...s.atMeMap, [conversationId]: [] } };
+    });
+  },
+
   // ==================== 发送消息 ====================
 
-  sendMessage: (token, userId, conversationId, content, msgType = 'text') => {
+  sendMessage: (token, userId, conversationId, content, msgType = 'text', quote, mentions) => {
     const conv = get().conversations.find(c => c.id === conversationId);
     const chatType = conv?.type === 'group' ? ChatType.Group : ChatType.Single;
+
+    // @ 仅群聊生效
+    const atUsers = chatType === ChatType.Group ? (mentions?.atUsers || undefined) : undefined;
+    const atAll = chatType === ChatType.Group ? !!mentions?.atAll : false;
 
     // 解析接收者 ID
     let recvId = '';
@@ -259,13 +543,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       timestamp: new Date(),
       type: (msgType as Message['type']) || 'text',
       status: 'sending',
+      replyTo: quoteToReplyTo(quote),
+      atUsers,
+      atAll,
     };
 
     set(s => {
       const msgs = [...(s.messagesMap[conversationId] || []), localMsg];
       const convs = s.conversations.map(c =>
         c.id === conversationId
-          ? { ...c, lastMessage: content, lastMessageTime: new Date() }
+          ? { ...c, lastMessage: mediaPreview(localMsg.type, content), lastMessageTime: new Date() }
           : c,
       );
       return { messagesMap: { ...s.messagesMap, [conversationId]: msgs }, conversations: convs };
@@ -282,7 +569,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       msg: {
         mType: frontMsgTypeMap[msgType] || MsgType.Text,
         content,
+        quote,
         readRecords: {},
+        atUsers,
+        atAll: atAll || undefined,
       },
     };
 
@@ -295,12 +585,35 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       });
     };
 
-    ws.send('chat.user', wsData)
+    ws.send('chat.user', wsData, localMsgId)
       .then(() => updateMsgStatus('sent'))
       .catch(err => {
-        console.error('[ChatStore] send failed:', err);
+        // 被鉴权闸门拦截 / 超时等：标记失败（红感叹号）即可，不 console.error 以免开发模式错误浮层
+        console.warn('[ChatStore] send failed:', err);
         updateMsgStatus('failed');
       });
+  },
+
+  // ==================== 通话记录 ====================
+
+  sendCallRecord: (peerId, callType, status, duration) => {
+    const me = useIMStore.getState().currentUser;
+    if (!me?.token || !me.id) return;
+    // 私聊会话 id：优先用已存在的会话，否则按 uid 排序拼（与后端一致的稳定顺序）
+    const existing = get().conversations.find(
+      c => c.type === 'private' && c.id.split('_').includes(peerId) && c.id.split('_').includes(me.id),
+    );
+    const conversationId = existing?.id || [me.id, peerId].sort().join('_');
+    const content = JSON.stringify({ callType, status, duration });
+    get().sendMessage(me.token, me.id, conversationId, content, 'call');
+  },
+
+  sendGroupCallRecord: (groupId, callType, status, duration) => {
+    const me = useIMStore.getState().currentUser;
+    if (!me?.token || !me.id) return;
+    const content = JSON.stringify({ callType, status, duration, scope: 'group' });
+    // 群聊会话 id 即 groupId
+    get().sendMessage(me.token, me.id, groupId, content, 'call');
   },
 
   // ==================== 重发失败消息 ====================
@@ -341,6 +654,15 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     getIMWs().send('chat.markChat', {
       chatType, recvId, conversationId, sendId: userId, msgIds, readRecords,
     }).catch(err => console.error('[ChatStore] markRead failed:', err));
+  },
+
+  recallMessage: async (token, conversationId, msgId) => {
+    const conv = get().conversations.find(c => c.id === conversationId);
+    const chatType = conv?.type === 'group' ? ChatType.Group : ChatType.Single;
+    const userId = useIMStore.getState().currentUser?.id;
+    // 调后端校验+撤回；成功后乐观置态（ws 撤回事件会同步本人其它端及会话各端）
+    await recallMsg(token, conversationId, msgId, chatType);
+    applyRecall(conversationId, msgId, userId);
   },
 
   // ==================== 建立会话 ====================
@@ -410,16 +732,40 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }).catch(err => console.error('[ChatStore] deleteConversation failed:', err));
   },
 
+  // ==================== 置顶 / 免打扰 ====================
+
+  setConversationSettings: async (token, conversationId, settings) => {
+    const prev = get().conversations;
+    const target = prev.find(c => c.id === conversationId);
+    if (!target) return;
+    const nextPinned = settings.pinned ?? target.pinned;
+    const nextMuted = settings.muted ?? target.muted;
+
+    // 乐观更新
+    set({
+      conversations: prev.map(c =>
+        c.id === conversationId ? { ...c, pinned: nextPinned, muted: nextMuted } : c
+      ),
+    });
+
+    try {
+      await apiSetConversationSettings(token, conversationId, nextPinned, nextMuted);
+    } catch (e) {
+      console.error('[ChatStore] setConversationSettings failed:', e);
+      set({ conversations: prev }); // 失败回滚
+    }
+  },
+
   // ==================== 清除未读 ====================
 
   clearUnread: (conversationId) => {
     const conv = get().conversations.find(c => c.id === conversationId);
     const unreadCount = conv?.unreadCount || 0;
 
-    // 1. 清除前端未读计数
+    // 1. 清除前端未读计数（含 @我 / 未接来电 角标）
     set(s => ({
       conversations: s.conversations.map(c =>
-        c.id === conversationId ? { ...c, unreadCount: 0 } : c,
+        c.id === conversationId ? { ...c, unreadCount: 0, hasAtMe: false, hasMissedCall: false } : c,
       ),
     }));
 
@@ -466,6 +812,36 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       console.error('[ChatStore] fetchGroupMembers error:', e);
     }
   },
+
+  ensureUserProfiles: (token, userIds) => {
+    const missing = userIds.filter(id => id && !get().userProfiles[id]);
+    if (missing.length > 0) resolveUserProfiles(token, missing);
+  },
+
+  markGroupRemoved: (conversationId, eventType) => {
+    set(s => {
+      const sysId = `system_removed_${conversationId}`;
+      const existing = s.messagesMap[conversationId] || [];
+      const next: Partial<ChatState> = {
+        disabledConversations: {
+          ...s.disabledConversations,
+          [conversationId]: { eventType },
+        },
+      };
+      // 插入"你已被移出群聊 / 该群聊已解散"系统消息（稳定 id 去重，避免实时帧 + 打开校验重复插）
+      if (!existing.some(m => m.id === sysId)) {
+        const sysMsg: Message = {
+          id: sysId,
+          senderId: 'system',
+          content: eventType === 'group.disbanded' ? '该群聊已解散' : '你已被移出群聊',
+          timestamp: new Date(),
+          type: 'system',
+        };
+        next.messagesMap = { ...s.messagesMap, [conversationId]: [...existing, sysMsg] };
+      }
+      return next;
+    });
+  },
 }));
 
 // ========== 内部辅助函数 ==========
@@ -492,17 +868,28 @@ function parseTimestamp(ts: number): Date {
 
 function mapConversation(raw: ConversationItem): Conversation {
   const msg = raw.message;
+  const unread = calcUnread(raw.seq, raw.read);
+  // 历史未接来电：最后一条是对方发来的通话记录、状态为超时/取消、且未读 → 红标
+  const me = useIMStore.getState().currentUser?.id;
+  const missedCall = !!msg && msg.msgType === MsgType.Call && msg.sendId !== me && unread > 0 && (() => {
+    try {
+      const c = JSON.parse(msg.msgContent) as { status?: string };
+      return c.status === 'no_answer' || c.status === 'canceled';
+    } catch { return false; }
+  })();
   return {
     id: raw.conversationId,
     type: raw.chatType === ChatType.Group ? 'group' : 'private',
     name: (raw as any).targetName || raw.conversationId,
     avatar: (raw as any).targetAvatar || '',
-    lastMessage: msg?.msgContent || '',
+    lastMessage: msg ? mediaPreview(backMsgTypeMap[msg.msgType] || 'text', msg.msgContent) : '',
     lastMessageTime: msg?.sendTime ? parseTimestamp(msg.sendTime) : new Date(),
-    unreadCount: calcUnread(raw.seq, raw.read),
-    pinned: false,
-    muted: false,
+    unreadCount: unread,
+    pinned: !!raw.isTop,
+    muted: !!raw.isMute,
     members: (raw as any).memberCount || undefined,
+    hasAtMe: !!(raw as any).hasAtMe,
+    hasMissedCall: missedCall,
   };
 }
 
@@ -513,6 +900,11 @@ function mapChatLog(log: ChatLogItem): Message {
     content: log.msgContent,
     timestamp: log.sendTime ? parseTimestamp(log.sendTime) : new Date(),
     type: backMsgTypeMap[log.msgType] || 'text',
+    replyTo: quoteToReplyTo(log.quote),
+    recalled: log.status === 1,
+    recalledBy: log.recalledBy,
+    atUsers: log.atUsers,
+    atAll: log.atAll,
   };
   // 从 REST 返回的 readRecords 恢复已读状态。
   // 服务端语义：
@@ -678,6 +1070,31 @@ function consumePendingReceipt(m: Message): Message {
   return { ...m, isRead: pend.isRead, readCount: pend.readCount };
 }
 
+/** 把某条消息原位置为撤回态（撤回事件 / 本人撤回乐观更新共用） */
+function applyRecall(convId: string, msgId: string | undefined, recalledBy?: string) {
+  if (!msgId) return;
+  useChatStore.setState(s => {
+    const list = s.messagesMap[convId];
+    if (!list) return {};
+    let changed = false;
+    const msgs = list.map(m => {
+      if (m.id === msgId && !m.recalled) {
+        changed = true;
+        return { ...m, recalled: true, recalledBy };
+      }
+      return m;
+    });
+    if (!changed) return {};
+    // 同步会话列表的最后一条预览（若被撤回的就是最新一条）
+    const convs = s.conversations.map(c =>
+      c.id === convId && msgs.length > 0 && msgs[msgs.length - 1].id === msgId
+        ? { ...c, lastMessage: '撤回了一条消息' }
+        : c,
+    );
+    return { messagesMap: { ...s.messagesMap, [convId]: msgs }, conversations: convs };
+  });
+}
+
 /** 处理服务端推送的消息 */
 function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: string) {
   // 先拦截已读回执：不落为一条新消息，只去更新既有消息的 isRead
@@ -699,6 +1116,12 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     return;
   }
 
+  // 撤回事件：把对应消息原位置为撤回态，并刷新会话最后一条预览
+  if (chat.contentType === ContentType.Recall) {
+    applyRecall(chat.conversationId, rawId, chat.recalledBy);
+    return;
+  }
+
   const convId = chat.conversationId;
   const baseMsg: Message = {
     // 服务端在 pusher 把 MongoDB MsgId 写入 WS Message.Id，优先用它
@@ -707,13 +1130,32 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     content: chat.msg?.content || '',
     timestamp: chat.sendTime ? parseTimestamp(chat.sendTime) : new Date(),
     type: backMsgTypeMap[chat.msg?.mType] || 'text',
+    replyTo: quoteToReplyTo(chat.msg?.quote),
+    atUsers: chat.msg?.atUsers,
+    atAll: chat.msg?.atAll,
   };
   // 消费可能先到的乱序回执
   const msg = consumePendingReceipt(baseMsg);
 
+  // 这条群消息是否 @了我（别人发的 + @所有人 或 @列表含我）
+  const atMe = chat.sendId !== currentUserId && chat.chatType === ChatType.Group &&
+    (!!chat.msg?.atAll || (chat.msg?.atUsers || []).includes(currentUserId));
+
+  // 通话记录分类：对方发来的通话记录，按状态区分会话列表未读表现
+  const fromPeer = chat.sendId !== currentUserId;
+  const callStatus = msg.type === 'call' ? (() => {
+    try { return (JSON.parse(msg.content) as { status?: string }).status; } catch { return undefined; }
+  })() : undefined;
+  // 未接来电（超时/被取消）：你没接到 → 计未读 + 像被@一样红标提示
+  const missedCall = fromPeer && (callStatus === 'no_answer' || callStatus === 'canceled');
+  // 已参与的通话（已接通/已拒接）：不该在会话列表当成未读新消息冒红点（结束后标记已读）
+  const seenCall = fromPeer && msg.type === 'call' && (callStatus === 'completed' || callStatus === 'rejected');
+
   useChatStore.setState(s => {
-    // 添加消息
-    const msgs = [...(s.messagesMap[convId] || []), msg];
+    // 添加消息（若正在浏览历史窗口，则不追加到该窗口，避免新消息与旧上下文错误相邻；
+    // 回到最新页时会从服务端重新拉取）
+    const anchored = s.anchoredConvs[convId];
+    const msgs = anchored ? (s.messagesMap[convId] || []) : [...(s.messagesMap[convId] || []), msg];
 
     // 更新或创建会话
     let convs = [...s.conversations];
@@ -721,8 +1163,10 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
     if (idx >= 0) {
       convs[idx] = {
         ...convs[idx],
-        lastMessage: msg.content,
+        lastMessage: mediaPreview(msg.type, msg.content),
         lastMessageTime: msg.timestamp,
+        hasAtMe: convs[idx].hasAtMe || atMe,
+        hasMissedCall: convs[idx].hasMissedCall || missedCall,
         unreadCount: convs[idx].unreadCount + (chat.sendId !== currentUserId ? 1 : 0),
       };
     } else {
@@ -742,20 +1186,38 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
         type: isGroup ? 'group' : 'private',
         name,
         avatar,
-        lastMessage: msg.content,
+        lastMessage: mediaPreview(msg.type, msg.content),
         lastMessageTime: msg.timestamp,
         unreadCount: chat.sendId !== currentUserId ? 1 : 0,
         pinned: false,
         muted: false,
+        hasAtMe: atMe,
+        hasMissedCall: missedCall,
       }, ...convs];
     }
 
-    return { messagesMap: { ...s.messagesMap, [convId]: msgs }, conversations: convs };
+    // 实时被 @：把这条 @我消息追加进 atMeMap，让顶部"有人@我"横幅即时出现/累计。
+    // 仅收真实 mongoID（pusher 已把 MsgId 写入 WS 顶层 Id），临时 id 无法跳转故跳过；去重。
+    let atMeMap = s.atMeMap;
+    if (atMe && msg.id && !msg.id.startsWith('push_') && !msg.id.startsWith('local_')) {
+      const cur = atMeMap[convId] || [];
+      if (!cur.includes(msg.id)) atMeMap = { ...atMeMap, [convId]: [...cur, msg.id] };
+    }
+
+    return { messagesMap: { ...s.messagesMap, [convId]: msgs }, conversations: convs, atMeMap };
   });
 
-  // 收到别人的消息 → 播放提示音 + 振动
-  if (chat.sendId !== currentUserId && typeof window !== 'undefined') {
-    notifyNewMessage();
+  // 已参与的通话（已接通/已拒接）：用户已在通话里，不该在会话列表显示未读红点。
+  // 结束后标记该会话已读（同步后端，刷新后也不再有未读）。
+  if (seenCall) {
+    useChatStore.getState().clearUnread(convId);
+  }
+
+  // 收到别人的消息 → 播放提示音 + 振动（免打扰会话不提示）。
+  // 通话记录（mType=call）不当普通新消息提示：用户刚通完话，未接另有红标/专属提示，避免重复打扰。
+  if (chat.sendId !== currentUserId && msg.type !== 'call' && typeof window !== 'undefined') {
+    const convMuted = useChatStore.getState().conversations.find(c => c.id === convId)?.muted;
+    if (!convMuted) notifyNewMessage();
   }
 
   const token = useIMStore.getState().currentUser?.token;
@@ -798,9 +1260,9 @@ function handlePush(chat: WsChatData, rawId: string | undefined, currentUserId: 
       const peerId = convId.split('_').find(p => p !== currentUserId) || '';
       if (peerId) {
         (async () => {
-          // 1. 先从本地好友缓存查
+          // 1. 先从本地好友缓存查（按 friend_uid 优先，避免好友关系行号与他人 userId 撞号）
           let friends = useIMStore.getState().friends;
-          let friend = friends.find(f => f.id === peerId || f.friend_uid === peerId);
+          let friend = friends.find(f => f.friend_uid === peerId) || friends.find(f => f.id === peerId);
 
           // 2. 本地没有则从 API 加载好友列表
           if (!friend && friends.length === 0) {

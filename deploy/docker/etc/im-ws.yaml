@@ -1,0 +1,31 @@
+Name: im.ws
+ListenOn: 0.0.0.0:10090
+
+JwtAuth:
+  AccessSecret: iceymoss.hichat.hichat2.com
+  AccessExpire: 8640000
+
+MsgChatTransfer:
+  Topic: msgChatTransfer
+  Addrs:
+    - kafka:9092
+
+MsgMarkRead:
+  Topic: msgReadTransfer
+  Addrs:
+    - kafka:9092
+
+# 仅用于 @所有人 的生产端角色校验
+SocialRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: social.rpc
+    Timeout: 2000
+    NonBlock: true
+
+# 发送鉴权灰度开关
+AuthzGate:
+  Enabled: true
+  GroupChat: true
+  SingleChat: true

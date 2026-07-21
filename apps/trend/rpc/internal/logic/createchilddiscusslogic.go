@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/trend/models"
+	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/notify"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trend"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 	"github.com/iceymoss/go-hichat-api/pkg/transaction"
 
@@ -151,12 +153,8 @@ func (l *CreateChildDiscussLogic) CreateChildDiscuss(in *trend.CreateDiscussReq)
 		return nil, txErr
 	}
 
-	// 13. 发送通知（如果被回复用户不是自己）需要通知状态作者，被评论者
-	if parentDiscuss.Replyer != in.Replyer {
-		go pushMessageWs(l.ctx, discuss)
-	}
-
-	return &trend.CreateDiscussResp{
+	// 生成回复通知：父评论作者(主) + 评论里 @的人；回复自己 / @自己由 builder 过滤
+	resp := &trend.CreateDiscussResp{
 		Discuss: &trend.Discuss{
 			Id:         uint64(id),
 			TrendId:    uint64(parentDiscuss.Trendid),
@@ -169,10 +167,17 @@ func (l *CreateChildDiscussLogic) CreateChildDiscuss(in *trend.CreateDiscussReq)
 			AtUserIds:  in.AtUserIds,
 			CreateTime: now.Unix(),
 		},
-	}, nil
-}
+	}
+	resp.CreatedMessages = persistTrendMessages(l.ctx, l.svcCtx, notify.TrendNotifyEvent{
+		Type:            constants.TrendMsgReply,
+		ActorId:         in.Replyer,
+		TrendId:         uint64(parentDiscuss.Trendid),
+		AuthorId:        parentDiscuss.Replyer,
+		CommentId:       id,
+		ParentCommentId: in.Father,
+		AtUsers:         in.AtUserIds,
+		Content:         in.Content,
+	})
 
-func pushMessageWs(ctx context.Context, data any) error {
-	// todo: 推送消息评论消息通知用户
-	return nil
+	return resp, nil
 }

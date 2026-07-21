@@ -30,8 +30,11 @@ func NewGetChatLogReadRecordsLogic(ctx context.Context, svcCtx *svc.ServiceConte
 
 // GetChatLogReadRecords 根据消息id获取用户消息阅读情况
 func (l *GetChatLogReadRecordsLogic) GetChatLogReadRecords(req *types.GetChatLogReadRecordsReq) (resp *types.GetChatLogReadRecordsResp, err error) {
+	// 请求者 uid：供 rpc 对被移出群成员做单条消息的历史截断
+	uid, _ := l.ctx.Value(Identify).(string)
 	chatlogs, err := l.svcCtx.IM.GetChatLog(l.ctx, &im.GetChatLogReq{
-		MsgId: req.MsgId,
+		MsgId:  req.MsgId,
+		UserId: uid,
 	})
 
 	if err != nil {

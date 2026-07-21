@@ -45,6 +45,7 @@ func (l *DeleteDiscussLogic) DeleteDiscuss(in *trend.DeleteDiscussReq) (*trend.D
 		fatherDiscussCount = father.DiscussCount
 	}
 
+	var deletedIds []uint64
 	tx := transaction.NewManager()
 	txErr := tx.Execute(l.ctx, nil, func(ctx context.Context) error {
 		// 获取子评论
@@ -54,6 +55,7 @@ func (l *DeleteDiscussLogic) DeleteDiscuss(in *trend.DeleteDiscussReq) (*trend.D
 			zLog.Error("FindChildrenByPath failed", zap.Error(err))
 			return err
 		}
+		deletedIds = deleteIds
 
 		err = l.svcCtx.TrendDiscuss.Deletes(l.ctx, deleteIds)
 		if err != nil {
@@ -86,6 +88,14 @@ func (l *DeleteDiscussLogic) DeleteDiscuss(in *trend.DeleteDiscussReq) (*trend.D
 	if txErr != nil {
 		zLog.Error("DeleteDiscuss.Execute: 执行事务失败", zap.Any("discusId", discus.Id), zap.Error(txErr))
 		return nil, txErr
+	}
+
+	// 级联软删被删评论及其子评论相关的消息（best-effort，失败不影响删评论结果）
+	cascadeIds := append(deletedIds, in.Id)
+	for _, cid := range cascadeIds {
+		if err := l.svcCtx.TrendMessage.SoftDeleteByComment(l.ctx, cid); err != nil {
+			zLog.Error("DeleteDiscuss: 级联软删评论消息失败", zap.Any("commentId", cid), zap.Error(err))
+		}
 	}
 
 	return &trend.DeleteDiscussResp{

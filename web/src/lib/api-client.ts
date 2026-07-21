@@ -23,6 +23,7 @@ export interface BackendUser {
   region: string;
   occupation: string;
   tags: string;
+  moments_cover: string;
 }
 
 export async function backendFetch<T = unknown>(
@@ -192,21 +193,36 @@ export interface ChatLogItem {
   sendTime: number;
   /** base64(bitmap)；私聊 "AQ==" 表示对方已读，空串或缺失视为未读；群聊为成员 bitmap */
   readRecords?: string;
+  /** 引用/回复消息（JSON 字符串：{"id","name","preview"}） */
+  quote?: string;
+  /** 消息状态：0=正常 1=已撤回（已撤回时 msgContent/quote 被后端置空） */
+  status?: number;
+  /** 撤回操作者 uid */
+  recalledBy?: string;
+  /** 被 @ 的成员 uid 列表（群聊） */
+  atUsers?: string[];
+  /** 是否 @所有人（群聊） */
+  atAll?: boolean;
 }
 
 export interface ConversationItem {
   conversationId: string;
   chatType: number;
   isShow: boolean;
+  isTop?: boolean;
+  isMute?: boolean;
+  /** 是否有未读的 @我（群聊） */
+  hasAtMe?: boolean;
   seq: number;
   read: number;
   message?: ChatLogItem;
 }
 
-/** 获取聊天记录 — 返回 {list: ChatLogItem[]} */
-export function getChatLog(token: string, conversationId: string, msgId = '', count = 30) {
+/** 获取聊天记录 — 返回 {list: ChatLogItem[]}。direction: older(默认)/newer/around */
+export function getChatLog(token: string, conversationId: string, msgId = '', count = 30, direction = '') {
   const params = new URLSearchParams({ conversationId, count: String(count) });
   if (msgId) params.set('msgId', msgId);
+  if (direction) params.set('direction', direction);
   return imGet<{ list: ChatLogItem[] }>(`/v1/im/chatlog?${params}`, token);
 }
 
@@ -223,6 +239,45 @@ export function getChatLogReadRecords(token: string, msgId: string) {
   return imGet<{ reads: ReadRecordUser[]; unReads: ReadRecordUser[] }>(`/v1/im/chatlog/readRecords?msgId=${msgId}`, token);
 }
 
+/** 获取会话中 @我 且未读的消息列表（按 sendTime 升序），用于"有人@我"快速跳转 */
+export function getAtMeMessages(token: string, conversationId: string, count = 0) {
+  const params = new URLSearchParams({ conversationId });
+  if (count > 0) params.set('count', String(count));
+  return imGet<{ list: ChatLogItem[] }>(`/v1/im/chatlog/atme?${params}`, token);
+}
+
+// ---------------- 公共通知（好友/群申请等实时通知） ----------------
+
+export interface NotificationItem {
+  id: number;
+  notifyType: string; // friend.apply / friend.accept / group.apply ...
+  bizId?: string;
+  actorId?: string;
+  groupId?: string;
+  title?: string;
+  content?: string;
+  payload?: string;
+  isRead: number; // 0 未读 1 已读
+  createTime: number;
+}
+
+/** 拉取当前用户的通知列表（公共通知通道） */
+export function listNotifications(token: string, unreadOnly = false, offset = 0, limit = 20) {
+  const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  if (unreadOnly) params.set('unreadOnly', 'true');
+  return imGet<{ list: NotificationItem[] }>(`/v1/im/notifications?${params}`, token);
+}
+
+/** 当前用户未读通知数 */
+export function getNotificationUnreadCount(token: string) {
+  return imGet<{ count: number }>(`/v1/im/notifications/unreadCount`, token);
+}
+
+/** 标记通知已读（ids 为空表示全部已读） */
+export function markNotificationsRead(token: string, ids: number[] = []) {
+  return imPost<{ affected: number }>(`/v1/im/notifications/read`, { ids }, token);
+}
+
 /** 获取会话列表 — 返回 {conversationList: Record<string, ConversationItem>} */
 export function getConversations(token: string) {
   return imGet<{ conversationList: Record<string, ConversationItem> }>('/v1/im/conversation', token);
@@ -233,7 +288,38 @@ export function setupConversation(token: string, sendId: string, recvId: string,
   return imPost('/v1/im/setup/conversation', { sendId, recvId, chatType }, token);
 }
 
+export interface ImUploadResp {
+  url: string;
+  name: string;
+  size: number;
+  /** image / video / voice / file */
+  fileType: string;
+}
+
+/** 上传富媒体文件到 im 服务（直连，CORS 已开），返回访问 URL 与类型 */
+export async function imUpload(token: string, file: File | Blob, filename?: string): Promise<ImUploadResp> {
+  const fd = new FormData();
+  fd.append('file', file, filename || (file as File).name);
+  const res = await fetch(`${IM_BASE}/v1/im/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: fd,
+  });
+  if (!res.ok) throw new Error(`IM upload error: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<ImUploadResp>;
+}
+
 /** 更新会话 */
 export function updateConversations(token: string, conversationList: Record<string, Partial<ConversationItem>>) {
   return imPut('/v1/im/conversation', { conversationList }, token);
+}
+
+/** 设置会话置顶 / 免打扰（全量覆盖两个标记） */
+export function setConversationSettings(token: string, conversationId: string, isTop: boolean, isMute: boolean) {
+  return imPut('/v1/im/conversation/settings', { conversationId, isTop, isMute }, token);
+}
+
+/** 撤回消息（本人限时 / 群管理员不限时，校验在后端） */
+export function recallMsg(token: string, conversationId: string, msgId: string, chatType: number) {
+  return imPost('/v1/im/chatlog/recall', { conversationId, msgId, chatType }, token);
 }

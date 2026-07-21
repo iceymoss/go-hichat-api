@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { type Contact, userMomentsImages } from '@/lib/mock-data';
+import React, { useState, useEffect } from 'react';
+import { type Contact } from '@/lib/types';
 import { useIMStore } from '@/lib/im-store';
-import { getAvatarColor } from '@/lib/utils';
-import { Phone, Video, Send, UserPlus, Copy, MapPin } from 'lucide-react';
+import { getUserTrends } from '@/lib/trend-api';
+import { useT } from '@/hooks/use-i18n';
+import { getAvatarColor, tagColor } from '@/lib/utils';
+import { Phone, Video, Send, UserPlus, Copy, MapPin, Briefcase, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import ProfileActionMenu from './ProfileActionMenu';
 import SetRemarkDialog from './SetRemarkDialog';
@@ -14,6 +16,8 @@ interface UserProfileCardProps {
   contact: Contact;
   /** If true, hide phone/region/moments, show "添加好友" button */
   isStranger?: boolean;
+  /** If true, this is the current user's own card: hide message/call/“…” actions, optionally show edit entry */
+  isSelf?: boolean;
   isBlocked?: boolean;
   onSendMessage?: () => void;
   onVoiceCall?: () => void;
@@ -25,13 +29,56 @@ interface UserProfileCardProps {
   onToggleBlock?: (blocked: boolean) => void;
   onReport?: () => void;
   onDeleteFriend?: () => void;
+  /** Self-card edit entry (rendered as the single bottom button when isSelf) */
+  onEditProfile?: () => void;
   /** Compact mode for small cards */
   compact?: boolean;
+}
+
+/** 陌生人资料：性别/地区/职业/标签（仅搜索加好友场景展示） */
+function StrangerInfo({ contact }: { contact: Contact }) {
+  const t = useT();
+  const sexLabel = contact.gender === 'male' ? t('upc.gender.male') : contact.gender === 'female' ? t('upc.gender.female') : '';
+  let tagList: string[] = [];
+  if (contact.tags) {
+    try {
+      const parsed = JSON.parse(contact.tags);
+      if (Array.isArray(parsed)) tagList = parsed.filter(Boolean).map(String);
+    } catch {
+      tagList = contact.tags.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
+  const rows: Array<[string, string]> = [];
+  if (sexLabel) rows.push([t('upc.label.gender'), sexLabel]);
+  if (contact.region) rows.push([t('upc.label.region'), contact.region]);
+  if (contact.occupation) rows.push([t('upc.label.occupation'), contact.occupation]);
+
+  if (rows.length === 0 && tagList.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      {rows.map(([k, v]) => (
+        <div key={k} className="flex" style={{ fontSize: 13, lineHeight: 1.9 }}>
+          <span style={{ width: 44, color: '#A2ACB5', flexShrink: 0 }}>{k}</span>
+          <span style={{ color: '#1C2733' }}>{v}</span>
+        </div>
+      ))}
+      {tagList.length > 0 && (
+        <div className="flex flex-wrap" style={{ gap: 6, marginTop: 6 }}>
+          {tagList.map((t, i) => (
+            <span key={i} style={{ fontSize: 12, color: tagColor(t).c, background: tagColor(t).b, borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function UserProfileCard({
   contact,
   isStranger = false,
+  isSelf = false,
   isBlocked: isBlockedProp = false,
   onSendMessage,
   onVoiceCall,
@@ -43,11 +90,52 @@ export default function UserProfileCard({
   onToggleBlock,
   onReport,
   onDeleteFriend,
+  onEditProfile,
   compact = false,
 }: UserProfileCardProps) {
   const avatarColor = getAvatarColor(contact.name);
   const displayName = contact.remark || contact.name;
-  const moments = userMomentsImages[contact.id] || [];
+  const t = useT();
+  const openUserTrends = useIMStore((s) => s.openUserTrends);
+  const authToken = useIMStore((s) => s.currentUser?.token || '');
+
+  // Latest moments thumbnails (WeChat-style): show up to 3 real images from this user's trends.
+  const [moments, setMoments] = useState<string[]>([]);
+  useEffect(() => {
+    if (isStranger || !contact.id || !authToken) { setMoments([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await getUserTrends(authToken, contact.id);
+        if (cancelled || !r.success || !r.data) return;
+        const ordered = [...(r.data.top_list || []), ...(r.data.list || [])];
+        const imgs: string[] = [];
+        for (const tr of ordered) {
+          for (const url of tr.resources || []) {
+            if (url && !imgs.includes(url)) imgs.push(url);
+            if (imgs.length >= 3) break;
+          }
+          if (imgs.length >= 3) break;
+        }
+        setMoments(imgs);
+      } catch {
+        if (!cancelled) setMoments([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [contact.id, authToken, isStranger]);
+
+  // 解析标签（JSON 数组字符串或逗号分隔）
+  const parsedTags: string[] = (() => {
+    if (!contact.tags) return [];
+    try {
+      const p = JSON.parse(contact.tags);
+      if (Array.isArray(p)) return p.filter(Boolean).map(String);
+    } catch {
+      return contact.tags.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+    }
+    return [];
+  })();
 
   // ActionMenu state
   const [showMenu, setShowMenu] = useState(false);
@@ -67,19 +155,19 @@ export default function UserProfileCard({
   const handleCopySignature = () => {
     if (contact.signature) {
       navigator.clipboard.writeText(contact.signature);
-      toast.success('签名已复制');
+      toast.success(t('upc.copySignatureOk'));
     }
   };
 
   const handleCopyAccount = () => {
     if (contact.account) {
       navigator.clipboard.writeText(contact.account);
-      toast.success('HiChat号已复制');
+      toast.success(t('upc.copyAccountOk'));
     }
   };
 
   const genderIcon = contact.gender === 'male' ? '🚹' : contact.gender === 'female' ? '🚺' : '';
-  const genderText = contact.gender === 'male' ? '男' : contact.gender === 'female' ? '女' : '';
+  const genderText = contact.gender === 'male' ? t('upc.gender.male') : contact.gender === 'female' ? t('upc.gender.female') : '';
 
   // ── ActionMenu callbacks ──
   const handleSetRemark = () => {
@@ -90,7 +178,7 @@ export default function UserProfileCard({
     if (onRecommend) {
       onRecommend();
     } else {
-      toast('功能开发中');
+      toast(t('upc.featureWip'));
     }
   };
 
@@ -98,7 +186,7 @@ export default function UserProfileCard({
     if (onSetPermissions) {
       onSetPermissions();
     } else {
-      toast('功能开发中');
+      toast(t('upc.featureWip'));
     }
   };
 
@@ -107,7 +195,7 @@ export default function UserProfileCard({
       // Unblock directly
       setLocalBlocked(false);
       onToggleBlock?.(false);
-      toast.success('已将 ' + contact.name + ' 移出黑名单');
+      toast.success(t('upc.unblocked').replace('{name}', contact.name));
     } else {
       // Show block confirmation
       setShowBlockConfirm(true);
@@ -118,7 +206,7 @@ export default function UserProfileCard({
     if (onReport) {
       onReport();
     } else {
-      toast('功能开发中');
+      toast(t('upc.featureWip'));
     }
   };
 
@@ -128,13 +216,13 @@ export default function UserProfileCard({
 
   const handleConfirmDelete = () => {
     onDeleteFriend?.();
-    toast.success('已删除好友 ' + contact.name);
+    toast.success(t('upc.deletedFriend').replace('{name}', contact.name));
   };
 
   const handleConfirmBlock = () => {
     setLocalBlocked(true);
     onToggleBlock?.(true);
-    toast.success('已将 ' + contact.name + ' 加入黑名单');
+    toast.success(t('upc.blocked').replace('{name}', contact.name));
   };
 
   const handleAddFriend = () => {
@@ -154,7 +242,7 @@ export default function UserProfileCard({
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ friend_uid: contact.id, remark }),
         }).then(res => res.json());
-        if (!r.success) { toast.error(r.message || '备注更新失败'); return; }
+        if (!r.success) { toast.error(r.message || t('upc.remarkFail')); return; }
       }
       // Save tags
       if (tags.length > 0) {
@@ -163,14 +251,14 @@ export default function UserProfileCard({
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ friend_uid: contact.id, tags }),
         }).then(res => res.json());
-        if (!r.success) { toast.error(r.message || '标签更新失败'); return; }
+        if (!r.success) { toast.error(r.message || t('upc.tagsFail')); return; }
       }
-      const tagStr = tags.length > 0 ? `，标签: ${tags.join('、')}` : '';
-      toast.success(`备注已更新: ${remark}${tagStr}`);
+      const tagStr = tags.length > 0 ? t('upc.tagsSuffix').replace('{tags}', tags.join('、')) : '';
+      toast.success(t('upc.remarkUpdated').replace('{remark}', remark).replace('{tags}', tagStr));
       // 同步刷新好友列表
       invalidateFriends();
     } catch {
-      toast.error('更新失败');
+      toast.error(t('upc.updateFail'));
     }
   };
 
@@ -240,11 +328,11 @@ export default function UserProfileCard({
               {displayName}
             </div>
             <div style={{ fontSize: 12, color: '#A2ACB5', lineHeight: 1.3, marginTop: 2 }}>
-              {contact.remark ? `昵称: ${contact.name}` : ''}
+              {contact.remark ? t('upc.nickname').replace('{name}', contact.nickname || contact.name) : ''}
             </div>
           </div>
           <div style={{ fontSize: 12, color: contact.online ? '#4DCD5E' : '#A2ACB5' }}>
-            {contact.online ? '在线' : '离线'}
+            {contact.online ? t('chat.online') : t('chat.offline')}
           </div>
         </div>
 
@@ -276,6 +364,11 @@ export default function UserProfileCard({
           </div>
         )}
 
+        {/* Stranger info: 性别/地区/职业/标签 */}
+        {isStranger && (
+          <StrangerInfo contact={contact} />
+        )}
+
         {/* Action button */}
         {!isStranger ? (
           onSendMessage && (
@@ -285,7 +378,7 @@ export default function UserProfileCard({
                 width: '100%',
                 height: 36,
                 borderRadius: 8,
-                background: '#3390EC',
+                background: '#1BB45B',
                 color: '#FFFFFF',
                 fontSize: 13,
                 fontWeight: 600,
@@ -298,14 +391,14 @@ export default function UserProfileCard({
                 transition: 'background 0.2s',
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
+                (e.currentTarget as HTMLButtonElement).style.background = '#149A4C';
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#3390EC';
+                (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
               }}
             >
               <Send size={14} />
-              发消息
+              {t('group.sendMessage')}
             </button>
           )
         ) : (
@@ -316,7 +409,7 @@ export default function UserProfileCard({
                 width: '100%',
                 height: 36,
                 borderRadius: 8,
-                background: '#3390EC',
+                background: '#1BB45B',
                 color: '#FFFFFF',
                 fontSize: 13,
                 fontWeight: 600,
@@ -329,14 +422,14 @@ export default function UserProfileCard({
                 transition: 'background 0.2s',
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
+                (e.currentTarget as HTMLButtonElement).style.background = '#149A4C';
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#3390EC';
+                (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
               }}
             >
               <UserPlus size={14} />
-              添加好友
+              {t('group.addFriendTitle')}
             </button>
           )
         )}
@@ -350,7 +443,7 @@ export default function UserProfileCard({
   return (
     <div style={{ position: 'relative' }}>
       {/* Settings icon - top right — opens ActionMenu */}
-      {(onSettings || onRecommend || onDeleteFriend) && (
+      {!isSelf && (onSettings || onRecommend || onDeleteFriend) && (
         <button
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
@@ -387,7 +480,7 @@ export default function UserProfileCard({
             (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
             (e.currentTarget as HTMLButtonElement).style.color = '#8F959E';
           }}
-          title="更多设置"
+          title={t('upc.moreSettings')}
         >
           <MoreDotsIcon size={18} />
         </button>
@@ -422,10 +515,10 @@ export default function UserProfileCard({
       <ConfirmDialog
         open={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
-        title="删除好友"
-        description={`确定删除好友「${contact.name}」吗？删除后将无法接收对方消息。`}
-        confirmText="删除"
-        cancelText="取消"
+        title={t('upc.deleteFriendTitle')}
+        description={t('upc.deleteFriendDesc').replace('{name}', contact.name)}
+        confirmText={t('upc.delete')}
+        cancelText={t('common.cancel')}
         confirmVariant="danger"
         onConfirm={handleConfirmDelete}
       />
@@ -434,10 +527,10 @@ export default function UserProfileCard({
       <ConfirmDialog
         open={showBlockConfirm}
         onClose={() => setShowBlockConfirm(false)}
-        title="加入黑名单"
-        description={`确定将「${contact.name}」加入黑名单吗？加入后你将不再收到对方的消息。`}
-        confirmText="加入黑名单"
-        cancelText="取消"
+        title={t('upc.blockTitle')}
+        description={t('upc.blockDesc').replace('{name}', contact.name)}
+        confirmText={t('upc.block')}
+        cancelText={t('common.cancel')}
         confirmVariant="default"
         onConfirm={handleConfirmBlock}
       />
@@ -539,12 +632,12 @@ export default function UserProfileCard({
                     transition: 'color 0.15s',
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = '#3390EC';
+                    (e.currentTarget as HTMLButtonElement).style.color = '#1BB45B';
                   }}
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.color = '#A2ACB5';
                   }}
-                  title="复制HiChat号"
+                  title={t('upc.copyHiChat')}
                 >
                   <Copy size={13} />
                 </button>
@@ -552,7 +645,7 @@ export default function UserProfileCard({
             )}
             {(genderIcon || contact.age) && (
               <span style={{ fontSize: 14, color: '#646A73' }}>
-                {genderIcon} {genderText}{contact.age ? ` / ${contact.age}岁` : ''}
+                {genderIcon} {genderText}{contact.age ? ` / ${t('upc.age').replace('{age}', String(contact.age))}` : ''}
               </span>
             )}
           </div>
@@ -560,20 +653,37 @@ export default function UserProfileCard({
           {/* Row 3: 用户昵称 + 手机号 并排 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, lineHeight: 1.8 }}>
             <span style={{ fontSize: 14, color: '#646A73' }}>
-              昵称：{contact.name}
+              {t('upc.nickname').replace('{name}', contact.nickname || contact.name)}
             </span>
-            {!isStranger && contact.phone && (
+            {contact.phone && (
               <span style={{ fontSize: 14, color: '#8F959E' }}>
-                手机：{contact.phone}
+                {t('upc.phone').replace('{phone}', contact.phone)}
               </span>
             )}
           </div>
 
           {/* Row 4: 地址 */}
-          {!isStranger && contact.region && (
+          {contact.region && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, lineHeight: 1.8 }}>
               <MapPin size={13} style={{ color: '#A2ACB5', flexShrink: 0 }} />
               <span style={{ fontSize: 14, color: '#8F959E' }}>{contact.region}</span>
+            </div>
+          )}
+
+          {/* Row 5: 职业 */}
+          {contact.occupation && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, lineHeight: 1.8 }}>
+              <Briefcase size={13} style={{ color: '#A2ACB5', flexShrink: 0 }} />
+              <span style={{ fontSize: 14, color: '#8F959E' }}>{contact.occupation}</span>
+            </div>
+          )}
+
+          {/* Row 6: 标签 */}
+          {parsedTags.length > 0 && (
+            <div className="flex flex-wrap" style={{ gap: 6, marginTop: 2 }}>
+              {parsedTags.map((t, i) => (
+                <span key={i} style={{ fontSize: 12, color: tagColor(t).c, background: tagColor(t).b, borderRadius: 6, padding: '2px 8px' }}>{t}</span>
+              ))}
             </div>
           )}
         </div>
@@ -597,7 +707,7 @@ export default function UserProfileCard({
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLDivElement).style.backgroundColor = '#F5F7FA';
           }}
-          title="点击复制签名"
+          title={t('upc.copySignatureTitle')}
         >
           <div style={{ fontSize: 14, color: '#646A73', lineHeight: 1.6 }}>
             {contact.signature}
@@ -613,61 +723,51 @@ export default function UserProfileCard({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginBottom: 10,
+              marginBottom: moments.length > 0 ? 10 : 0,
             }}
           >
-            <span style={{ fontSize: 16, fontWeight: 600, color: '#1F2329' }}>朋友圈</span>
-            {moments.length > 0 && (
-              <button
-                style={{
-                  fontSize: 13,
-                  color: '#3390EC',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                  transition: 'opacity 0.15s',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.opacity = '0.7';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.opacity = '1';
-                }}
-              >
-                查看更多
-                <span style={{ fontSize: 14 }}>›</span>
-              </button>
-            )}
+            <span style={{ fontSize: 16, fontWeight: 600, color: '#1F2329' }}>{t('upc.moments')}</span>
+            <button
+              onClick={() => openUserTrends(contact.id, displayName)}
+              style={{
+                fontSize: 13,
+                color: '#646A73',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                transition: 'opacity 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.opacity = '0.7';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+              }}
+            >
+              {t('moments.view')}
+              <span style={{ fontSize: 14 }}>›</span>
+            </button>
           </div>
-          {moments.length > 0 ? (
+          {moments.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
               {moments.slice(0, 3).map((img, idx) => (
                 <img
                   key={idx}
                   src={img}
                   alt=""
+                  onClick={() => openUserTrends(contact.id, displayName)}
                   style={{
                     width: '100%',
                     aspectRatio: '1',
                     borderRadius: 8,
                     objectFit: 'cover',
+                    cursor: 'pointer',
                   }}
                 />
               ))}
-            </div>
-          ) : (
-            <div
-              style={{
-                padding: '16px 0',
-                textAlign: 'center',
-                fontSize: 13,
-                color: '#A2ACB5',
-              }}
-            >
-              暂无动态
             </div>
           )}
         </div>
@@ -675,7 +775,34 @@ export default function UserProfileCard({
 
       {/* ── 底部操作按钮 — 竖排 ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {!isStranger ? (
+        {isSelf ? (
+          onEditProfile && (
+            <button
+              onClick={onEditProfile}
+              style={{
+                width: '100%',
+                height: 40,
+                borderRadius: 8,
+                background: '#1BB45B',
+                color: '#FFFFFF',
+                fontSize: 14,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                transition: 'background 0.2s',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#149A4C'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B'; }}
+            >
+              <Pencil size={16} />
+              {t('upc.editProfile')}
+            </button>
+          )
+        ) : !isStranger ? (
           <>
             {onSendMessage && (
               <button
@@ -684,7 +811,7 @@ export default function UserProfileCard({
                   width: '100%',
                   height: 40,
                   borderRadius: 8,
-                  background: '#3390EC',
+                  background: '#1BB45B',
                   color: '#FFFFFF',
                   fontSize: 14,
                   fontWeight: 600,
@@ -697,14 +824,14 @@ export default function UserProfileCard({
                   transition: 'background 0.2s',
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
+                  (e.currentTarget as HTMLButtonElement).style.background = '#149A4C';
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = '#3390EC';
+                  (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
                 }}
               >
                 <Send size={16} />
-                发消息
+                {t('group.sendMessage')}
               </button>
             )}
             {onVoiceCall && (
@@ -715,8 +842,8 @@ export default function UserProfileCard({
                   height: 40,
                   borderRadius: 8,
                   background: '#FFFFFF',
-                  border: '1px solid #3390EC',
-                  color: '#3390EC',
+                  border: '1px solid #1BB45B',
+                  color: '#1BB45B',
                   fontSize: 14,
                   fontWeight: 500,
                   cursor: 'pointer',
@@ -727,14 +854,14 @@ export default function UserProfileCard({
                   transition: 'all 0.2s',
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,144,236,0.06)';
+                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(27,180,91,0.06)';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background = '#FFFFFF';
                 }}
               >
                 <Phone size={16} />
-                语音通话
+                {t('upc.voiceCall')}
               </button>
             )}
             {onVideoCall && (
@@ -745,8 +872,8 @@ export default function UserProfileCard({
                   height: 40,
                   borderRadius: 8,
                   background: '#FFFFFF',
-                  border: '1px solid #3390EC',
-                  color: '#3390EC',
+                  border: '1px solid #1BB45B',
+                  color: '#1BB45B',
                   fontSize: 14,
                   fontWeight: 500,
                   cursor: 'pointer',
@@ -757,14 +884,14 @@ export default function UserProfileCard({
                   transition: 'all 0.2s',
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,144,236,0.06)';
+                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(27,180,91,0.06)';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background = '#FFFFFF';
                 }}
               >
                 <Video size={16} />
-                视频通话
+                {t('upc.videoCall')}
               </button>
             )}
           </>
@@ -776,7 +903,7 @@ export default function UserProfileCard({
                 width: '100%',
                 height: 40,
                 borderRadius: 8,
-                background: '#3390EC',
+                background: '#1BB45B',
                 color: '#FFFFFF',
                 fontSize: 14,
                 fontWeight: 600,
@@ -789,14 +916,14 @@ export default function UserProfileCard({
                 transition: 'background 0.2s',
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#2A7BD6';
+                (e.currentTarget as HTMLButtonElement).style.background = '#149A4C';
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#3390EC';
+                (e.currentTarget as HTMLButtonElement).style.background = '#1BB45B';
               }}
             >
               <UserPlus size={16} />
-              添加好友
+              {t('group.addFriendTitle')}
             </button>
           )
         )}

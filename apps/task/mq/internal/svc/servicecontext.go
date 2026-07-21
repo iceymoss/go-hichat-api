@@ -12,6 +12,7 @@ import (
 	userModels "github.com/iceymoss/go-hichat-api/apps/user/models"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 
 	"github.com/zeromicro/go-zero/zrpc"
 )
@@ -32,8 +33,14 @@ type ServiceContext struct {
 	// 用户会话相关
 	ConversationsModel model.ConversationsModel
 
+	// 公共通知（落库；与 ChatLogModel 一致直接用 im model）
+	NotificationModel model.NotificationModel
+
 	// 导入social微服务模块
 	Social socialclient.Social
+
+	// 关系缓存（群成员集/好友集）：消费关系变更事件维护，群扇出/鉴权读取
+	RelationCache *relationcache.Cache
 
 	// 用户个人设置（MySQL）
 	UserSettingsModel *userModels.UserSettingsModel
@@ -48,7 +55,9 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		ConversationModel:  model.NewConversationModel(),
 		ChatLogModel:       model.NewChatLogModel(),
 		ConversationsModel: model.NewConversationsModel(),
+		NotificationModel:  model.NewNotificationModel(),
 		Social:             socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
+		RelationCache:      relationcache.New(db.GetRedisConn()),
 		UserSettingsModel:  userModels.NewUserSettingsModel(),
 		SystemConfigModel:  userModels.NewSystemConfigModel(),
 	}

@@ -1,6 +1,8 @@
 Name: im
 Host: 0.0.0.0
 Port: 8890
+# 富媒体上传上限：120MB（覆盖 go-zero 默认 1MB）
+MaxBytes: 125829120
 
 SocialRpc:
   Target: dns:///127.0.0.1:10001
@@ -17,9 +19,19 @@ ImRpc:
   NonBlock: true
   Timeout: 10000
 
+# 撤回事件专用的 Kafka topic（与 mq 消费端一致）
+MsgRecallTransfer:
+  Topic: msgRecallTransfer
+  Addrs:
+    - 127.0.0.1:9092
+
 JwtAuth:
   AccessSecret: iceymoss.hichat.hichat2.com
   AccessExpire: 8640000
 
 Log:
   Level: error
+
+Upload:
+  BasePath: ./temp
+  BaseURL: http://localhost:8887/static

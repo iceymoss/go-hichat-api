@@ -36,6 +36,9 @@ type FriendRequest struct {
 	HandledAt    *time.Time `gorm:"column:handled_at;type:TIMESTAMP;comment:处理操作时间"`
 	Status       *int       `gorm:"column:status;type:INT;comment:消息状态（0:已删除 1:正常显示 2:忽略不显示）"`
 	ReadState    int        `gorm:"column:read_state;type:TINYINT;default:0;not null;comment:读取状态（0:未读 1:已读）"`
+	ReceiverRead int        `gorm:"column:receiver_read;type:TINYINT;default:0;not null;comment:接收方已读（0:未读 1:已读）"`
+	SenderRead   int        `gorm:"column:sender_read;type:TINYINT;default:0;not null;comment:发起方已读处理结果（0:未读 1:已读）"`
+	Remark       string     `gorm:"column:remark;type:VARCHAR(64);default:'';not null;comment:申请人为对方预设的备注"`
 }
 
 func (FriendRequest) TableName() string {
@@ -47,6 +50,7 @@ type Group struct {
 	ID              uint64     `gorm:"primaryKey;column:id;type:INT UNSIGNED;autoIncrement;comment:自增主键"`
 	Name            string     `gorm:"column:name;type:VARCHAR(255);not null;comment:群名称"`
 	Icon            string     `gorm:"column:icon;type:VARCHAR(255);not null;comment:群头像URL"`
+	Description     string     `gorm:"column:description;type:VARCHAR(255);not null;default:'';comment:群描述"`
 	Status          *int       `gorm:"column:status;type:TINYINT;comment:群状态（0:正常 1:已解散 2:封禁）"`
 	CreatorUID      uint64     `gorm:"column:creator_uid;type:INT UNSIGNED;not null;comment:群主用户ID"`
 	GroupType       int        `gorm:"column:group_type;type:INT;not null;comment:群类型（1:普通群 2:企业群 3:粉丝群...）"`
@@ -71,6 +75,8 @@ type GroupMember struct {
 	JoinSource  *int       `gorm:"column:join_source;type:TINYINT;comment:加入来源（1:扫码 2:邀请 3:搜索...）"`
 	InviterUID  *uint64    `gorm:"column:inviter_uid;type:INT UNSIGNED;comment:邀请人用户ID"`
 	OperatorUID *uint64    `gorm:"column:operator_uid;type:INT UNSIGNED;comment:操作人用户ID"`
+	GroupNick   string     `gorm:"column:group_nickname;type:VARCHAR(64);not null;default:'';comment:群内昵称"`
+	GroupRemark string     `gorm:"column:group_remark;type:VARCHAR(255);not null;default:'';comment:群备注（仅自己可见）"`
 }
 
 func (GroupMember) TableName() string {
@@ -89,6 +95,7 @@ type GroupRequest struct {
 	HandleUserID  *uint64    `gorm:"column:handle_user_id;type:INT UNSIGNED;comment:请求处理人ID"`
 	HandleTime    *time.Time `gorm:"column:handle_time;type:TIMESTAMP;comment:处理时间"`
 	HandleResult  *int       `gorm:"column:handle_result;type:TINYINT;comment:处理结果（0:待处理 1:同意 2:拒绝）"`
+	ReceiverRead  int        `gorm:"column:receiver_read;type:TINYINT;default:0;not null;comment:接收方(群主/管理员)已读 0未读 1已读"`
 }
 
 func (GroupRequest) TableName() string {
@@ -154,4 +161,21 @@ type FriendReport struct {
 
 func (FriendReport) TableName() string {
 	return "friend_reports"
+}
+
+// RelationOutbox 关系变更事务性发件箱。
+// 关系变更（踢人/退群/解散/删好友）与本表插入在同一事务提交，relay 再异步投递到 Kafka，
+// 保证"DB 变更 ⇔ 事件不丢"。自增 id 兼作单调版本号（消费端版本门用）。
+type RelationOutbox struct {
+	ID        uint64     `gorm:"primaryKey;column:id;type:BIGINT UNSIGNED;autoIncrement;comment:自增主键，兼作单调版本号"`
+	EventType string     `gorm:"column:event_type;type:VARCHAR(64);not null;comment:事件类型 group.member.removed/group.disbanded/friend.deleted"`
+	GroupID   string     `gorm:"column:group_id;type:VARCHAR(64);not null;default:'';index:idx_group;comment:群ID（好友事件留空，作分区/索引）"`
+	Payload   string     `gorm:"column:payload;type:TEXT;not null;comment:事件JSON载荷"`
+	Status    int        `gorm:"column:status;type:TINYINT;not null;default:0;index:idx_status;comment:0待投递 1已投递"`
+	CreatedAt *time.Time `gorm:"column:created_at;type:TIMESTAMP;default:CURRENT_TIMESTAMP;comment:创建时间"`
+	SentAt    *time.Time `gorm:"column:sent_at;type:TIMESTAMP;comment:投递完成时间"`
+}
+
+func (RelationOutbox) TableName() string {
+	return "relation_outbox"
 }
