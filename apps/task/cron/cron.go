@@ -25,6 +25,9 @@ func main() {
 	pkcCfg.InitConfig("local", "", "config")
 
 	conf.MustLoad(*configFile, &c)
+	if err := c.ApplyDefaultsAndValidate(); err != nil {
+		panic(err)
+	}
 	if err := c.SetUp(); err != nil {
 		panic(err)
 	}

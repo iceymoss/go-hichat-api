@@ -45,6 +45,10 @@ func RegisterAllTasks(taskManager types.TaskManager, svc *svc.ServiceContext) {
 	// 注册统计任务
 	fmt.Println("Registering stats task...")
 	registry.RegisterTask(NewStatsTask(svc))
+	if svc.Config.Cron.InvitationExpirationSpec != "" {
+		fmt.Println("Registering group invitation expiration task...")
+		registry.RegisterTask(NewGroupInvitationExpirationTask(svc))
+	}
 
 	// 在这里可以继续注册更多任务...
 	// registry.RegisterTask(NewYourCustomTask(svc))

@@ -88,14 +88,14 @@ func (l *GroupInvitationListLogic) GroupInvitationList(in *social.GroupInvitatio
 
 func (l *GroupInvitationListLogic) expireInvitations(actor uint64) error {
 	now := time.Now()
-	err := l.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
+	err := transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
 		var rows []objects.GroupInvitation
 		if err := tx.Where("invitee_uid = ? AND status = ? AND expires_at <= ?", actor, groupInvitationPending, now).Find(&rows).Error; err != nil {
 			return err
 		}
 		ids := make([]uint64, 0, len(rows))
 		for _, invitation := range rows {
-			result := tx.Model(&objects.GroupInvitation{}).Where("id = ? AND status = ?", invitation.ID, groupInvitationPending).
+			result := tx.Model(&objects.GroupInvitation{}).Where("id = ? AND status = ? AND expires_at <= ?", invitation.ID, groupInvitationPending, now).
 				Updates(map[string]any{"status": groupInvitationExpired, "handled_at": now})
 			if result.Error != nil {
 				return result.Error

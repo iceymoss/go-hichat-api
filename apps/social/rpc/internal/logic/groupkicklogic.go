@@ -88,6 +88,15 @@ func (l *GroupKickLogic) GroupKick(in *social.GroupKickReq) (*social.GroupKickRe
 		if operator == nil || operator.RoleLevel < int(constants.ManagerGroupRoleLevel) {
 			return status.Error(codes.PermissionDenied, "only a current group owner or administrator may remove members")
 		}
+		adminIDs := make([]uint64, 0, len(memberIDs))
+		for _, memberID := range memberIDs {
+			if member := members[memberID]; member != nil && member.RoleLevel == int(constants.ManagerGroupRoleLevel) && member.RoleLevel < operator.RoleLevel {
+				adminIDs = append(adminIDs, memberID)
+			}
+		}
+		if err := convergeAdminReceipts(tx, groupID, adminIDs, false); err != nil {
+			return err
+		}
 		for _, memberID := range memberIDs {
 			member := members[memberID]
 			if member == nil || member.RoleLevel >= operator.RoleLevel {

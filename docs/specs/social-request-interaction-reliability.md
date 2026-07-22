@@ -574,7 +574,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 15 已完成。下一会话从步骤 16 开始：管理员角色变更接入 pending receipt 补发/收口，并增加邀请过期 cron 和确认接口过期 CAS。
+步骤 16 已完成。下一会话从步骤 17 开始：执行三库、Kafka/WS、前端和双账号多端 E2E 验证。
 
 ### 步骤 5 实施结果
 
@@ -648,7 +648,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - 群申请/邀请 HTTP canonical ID 全部改为十进制字符串，API 边界严格解析为 RPC `uint64`；`group_id` 同步统一为字符串，`is_pass=0` 明确返回。
 - received/sent/invitations 三个 tab 使用独立分页查询、服务端 total 和完整终态 filter；只对 exact committed query 的可见 unread IDs 标记 receipt。
 - 群申请列表严格按个人 receipt 划分 received history 和 `actionable`；新管理员事务回填 pending receipts，降级/转让事务关闭 actionability。
-- 邀请状态统一为 `3=invalidated, 4=expired`，新增版本化三库兼容数据交换迁移和 receipt repair；列表/确认路径均执行 expiry 收敛，cron 留待步骤 16。
+- 邀请状态统一为 `3=invalidated, 4=expired`，新增版本化三库兼容数据交换迁移和 receipt repair；列表/确认路径执行 expiry CAS，cron 通过 authenticated Social RPC、Redis 单实例锁和 Compose 服务定时批量收敛。
 - 邀请 accept 按 `join_state` 区分 joined、pending_approval、invalidated、expired；reject 支持可选双语原因输入。
 - open-group 与 invite-link direct join 不再写 self notification；GroupProfileCard 根据 `is_pass/already_member/already_pending` 刷新群、申请和会话。
 - WS toast/NotificationCenter 将精确 `bizId` 定位到三类 tab，跨页查找后滚动并高亮；request mapper 展示后端用户/群信息和 invitation-derived inviter。
@@ -682,7 +682,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - 个人 receipt 和 read/unread API 属于步骤 5。
 - `social_notification_outbox`、relay 和可靠通知属于步骤 6；当前群通知仍是提交后 best-effort `CommonNotify`。
 - `group.member.added` 可靠创建 IM 会话属于步骤 8；步骤 4 已移除群申请/审批 API 的 800ms IM goroutine。
-- 邀请过期 cron 和管理员角色变更后的 receipt 补发/收口属于步骤 16；确认接口已经阻止过期邀请。
+- 管理员授予、撤销、踢出和主动退出均事务性收敛 pending receipt；邀请确认、列表和 cron 共同收敛过期状态。
 
 ### 工作区注意事项
 
@@ -707,7 +707,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 13. [x] 联动业务 receipt 与通知中心标读；补中英文文案和可重试错误态。
 14. [x] 统一 JWT 安全取值、修正好友 remark/tags 方向，重新生成 `.api/.proto/model` 代码并增加生成一致性检查。
 15. [x] 公共通知消费者改走幂等 IM RPC，移除 task 对 IM notification model 的直接写入。
-16. [ ] 管理员角色授予/撤销接入 pending receipt 补发/收口，增加邀请过期 cron 和确认接口过期 CAS。
+16. [x] 管理员角色授予/撤销接入 pending receipt 补发/收口，增加邀请过期 cron 和确认接口过期 CAS。
 17. [ ] 执行后端三库测试、Kafka/WS 集成测试、前端类型/组件测试及双账号多端 E2E。
 
 ## 测试计划

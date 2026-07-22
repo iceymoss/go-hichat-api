@@ -7,7 +7,7 @@
 #
 # 启动顺序严格对齐 hichat2.sh：
 #   user-rpc → user-api → social-rpc → social-api → im-rpc → im-api
-#   → im-ws → task-mq → trend-rpc → trend-api → streaming
+#   → im-ws → task-mq/task-cron → trend-rpc → trend-api → streaming
 # 每个后端服务带 nc -z 端口健康检查，下游 depends_on 上游 service_healthy，
 # 确保上游 RPC/WS 真正就绪后下游才启动（go-zero MustNewClient 在依赖未就绪时会 fatal）。
 # ------------------------------------------------------------------
@@ -215,6 +215,7 @@ services:
     image: hichat-social-rpc
     environment:
       CONFIG_FILE: apps/social/rpc/etc/social-local.yaml
+      HICHAT_SOCIAL_RPC_AUTH_SECRET: ${HICHAT_SOCIAL_RPC_AUTH_SECRET:?set HICHAT_SOCIAL_RPC_AUTH_SECRET to a random 32-byte-or-longer secret}
       TZ: Asia/Shanghai
     volumes:
       - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
@@ -342,6 +343,25 @@ services:
       kafka: {condition: service_healthy}
       mongo: {condition: service_healthy}
       im-ws: {condition: service_healthy}
+
+  # 群邀请等定时收敛任务；不监听业务端口
+  task-cron:
+    <<: *go-service
+    build:
+      <<: *go-build
+      args: {SVC_DIR: apps/task/cron}
+    image: hichat-task-cron
+    environment:
+      CONFIG_FILE: apps/task/cron/etc/cron-local.yaml
+      HICHAT_SOCIAL_RPC_AUTH_SECRET: ${HICHAT_SOCIAL_RPC_AUTH_SECRET:?set HICHAT_SOCIAL_RPC_AUTH_SECRET to the same value used by social-rpc}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./deploy/docker/config.yaml:/app/config/config-local.yaml:ro
+      - ./deploy/docker/etc/task-cron.yaml:/app/apps/task/cron/etc/cron-local.yaml:ro
+    depends_on:
+      redis: {condition: service_healthy}
+      etcd: {condition: service_healthy}
+      social-rpc: {condition: service_healthy}
 
   # 9) trend-rpc
   trend-rpc:

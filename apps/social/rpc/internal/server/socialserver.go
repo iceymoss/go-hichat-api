@@ -282,3 +282,8 @@ func (s *SocialServer) GroupInvitationHandle(ctx context.Context, in *social.Gro
 	l := logic.NewGroupInvitationHandleLogic(ctx, s.svcCtx)
 	return l.GroupInvitationHandle(in)
 }
+
+func (s *SocialServer) ExpireGroupInvitations(ctx context.Context, in *social.ExpireGroupInvitationsReq) (*social.ExpireGroupInvitationsResp, error) {
+	l := logic.NewExpireGroupInvitationsLogic(ctx, s.svcCtx)
+	return l.ExpireGroupInvitations(in)
+}

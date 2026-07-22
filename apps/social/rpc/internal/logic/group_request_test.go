@@ -543,10 +543,13 @@ func TestGroupAdminRoleChangesConvergePendingReceipts(t *testing.T) {
 
 	_, err := NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{UserId: "1", ActorUid: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: true})
 	require.NoError(t, err)
+	_, err = NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{UserId: "1", ActorUid: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: true})
+	require.NoError(t, err)
 	var receipt objects.SocialRequestReceipt
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ?", receiptTypeGroup, request.ID, "2").First(&receipt).Error)
 	require.Zero(t, receipt.IsRead)
 	require.Equal(t, 1, receipt.IsActionable)
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.SocialRequestReceipt{}))
 
 	_, err = NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{UserId: "1", ActorUid: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: false})
 	require.NoError(t, err)
@@ -556,6 +559,27 @@ func TestGroupAdminRoleChangesConvergePendingReceipts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), received.Total)
 	require.False(t, received.List[0].Actionable)
+}
+
+func TestGroupAdminReceiptFailureRollsBackRole(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	if svcCtx.DB.Dialector.Name() != "sqlite" {
+		t.Skip("SQLite trigger injects receipt failure")
+	}
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedGroupMember(t, svcCtx.DB, 1, 2, 0)
+	now := time.Now()
+	request := objects.GroupRequest{ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}
+	require.NoError(t, svcCtx.DB.Create(&request).Error)
+	require.NoError(t, svcCtx.DB.Exec(`CREATE TRIGGER fail_admin_receipt BEFORE INSERT ON social_request_receipts BEGIN SELECT RAISE(ABORT, 'receipt failure'); END`).Error)
+
+	_, err := NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{UserId: "1", ActorUid: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: true})
+	require.Equal(t, codes.Internal, status.Code(err))
+	var member objects.GroupMember
+	require.NoError(t, svcCtx.DB.Where("group_id = ? AND user_id = ?", 1, 2).First(&member).Error)
+	require.Zero(t, member.RoleLevel)
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.SocialRequestReceipt{}))
 }
 
 func TestGroupReadAndCountValidateActor(t *testing.T) {
@@ -1037,6 +1061,80 @@ func TestGroupKickBatchIsAtomicAndAuthorized(t *testing.T) {
 		require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
 		require.Equal(t, 2, recorder.count())
 	})
+}
+
+func TestGroupMembershipRemovalClosesAdminReceipts(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		remove func(*svc.ServiceContext) error
+	}{
+		{name: "kick", remove: func(svcCtx *svc.ServiceContext) error {
+			_, err := NewGroupKickLogic(context.Background(), svcCtx).GroupKick(&social.GroupKickReq{UserId: "1", GroupId: "1", MemberIds: []string{"2"}})
+			return err
+		}},
+		{name: "quit", remove: func(svcCtx *svc.ServiceContext) error {
+			_, err := NewGroupQuitLogic(context.Background(), svcCtx).GroupQuit(&social.GroupQuitReq{UserId: "2", GroupId: "1"})
+			return err
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svcCtx, _ := newGroupTestContext(t)
+			require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+			seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+			seedGroupMember(t, svcCtx.DB, 1, 2, 1)
+			now := time.Now()
+			request := objects.GroupRequest{ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}
+			require.NoError(t, svcCtx.DB.Create(&request).Error)
+			require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroup, request.ID, "2", receiptKindApply, 1, receiptPending, now, false, nil))
+
+			require.NoError(t, tt.remove(svcCtx))
+			var receipt objects.SocialRequestReceipt
+			require.NoError(t, svcCtx.DB.Where("request_id = ? AND receiver_id = ?", request.ID, "2").First(&receipt).Error)
+			require.Zero(t, receipt.IsActionable)
+			var members int64
+			require.NoError(t, svcCtx.DB.Model(&objects.GroupMember{}).Where("group_id = ? AND user_id = ?", 1, 2).Count(&members).Error)
+			require.Zero(t, members)
+		})
+	}
+}
+
+func TestGroupMembershipRemovalReceiptFailureRollsBack(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		remove func(*svc.ServiceContext) error
+	}{
+		{name: "kick", remove: func(svcCtx *svc.ServiceContext) error {
+			_, err := NewGroupKickLogic(context.Background(), svcCtx).GroupKick(&social.GroupKickReq{UserId: "1", GroupId: "1", MemberIds: []string{"2"}})
+			return err
+		}},
+		{name: "quit", remove: func(svcCtx *svc.ServiceContext) error {
+			_, err := NewGroupQuitLogic(context.Background(), svcCtx).GroupQuit(&social.GroupQuitReq{UserId: "2", GroupId: "1"})
+			return err
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svcCtx, _ := newGroupTestContext(t)
+			if svcCtx.DB.Dialector.Name() != "sqlite" {
+				t.Skip("SQLite trigger injects receipt failure")
+			}
+			require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+			seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+			seedGroupMember(t, svcCtx.DB, 1, 2, 1)
+			now := time.Now()
+			request := objects.GroupRequest{ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(0), SourceType: 1}
+			require.NoError(t, svcCtx.DB.Create(&request).Error)
+			require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroup, request.ID, "2", receiptKindApply, 1, receiptPending, now, false, nil))
+			require.NoError(t, svcCtx.DB.Exec(`CREATE TRIGGER fail_remove_admin_receipt BEFORE UPDATE ON social_request_receipts BEGIN SELECT RAISE(ABORT, 'receipt failure'); END`).Error)
+
+			require.Equal(t, codes.Internal, status.Code(tt.remove(svcCtx)))
+			var members int64
+			require.NoError(t, svcCtx.DB.Model(&objects.GroupMember{}).Where("group_id = ? AND user_id = ?", 1, 2).Count(&members).Error)
+			require.Equal(t, int64(1), members)
+			var receipt objects.SocialRequestReceipt
+			require.NoError(t, svcCtx.DB.Where("request_id = ? AND receiver_id = ?", request.ID, "2").First(&receipt).Error)
+			require.Equal(t, 1, receipt.IsActionable)
+		})
+	}
 }
 
 func TestGroupRoleRevocationSerializesWithRequestApproval(t *testing.T) {

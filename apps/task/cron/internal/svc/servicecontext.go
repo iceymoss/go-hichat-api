@@ -2,66 +2,53 @@ package svc
 
 import (
 	"context"
-	"github.com/iceymoss/go-hichat-api/apps/im/models"
-	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
+
+	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
 	"github.com/iceymoss/go-hichat-api/apps/task/cron/internal/config"
-	"github.com/iceymoss/go-hichat-api/apps/trend/rpc/trendservice"
-	"github.com/iceymoss/go-hichat-api/apps/user/rpc/userclient"
-	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/rpcauth"
+
+	"github.com/zeromicro/go-zero/zrpc"
+	"google.golang.org/grpc"
 )
 
+type RedisLocker interface {
+	SetnxExCtx(ctx context.Context, key, value string, seconds int) (bool, error)
+	EvalCtx(ctx context.Context, script string, keys []string, args ...any) (any, error)
+}
+
+type SocialInvitationExpirer interface {
+	ExpireGroupInvitations(ctx context.Context, in *social.ExpireGroupInvitationsReq, opts ...grpc.CallOption) (*social.ExpireGroupInvitationsResp, error)
+}
+
 type ServiceContext struct {
-	// Config 服务配置
 	Config config.Config
-
-	// websocket客户端
-	WsClient websocket.Client
-
-	// imChatLogModel 聊天记录集合数据结构
-	ChatLogModel model.ChatLogModel
-
-	// ConversationModel 会话详情相关
-	ConversationModel model.ConversationModel
-
-	// 用户会话相关
-	ConversationsModel model.ConversationsModel
-
-	// 导入各个微服务模块
-	Social socialclient.Social
-	User   userclient.User
-	Trend  trendservice.TrendService
+	Social SocialInvitationExpirer
+	Redis  RedisLocker
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
-	svcCtx := &ServiceContext{
-		Config: c,
-		//ConversationModel:  model.NewConversationModel(),
-		//ChatLogModel:       model.NewChatLogModel(),
-		//ConversationsModel: model.NewConversationsModel(),
-		//Social:             socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
-		//User:               userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),
-		//Trend:              trendservice.NewTrendService(zrpc.MustNewClient(c.TrendRpc)),
+	var redisClient RedisLocker
+	if len(c.Cache) > 0 {
+		redisClient = c.Cache[0].NewRedis()
 	}
-
-	// 初始化websocket客户端（如果需要的话）
-	//token, err := svcCtx.GetToken()
-	//if err != nil {
-	//	fmt.Printf("getToken err %v\n", err)
-	//} else {
-	//	fmt.Println("token:", token)
-	//	header := http.Header{}
-	//	header.Set("Authorization", token)
-	//	// 如果需要连接websocket服务
-	//	// svcCtx.WsClient = websocket.NewClient(c.Ws.Host, websocket.WithClientHeader(header))
-	//}
-
-	return svcCtx
-}
-
-func (svcCtx *ServiceContext) GetToken() (string, error) {
-	redisConn := db.GetRedisConn()
-	res := redisConn.Get(context.Background(), constants.REDIS_SYSTEM_ROOT_TOEKN)
-	return res.Val(), res.Err()
+	var socialRPC zrpc.Client
+	if c.Cron.InvitationExpirationSpec != "" {
+		secret, err := c.LoadRPCAuthSecret()
+		if err != nil {
+			panic(err)
+		}
+		rpcAuth, err := rpcauth.New(secret)
+		if err != nil {
+			panic(err)
+		}
+		socialRPC = zrpc.MustNewClient(c.SocialRpc, zrpc.WithUnaryClientInterceptor(rpcAuth.UnaryClientInterceptor()))
+	} else {
+		socialRPC = zrpc.MustNewClient(c.SocialRpc)
+	}
+	return &ServiceContext{
+		Config: c,
+		Social: socialclient.NewSocial(socialRPC),
+		Redis:  redisClient,
+	}
 }

@@ -580,6 +580,14 @@ message GroupInvitationReadResp {
   int32 invite = 4;
 }
 
+message ExpireGroupInvitationsReq {
+  int32 batch_size = 1;
+}
+message ExpireGroupInvitationsResp {
+  int32 expired = 1;
+  bool has_more = 2;
+}
+
 message GroupRequestMessageCountReq {
   string userId = 1;
   string actorUid = 2;
@@ -719,4 +727,5 @@ service social {
   rpc GroupInvitationRead(GroupInvitationReadReq) returns (GroupInvitationReadResp); // 标记当前用户展示的邀请已读
   rpc GroupRequestMessageCount(GroupRequestMessageCountReq) returns (GroupRequestMessageCountResp); // 群申请与邀请个人未读
   rpc GroupInvitationHandle(GroupInvitationHandleReq) returns (GroupInvitationHandleResp); // 接受或拒绝群邀请
+  rpc ExpireGroupInvitations(ExpireGroupInvitationsReq) returns (ExpireGroupInvitationsResp); // 内部批量过期群邀请
 }

@@ -82,7 +82,7 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 		now := time.Now()
 		if !invitation.ExpiresAt.After(now) {
 			result := tx.Model(&objects.GroupInvitation{}).
-				Where("id = ? AND invitee_uid = ? AND status = ?", invitation.ID, actor, groupInvitationPending).
+				Where("id = ? AND invitee_uid = ? AND status = ? AND expires_at <= ?", invitation.ID, actor, groupInvitationPending, now).
 				Updates(map[string]any{"status": groupInvitationExpired, "handled_at": now})
 			if result.Error != nil {
 				return result.Error

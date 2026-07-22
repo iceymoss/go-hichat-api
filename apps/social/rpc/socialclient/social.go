@@ -15,6 +15,8 @@ import (
 
 type (
 	AtMember                       = social.AtMember
+	ExpireGroupInvitationsReq      = social.ExpireGroupInvitationsReq
+	ExpireGroupInvitationsResp     = social.ExpireGroupInvitationsResp
 	FindGroupListReq               = social.FindGroupListReq
 	FindGroupListResp              = social.FindGroupListResp
 	FriendBlockReq                 = social.FriendBlockReq
@@ -184,6 +186,7 @@ type (
 		GroupInvitationRead(ctx context.Context, in *GroupInvitationReadReq, opts ...grpc.CallOption) (*GroupInvitationReadResp, error)
 		GroupRequestMessageCount(ctx context.Context, in *GroupRequestMessageCountReq, opts ...grpc.CallOption) (*GroupRequestMessageCountResp, error)
 		GroupInvitationHandle(ctx context.Context, in *GroupInvitationHandleReq, opts ...grpc.CallOption) (*GroupInvitationHandleResp, error)
+		ExpireGroupInvitations(ctx context.Context, in *ExpireGroupInvitationsReq, opts ...grpc.CallOption) (*ExpireGroupInvitationsResp, error)
 	}
 
 	defaultSocial struct {
@@ -455,4 +458,9 @@ func (m *defaultSocial) GroupRequestMessageCount(ctx context.Context, in *GroupR
 func (m *defaultSocial) GroupInvitationHandle(ctx context.Context, in *GroupInvitationHandleReq, opts ...grpc.CallOption) (*GroupInvitationHandleResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.GroupInvitationHandle(ctx, in, opts...)
+}
+
+func (m *defaultSocial) ExpireGroupInvitations(ctx context.Context, in *ExpireGroupInvitationsReq, opts ...grpc.CallOption) (*ExpireGroupInvitationsResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.ExpireGroupInvitations(ctx, in, opts...)
 }

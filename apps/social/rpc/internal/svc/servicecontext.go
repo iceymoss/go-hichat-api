@@ -10,6 +10,7 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/userclient"
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
+	"github.com/iceymoss/go-hichat-api/pkg/rpcauth"
 
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"github.com/zeromicro/go-zero/zrpc"
@@ -42,10 +43,19 @@ type ServiceContext struct {
 	// RelationCache 关系缓存：变更后 best-effort 同步，让闸门即时生效
 	RelationCache *relationcache.Cache
 
-	User UserLookup
+	User    UserLookup
+	RPCAuth *rpcauth.Auth
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
+	var rpcAuth *rpcauth.Auth
+	if secret := config.OptionalRPCAuthSecret(c.RpcAuthSecret); secret != "" {
+		var err error
+		rpcAuth, err = rpcauth.New(secret)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	sqlConn := sqlx.NewMysql(c.Mysql.DataSource)
 	notificationAddrs := c.SocialRequestNotification.Addrs
@@ -73,6 +83,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		SocialRequestNotificationClient: mq_client.NewCommonNotifyClient(notificationAddrs, notificationTopic),
 		RelationCache:                   relationcache.New(db.GetRedisConn()),
 
-		User: userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),
+		User:    userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),
+		RPCAuth: rpcAuth,
 	}
 }

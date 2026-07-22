@@ -70,6 +70,7 @@ const (
 	Social_GroupInvitationRead_FullMethodName        = "/social.social/GroupInvitationRead"
 	Social_GroupRequestMessageCount_FullMethodName   = "/social.social/GroupRequestMessageCount"
 	Social_GroupInvitationHandle_FullMethodName      = "/social.social/GroupInvitationHandle"
+	Social_ExpireGroupInvitations_FullMethodName     = "/social.social/ExpireGroupInvitations"
 )
 
 // SocialClient is the client API for Social service.
@@ -135,6 +136,7 @@ type SocialClient interface {
 	GroupInvitationRead(ctx context.Context, in *GroupInvitationReadReq, opts ...grpc.CallOption) (*GroupInvitationReadResp, error)
 	GroupRequestMessageCount(ctx context.Context, in *GroupRequestMessageCountReq, opts ...grpc.CallOption) (*GroupRequestMessageCountResp, error)
 	GroupInvitationHandle(ctx context.Context, in *GroupInvitationHandleReq, opts ...grpc.CallOption) (*GroupInvitationHandleResp, error)
+	ExpireGroupInvitations(ctx context.Context, in *ExpireGroupInvitationsReq, opts ...grpc.CallOption) (*ExpireGroupInvitationsResp, error)
 }
 
 type socialClient struct {
@@ -655,6 +657,16 @@ func (c *socialClient) GroupInvitationHandle(ctx context.Context, in *GroupInvit
 	return out, nil
 }
 
+func (c *socialClient) ExpireGroupInvitations(ctx context.Context, in *ExpireGroupInvitationsReq, opts ...grpc.CallOption) (*ExpireGroupInvitationsResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExpireGroupInvitationsResp)
+	err := c.cc.Invoke(ctx, Social_ExpireGroupInvitations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SocialServer is the server API for Social service.
 // All implementations must embed UnimplementedSocialServer
 // for forward compatibility.
@@ -718,6 +730,7 @@ type SocialServer interface {
 	GroupInvitationRead(context.Context, *GroupInvitationReadReq) (*GroupInvitationReadResp, error)
 	GroupRequestMessageCount(context.Context, *GroupRequestMessageCountReq) (*GroupRequestMessageCountResp, error)
 	GroupInvitationHandle(context.Context, *GroupInvitationHandleReq) (*GroupInvitationHandleResp, error)
+	ExpireGroupInvitations(context.Context, *ExpireGroupInvitationsReq) (*ExpireGroupInvitationsResp, error)
 	mustEmbedUnimplementedSocialServer()
 }
 
@@ -880,6 +893,9 @@ func (UnimplementedSocialServer) GroupRequestMessageCount(context.Context, *Grou
 }
 func (UnimplementedSocialServer) GroupInvitationHandle(context.Context, *GroupInvitationHandleReq) (*GroupInvitationHandleResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupInvitationHandle not implemented")
+}
+func (UnimplementedSocialServer) ExpireGroupInvitations(context.Context, *ExpireGroupInvitationsReq) (*ExpireGroupInvitationsResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExpireGroupInvitations not implemented")
 }
 func (UnimplementedSocialServer) mustEmbedUnimplementedSocialServer() {}
 func (UnimplementedSocialServer) testEmbeddedByValue()                {}
@@ -1820,6 +1836,24 @@ func _Social_GroupInvitationHandle_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Social_ExpireGroupInvitations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExpireGroupInvitationsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).ExpireGroupInvitations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_ExpireGroupInvitations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).ExpireGroupInvitations(ctx, req.(*ExpireGroupInvitationsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Social_ServiceDesc is the grpc.ServiceDesc for Social service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2030,6 +2064,10 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GroupInvitationHandle",
 			Handler:    _Social_GroupInvitationHandle_Handler,
+		},
+		{
+			MethodName: "ExpireGroupInvitations",
+			Handler:    _Social_ExpireGroupInvitations_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
