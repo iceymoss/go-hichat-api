@@ -528,7 +528,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - 创建唯一索引后回滚旧写逻辑会重新产生冲突，因此后端不能单独回滚到先查后插版本；需同时关闭写入口或保持兼容写服务。
 - Kafka 新旧 topic 在观察期双消费但不能双生产；以 event ID/通知唯一键兜底。
 
-## 当前实施状态（2026-07-17）
+## 当前实施状态（2026-07-22）
 
 ### 分支与提交
 
@@ -541,6 +541,17 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - `940aadb fix(social): complete group request reliability`：完成步骤 4 复审修复。
 - `aa05ad1 feat(social): add personal request receipts`：完成步骤 5 个人回执与 unread/read 切换。
 - `7268dcf feat(social): add reliable notification outbox`：完成步骤 6 notification outbox、relay、幂等消费和监控。
+- `49e4850 feat(social): complete request list contracts`：完成步骤 7 请求列表契约、分页和筛选标读。
+- `05647fa fix(im): harden websocket presence lifecycle`：补齐步骤 8/9 前置的 WS presence 生命周期。
+- `03a8c35 feat(im): ensure group conversations reliably`：完成步骤 8 relation outbox 驱动的群会话可靠创建。
+- `6e7ec17 fix(im): broadcast websocket pushes to all sessions`：完成步骤 9 当前节点多连接广播。
+- `cdf1584 fix(web): discard stale social request refreshes`：完成步骤 10 前端请求版本和旧响应丢弃。
+- `3027fe0 fix(web): paginate friend requests reliably`：完成步骤 11 好友申请分页、标读和通知定位。
+- `f1cb818 fix(social): complete group request interactions`：完成步骤 12 群申请三 Tab、邀请确认和直接入群交互。
+- `22a56c0 fix(im): synchronize request notification receipts`：完成步骤 13 业务 receipt 与通知中心标读联动。
+- `500c502 fix(auth): enforce request actor boundaries`：完成步骤 14 JWT/RPC actor 边界、IM RPC 鉴权和生成一致性检查。
+- `a9da294 fix(task): persist notifications through im rpc`：完成步骤 15 task 通过 authenticated idempotent IM RPC 持久化通知。
+- `af7245a fix(social): expire group invitations reliably`：完成步骤 16 管理员 receipt 收敛和邀请过期 cron。
 
 ### 已完成
 
@@ -676,6 +687,32 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - notification list/create 增加 offset/limit、storage-sized payload、canonical UID 和 createTime 边界；bufconn 覆盖 method/body substitution、wrong secret、duplicate metadata 和 replay。
 - 新增 dirty-worktree/committed 双模式生成一致性脚本及 CI，固定 goctl/protoc 工具版本，校验 Social/IM generated files 和 GET `form` 标签；API 文档路径统一为 `docs/api.md`。
 - Social/IM 全量目标 test/race/vet、Docker 配置和两种生成检查通过；完整 API 文档内容重建仍需单独运行 `/sync-api-docs`。
+
+### 步骤 15 实施结果
+
+- task 公共通知消费者移除 `NotificationModel` 直写，统一通过 method/body-bound HMAC task principal 调用 IM `CreateNotification` RPC。
+- 通知 Kafka 队列强制单 consumer/processor；durable RPC 失败在 handler 内阻塞退避，防止更高 offset 越过失败事件。
+- malformed JSON 和 RPC `InvalidArgument` 写入 `im.notification.dead.v1`；DLQ 使用同步 Kafka writer 和 broker `RequireAll` ack，成功后才允许源消息提交。
+- 仅 IM 返回 `inserted && !already_read` 时发送 WS；重复通知、已读 intent 和 WS 失败均不触发 durable 重投。
+- task shutdown context、notification gate 和可取消 WS reconnect 保证活跃 RPC/DLQ/WS 操作可退出，shutdown 后预取消息不能提交。
+- task/IM/WS/rpcauth 目标 test、race、vet、Compose 和独立可靠性复审通过。
+
+### 步骤 16 实施结果
+
+- 管理员授予幂等回填现存 pending apply receipt；撤销、转让群主、踢出和主动退出在成员事务内关闭个人 actionability，receipt 失败回滚角色或成员变更。
+- 新增内部 `ExpireGroupInvitations` Social RPC，按 ID 有界选择并以 `status=pending AND expires_at<=now` CAS 转 expired，同事务关闭邀请 receipt。
+- 维护 RPC 使用独立 `HICHAT_SOCIAL_RPC_AUTH_SECRET`、task principal、method/body HMAC 和 Redis nonce 防重放；未配置时仅该维护 RPC fail closed。
+- cron 使用配置化表达式、Redis token 单实例锁、批量 RPC 循环和可取消根 context；TaskManager shutdown 不再持锁等待活跃任务。
+- Compose 新增实际启用的 `task-cron` 服务和独立生产配置；Social RPC 与 cron 显式共享同一 Social RPC auth secret。
+- Social/cron/rpcauth 目标 test、race、vet、生成一致性、Compose 展开和三方独立复审通过；MySQL/PostgreSQL 实跑留待步骤 17。
+
+### 步骤 17 当前状态
+
+- 尚未开始最终验收，不提前勾选下方测试计划。
+- 待执行 SQLite/MySQL/PostgreSQL 后端状态机与迁移实跑；MySQL/PostgreSQL 依赖 `SOCIAL_GROUP_TEST_MYSQL_DSN`、`SOCIAL_GROUP_TEST_POSTGRES_DSN`。
+- 待执行 Kafka outbox/DLQ、IM RPC、WS 多连接与离线恢复集成测试。
+- 待执行前端 typecheck、lint、组件测试，以及双账号/三账号、多标签页和离线恢复 E2E。
+- 全仓测试中的环境敏感或历史失败需与本功能回归结果分开记录，不得用 scoped test 代替最终验收结论。
 
 步骤 4 暂不提前实现：
 
