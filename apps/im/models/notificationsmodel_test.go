@@ -2,41 +2,44 @@ package model
 
 import (
 	"context"
-	"path/filepath"
-	"runtime"
+	"os"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
-	pkgCfg "github.com/iceymoss/go-hichat-api/pkg/config"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
-
-// repoConfigDir 通过本测试文件位置回溯仓库根，定位 config 目录（不依赖测试 CWD）。
-func repoConfigDir() string {
-	_, thisFile, _, _ := runtime.Caller(0)
-	// apps/im/models/ -> 回溯三级到仓库根
-	return filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "config")
-}
 
 // newNotificationModelForTest 初始化配置 + 真实 MySQL 连接，并 AutoMigrate 通知表；
 // 不可用则 skip（遵守不 mock DB）。AutoMigrate 跨 SQLite/MySQL/PostgreSQL 通用，顺带校验三库建表。
-func newNotificationModelForTest(t *testing.T) NotificationModel {
+func newNotificationModelForTest(t *testing.T) (NotificationModel, *gorm.DB) {
 	t.Helper()
-	defer func() {
-		if r := recover(); r != nil {
-			t.Skipf("config/mysql unavailable, skip: %v", r)
+	if dsn := os.Getenv("HICHAT_NOTIFICATION_TEST_MYSQL_DSN"); dsn != "" {
+		if os.Getenv("HICHAT_ALLOW_DESTRUCTIVE_DB_TESTS") != "1" {
+			t.Fatal("set HICHAT_ALLOW_DESTRUCTIVE_DB_TESTS=1 for external database tests")
 		}
-	}()
-	pkgCfg.InitConfig("local", "", repoConfigDir())
-	conn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
-	if err := conn.Exec("SELECT 1").Error; err != nil {
-		t.Skipf("mysql unavailable, skip: %v", err)
+		conn, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+		if err != nil {
+			t.Fatalf("open notification test MySQL: %v", err)
+		}
+		var databaseName string
+		if err := conn.Raw("SELECT DATABASE()").Scan(&databaseName).Error; err != nil {
+			t.Fatalf("read notification test database: %v", err)
+		}
+		matched, err := regexp.MatchString(`^hichat_[a-z0-9_]*_test$`, strings.ToLower(databaseName))
+		if err != nil || !matched {
+			t.Fatalf("notification integration requires a dedicated hichat_*_test database, got %q", databaseName)
+		}
+		if err := conn.AutoMigrate(&objects.Notification{}, &objects.NotificationReadIntent{}); err != nil {
+			t.Fatalf("migrate notifications: %v", err)
+		}
+		return &customNotificationModel{table: "notifications", connDB: conn}, conn
 	}
-	if err := conn.AutoMigrate(&objects.Notification{}, &objects.NotificationReadIntent{}); err != nil {
-		t.Skipf("migrate notifications unavailable, skip: %v", err)
-	}
-	return NewNotificationModel()
+	t.Skip("set HICHAT_NOTIFICATION_TEST_MYSQL_DSN and HICHAT_ALLOW_DESTRUCTIVE_DB_TESTS=1 to run")
+	return nil, nil
 }
 
 // Test_Notification_Insert_Idempotent_MultiReceiver 守护：
@@ -44,9 +47,8 @@ func newNotificationModelForTest(t *testing.T) NotificationModel {
 //  2. 多接收者：同 type+biz 不同 receiver 各自独立成行（group.apply 扇出语义）；
 //  3. 列表/未读数/标读：ListByReceiver(unreadOnly)、CountUnread、MarkRead(部分/全部) 行为正确。
 func Test_Notification_Insert_Idempotent_MultiReceiver(t *testing.T) {
-	m := newNotificationModelForTest(t)
+	m, conn := newNotificationModelForTest(t)
 	ctx := context.Background()
-	conn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	table := objects.Notification{}.TableName()
 
 	// 用唯一 notify_type 标记本次测试的行，测试后清理

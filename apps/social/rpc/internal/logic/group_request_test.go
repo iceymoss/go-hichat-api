@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -29,6 +30,10 @@ import (
 func newGroupTestContext(t *testing.T) (*svc.ServiceContext, *notifyRecorder) {
 	t.Helper()
 	database := openGroupTestDB(t)
+	if database.Dialector.Name() != "sqlite" {
+		requireDedicatedTestDatabase(t, database)
+		resetGroupTestTables(t, database)
+	}
 	if database.Dialector.Name() == "sqlite" {
 		createGroupSQLiteSchema(t, database)
 	} else {
@@ -47,12 +52,34 @@ func newGroupTestContext(t *testing.T) (*svc.ServiceContext, *notifyRecorder) {
 	return &svc.ServiceContext{DB: database, User: &userLookupStub{users: users}, CommonNotifyClient: recorder}, recorder
 }
 
+func requireDedicatedTestDatabase(t *testing.T, database *gorm.DB) {
+	t.Helper()
+	require.Equal(t, "1", os.Getenv("HICHAT_ALLOW_DESTRUCTIVE_DB_TESTS"), "set HICHAT_ALLOW_DESTRUCTIVE_DB_TESTS=1 for external database tests")
+	query := "SELECT DATABASE()"
+	if database.Dialector.Name() == "postgres" {
+		query = "SELECT current_database()"
+	}
+	var name string
+	require.NoError(t, database.Raw(query).Scan(&name).Error)
+	require.Regexp(t, `^hichat_[a-z0-9_]*_test$`, strings.ToLower(name), "external integration tests require a dedicated hichat_*_test database")
+}
+
+func resetGroupTestTables(t *testing.T, database *gorm.DB) {
+	t.Helper()
+	for _, table := range []string{
+		"social_notification_outbox", "social_request_receipts", "relation_outbox", "group_invite_links",
+		"group_invitations", "group_requests", "group_members", "groups",
+	} {
+		require.NoError(t, database.Migrator().DropTable(table))
+	}
+}
+
 func TestGroupRequestListPaginationAndFields(t *testing.T) {
 	svcCtx, _ := newGroupTestContext(t)
 	group := testGroup(1, false)
 	require.NoError(t, svcCtx.DB.Create(group).Error)
 	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
-	now := time.Now()
+	now := time.Now().UTC()
 	for i, result := range []int{0, 1, 3} {
 		id := uint64(math.MaxInt32) + uint64(i) + 1
 		reqTime := now.Add(time.Duration(i) * time.Second)
@@ -441,7 +468,7 @@ func TestGroupPutInConcurrentAndCooldown(t *testing.T) {
 		require.Equal(t, stable, id)
 	}
 	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.GroupRequest{}))
-	now := time.Now()
+	now := time.Now().UTC()
 	require.NoError(t, svcCtx.DB.Model(&objects.GroupRequest{}).Where("id = ?", stable).
 		Updates(map[string]any{"handle_result": 2, "handle_time": now, "active_key": nil}).Error)
 	_, err := NewGroupPutinLogic(context.Background(), svcCtx).GroupPutin(groupPutInReq("3", "3", "1"))

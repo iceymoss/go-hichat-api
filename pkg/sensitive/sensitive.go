@@ -2,13 +2,26 @@ package sensitive
 
 import (
 	"fmt"
-
+	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/importcjj/sensitive"
 )
 
-const SensitiveROOT = "resources/sensitive/"
+var SensitiveROOT = sensitiveRoot()
+
+func sensitiveRoot() string {
+	runtimeRoot := filepath.Join("resources", "sensitive")
+	if _, err := os.Stat(runtimeRoot); err == nil {
+		return runtimeRoot
+	}
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return runtimeRoot
+	}
+	return filepath.Join(filepath.Dir(file), "..", "..", "resources", "sensitive")
+}
 
 type SensitiveType string
 
@@ -34,7 +47,7 @@ type Word struct {
 func NewWord(t SensitiveType) (*Word, error) {
 	filter := sensitive.New()
 
-	loadFile := string(SensitiveROOT + ALL_FILE)
+	loadFile := filepath.Join(SensitiveROOT, string(ALL_FILE))
 	switch t {
 	case FILE_COVID_19:
 		loadFile = filepath.Join(SensitiveROOT, string(FILE_COVID_19))

@@ -83,6 +83,10 @@ func (r *notifyRecorder) count() int {
 func newFriendTestContext(t *testing.T) (*svc.ServiceContext, *notifyRecorder) {
 	t.Helper()
 	db := openFriendTestDB(t)
+	if db.Dialector.Name() != "sqlite" {
+		requireDedicatedTestDatabase(t, db)
+		resetFriendTestTables(t, db)
+	}
 	if db.Dialector.Name() == "sqlite" {
 		require.NoError(t, db.Exec(`CREATE TABLE friend_requests (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, req_uid INTEGER NOT NULL,
@@ -125,6 +129,15 @@ func newFriendTestContext(t *testing.T) (*svc.ServiceContext, *notifyRecorder) {
 		"4": {Id: "4", Nickname: "disabled", Status: 0},
 	}
 	return &svc.ServiceContext{DB: db, User: &userLookupStub{users: users}, CommonNotifyClient: recorder}, recorder
+}
+
+func resetFriendTestTables(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	for _, table := range []string{
+		"social_notification_outbox", "social_request_receipts", "relation_outbox", "friend_requests", "friends",
+	} {
+		require.NoError(t, db.Migrator().DropTable(table))
+	}
 }
 
 func openFriendTestDB(t *testing.T) *gorm.DB {

@@ -106,7 +106,7 @@ function CommentItem({ comment, onReply, onDelete }: CommentItemProps) {
             <span style={{ fontSize: '13px', fontWeight: 600, color: '#576b95', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showUserCard(comment.replyer.id); }}>{userName}</span>
             {replyToName && (
               <span style={{ fontSize: '12px', color: '#A2ACB5' }}>
-                {t('trend.replyConnector')} <span style={{ color: '#576b95', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); comment.user && showUserCard(comment.user.id); }}>{replyToName}</span>
+                {t('trend.replyConnector')} <span style={{ color: '#576b95', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); if (comment.user) showUserCard(comment.user.id); }}>{replyToName}</span>
               </span>
             )}
             <span style={{ fontSize: '11px', color: '#A2ACB5', marginLeft: 'auto', flexShrink: 0 }}>{fmtTime(comment.createTime, t)}</span>

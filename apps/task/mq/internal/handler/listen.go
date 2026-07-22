@@ -30,20 +30,7 @@ func (l *Listen) Services() []service.Service {
 	trendNotifyConsumeHandle := msgTransfer.NewTrendNotifyTransfer(l.svc)
 	relationChangeConsumeHandle := msgTransfer.NewRelationChangeTransfer(l.svc)
 	commonNotifyConsumeHandle := msgTransfer.NewCommonNotifyTransfer(l.svc)
-	socialRequestNotification := l.svc.Config.SocialRequestNotification
-	if socialRequestNotification.Topic == "" {
-		socialRequestNotification = l.svc.Config.CommonNotifyTransfer
-		socialRequestNotification.Topic = "social.request.notification.v1"
-	}
-	if len(socialRequestNotification.Brokers) == 0 {
-		socialRequestNotification.Brokers = l.svc.Config.CommonNotifyTransfer.Brokers
-	}
-	if socialRequestNotification.Name == "" {
-		socialRequestNotification.Name = "socialRequestNotificationV1"
-	}
-	if socialRequestNotification.Group == "" {
-		socialRequestNotification.Group = "socialRequestNotificationV1"
-	}
+	socialRequestNotification := socialRequestNotificationConf(l.svc.Config.SocialRequestNotification, l.svc.Config.CommonNotifyTransfer)
 	relationChange := l.svc.Config.RelationChangeTransfer
 	relationChange.ForceCommit = false
 	relationChange.CommitInOrder = false
@@ -61,6 +48,28 @@ func (l *Listen) Services() []service.Service {
 		kq.MustNewQueue(commonNotify, commonNotifyConsumeHandle),
 		kq.MustNewQueue(socialRequestNotification, commonNotifyConsumeHandle),
 	}
+}
+
+func socialRequestNotificationConf(socialRequestNotification, commonNotify kq.KqConf) kq.KqConf {
+	if socialRequestNotification.Topic == "" {
+		socialRequestNotification = commonNotify
+		socialRequestNotification.Topic = "social.request.notification.v1"
+		socialRequestNotification.Name = "socialRequestNotificationV1"
+		socialRequestNotification.Group = "socialRequestNotificationV1"
+	}
+	if len(socialRequestNotification.Brokers) == 0 {
+		socialRequestNotification.Brokers = commonNotify.Brokers
+	}
+	if socialRequestNotification.Name == "" {
+		socialRequestNotification.Name = "socialRequestNotificationV1"
+	}
+	if socialRequestNotification.Group == "" {
+		socialRequestNotification.Group = "socialRequestNotificationV1"
+	}
+	if socialRequestNotification.Offset == "" {
+		socialRequestNotification.Offset = "first"
+	}
+	return socialRequestNotification
 }
 
 // Service groups task queues behind an ordered shutdown boundary: retries are canceled before queues wait for handlers.

@@ -680,7 +680,11 @@ func mergeDuplicateFriends(db *gorm.DB, report *Report) error {
 		if err != nil {
 			return fmt.Errorf("encode merged friend tags: %w", err)
 		}
-		updates := map[string]any{"remark": finding.Remark, "add_source": finding.AddSource, "blacklisted": finding.Blacklisted, "moments_permission": finding.MomentsPermission, "notify_enabled": finding.NotifyEnabled, "pinned": finding.Pinned, "muted": finding.Muted, "friend_tags": string(tags)}
+		blacklisted, notifyEnabled, pinned, muted := any(boolInt(finding.Blacklisted)), any(boolInt(finding.NotifyEnabled)), any(boolInt(finding.Pinned)), any(boolInt(finding.Muted))
+		if db.Dialector.Name() == "postgres" {
+			blacklisted, notifyEnabled, pinned, muted = finding.Blacklisted, finding.NotifyEnabled, finding.Pinned, finding.Muted
+		}
+		updates := map[string]any{"remark": finding.Remark, "add_source": finding.AddSource, "blacklisted": blacklisted, "moments_permission": finding.MomentsPermission, "notify_enabled": notifyEnabled, "pinned": pinned, "muted": muted, "friend_tags": string(tags)}
 		if err := db.Table("friends").Where("id = ?", finding.KeepID).Updates(updates).Error; err != nil {
 			return fmt.Errorf("merge duplicate friend metadata: %w", err)
 		}
@@ -693,44 +697,95 @@ func mergeDuplicateFriends(db *gorm.DB, report *Report) error {
 }
 
 func resolveExistingRelations(db *gorm.DB, driver string, now time.Time, report *Report) error {
-	type friendRequest struct{ ID, UserID, ReqUID uint64 }
-	var requests []friendRequest
-	if err := db.Table("friend_requests").Select("id, user_id, req_uid").Where("COALESCE(handle_result, 0) = 0").Find(&requests).Error; err != nil {
-		return fmt.Errorf("read pending friend requests: %w", err)
+	const batchSize = 500
+	type friendRequest struct {
+		ID, UserID, ReqUID uint64
+		Forward, Reverse   bool
 	}
-	for _, request := range requests {
-		forward, err := friendRelationExists(db, request.UserID, request.ReqUID)
-		if err != nil {
-			return fmt.Errorf("check forward friendship for request %d: %w", request.ID, err)
+	var friendAfterID uint64
+	for {
+		var requests []friendRequest
+		query := `SELECT fr.id, fr.user_id, fr.req_uid,
+			EXISTS(SELECT 1 FROM friends f WHERE f.user_id = fr.user_id AND f.friend_uid = fr.req_uid) AS forward,
+			EXISTS(SELECT 1 FROM friends f WHERE f.user_id = fr.req_uid AND f.friend_uid = fr.user_id) AS reverse
+			FROM friend_requests fr WHERE fr.id > ? AND COALESCE(fr.handle_result, 0) = 0 ORDER BY fr.id LIMIT ?`
+		if err := db.Raw(query, friendAfterID, batchSize).Scan(&requests).Error; err != nil {
+			return fmt.Errorf("read pending friend requests: %w", err)
 		}
-		reverse, err := friendRelationExists(db, request.ReqUID, request.UserID)
-		if err != nil {
-			return fmt.Errorf("check reverse friendship for request %d: %w", request.ID, err)
+		if len(requests) == 0 {
+			break
 		}
-		if forward && reverse {
-			if err := db.Table("friend_requests").Where("id = ?", request.ID).Updates(map[string]any{"handle_result": 1, "active_key": nil, "handled_at": now}).Error; err != nil {
-				return fmt.Errorf("resolve existing bidirectional friendship: %w", err)
+		friendAfterID = requests[len(requests)-1].ID
+		resolved := make([]uint64, 0, len(requests))
+		for _, request := range requests {
+			if request.Forward && request.Reverse {
+				resolved = append(resolved, request.ID)
+				report.ResolvedFriendRequestIDs = append(report.ResolvedFriendRequestIDs, request.ID)
+			} else if request.Forward || request.Reverse {
+				report.OneWayPendingRequests = append(report.OneWayPendingRequests, OneWayPendingFinding{RequestID: request.ID, UserID: request.UserID, FriendUID: request.ReqUID, Reason: "only one directed friendship exists; request remains pending"})
 			}
-			report.ResolvedFriendRequestIDs = append(report.ResolvedFriendRequestIDs, request.ID)
-		} else if forward || reverse {
-			report.OneWayPendingRequests = append(report.OneWayPendingRequests, OneWayPendingFinding{RequestID: request.ID, UserID: request.UserID, FriendUID: request.ReqUID, Reason: "only one directed friendship exists; request remains pending"})
+		}
+		if len(resolved) > 0 {
+			if err := db.Table("friend_requests").Where("id IN ?", resolved).Updates(map[string]any{"handle_result": 1, "active_key": nil, "handled_at": now}).Error; err != nil {
+				return fmt.Errorf("resolve existing bidirectional friendships: %w", err)
+			}
 		}
 	}
-	memberUser := "CAST(gm.user_id AS VARCHAR(64))"
-	if driver == "mysql" {
-		memberUser = "CAST(gm.user_id AS CHAR)"
+	type groupRequest struct {
+		ID      uint64
+		GroupID uint64
+		ReqID   string
 	}
-	type idRow struct{ ID uint64 }
-	var memberRequests []idRow
-	query := `SELECT gr.id FROM group_requests gr WHERE COALESCE(gr.handle_result, 0) = 0 AND EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = gr.group_id AND ` + memberUser + ` = gr.req_id)`
-	if err := db.Raw(query).Scan(&memberRequests).Error; err != nil {
-		return fmt.Errorf("find pending requests for existing members: %w", err)
-	}
-	for _, request := range memberRequests {
-		if err := db.Table("group_requests").Where("id = ?", request.ID).Updates(map[string]any{"handle_result": 1, "active_key": nil, "handle_time": now, "actual_join_source": 1}).Error; err != nil {
-			return fmt.Errorf("resolve pending request for existing member: %w", err)
+	var afterID uint64
+	for {
+		var requests []groupRequest
+		if err := db.Table("group_requests").Select("id, group_id, req_id").
+			Where("id > ? AND COALESCE(handle_result, 0) = 0", afterID).Order("id").Limit(batchSize).Find(&requests).Error; err != nil {
+			return fmt.Errorf("read pending group requests: %w", err)
 		}
-		report.ResolvedGroupRequestIDs = append(report.ResolvedGroupRequestIDs, request.ID)
+		if len(requests) == 0 {
+			break
+		}
+		afterID = requests[len(requests)-1].ID
+		groupIDs, userIDs := make([]uint64, 0, len(requests)), make([]uint64, 0, len(requests))
+		requestUsers := make(map[uint64]uint64, len(requests))
+		resolved := make([]uint64, 0, len(requests))
+		for _, request := range requests {
+			userID, err := strconv.ParseUint(request.ReqID, 10, 64)
+			if err != nil || userID == 0 || strconv.FormatUint(userID, 10) != request.ReqID {
+				continue
+			}
+			requestUsers[request.ID] = userID
+			groupIDs = append(groupIDs, request.GroupID)
+			userIDs = append(userIDs, userID)
+		}
+		type memberKey struct{ GroupID, UserID uint64 }
+		var members []memberKey
+		if len(requestUsers) > 0 {
+			if err := db.Table("group_members").Select("group_id, user_id").Where("group_id IN ? AND user_id IN ?", groupIDs, userIDs).Find(&members).Error; err != nil {
+				return fmt.Errorf("read group memberships for pending requests: %w", err)
+			}
+		}
+		memberSet := make(map[memberKey]struct{}, len(members))
+		for _, member := range members {
+			memberSet[member] = struct{}{}
+		}
+		for _, request := range requests {
+			userID, ok := requestUsers[request.ID]
+			if !ok {
+				continue
+			}
+			if _, exists := memberSet[memberKey{GroupID: request.GroupID, UserID: userID}]; !exists {
+				continue
+			}
+			resolved = append(resolved, request.ID)
+			report.ResolvedGroupRequestIDs = append(report.ResolvedGroupRequestIDs, request.ID)
+		}
+		if len(resolved) > 0 {
+			if err := db.Table("group_requests").Where("id IN ?", resolved).Updates(map[string]any{"handle_result": 1, "active_key": nil, "handle_time": now, "actual_join_source": 1}).Error; err != nil {
+				return fmt.Errorf("resolve pending requests for existing members: %w", err)
+			}
+		}
 	}
 	return nil
 }

@@ -28,27 +28,24 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
+	ctx := &ServiceContext{Config: c}
+	if c.Cron.InvitationExpirationSpec == "" {
+		return ctx
+	}
 	var redisClient RedisLocker
 	if len(c.Cache) > 0 {
 		redisClient = c.Cache[0].NewRedis()
 	}
-	var socialRPC zrpc.Client
-	if c.Cron.InvitationExpirationSpec != "" {
-		secret, err := c.LoadRPCAuthSecret()
-		if err != nil {
-			panic(err)
-		}
-		rpcAuth, err := rpcauth.New(secret)
-		if err != nil {
-			panic(err)
-		}
-		socialRPC = zrpc.MustNewClient(c.SocialRpc, zrpc.WithUnaryClientInterceptor(rpcAuth.UnaryClientInterceptor()))
-	} else {
-		socialRPC = zrpc.MustNewClient(c.SocialRpc)
+	secret, err := c.LoadRPCAuthSecret()
+	if err != nil {
+		panic(err)
 	}
-	return &ServiceContext{
-		Config: c,
-		Social: socialclient.NewSocial(socialRPC),
-		Redis:  redisClient,
+	rpcAuth, err := rpcauth.New(secret)
+	if err != nil {
+		panic(err)
 	}
+	socialRPC := zrpc.MustNewClient(c.SocialRpc, zrpc.WithUnaryClientInterceptor(rpcAuth.UnaryClientInterceptor()))
+	ctx.Social = socialclient.NewSocial(socialRPC)
+	ctx.Redis = redisClient
+	return ctx
 }

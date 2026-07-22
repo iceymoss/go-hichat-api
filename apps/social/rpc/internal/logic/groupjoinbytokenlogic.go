@@ -82,7 +82,7 @@ func (l *GroupJoinByTokenLogic) GroupJoinByToken(in *social.GroupJoinByTokenReq)
 		if putinResp.AlreadyMember || link.MaxUses == 0 {
 			return nil
 		}
-		result := tx.Table("group_invite_links").Where("token = ? AND revoked = 0 AND used_count = ?", in.Token, link.UsedCount).
+		result := tx.Table("group_invite_links").Where("token = ? AND revoked = ? AND used_count = ?", in.Token, false, link.UsedCount).
 			UpdateColumn("used_count", gorm.Expr("used_count + ?", 1))
 		if result.Error != nil {
 			return errors.Wrapf(xerr.NewDBErr(), "update used_count err")

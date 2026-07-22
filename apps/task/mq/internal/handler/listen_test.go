@@ -37,3 +37,12 @@ func TestTaskMQServiceCancelsBeforeStoppingQueues(t *testing.T) {
 		t.Fatal("queue stopped before task shutdown context was canceled")
 	}
 }
+
+func TestSocialRequestNotificationFallbackUsesIndependentConsumerGroup(t *testing.T) {
+	common := kq.KqConf{Group: "commonNotify", Topic: "commonNotify", Brokers: []string{"kafka:9092"}}
+	common.Name = "commonNotify"
+	got := socialRequestNotificationConf(kq.KqConf{}, common)
+	if got.Topic != "social.request.notification.v1" || got.Name != "socialRequestNotificationV1" || got.Group != "socialRequestNotificationV1" || got.Offset != "first" {
+		t.Fatalf("fallback notification config = %+v", got)
+	}
+}

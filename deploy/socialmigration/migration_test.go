@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -280,6 +282,18 @@ func openTestDB(t *testing.T, driver, dsn string) *gorm.DB {
 	}
 	db, err := gorm.Open(dialector, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
+	if driver != "sqlite" {
+		require.Equal(t, "1", os.Getenv("HICHAT_ALLOW_DESTRUCTIVE_DB_TESTS"), "set HICHAT_ALLOW_DESTRUCTIVE_DB_TESTS=1 for external database tests")
+		query := "SELECT DATABASE()"
+		if driver == "postgres" {
+			query = "SELECT current_database()"
+		}
+		var databaseName string
+		require.NoError(t, db.Raw(query).Scan(&databaseName).Error)
+		matched, matchErr := regexp.MatchString(`^hichat_[a-z0-9_]*_test$`, strings.ToLower(databaseName))
+		require.NoError(t, matchErr)
+		require.True(t, matched, "external migration tests require a dedicated hichat_*_test database, got %q", databaseName)
+	}
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
@@ -294,11 +308,17 @@ func dropTestTables(t *testing.T, db *gorm.DB) {
 }
 
 func createLegacySchema(db *gorm.DB) error {
+	idType := "INTEGER PRIMARY KEY"
+	if db.Dialector.Name() == "mysql" {
+		idType = "INTEGER AUTO_INCREMENT PRIMARY KEY"
+	} else if db.Dialector.Name() == "postgres" {
+		idType = "BIGSERIAL PRIMARY KEY"
+	}
 	statements := []string{
-		`CREATE TABLE friends (id INTEGER PRIMARY KEY, user_id BIGINT NOT NULL, friend_uid BIGINT NOT NULL, remark VARCHAR(255), add_source INTEGER, blacklisted INTEGER NOT NULL DEFAULT 0, moments_permission INTEGER NOT NULL DEFAULT 0, notify_enabled INTEGER NOT NULL DEFAULT 1, pinned INTEGER NOT NULL DEFAULT 0, muted INTEGER NOT NULL DEFAULT 0, friend_tags TEXT, created_at TIMESTAMP NULL)`,
-		`CREATE TABLE friend_requests (id INTEGER PRIMARY KEY, user_id BIGINT NOT NULL, req_uid BIGINT NOT NULL, req_msg VARCHAR(255), req_time TIMESTAMP NOT NULL, handle_result INTEGER, handle_msg VARCHAR(255), handled_at TIMESTAMP NULL, status INTEGER, read_state INTEGER NOT NULL DEFAULT 0, receiver_read INTEGER NOT NULL DEFAULT 0, sender_read INTEGER NOT NULL DEFAULT 0, remark VARCHAR(64) NOT NULL DEFAULT '')`,
-		`CREATE TABLE group_requests (id INTEGER PRIMARY KEY, req_id VARCHAR(64) NOT NULL, group_id BIGINT NOT NULL, req_msg VARCHAR(255), req_time TIMESTAMP NULL, join_source INTEGER, inviter_user_id BIGINT, handle_user_id BIGINT, handle_time TIMESTAMP NULL, handle_result INTEGER, receiver_read INTEGER NOT NULL DEFAULT 0)`,
-		`CREATE TABLE group_members (id INTEGER PRIMARY KEY, group_id BIGINT NOT NULL, user_id BIGINT NOT NULL, role_level INTEGER NOT NULL, join_time TIMESTAMP NULL, join_source INTEGER, inviter_uid BIGINT, operator_uid BIGINT, group_nickname VARCHAR(64) NOT NULL DEFAULT '', group_remark VARCHAR(255) NOT NULL DEFAULT '')`,
+		fmt.Sprintf(`CREATE TABLE friends (id %s, user_id BIGINT NOT NULL, friend_uid BIGINT NOT NULL, remark VARCHAR(255), add_source INTEGER, blacklisted BOOLEAN NOT NULL DEFAULT FALSE, moments_permission INTEGER NOT NULL DEFAULT 0, notify_enabled BOOLEAN NOT NULL DEFAULT TRUE, pinned BOOLEAN NOT NULL DEFAULT FALSE, muted BOOLEAN NOT NULL DEFAULT FALSE, friend_tags TEXT, created_at TIMESTAMP NULL)`, idType),
+		fmt.Sprintf(`CREATE TABLE friend_requests (id %s, user_id BIGINT NOT NULL, req_uid BIGINT NOT NULL, req_msg VARCHAR(255), req_time TIMESTAMP NOT NULL, handle_result INTEGER, handle_msg VARCHAR(255), handled_at TIMESTAMP NULL, status INTEGER, read_state INTEGER NOT NULL DEFAULT 0, receiver_read INTEGER NOT NULL DEFAULT 0, sender_read INTEGER NOT NULL DEFAULT 0, remark VARCHAR(64) NOT NULL DEFAULT '')`, idType),
+		fmt.Sprintf(`CREATE TABLE group_requests (id %s, req_id VARCHAR(64) NOT NULL, group_id BIGINT NOT NULL, req_msg VARCHAR(255), req_time TIMESTAMP NULL, join_source INTEGER, inviter_user_id BIGINT, handle_user_id BIGINT, handle_time TIMESTAMP NULL, handle_result INTEGER, receiver_read INTEGER NOT NULL DEFAULT 0)`, idType),
+		fmt.Sprintf(`CREATE TABLE group_members (id %s, group_id BIGINT NOT NULL, user_id BIGINT NOT NULL, role_level INTEGER NOT NULL, join_time TIMESTAMP NULL, join_source INTEGER, inviter_uid BIGINT, operator_uid BIGINT, group_nickname VARCHAR(64) NOT NULL DEFAULT '', group_remark VARCHAR(255) NOT NULL DEFAULT '')`, idType),
 		`CREATE UNIQUE INDEX uk_member ON group_members(group_id,user_id)`,
 	}
 	for _, statement := range statements {
@@ -311,7 +331,7 @@ func createLegacySchema(db *gorm.DB) error {
 
 func seedLegacySchema(db *gorm.DB) error {
 	statements := []string{
-		`INSERT INTO friends(id,user_id,friend_uid,remark,add_source,blacklisted,moments_permission,notify_enabled,pinned,muted,friend_tags,created_at) VALUES (1,1,2,'first',1,0,1,1,0,0,'["a","shared"]','2026-01-01'),(2,1,2,'conflict',2,1,2,0,1,1,'["shared","b"]','2026-01-02'),(3,2,1,'reverse',NULL,0,0,1,0,0,'[]','2026-01-01'),(4,8,9,'one-way',NULL,0,0,1,0,0,'[]','2026-01-01')`,
+		`INSERT INTO friends(id,user_id,friend_uid,remark,add_source,blacklisted,moments_permission,notify_enabled,pinned,muted,friend_tags,created_at) VALUES (1,1,2,'first',1,FALSE,1,TRUE,FALSE,FALSE,'["a","shared"]','2026-01-01'),(2,1,2,'conflict',2,TRUE,2,FALSE,TRUE,TRUE,'["shared","b"]','2026-01-02'),(3,2,1,'reverse',NULL,FALSE,0,TRUE,FALSE,FALSE,'[]','2026-01-01'),(4,8,9,'one-way',NULL,FALSE,0,TRUE,FALSE,FALSE,'[]','2026-01-01')`,
 		`INSERT INTO friend_requests(id,user_id,req_uid,req_time,handle_result,status,receiver_read,sender_read) VALUES (10,3,4,'2026-07-02',0,1,9,0),(11,3,4,'2026-07-01',0,1,0,0),(12,1,2,'2026-07-03',0,1,1,0),(13,5,6,'2026-07-04',2,1,1,0),(14,8,9,'2026-07-05',0,1,0,0)`,
 		`INSERT INTO group_members(id,group_id,user_id,role_level) VALUES (1,100,50,2),(2,100,51,1),(3,100,22,0)`,
 		`INSERT INTO group_requests(id,req_id,group_id,req_msg,req_time,join_source,inviter_user_id,handle_result,receiver_read) VALUES (20,'20',100,'new','2026-07-02',1,NULL,0,1),(21,'20',100,'old','2026-07-01',1,NULL,0,0),(22,'22',100,'already member','2026-07-03',1,NULL,0,0),(23,'23',100,'member invite','2026-07-16',2,50,0,0),(24,'24',100,'link flow','2026-07-10',3,50,1,1),(25,'22',100,'invite already member','2026-07-16',2,50,0,0)`,

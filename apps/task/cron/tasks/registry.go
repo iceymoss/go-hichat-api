@@ -34,17 +34,6 @@ func RegisterAllTasks(taskManager types.TaskManager, svc *svc.ServiceContext) {
 	fmt.Println("Starting task registration...")
 	registry := NewTaskRegistry()
 
-	// 注册示例任务
-	fmt.Println("Registering example task...")
-	registry.RegisterTask(NewExampleTask(svc))
-
-	// 注册数据清理任务
-	fmt.Println("Registering data cleanup task...")
-	registry.RegisterTask(NewDataCleanupTask(svc))
-
-	// 注册统计任务
-	fmt.Println("Registering stats task...")
-	registry.RegisterTask(NewStatsTask(svc))
 	if svc.Config.Cron.InvitationExpirationSpec != "" {
 		fmt.Println("Registering group invitation expiration task...")
 		registry.RegisterTask(NewGroupInvitationExpirationTask(svc))

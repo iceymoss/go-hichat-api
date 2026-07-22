@@ -39,23 +39,35 @@ func (l *GroupAtListLogic) GroupAtList(req *types.GroupAtListReq) (resp *types.G
 
 	ids := make([]string, 0, len(rpcResp.List))
 	for _, m := range rpcResp.List {
+		if m == nil {
+			continue
+		}
 		ids = append(ids, m.UserId)
 	}
 
-	userBind := map[string]user.UserEntity{}
+	userBind := map[string]*user.UserEntity{}
 	if len(ids) > 0 {
 		userRes, err := l.svcCtx.User.FindUser(l.ctx, &user.FindUserReq{Ids: ids})
 		if err != nil {
 			return nil, err
 		}
 		for _, u := range userRes.User {
-			userBind[u.Id] = *u
+			if u == nil {
+				continue
+			}
+			userBind[u.Id] = u
 		}
 	}
 
 	list := make([]types.AtMember, 0, len(rpcResp.List))
 	for _, m := range rpcResp.List {
+		if m == nil {
+			continue
+		}
 		u := userBind[m.UserId]
+		if u == nil {
+			u = &user.UserEntity{}
+		}
 		list = append(list, types.AtMember{
 			UserId:        m.UserId,
 			Nickname:      u.Nickname,

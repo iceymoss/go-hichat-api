@@ -18,7 +18,7 @@ type Config struct {
 
 	Mysql struct {
 		DataSource string
-	}
+	} `json:",optional"`
 
 	Cache cache.CacheConf
 

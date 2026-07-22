@@ -79,7 +79,7 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 			return nil
 		}
 
-		now := time.Now()
+		now := time.Now().UTC()
 		if group.IsVerify == 0 {
 			request := objects.GroupRequest{
 				ReqID: strconv.FormatUint(actor, 10), GroupID: groupID, ReqMsg: in.ReqMsg, ReqTime: &now,

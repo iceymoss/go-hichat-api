@@ -40,6 +40,11 @@ func TestRegisterAllTasksInvitationExpirationIsOptional(t *testing.T) {
 			svcCtx.Config.Cron.InvitationExpirationSpec = tt.spec
 			RegisterAllTasks(manager, svcCtx)
 			require.Equal(t, tt.want, containsTask(manager.names, "group_invitation_expiration"))
+			if tt.want {
+				require.Equal(t, []string{"group_invitation_expiration"}, manager.names)
+			} else {
+				require.Empty(t, manager.names)
+			}
 		})
 	}
 }

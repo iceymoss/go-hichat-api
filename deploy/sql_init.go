@@ -13,6 +13,16 @@ import (
 )
 
 const socialRequestReliabilityMigrationVersion = "20260717_social_req"
+const freshSocialBootstrapVersion = "bootstrap_fresh_social_schema"
+
+var freshSocialMigrationRecords = []MigrationRecord{
+	{Version: socialRequestReliabilityMigrationVersion, Description: "fresh social reliability schema"},
+	{Version: "20260717_soc_data", Description: "fresh social reliability data"},
+	{Version: "20260718_receipt_result_fix", Description: "fresh canonical receipt results"},
+	{Version: "20260718_group_handle_msg", Description: "fresh group request handle message"},
+	{Version: "20260719_invitation_status_swap", Description: "fresh canonical invitation statuses"},
+	{Version: "20260719_invitation_receipt_canonical", Description: "fresh canonical invitation receipts"},
+}
 
 var migrationLogger *zap.Logger
 
@@ -66,27 +76,111 @@ func RunAutoMigrate(dbName string) error {
 }
 
 func runAutoMigrate(conn *gorm.DB) error {
+	return runAutoMigrateWithFreshSchemaRecord(conn)
+}
+
+func runAutoMigrateWithFreshSchemaRecord(conn *gorm.DB) error {
+	return runAutoMigrateAndRecordFreshSchema(conn, autoMigrateTables)
+}
+
+func runAutoMigrateAndRecordFreshSchema(conn *gorm.DB, migrate func(*gorm.DB) error) error {
+	fresh := !hasCoreSocialTables(conn)
 	if err := requireSocialReliabilityMigration(conn); err != nil {
 		return err
 	}
-	return autoMigrateTables(conn)
+	bootstrapping := fresh
+	if fresh {
+		if err := conn.AutoMigrate(&MigrationRecord{}); err != nil {
+			return fmt.Errorf("create migration record table: %w", err)
+		}
+		marker := &MigrationRecord{Version: freshSocialBootstrapVersion, Description: "fresh social schema bootstrap", AppliedAt: time.Now()}
+		if err := conn.Where("version = ?", marker.Version).FirstOrCreate(marker).Error; err != nil {
+			return fmt.Errorf("record fresh social schema bootstrap: %w", err)
+		}
+	} else if conn.Migrator().HasTable(&MigrationRecord{}) {
+		var count int64
+		if err := conn.Model(&MigrationRecord{}).Where("version = ?", freshSocialBootstrapVersion).Count(&count).Error; err != nil {
+			return fmt.Errorf("check fresh social schema bootstrap: %w", err)
+		}
+		bootstrapping = count > 0
+		if bootstrapping {
+			empty, err := socialBootstrapTablesEmpty(conn)
+			if err != nil {
+				return err
+			}
+			if !empty {
+				if err := conn.Where("version = ?", freshSocialBootstrapVersion).Delete(&MigrationRecord{}).Error; err != nil {
+					return fmt.Errorf("clear unsafe fresh social schema bootstrap: %w", err)
+				}
+				return fmt.Errorf("partial fresh social schema contains data; run deploy/socialmigration before generic AutoMigrate")
+			}
+		}
+	}
+	if err := migrate(conn); err != nil {
+		return err
+	}
+	if !bootstrapping {
+		return nil
+	}
+	now := time.Now()
+	for _, value := range freshSocialMigrationRecords {
+		record := value
+		record.AppliedAt = now
+		if err := conn.Where("version = ?", record.Version).FirstOrCreate(&record).Error; err != nil {
+			return fmt.Errorf("record fresh social reliability schema: %w", err)
+		}
+	}
+	if err := conn.Where("version = ?", freshSocialBootstrapVersion).Delete(&MigrationRecord{}).Error; err != nil {
+		return fmt.Errorf("clear fresh social schema bootstrap: %w", err)
+	}
+	return nil
+}
+
+func socialBootstrapTablesEmpty(conn *gorm.DB) (bool, error) {
+	for _, table := range []any{
+		&objects.Friend{}, &objects.FriendRequest{}, &objects.Group{}, &objects.GroupMember{},
+		&objects.GroupRequest{}, &objects.GroupInvitation{}, &objects.SocialRequestReceipt{},
+		&objects.SocialNotificationOutbox{}, &objects.RelationOutbox{},
+	} {
+		if !conn.Migrator().HasTable(table) {
+			continue
+		}
+		var count int64
+		if err := conn.Model(table).Limit(1).Count(&count).Error; err != nil {
+			return false, fmt.Errorf("check partial fresh social schema data: %w", err)
+		}
+		if count > 0 {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func hasCoreSocialTables(conn *gorm.DB) bool {
+	for _, table := range []any{
+		&objects.Friend{}, &objects.FriendRequest{}, &objects.Group{}, &objects.GroupMember{},
+		&objects.GroupRequest{}, &objects.GroupInvitation{}, &objects.SocialRequestReceipt{},
+		&objects.SocialNotificationOutbox{}, &objects.RelationOutbox{},
+	} {
+		if conn.Migrator().HasTable(table) {
+			return true
+		}
+	}
+	return false
 }
 
 // requireSocialReliabilityMigration prevents generic AutoMigrate from creating
 // unique indexes over unclean legacy social data. A database with none of the
 // core social tables is fresh and may create the complete schema directly.
 func requireSocialReliabilityMigration(conn *gorm.DB) error {
-	legacySchema := conn.Migrator().HasTable(&objects.Friend{}) ||
-		conn.Migrator().HasTable(&objects.FriendRequest{}) ||
-		conn.Migrator().HasTable(&objects.GroupRequest{})
-	if !legacySchema {
+	if !hasCoreSocialTables(conn) {
 		return nil
 	}
 	if !conn.Migrator().HasTable(&MigrationRecord{}) {
 		return fmt.Errorf("social schema upgrade requires deploy/socialmigration version %s before generic AutoMigrate", socialRequestReliabilityMigrationVersion)
 	}
 	var count int64
-	if err := conn.Model(&MigrationRecord{}).Where("version = ?", socialRequestReliabilityMigrationVersion).Count(&count).Error; err != nil {
+	if err := conn.Model(&MigrationRecord{}).Where("version IN ?", []string{socialRequestReliabilityMigrationVersion, freshSocialBootstrapVersion}).Count(&count).Error; err != nil {
 		return fmt.Errorf("check social reliability migration version: %w", err)
 	}
 	if count == 0 {
@@ -227,10 +321,7 @@ func RunAutoMigrateWithVersion(dbName string, version string, description string
 
 // RunAutoMigrateInTx 在事务中执行 AutoMigrate
 func RunAutoMigrateInTx(tx *gorm.DB) error {
-	if err := requireSocialReliabilityMigration(tx); err != nil {
-		return err
-	}
-	return autoMigrateTables(tx)
+	return runAutoMigrateWithFreshSchemaRecord(tx)
 }
 
 // GetAppliedMigrations 获取已执行的迁移列表
