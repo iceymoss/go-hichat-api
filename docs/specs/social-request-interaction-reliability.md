@@ -585,7 +585,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 恢复入口
 
-步骤 16 已完成。下一会话从步骤 17 开始：执行三库、Kafka/WS、前端和双账号多端 E2E 验证。
+步骤 17 自动化与真实依赖验收已完成；下一会话继续浏览器双账号/三账号、多标签页和离线恢复 E2E，完成后再关闭步骤 17。
 
 ### 步骤 5 实施结果
 
@@ -708,11 +708,13 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 
 ### 步骤 17 当前状态
 
-- 尚未开始最终验收，不提前勾选下方测试计划。
-- 待执行 SQLite/MySQL/PostgreSQL 后端状态机与迁移实跑；MySQL/PostgreSQL 依赖 `SOCIAL_GROUP_TEST_MYSQL_DSN`、`SOCIAL_GROUP_TEST_POSTGRES_DSN`。
-- 待执行 Kafka outbox/DLQ、IM RPC、WS 多连接与离线恢复集成测试。
-- 待执行前端 typecheck、lint、组件测试，以及双账号/三账号、多标签页和离线恢复 E2E。
-- 全仓测试中的环境敏感或历史失败需与本功能回归结果分开记录，不得用 scoped test 代替最终验收结论。
+- SQLite、隔离 MySQL 8 和 PostgreSQL 16 已实跑好友/群状态机、并发/CAS、迁移和唯一约束；修复了 MySQL collation、自增 fixture、PostgreSQL DDL/boolean、测试隔离及迁移批量收敛问题。外部数据库测试现在要求 `HICHAT_ALLOW_DESTRUCTIVE_DB_TESTS=1` 且数据库名严格匹配 `hichat_*_test`。
+- 隔离 MySQL/Redis/Kafka 已跑通 relation outbox round-trip；Compose 实际跑通 duplicate notification -> task-mq -> authenticated IM RPC -> 单行通知、malformed JSON -> broker-acked DLQ，以及 cron -> authenticated Social RPC -> invitation/receipt expired 收敛。
+- fresh Compose migration 已验证首次建表、canonical migration marker、重复运行和部分 DDL 恢复；修复 task-cron 无用 Mysql 必填、demo task 表达式导致重启，以及 Social notification fallback 与 common topic 错误共享 Kafka consumer group/首次 offset 的问题。
+- WS 当前节点双连接广播、presence 生命周期和失败连接隔离由 in-process/race tests 覆盖；尚未执行真实浏览器双标签页和离线重连恢复。
+- 前端 47 个测试、typecheck、lint 和 production build 通过；修复 2 个无效 CSS property 类型错误和 1 个 lint warning。
+- `go test ./... -count=1`、核心 Social/IM/task/deploy race、`go vet -copylocks=false ./...`、生成一致性和 diff check 通过。默认 copylocks vet 仍被用户已有未提交的 `groupannouncementlistlogic.go` protobuf value-copy 告警阻断，未覆盖该文件。
+- 步骤 17 仍未完成：待执行浏览器双账号/三账号、多标签页、真实 WS 推送和离线恢复 E2E；下方对应 checklist 保持未勾选。
 
 步骤 4 暂不提前实现：
 
@@ -772,18 +774,18 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - [ ] accept/reject 并发只有一个终态，关系与终态一致。
 - [ ] 相同终态重试幂等成功，不重复 receipt/outbox/notification。
 - [ ] 不同终态重试返回 409，并返回当前终态。
-- [ ] 好友、群成员和 receipt 唯一约束在 SQLite/MySQL/PostgreSQL 下生效。
+- [x] 好友、群成员和 receipt 唯一约束在 SQLite/MySQL/PostgreSQL 下生效。
 - [ ] 同群同 invitee 的多条邀请可独立创建；并发接受只允许一条成功，其余转 invalidated。
 
 ### 事务与 Outbox
 - [ ] 注入关系插入失败时，申请状态、receipt 和 outbox 全部回滚。
 - [ ] 注入 Commit 失败时 API 不返回成功，不产生可投递 outbox。
 - [ ] Kafka 停止时业务事务成功且 outbox 保持 pending；恢复后自动投递。
-- [ ] relay 重启、重复投递只生成一条 notification。
+- [x] relay 重启、重复投递只生成一条 notification。
 - [ ] 超过重试阈值进入 dead 并可人工重放。
 - [ ] group.apply 为每个当前群主/管理员各生成一条 outbox 和 notification。
 - [ ] group.invite 只通知被邀请人；接受和拒绝均不向邀请人生成通知。
-- [ ] task 通过 IM RPC 幂等落通知，不直接写 IM model；可重试 RPC 错误触发 Kafka 重投。
+- [x] task 通过 IM RPC 幂等落通知，不直接写 IM model；可重试 RPC 错误触发 Kafka 重投。
 
 ### 已读与列表
 - [ ] 群管理员 A 标读不改变管理员 B 的 receipt。
@@ -797,7 +799,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - [ ] 审批人的 remark/tags 只写入审批人视角，申请预设备注只写入申请人视角。
 - [ ] 群异常转 invalidated 并向申请者展示原因，不显示具体处理管理员。
 - [ ] 其他入口入群会把原 pending 转 accepted 并记录 actual join source。
-- [ ] 邀请 7 天后由 cron 收敛为 expired；cron 未运行时确认接口仍拒绝过期邀请。
+- [x] 邀请 7 天后由 cron 收敛为 expired；cron 未运行时确认接口仍拒绝过期邀请。
 
 ### 关系与会话
 - [ ] 好友 accept 后双方好友列表刷新且数据库无重复关系。
@@ -826,11 +828,11 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - [ ] 三账号走通普通成员邀请 -> 被邀请人确认 -> 管理员审批，以及管理员邀请 -> 确认后直入群。
 
 ### 验证命令
-- [ ] `go test ./apps/social/... ./apps/im/... ./apps/task/... -count=1`
-- [ ] `go test ./... -count=1`
-- [ ] `cd web && bunx tsc --noEmit`
-- [ ] `cd web && bun run lint`
-- [ ] 执行仓库既有前端测试命令（若 `package.json` 已配置）
+- [x] `go test ./apps/social/... ./apps/im/... ./apps/task/... -count=1`
+- [x] `go test ./... -count=1`
+- [x] `cd web && bunx tsc --noEmit`
+- [x] `cd web && bun run lint`
+- [x] 执行仓库既有前端测试命令（`bun test`，47 pass）
 
 ## 可观测性
 - `social_notification_outbox_pending_total`
