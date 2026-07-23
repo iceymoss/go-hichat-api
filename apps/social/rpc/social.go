@@ -35,8 +35,6 @@ func main() {
 	conf.MustLoad(*configFile, &c)
 	ctx := svc.NewServiceContext(c)
 
-	fmt.Println("config:", pkcCfg.ServiceConf)
-
 	// 启动关系变更发件箱投递器（后台 goroutine，进程退出时随 ctx 取消优雅停止）
 	relayCtx, cancelRelay := context.WithCancel(context.Background())
 	defer cancelRelay()

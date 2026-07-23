@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/ws/internal/svc"
@@ -32,7 +31,6 @@ func (auto *JwtAuto) Auth(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	tok, err := auto.parser.ParseToken(r, auto.srvCtx.Config.JwtAuth.AccessSecret, "")
-	fmt.Println("token:", tok)
 	if err != nil {
 		return false
 	}
@@ -43,8 +41,6 @@ func (auto *JwtAuto) Auth(w http.ResponseWriter, r *http.Request) bool {
 	if !ok {
 		return false
 	}
-
-	fmt.Println("用户信息:", claims)
 
 	*r = *r.WithContext(context.WithValue(r.Context(), ctxdata.Identify, claims[ctxdata.Identify]))
 

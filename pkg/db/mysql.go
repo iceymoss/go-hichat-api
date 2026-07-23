@@ -62,10 +62,9 @@ func GetMysqlConn(db string) *gorm.DB {
 		case "dpanic":
 			gormlevel = gormLogger.Error
 		default:
-			gormlevel = gormLogger.Info
+			gormlevel = gormLogger.Warn
 		}
 		dsn := userName + ":" + userPwd + "@tcp(" + host + ":" + port + ")/" + db + "?charset=utf8mb4&parseTime=True&loc=Asia%2FShanghai"
-		fmt.Printf("dsn:%s\n", dsn, gormlevel)
 		dbConn, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 			//Logger: &CustomMySqlLogger{
 			//	Logger: logger,
@@ -76,7 +75,7 @@ func GetMysqlConn(db string) *gorm.DB {
 			//		SlowThreshold:             500 * time.Millisecond,
 			//	},
 			//},
-			Logger: dbLogger.Default.LogMode(dbLogger.Info),
+			Logger: dbLogger.Default.LogMode(gormlevel),
 			// 命名策略
 			NamingStrategy: nil, // 使用默认策略
 			// 禁用外键约束（由应用层维护）
@@ -91,7 +90,6 @@ func GetMysqlConn(db string) *gorm.DB {
 			pool.SetMaxIdleConns(15)
 		}
 
-		logger.Debug("db conntion dsn " + dsn)
 		if err != nil {
 			logger.Error(err.Error())
 		} else {

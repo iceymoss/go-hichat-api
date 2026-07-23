@@ -1,5 +1,7 @@
 Name: im.rpc
 ListenOn: 0.0.0.0:10002
+# 仅供本地开发；必须与 IM API、Task MQ 一致，生产环境使用 HICHAT_IM_RPC_AUTH_SECRET 覆盖
+RpcAuthSecret: hichat-local-im-rpc-auth-secret-change-me-2026
 
 # 发送者本人撤回的时间窗（秒），默认 120；0=不限时（群管理员撤回不受此限制）
 RecallWindowSeconds: 120

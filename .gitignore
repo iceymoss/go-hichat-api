@@ -10,6 +10,9 @@
 
 /.Identifier
 
+# Local secrets and deployment overrides
+/.env
+
 # Local YAML configuration files (ignore local configs but keep sample files)
 *-local.yaml
 *-local.yml
