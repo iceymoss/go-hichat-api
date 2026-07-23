@@ -64,10 +64,8 @@ func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginResp, error) {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "ctxdata get jwt token err %v", err)
 	}
 
-	userEntity.LastLogin = time.Now()
-
-	//更新登录时间
-	err = l.svcCtx.UserModels.Update(l.ctx, userEntity)
+	// 登录只更新登录时间，避免把查询到的整行用户数据重新写回数据库。
+	err = l.svcCtx.UserModels.UpdateLastLogin(l.ctx, userEntity.Id, time.Now())
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewDBErr(), "update user err %v", err)
 	}
