@@ -74,12 +74,12 @@ type FriendPutInDeleteResp struct {
 }
 
 type FriendPutInHandleReq struct {
-	FriendReqId  int32    `json:"friend_req_id,omitempty"`
+	FriendReqId  int32    `json:"friend_req_id,optional"`
 	RequestId    string   `json:"request_id,optional"`
-	HandleResult int32    `json:"handle_result,omitempty"` // 处理结果
-	HandleMsg    string   `json:"handle_msg,optional"`     // 处理附言/回复
-	Remark       string   `json:"remark,omitempty"`        // 备注
-	Tags         []string `json:"tags,omitempty"`          // 标签
+	HandleResult int32    `json:"handle_result"`       // 处理结果
+	HandleMsg    string   `json:"handle_msg,optional"` // 处理附言/回复
+	Remark       string   `json:"remark,optional"`     // 备注
+	Tags         []string `json:"tags,optional"`       // 标签
 }
 
 type FriendPutInHandleResp struct {
