@@ -22,7 +22,7 @@ func main() {
 	flag.Parse()
 
 	//加载全局配置
-	pkcCfg.InitConfig("local", "", "config")
+	pkcCfg.InitConfig("local", "config")
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)

@@ -29,7 +29,7 @@ var configFile = flag.String("f", "apps/social/rpc/etc/social-sample.yaml", "the
 func main() {
 	flag.Parse()
 
-	pkcCfg.InitConfig("local", "", "config")
+	pkcCfg.InitConfig("local", "config")
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)

@@ -144,7 +144,7 @@ services:
       start_period: 30s
 
   # ==================== 数据库迁移（一次性） ====================
-  # 运行 deploy/sql_init.go 走 GORM AutoMigrate 建好所有 MySQL 表，完成后退出。
+  # 运行 deploy/main.go 走 GORM AutoMigrate 建好所有 MySQL 表，完成后退出。
   migrate:
     <<: *go-service
     build:

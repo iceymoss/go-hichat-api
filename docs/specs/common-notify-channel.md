@@ -82,7 +82,7 @@ MVP 用这条通道实现 social 的好友/群申请类实时通知；后续新�
 
 ### 数据模型（im 服务 / `apps/im/immodels`）
 
-> 注意：im-rpc 原为 Mongo-only（chatlog/conversations 均在 MongoDB），本表落 MySQL 需给 im-rpc 新增 MySQL 连接（config + svc + yaml）+ 在 `pkg/db/objects` 加表并 `deploy/sql_init.go` 注册迁移。已与用户确认用 MySQL。
+> 注意：im-rpc 原为 Mongo-only（chatlog/conversations 均在 MongoDB），本表落 MySQL 需给 im-rpc 新增 MySQL 连接（config + svc + yaml）+ 在 `pkg/db/objects` 加表并在 `deploy/main.go` 注册项目级迁移。已与用户确认用 MySQL。
 
 新建表 `notifications`（GORM 处理主键，TEXT 存 JSON，三库兼容）：
 

@@ -43,7 +43,7 @@ func main() {
 	} else {
 		configPath = "./config"
 	}
-	libConfig.InitConfig("local", "api", configPath)
+	libConfig.InitConfig("local", configPath)
 	uploadConfig := libConfig.ServiceConf.Upload
 	staticPath := uploadConfig.BasePath
 	if staticPath == "" {

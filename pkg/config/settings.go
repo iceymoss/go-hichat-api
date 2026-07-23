@@ -1,7 +1,7 @@
 package config
 
 import (
-	"fmt"
+	"path/filepath"
 
 	"github.com/spf13/viper"
 )
@@ -36,13 +36,13 @@ type MQ struct {
 }
 
 type ServiceConfig struct {
-	DB           MysqlConfig           `mapstructure:"mysql" json:"mysql"`
-	RedisDB      RedisConfig           `mapstructure:"redis" json:"redis"`
-	Mongo        MongoDB               `mapstructure:"mongo" json:"mongo"`
-	MQ           MQ                    `mapstructure:"mq"   json:"mq"`
-	Email        Email                 `mapstructure:"mailer" json:"mailer"`
-	Upload       Upload                `mapstructure:"upload" json:"upload"`
-	Verification *VerificationConfig   `mapstructure:"verification" json:"verification"`
+	DB           MysqlConfig         `mapstructure:"mysql" json:"mysql"`
+	RedisDB      RedisConfig         `mapstructure:"redis" json:"redis"`
+	Mongo        MongoDB             `mapstructure:"mongo" json:"mongo"`
+	MQ           MQ                  `mapstructure:"mq"   json:"mq"`
+	Email        Email               `mapstructure:"mailer" json:"mailer"`
+	Upload       Upload              `mapstructure:"upload" json:"upload"`
+	Verification *VerificationConfig `mapstructure:"verification" json:"verification"`
 }
 
 type Email struct {
@@ -60,7 +60,7 @@ type Upload struct {
 // VerificationConfig 验证码服务配置
 type VerificationConfig struct {
 	SMS   SMSVerificationConfig   `mapstructure:"sms" json:"sms"`
-	Email EmailVerificationConfig  `mapstructure:"email" json:"email"`
+	Email EmailVerificationConfig `mapstructure:"email" json:"email"`
 }
 
 // SMSVerificationConfig 短信验证码配置
@@ -75,41 +75,19 @@ type EmailVerificationConfig struct {
 	Config   map[string]string `mapstructure:"config" json:"config"`     // 服务商特定配置
 }
 
-func InitConfig(dev string, serveType string, configPath string) {
-	//Instantiating an object
+func InitConfig(env, configDir string) {
 	v := viper.New()
-
-	configFile := ""
-	if serveType == "task" {
-		configFile = "../../config/config-pro.yaml"
-		if dev == "debug" {
-			configFile = "../../config/config-dev.yaml"
-		} else if dev == "local" {
-			configFile = "../../config/config-local.yaml"
-		}
-	} else {
-		configFile = "../config/config-pro.yaml"
-		if dev == "debug" {
-			configFile = "../config/config-dev.yaml"
-		} else if dev == "local" {
-			configFile = "../config/config-local.yaml"
-		}
+	if configDir == "" {
+		configDir = "config"
 	}
-
-	if configPath != "" {
-		configFile = fmt.Sprintf("%s/config-%s.yaml", configPath, dev)
-	}
-
-	//Reading Configuration Files
-	v.SetConfigFile(configFile)
-
-	//Reading in a file
+	v.SetConfigFile(filepath.Join(configDir, "config-"+env+".yaml"))
 	if err := v.ReadInConfig(); err != nil {
 		panic(err)
 	}
 
-	//How to use the ServerConf object in other files - global variables
-	if err := v.Unmarshal(&ServiceConf); err != nil {
+	config := new(ServiceConfig)
+	if err := v.Unmarshal(config); err != nil {
 		panic(err)
 	}
+	ServiceConf = config
 }

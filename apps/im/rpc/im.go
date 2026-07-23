@@ -22,7 +22,7 @@ var configFile = flag.String("f", "apps/im/rpc/etc/im-sample.yaml", "the config 
 func main() {
 	flag.Parse()
 
-	pkcCfg.InitConfig("local", "", "config")
+	pkcCfg.InitConfig("local", "config")
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)

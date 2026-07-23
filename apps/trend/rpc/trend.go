@@ -23,7 +23,7 @@ var configFile = flag.String("f", "etc/trend-local.yaml", "the config file")
 func main() {
 	flag.Parse()
 
-	pkcCfg.InitConfig("local", "", "config")
+	pkcCfg.InitConfig("local", "config")
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)

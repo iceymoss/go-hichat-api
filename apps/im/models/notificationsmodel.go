@@ -19,7 +19,7 @@ var (
 )
 
 // Notification 公共通知表行模型（运行时读写）。
-// 表结构定义见 pkg/db/objects/im.go，迁移走 deploy/sql_init.go。
+// 表结构定义见 pkg/db/objects/im.go，迁移走 deploy/main.go。
 type Notification struct {
 	Id         uint64     `db:"id"`
 	ReceiverId string     `db:"receiver_id"`

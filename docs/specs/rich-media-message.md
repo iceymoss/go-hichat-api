@@ -84,7 +84,7 @@
 
 `user_emojis` 字段：id / user_id / url / name / thumbnail / width / height / size / file_type / sort_order / created_at / updated_at —— 比原 spec 设计的 `user_stickers` 更全。
 
-> ⚠️ 已知缺口（本期按用户决定暂不处理）：`user_emojis`（及 `favorites`）未登记进 `pkg/db/objects` + `deploy/sql_init.go` 迁移注册表，新环境部署需手工建表。
+> `user_emojis` 和 `favorites` 已登记进 `pkg/db/objects` + `deploy/main.go` 项目级迁移注册表。
 
 ### 4. 前端（web/）
 - 输入区组件扩展：emoji 面板、表情面板、附件按钮（图片/视频/文件）、语音录制按钮。

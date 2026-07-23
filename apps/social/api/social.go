@@ -20,7 +20,7 @@ var configFile = flag.String("f", "apps/social/api/etc/social-sample.yaml", "the
 
 func main() {
 	flag.Parse()
-	pkgConfig.InitConfig("local", "", "config")
+	pkgConfig.InitConfig("local", "config")
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)

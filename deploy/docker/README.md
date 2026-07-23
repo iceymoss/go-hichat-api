@@ -78,7 +78,7 @@ docker builder prune -f
 - **Startup order**: strictly mirrors `hichat2.sh` —
   `user-rpc → user-api → social-rpc → social-api → im-rpc → im-api → im-ws → task-mq → trend-rpc → trend-api → streaming → web`.
   Each backend service has a port health check and downstream services `depends_on` upstream `service_healthy`, so a service starts only after the ones it calls (RPC/WS) are actually ready.
-- **Database init**: a one-shot `migrate` container runs `deploy/sql_init.go` (GORM AutoMigrate) to create all MySQL tables, then exits; other services `depends_on` it completing. MongoDB collections are created lazily on first write.
+- **Database init**: a one-shot `migrate` container runs the project-level migration in `deploy/main.go` (GORM AutoMigrate) to create all MySQL tables, then exits; other services `depends_on` it completing. MongoDB collections are created lazily on first write.
 - **Service discovery**: every RPC service registers in etcd; callers discover via etcd — no hardcoded addresses.
 - **Persistence**: MySQL/Mongo/Redis/Kafka/etcd data and uploaded files live in named volumes — kept across `down`, wiped by `down -v`.
 
