@@ -72,19 +72,30 @@ describe('group request API contract', () => {
 
   test('maps each group receipt class to its exact public target', () => {
     const received = mapGroupRequest({ request_id: '1' }, 'received');
+	const receivedResolved = mapGroupRequest({ request_id: '5', handle_result: 1 }, 'received');
     const rejected = mapGroupRequest({ request_id: '2', handle_result: 2 }, 'sent');
     const pending = mapGroupRequest({ request_id: '3' }, 'sent');
     const invitation = mapGroupInvitation({ id: '4' });
-    expect(groupRequestNotificationTargets([received, rejected, pending, invitation, invitation])).toEqual([
+    expect(groupRequestNotificationTargets([received, receivedResolved, rejected, pending, invitation, invitation])).toEqual([
       { notify_type: 'group.apply', biz_id: 'group:1:apply' },
+		{ notify_type: 'group.apply', biz_id: 'group:5:apply' },
+		{ notify_type: 'group.request.resolved', biz_id: 'group:5:resolved' },
       { notify_type: 'group.reject', biz_id: 'group:2:reject' },
       { notify_type: 'group.invite', biz_id: 'group_invite:4:invite' },
     ]);
+
+	const invalidatedInvitation = mapGroupInvitation({ id: '5', status: 3 });
+	expect(groupRequestNotificationTargets([invalidatedInvitation])).toEqual([
+		{ notify_type: 'group.invite', biz_id: 'group_invite:5:invite' },
+		{ notify_type: 'group.invite.invalidated', biz_id: 'group_invite:5:invalidated' },
+	]);
   });
 
   test('routes only request notifications to request panels', () => {
     expect(notificationNavigationTarget('friend.accept', 'friend:2:accept')).toEqual({ kind: 'friendRequest', tab: 'sent', requestId: '2' });
     expect(notificationNavigationTarget('group.invite', 'group_invite:4:invite')).toEqual({ kind: 'groupRequest', tab: 'invitations', itemId: '4' });
+    expect(notificationNavigationTarget('group.request.resolved', 'group:5:resolved')).toEqual({ kind: 'groupRequest', tab: 'received', itemId: '5' });
+    expect(notificationNavigationTarget('group.invite.invalidated', 'group_invite:6:invalidated')).toEqual({ kind: 'groupRequest', tab: 'invitations', itemId: '6' });
     expect(notificationNavigationTarget('group.admin.set', undefined, '9')).toEqual({ kind: 'groupDetail', groupId: '9' });
     expect(notificationNavigationTarget('group.removed')).toBeUndefined();
     expect(notificationNavigationTarget('group.removed', undefined, '99')).toBeUndefined();

@@ -127,6 +127,33 @@ func resolveApplyReceipts(tx *gorm.DB, requestType string, requestIDs []uint64, 
 	return nil
 }
 
+func notifyOtherGroupApprovers(tx *gorm.DB, svcCtx *svc.ServiceContext, requestID, groupID uint64, result int, actorID string) error {
+	var receipts []objects.SocialRequestReceipt
+	if err := tx.Where("request_type = ? AND request_id = ? AND receipt_kind = ? AND receiver_id <> ?", receiptTypeGroup, requestID, receiptKindApply, actorID).Find(&receipts).Error; err != nil {
+		return err
+	}
+	for _, receipt := range receipts {
+		if err := emitRequestNotificationInTx(tx, svcCtx, NotifyGroupRequestResolved, receiptTypeGroup, requestID, receipt.ReceiverID, actorID, groupID, result); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func notifyInvalidatedInvitations(tx *gorm.DB, svcCtx *svc.ServiceContext, invitations []objects.GroupInvitation, actorID string) error {
+	for _, invitation := range invitations {
+		receiver := strconv.FormatUint(invitation.InviteeUID, 10)
+		eventActor := actorID
+		if receiver == eventActor {
+			eventActor = ""
+		}
+		if err := emitRequestNotificationInTx(tx, svcCtx, NotifyGroupInviteInvalidated, receiptTypeGroupInvite, invitation.ID, receiver, eventActor, invitation.GroupID, receiptInvalidated); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func createResultReceipt(tx *gorm.DB, requestType string, requestID uint64, receiverID string, result int, createdAt, now time.Time, read bool) error {
 	return createReceipt(tx, requestType, requestID, receiverID, receiptKindResult, 0, result, createdAt, read, &now)
 }

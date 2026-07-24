@@ -81,7 +81,7 @@ func (l *GroupDisbandLogic) GroupDisband(in *social.GroupDisbandReq) (*social.Gr
 		if err := invalidateGroupRequestsForUnavailableGroup(tx, l.svcCtx, groupID, actorID, now); err != nil {
 			return err
 		}
-		if err := invalidateGroupInvitationsForUnavailableGroup(tx, groupID, now); err != nil {
+		if err := invalidateGroupInvitationsForUnavailableGroup(tx, l.svcCtx, groupID, now, in.UserId); err != nil {
 			return err
 		}
 		if err := tx.Where("group_id = ?", groupID).Delete(&objects.GroupMember{}).Error; err != nil {
@@ -118,6 +118,9 @@ func invalidateGroupRequestsForUnavailableGroup(tx *gorm.DB, svcCtx *svc.Service
 		if err := resolveApplyReceipts(tx, receiptTypeGroup, []uint64{request.ID}, receiptInvalidated, now, ""); err != nil {
 			return err
 		}
+		if err := notifyOtherGroupApprovers(tx, svcCtx, request.ID, groupID, receiptInvalidated, actor); err != nil {
+			return err
+		}
 		createdAt := now
 		if request.ReqTime != nil {
 			createdAt = *request.ReqTime
@@ -132,7 +135,7 @@ func invalidateGroupRequestsForUnavailableGroup(tx *gorm.DB, svcCtx *svc.Service
 	return nil
 }
 
-func invalidateGroupInvitationsForUnavailableGroup(tx *gorm.DB, groupID uint64, now time.Time) error {
+func invalidateGroupInvitationsForUnavailableGroup(tx *gorm.DB, svcCtx *svc.ServiceContext, groupID uint64, now time.Time, actorID string) error {
 	var invitations []objects.GroupInvitation
 	if err := tx.Where("group_id = ? AND status = ?", groupID, groupInvitationPending).Find(&invitations).Error; err != nil {
 		return err
@@ -148,10 +151,13 @@ func invalidateGroupInvitationsForUnavailableGroup(tx *gorm.DB, groupID uint64, 
 			ids = append(ids, invitation.ID)
 		}
 	}
-	return resolveInviteReceipts(tx, ids, receiptInvalidated, now, "")
+	if err := resolveInviteReceipts(tx, ids, receiptInvalidated, now, ""); err != nil {
+		return err
+	}
+	return notifyInvalidatedInvitations(tx, svcCtx, invitationsByID(invitations, ids), actorID)
 }
 
-func invalidateInvitationsByDepartingMembers(tx *gorm.DB, groupID uint64, inviterIDs []uint64, now time.Time) error {
+func invalidateInvitationsByDepartingMembers(tx *gorm.DB, svcCtx *svc.ServiceContext, groupID uint64, inviterIDs []uint64, now time.Time, actorID string) error {
 	if len(inviterIDs) == 0 {
 		return nil
 	}
@@ -170,5 +176,8 @@ func invalidateInvitationsByDepartingMembers(tx *gorm.DB, groupID uint64, invite
 			ids = append(ids, invitation.ID)
 		}
 	}
-	return resolveInviteReceipts(tx, ids, receiptInvalidated, now, "")
+	if err := resolveInviteReceipts(tx, ids, receiptInvalidated, now, ""); err != nil {
+		return err
+	}
+	return notifyInvalidatedInvitations(tx, svcCtx, invitationsByID(invitations, ids), actorID)
 }

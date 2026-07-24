@@ -137,7 +137,7 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 		if err := resolveInviteReceipts(tx, []uint64{invitation.ID}, receiptAccepted, now, in.ActorUid); err != nil {
 			return err
 		}
-		if err := invalidateOtherInvitations(tx, &invitation, now); err != nil {
+		if err := invalidateOtherInvitations(tx, l.ServiceContext, &invitation, now, in.ActorUid); err != nil {
 			return err
 		}
 		if currentMember != nil {
@@ -212,7 +212,7 @@ func acceptCurrentInvitation(tx *gorm.DB, invitation *objects.GroupInvitation, a
 	return nil
 }
 
-func invalidateOtherInvitations(tx *gorm.DB, invitation *objects.GroupInvitation, now time.Time) error {
+func invalidateOtherInvitations(tx *gorm.DB, svcCtx *svc.ServiceContext, invitation *objects.GroupInvitation, now time.Time, actorID string) error {
 	var invitations []objects.GroupInvitation
 	if err := tx.Where("id <> ? AND group_id = ? AND invitee_uid = ? AND status = ?", invitation.ID, invitation.GroupID, invitation.InviteeUID, groupInvitationPending).Find(&invitations).Error; err != nil {
 		return err
@@ -228,7 +228,10 @@ func invalidateOtherInvitations(tx *gorm.DB, invitation *objects.GroupInvitation
 			ids = append(ids, other.ID)
 		}
 	}
-	return resolveInviteReceipts(tx, ids, receiptInvalidated, now, "")
+	if err := resolveInviteReceipts(tx, ids, receiptInvalidated, now, ""); err != nil {
+		return err
+	}
+	return notifyInvalidatedInvitations(tx, svcCtx, invitationsByID(invitations, ids), actorID)
 }
 
 func invalidateInvitation(tx *gorm.DB, invitation *objects.GroupInvitation, actor uint64, now time.Time, _ string, response **social.GroupInvitationHandleResp) error {

@@ -95,6 +95,9 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 			if err := resolveApplyReceipts(tx, receiptTypeGroup, []uint64{request.ID}, receiptInvalidated, now, ""); err != nil {
 				return err
 			}
+			if err := notifyOtherGroupApprovers(tx, l.ServiceContext, request.ID, request.GroupID, receiptInvalidated, in.ActorUid); err != nil {
+				return err
+			}
 			createdAt := now
 			if request.ReqTime != nil {
 				createdAt = *request.ReqTime
@@ -151,6 +154,9 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		if err := emitRequestNotificationInTx(tx, l.ServiceContext, notifyType, receiptTypeGroup, request.ID, request.ReqID, in.ActorUid, request.GroupID, int(in.HandleResult), in.HandleMsg); err != nil {
 			return err
 		}
+		if err := notifyOtherGroupApprovers(tx, l.ServiceContext, request.ID, request.GroupID, int(in.HandleResult), in.ActorUid); err != nil {
+			return err
+		}
 		if in.HandleResult == groupRequestRejected {
 			return nil
 		}
@@ -165,7 +171,7 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 		if err := resolvePendingGroupRequests(tx, l.ServiceContext, request.GroupID, applicant, now, actualSource, false, in.ActorUid); err != nil {
 			return err
 		}
-		return invalidatePendingGroupInvitations(tx, request.GroupID, applicant, now)
+		return invalidatePendingGroupInvitations(tx, l.ServiceContext, request.GroupID, applicant, now, in.ActorUid)
 	})
 	if err != nil {
 		if errors.Is(err, errGroupRequestCASMiss) {

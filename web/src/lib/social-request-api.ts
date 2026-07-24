@@ -143,9 +143,9 @@ export function buildGroupRequestListURL(tab: GroupRequestTab, status: GroupRequ
 }
 
 export function groupRequestTargetFromBizID(bizId?: string): { tab: GroupRequestTab; itemId: string } | undefined {
-  const match = /^(group|group_invite):([1-9]\d*):(apply|accept|reject|invalidated|invite)$/.exec(bizId || '');
+  const match = /^(group|group_invite):([1-9]\d*):(apply|accept|reject|invalidated|invite|resolved)$/.exec(bizId || '');
   if (!match) return undefined;
-  return { tab: match[1] === 'group_invite' ? 'invitations' : match[3] === 'apply' ? 'received' : 'sent', itemId: match[2] };
+  return { tab: match[1] === 'group_invite' ? 'invitations' : match[3] === 'apply' || match[3] === 'resolved' ? 'received' : 'sent', itemId: match[2] };
 }
 
 export function friendRequestIDFromBizID(bizId?: string) {
@@ -182,8 +182,14 @@ export function friendRequestNotificationTargets(requests: FriendRequest[]): Pub
 
 export function groupRequestNotificationTargets(requests: GroupRequestItem[]): PublicNotificationTarget[] {
   return dedupePublicNotificationTargets(requests.flatMap(request => {
-    if (request.tab === 'invitations') return [{ notify_type: 'group.invite', biz_id: `group_invite:${request.id}:invite` }];
-    if (request.tab === 'received') return [{ notify_type: 'group.apply', biz_id: `group:${request.id}:apply` }];
+    if (request.tab === 'invitations') return [
+      { notify_type: 'group.invite', biz_id: `group_invite:${request.id}:invite` },
+      ...(request.status === 'invalidated' ? [{ notify_type: 'group.invite.invalidated', biz_id: `group_invite:${request.id}:invalidated` }] : []),
+    ];
+    if (request.tab === 'received') return [
+      { notify_type: 'group.apply', biz_id: `group:${request.id}:apply` },
+      ...(request.status !== 'pending' ? [{ notify_type: 'group.request.resolved', biz_id: `group:${request.id}:resolved` }] : []),
+    ];
     if (request.status === 'accepted') return [{ notify_type: 'group.accept', biz_id: `group:${request.id}:accept` }];
     if (request.status === 'rejected') return [{ notify_type: 'group.reject', biz_id: `group:${request.id}:reject` }];
     if (request.status === 'invalidated') return [{ notify_type: 'group.invalidated', biz_id: `group:${request.id}:invalidated` }];
@@ -195,9 +201,9 @@ export function notificationNavigationTarget(notifyType: string, bizId?: string,
   if (notifyType === 'friend.apply' || notifyType === 'friend.accept' || notifyType === 'friend.reject') {
     return { kind: 'friendRequest', tab: notifyType === 'friend.apply' ? 'received' : 'sent', requestId: friendRequestIDFromBizID(bizId) };
   }
-  if (notifyType === 'group.apply' || notifyType === 'group.accept' || notifyType === 'group.reject' || notifyType === 'group.invalidated' || notifyType === 'group.invite') {
+  if (notifyType === 'group.apply' || notifyType === 'group.accept' || notifyType === 'group.reject' || notifyType === 'group.invalidated' || notifyType === 'group.invite' || notifyType === 'group.request.resolved' || notifyType === 'group.invite.invalidated') {
     const target = groupRequestTargetFromBizID(bizId);
-    const tab = notifyType === 'group.invite' ? 'invitations' : notifyType === 'group.apply' ? 'received' : 'sent';
+    const tab = notifyType === 'group.invite' || notifyType === 'group.invite.invalidated' ? 'invitations' : notifyType === 'group.apply' || notifyType === 'group.request.resolved' ? 'received' : 'sent';
     return { kind: 'groupRequest', tab: target?.tab || tab, itemId: target?.itemId };
   }
   if (groupId && (notifyType === 'group.admin.set' || notifyType === 'group.admin.unset' || notifyType === 'group.owner.transferred')) {

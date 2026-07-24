@@ -76,7 +76,7 @@ func (l *GroupQuitLogic) GroupQuit(in *social.GroupQuitReq) (*social.GroupQuitRe
 		if err := tx.Delete(&objects.GroupMember{}, member.ID).Error; err != nil {
 			return err
 		}
-		if err := invalidateInvitationsByDepartingMembers(tx, groupID, []uint64{userID}, time.Now()); err != nil {
+		if err := invalidateInvitationsByDepartingMembers(tx, l.svcCtx, groupID, []uint64{userID}, time.Now(), in.UserId); err != nil {
 			return err
 		}
 		var emitErr error

@@ -96,3 +96,24 @@ func TestNotificationRelayDeliver(t *testing.T) {
 		require.Nil(t, c.message)
 	})
 }
+
+func TestNotificationRelayAcceptsRequestInvalidationEvents(t *testing.T) {
+	tests := []struct {
+		name string
+		row  *objects.SocialNotificationOutbox
+	}{
+		{name: "other administrator resolved", row: &objects.SocialNotificationOutbox{ID: 8, NotifyType: "group.request.resolved", ReceiverID: "2", ActorID: "1", BizID: "group:9:resolved", GroupID: "7", Payload: `{"requestType":"group","requestId":9,"result":1,"groupId":"7"}`, CreatedAt: time.Now()}},
+		{name: "invitation invalidated", row: &objects.SocialNotificationOutbox{ID: 9, NotifyType: "group.invite.invalidated", ReceiverID: "3", ActorID: "1", BizID: "group_invite:10:invalidated", GroupID: "7", Payload: `{"requestType":"group_invite","requestId":10,"result":3,"groupId":"7"}`, CreatedAt: time.Now()}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := &notificationModelStub{}
+			client := &notifyClientStub{}
+			NewNotification(&svc.ServiceContext{SocialNotificationOutboxModel: model, SocialRequestNotificationClient: client}).deliver(context.Background(), tt.row)
+			require.True(t, model.sent)
+			require.False(t, model.dead)
+			require.Equal(t, tt.row.NotifyType, client.message.NotifyType)
+			require.Equal(t, tt.row.BizID, client.message.BizId)
+		})
+	}
+}

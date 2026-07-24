@@ -315,7 +315,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       if (!n?.notifyType) return;
       const imStore = useIMStore.getState();
       const friendNotification = ['friend.apply', 'friend.accept', 'friend.reject'].includes(n.notifyType);
-      const groupNotification = ['group.apply', 'group.accept', 'group.reject', 'group.invalidated', 'group.invite'].includes(n.notifyType);
+      const groupNotification = ['group.apply', 'group.accept', 'group.reject', 'group.invalidated', 'group.invite', 'group.request.resolved', 'group.invite.invalidated'].includes(n.notifyType);
       if (friendNotification) {
         imStore.invalidateFriendRequests();
         void imStore.refreshFriendRequestUnread();
@@ -361,6 +361,12 @@ export const useChatStore = create<ChatState>()((set, get) => ({
           break;
         case 'group.invite':
           toast(tt('notify.toast.group.invite'), { action: go });
+          break;
+        case 'group.request.resolved':
+          toast(tt('notify.toast.group.requestResolved'), { action: go });
+          break;
+        case 'group.invite.invalidated':
+          toast(tt('notify.toast.group.inviteInvalidated'), { action: go });
           break;
         case 'group.removed':
           toast(tt('notify.toast.group.removed'));

@@ -133,14 +133,16 @@ func canonicalSocialNotificationTarget(notifyType, bizID string) bool {
 		return false
 	}
 	expected := map[string]string{
-		"friend.apply":      "friend:apply",
-		"friend.accept":     "friend:accept",
-		"friend.reject":     "friend:reject",
-		"group.apply":       "group:apply",
-		"group.accept":      "group:accept",
-		"group.reject":      "group:reject",
-		"group.invalidated": "group:invalidated",
-		"group.invite":      "group_invite:invite",
+		"friend.apply":             "friend:apply",
+		"friend.accept":            "friend:accept",
+		"friend.reject":            "friend:reject",
+		"group.apply":              "group:apply",
+		"group.accept":             "group:accept",
+		"group.reject":             "group:reject",
+		"group.invalidated":        "group:invalidated",
+		"group.invite":             "group_invite:invite",
+		"group.request.resolved":   "group:resolved",
+		"group.invite.invalidated": "group_invite:invalidated",
 	}
 	return expected[notifyType] == fmt.Sprintf("%s:%s", parts[0], parts[2])
 }

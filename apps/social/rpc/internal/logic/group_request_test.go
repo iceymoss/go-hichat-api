@@ -541,7 +541,10 @@ func TestGroupRequestReceiptsArePersonal(t *testing.T) {
 	otherCount, err = NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "2", ActorUid: "2"})
 	require.NoError(t, err)
 	require.Equal(t, int32(1), otherCount.Apply)
-	require.Equal(t, int64(3), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
+	require.Equal(t, int64(4), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
+	var resolvedOutbox objects.SocialNotificationOutbox
+	require.NoError(t, svcCtx.DB.Where("notify_type = ? AND receiver_id = ?", NotifyGroupRequestResolved, "2").First(&resolvedOutbox).Error)
+	require.Equal(t, fmt.Sprintf("group:%d:resolved", created.RequestId), resolvedOutbox.BizID)
 
 	var applicantResult objects.SocialRequestReceipt
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeGroup, created.RequestId, "3", receiptKindResult).First(&applicantResult).Error)
@@ -1388,7 +1391,10 @@ func TestGroupDisbandConvergesRequestsInvitationsAndReceipts(t *testing.T) {
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ?", receiptTypeGroupInvite, invitation.ID).First(&inviteReceipt).Error)
 	require.Zero(t, inviteReceipt.IsActionable)
 	require.Equal(t, receiptInvalidated, inviteReceipt.Result)
-	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
+	require.Equal(t, int64(3), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
+	var inviteOutbox objects.SocialNotificationOutbox
+	require.NoError(t, svcCtx.DB.Where("notify_type = ? AND receiver_id = ?", NotifyGroupInviteInvalidated, "5").First(&inviteOutbox).Error)
+	require.Equal(t, fmt.Sprintf("group_invite:%d:invalidated", invitation.ID), inviteOutbox.BizID)
 	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
 }
 

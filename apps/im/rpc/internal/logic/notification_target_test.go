@@ -11,6 +11,8 @@ func TestCanonicalSocialNotificationTarget(t *testing.T) {
 		{notifyType: "friend.apply", bizID: "friend:1:apply", want: true},
 		{notifyType: "group.invalidated", bizID: "group:18446744073709551615:invalidated", want: true},
 		{notifyType: "group.invite", bizID: "group_invite:9:invite", want: true},
+		{notifyType: "group.request.resolved", bizID: "group:9:resolved", want: true},
+		{notifyType: "group.invite.invalidated", bizID: "group_invite:9:invalidated", want: true},
 		{notifyType: "friend.apply", bizID: "friend:1:accept"},
 		{notifyType: "group.accept", bizID: "friend:1:accept"},
 		{notifyType: "friend.apply", bizID: "friend:01:apply"},

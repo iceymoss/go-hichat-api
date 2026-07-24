@@ -34,7 +34,11 @@ func emitRequestNotificationInTx(tx *gorm.DB, svcCtx *svc.ServiceContext, notify
 		return err
 	}
 	phase := "apply"
-	if requestType == receiptTypeGroupInvite {
+	if notifyType == NotifyGroupRequestResolved {
+		phase = "resolved"
+	} else if notifyType == NotifyGroupInviteInvalidated {
+		phase = "invalidated"
+	} else if requestType == receiptTypeGroupInvite {
 		phase = "invite"
 	} else if result == receiptAccepted {
 		phase = "accept"

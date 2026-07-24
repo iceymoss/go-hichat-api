@@ -146,7 +146,7 @@ func validNotification(row *objects.SocialNotificationOutbox, requestType string
 			return false
 		}
 	} else {
-		if result < 0 || result > 3 || (requestType == "group_invite" && result != 0) {
+		if result < 0 || result > 3 || (requestType == "group_invite" && result != 0 && result != 3) {
 			return false
 		}
 		parsedGroupID, err := strconv.ParseUint(groupID, 10, 64)
@@ -155,7 +155,11 @@ func validNotification(row *objects.SocialNotificationOutbox, requestType string
 		}
 	}
 	phase := "apply"
-	if requestType == "group_invite" {
+	if row.NotifyType == "group.request.resolved" {
+		phase = "resolved"
+	} else if row.NotifyType == "group.invite.invalidated" {
+		phase = "invalidated"
+	} else if requestType == "group_invite" {
 		phase = "invite"
 	} else if result == 1 {
 		phase = "accept"
@@ -166,8 +170,8 @@ func validNotification(row *objects.SocialNotificationOutbox, requestType string
 	}
 	expected := map[string]map[string]string{
 		"friend":       {"apply": "friend.apply", "accept": "friend.accept", "reject": "friend.reject"},
-		"group":        {"apply": "group.apply", "accept": "group.accept", "reject": "group.reject", "invalidated": "group.invalidated"},
-		"group_invite": {"invite": "group.invite"},
+		"group":        {"apply": "group.apply", "accept": "group.accept", "reject": "group.reject", "invalidated": "group.invalidated", "resolved": "group.request.resolved"},
+		"group_invite": {"invite": "group.invite", "invalidated": "group.invite.invalidated"},
 	}
 	types, ok := expected[requestType]
 	if !ok || types[phase] != row.NotifyType || row.BizID != fmt.Sprintf("%s:%d:%s", requestType, requestID, phase) {
