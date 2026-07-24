@@ -711,10 +711,13 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - SQLite、隔离 MySQL 8 和 PostgreSQL 16 已实跑好友/群状态机、并发/CAS、迁移和唯一约束；修复了 MySQL collation、自增 fixture、PostgreSQL DDL/boolean、测试隔离及迁移批量收敛问题。外部数据库测试现在要求 `HICHAT_ALLOW_DESTRUCTIVE_DB_TESTS=1` 且数据库名严格匹配 `hichat_*_test`。
 - 隔离 MySQL/Redis/Kafka 已跑通 relation outbox round-trip；Compose 实际跑通 duplicate notification -> task-mq -> authenticated IM RPC -> 单行通知、malformed JSON -> broker-acked DLQ，以及 cron -> authenticated Social RPC -> invitation/receipt expired 收敛。
 - fresh Compose migration 已验证首次建表、canonical migration marker、重复运行和部分 DDL 恢复；修复 task-cron 无用 Mysql 必填、demo task 表达式导致重启，以及 Social notification fallback 与 common topic 错误共享 Kafka consumer group/首次 offset 的问题。
-- WS 当前节点双连接广播、presence 生命周期和失败连接隔离由 in-process/race tests 覆盖；尚未执行真实浏览器双标签页和离线重连恢复。
-- 前端 47 个测试、typecheck、lint 和 production build 通过；修复 2 个无效 CSS property 类型错误和 1 个 lint warning。
+- WS 当前节点双连接广播、presence 生命周期和失败连接隔离由 in-process/race tests 覆盖；真实服务上同一 UID 的两个 authenticated WS 连接均收到同一通知。task 内部 WS client 增加 30 秒 heartbeat，运行超过 server 75 秒 idle 门后再次验证首条通知不丢。
+- 前端 51 个测试、typecheck、lint 和 production build 通过；新增 `group.request.resolved` / `group.invite.invalidated` 定位、精确标读和中英文文案覆盖。
 - `go test ./... -count=1`、核心 Social/IM/task/deploy race、`go vet -copylocks=false ./...`、生成一致性和 diff check 通过。默认 copylocks vet 仍被用户已有未提交的 `groupannouncementlistlogic.go` protobuf value-copy 告警阻断，未覆盖该文件。
-- 步骤 17 仍未完成：待执行浏览器双账号/三账号、多标签页、真实 WS 推送和离线恢复 E2E；下方对应 checklist 保持未勾选。
+- MySQL 8 `3306` 隔离库实跑好友/群状态机；真实 Kafka 跑通 relation outbox round-trip，以及 `group.invite.invalidated` 的 Kafka -> task 映射 -> MySQL notification -> WS 幂等链路。该 notification 测试已固化为显式 opt-in 集成测试。
+- live API 使用三个临时账号完成好友申请/越权审批拒绝/接受、双管理员独立回执、管理员终态通知、管理员邀请直入群、普通成员邀请转审批及群会话最终补建；接收者离线时邀请仍由 notification、receipt 和 REST 列表完整恢复。
+- live E2E 发现并修复群创建 `icon` 伪 optional 和内部 WS client 空闲后首条通知丢失。固定 `goctl 1.8.2` 已用于 API 生成；完整生成一致性检查仍被本机 `protoc 3.21.12`（要求 28.3）阻断。
+- 步骤 17 仍未完成：尚缺真实浏览器页面操作、好友/group reject 页面旅程、Kafka 中断恢复和 dead outbox 人工重放；下方对应 checklist 保持未勾选。
 
 步骤 4 暂不提前实现：
 
@@ -728,7 +731,7 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - 当前数据库未上线且仅含 mock 数据，迁移无需为真实生产历史扩大兼容路径，但仍保留显式、安全和可重跑迁移。
 - 不得提交或修改用户已有的 sample 配置、`apps/im/api/im.go`、`docker-compose.dependencies.yaml`、`hichat2.sh`、`docs/specs/auth-pages-redesign.md`、`test.md`。
 - `pkg/2fa/totp/totp_qr.png` 是全仓测试生成的工作区副作用，不属于本功能，禁止暂存。
-- MySQL/PostgreSQL 群状态机测试入口为 `SOCIAL_GROUP_TEST_MYSQL_DSN` 和 `SOCIAL_GROUP_TEST_POSTGRES_DSN`；当前环境未配置，实际只运行了 SQLite。
+- MySQL/PostgreSQL 群状态机测试入口为 `SOCIAL_GROUP_TEST_MYSQL_DSN` 和 `SOCIAL_GROUP_TEST_POSTGRES_DSN`；本轮已在 `127.0.0.1:3306` 的隔离 `hichat_*_test` 库运行 MySQL，PostgreSQL 沿用此前步骤 17 结果。
 
 ## 实现步骤（每步可独立 commit）
 1. [x] 增加迁移审计工具或版本化迁移：识别并清理重复申请、重复好友关系，输出报告。
@@ -752,30 +755,30 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 ## 测试计划
 
 ### 后端授权与输入
-- [ ] 好友申请人不能审批自己发出的申请；被申请人可以审批。
+- [x] 好友申请人不能审批自己发出的申请；被申请人可以审批。
 - [ ] 好友自己申请自己、目标不存在、目标停用均不落库。
 - [ ] 普通群申请忽略或拒绝伪造的 `req_id/join_source/inviter_uid`。
 - [ ] 群申请列表始终绑定 JWT，传其他 UID 无法越权读取。
 - [ ] 好友和群 `handle_result` 非 1/2 全部拒绝。
 - [ ] 已撤销管理员不能审批原群申请。
-- [ ] JWT claim 缺失、空值或类型错误返回 401，不发生 panic。
+- [x] JWT claim 缺失、空值或类型错误返回 401，不发生 panic。
 - [ ] 所有当前群成员均可邀请；非群成员不能邀请。
 - [ ] 只有 invitee 可以接受或拒绝自己的邀请。
-- [ ] 管理角色邀请确认后直入群，普通成员邀请确认后进入管理员审批。
+- [x] 管理角色邀请确认后直入群，普通成员邀请确认后进入管理员审批。
 - [ ] 邀请人降级后按确认时角色转管理员审批；邀请人退群后邀请失效。
 
 ### 并发与幂等
-- [ ] 20 个并发好友申请只创建一个 active pending。
-- [ ] 20 个并发群申请只创建一个 active pending。
+- [x] 20 个并发好友申请只创建一个 active pending。
+- [x] 20 个并发群申请只创建一个 active pending。
 - [ ] 同一用户同群 60 秒内被限流；拒绝 60 秒后可创建新申请并保留历史。
 - [ ] 已有主动 pending 时接受普通成员邀请，会生成 source_invitation_id 不同的第二条审批。
 - [ ] 通过任一并行审批后，其余同群同用户 pending 自动 accepted/resolved；拒绝其中一条不影响其他审批。
-- [ ] 两个并发 accept 只产生一套好友关系或一个群成员。
+- [x] 两个并发 accept 只产生一套好友关系或一个群成员。
 - [ ] accept/reject 并发只有一个终态，关系与终态一致。
 - [ ] 相同终态重试幂等成功，不重复 receipt/outbox/notification。
 - [ ] 不同终态重试返回 409，并返回当前终态。
 - [x] 好友、群成员和 receipt 唯一约束在 SQLite/MySQL/PostgreSQL 下生效。
-- [ ] 同群同 invitee 的多条邀请可独立创建；并发接受只允许一条成功，其余转 invalidated。
+- [x] 同群同 invitee 的多条邀请可独立创建；并发接受只允许一条成功，其余转 invalidated。
 
 ### 事务与 Outbox
 - [ ] 注入关系插入失败时，申请状态、receipt 和 outbox 全部回滚。
@@ -783,15 +786,15 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - [ ] Kafka 停止时业务事务成功且 outbox 保持 pending；恢复后自动投递。
 - [x] relay 重启、重复投递只生成一条 notification。
 - [ ] 超过重试阈值进入 dead 并可人工重放。
-- [ ] group.apply 为每个当前群主/管理员各生成一条 outbox 和 notification。
-- [ ] group.invite 只通知被邀请人；接受和拒绝均不向邀请人生成通知。
+- [x] group.apply 为每个当前群主/管理员各生成一条 outbox 和 notification。
+- [x] group.invite 只通知被邀请人；接受和拒绝均不向邀请人生成通知。
 - [x] task 通过 IM RPC 幂等落通知，不直接写 IM model；可重试 RPC 错误触发 Kafka 重投。
 
 ### 已读与列表
-- [ ] 群管理员 A 标读不改变管理员 B 的 receipt。
-- [ ] A 审批后 B 的 `is_actionable=0` 且未读保持，B 查看后才清个人终态红点。
+- [x] 群管理员 A 标读不改变管理员 B 的 receipt。
+- [x] A 审批后 B 的 `is_actionable=0` 且未读保持，B 查看后才清个人终态红点。
 - [ ] 新管理员获得全部现存 pending 的个人未读，撤销管理员不再有可操作记录。
-- [ ] 好友和群申请结果为申请人生成 result unread。
+- [x] 好友和群申请结果为申请人生成 result unread。
 - [ ] 进入 received/sent Tab 只标记本次展示的对应 receipt 和 notification。
 - [ ] 标读响应 count 与重新查询一致，不发生红点回弹。
 - [ ] 分页状态过滤正确，数据库错误不会被转换为空列表。
@@ -802,15 +805,15 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - [x] 邀请 7 天后由 cron 收敛为 expired；cron 未运行时确认接口仍拒绝过期邀请。
 
 ### 关系与会话
-- [ ] 好友 accept 后双方好友列表刷新且数据库无重复关系。
-- [ ] 群 accept/免验证入群后群列表和群会话出现。
+- [x] 好友 accept 后双方好友列表刷新且数据库无重复关系。
+- [x] 群 accept/免验证入群后群列表和群会话出现。
 - [ ] IM 暂时不可用时 `group.member.added` 消费重试，恢复后补建会话。
 - [ ] relation 和 notify 任意到达顺序下，前端最终状态一致。
 
 ### 前端
 - [ ] 页面已打开时收到好友、群申请和邀请通知，列表和 unread 自动刷新。
 - [ ] “收到的邀请”Tab 分页展示每条独立邀请，支持接受和带可选原因拒绝。
-- [ ] 普通成员邀请被确认后，管理员审批卡片同时显示申请人和邀请人。
+- [x] 普通成员邀请被确认后，管理员审批卡片同时显示申请人和邀请人。
 - [ ] `friend.accept` 刷新联系人；`group.accept` 刷新群和会话。
 - [ ] sent/received 均显示正确对方 UID、昵称、附言和处理时间。
 - [ ] 快速连续通知和慢请求不会让旧响应覆盖新状态。
@@ -821,18 +824,18 @@ groupRequestUnread: { total: number; apply: number; result: number; invite: numb
 - [ ] 中英文环境的好友、群申请和邀请通知及错误提示均无硬编码中文。
 
 ### 多端与离线 E2E
-- [ ] 同一用户两个浏览器连接在当前 WS 节点都收到通知。
-- [ ] 接收者离线时发起/审批，上线后 unread、列表和通知中心完整恢复。
-- [ ] WS 推送失败但通知落库成功时，重连后的 REST 刷新可恢复。
+- [x] 同一用户两个 authenticated WS 客户端连接在当前 WS 节点都收到通知；真实浏览器 UI 仍待手工验收。
+- [x] 接收者离线时收到邀请，上线后业务 unread、邀请列表和持久化通知完整恢复；离线审批页面旅程仍待浏览器验收。
+- [x] WS 推送失败但通知落库成功时，后续 REST 刷新可恢复。
 - [ ] 双账号完整走通好友 apply/accept/reject 和群 apply/accept/reject。
-- [ ] 三账号走通普通成员邀请 -> 被邀请人确认 -> 管理员审批，以及管理员邀请 -> 确认后直入群。
+- [x] 三账号走通普通成员邀请 -> 被邀请人确认 -> 管理员审批，以及管理员邀请 -> 确认后直入群。
 
 ### 验证命令
 - [x] `go test ./apps/social/... ./apps/im/... ./apps/task/... -count=1`
 - [x] `go test ./... -count=1`
 - [x] `cd web && bunx tsc --noEmit`
 - [x] `cd web && bun run lint`
-- [x] 执行仓库既有前端测试命令（`bun test`，47 pass）
+- [x] 执行仓库既有前端测试命令（`bun test`，51 pass）
 
 ## 可观测性
 - `social_notification_outbox_pending_total`
