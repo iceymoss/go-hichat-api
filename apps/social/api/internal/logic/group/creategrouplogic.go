@@ -3,6 +3,8 @@ package group
 import (
 	"context"
 	"errors"
+
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/logic/actor"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -33,7 +35,10 @@ func (l *CreateGroupLogic) CreateGroup(req *types.GroupCreateReq) (resp *types.G
 	if req.Name == "" {
 		return nil, errors.New("group name is empty")
 	}
-	uid := l.ctx.Value(Identify).(string)
+	uid, err := actor.UID(l.ctx)
+	if err != nil {
+		return nil, err
+	}
 	res, err := l.svcCtx.Social.GroupCreate(l.ctx, &social.GroupCreateReq{
 		Name:        req.Name,
 		Icon:        req.Icon,

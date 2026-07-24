@@ -296,7 +296,7 @@ type GroupAtListResp struct {
 
 type GroupCreateReq struct {
 	Name        string `json:"name,omitempty"`
-	Icon        string `json:"icon,omitempty"`
+	Icon        string `json:"icon,optional,omitempty"`
 	Description string `json:"description,optional"`
 }
 
