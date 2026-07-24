@@ -89,6 +89,10 @@ func NewNotificationModel() NotificationModel {
 	}
 }
 
+func NewNotificationModelWithDB(conn *gorm.DB) NotificationModel {
+	return &customNotificationModel{table: "notifications", connDB: conn}
+}
+
 func (m *customNotificationModel) conn() *gorm.DB {
 	if m.connDB != nil {
 		return m.connDB
