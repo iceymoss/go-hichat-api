@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 
@@ -53,16 +52,16 @@ type (
 	}
 
 	GroupMembers struct {
-		Id            int64     `db:"id"`
-		GroupId       string    `db:"group_id"`
-		UserId        string    `db:"user_id"`
-		RoleLevel     int       `db:"role_level"`
-		JoinTime      time.Time `db:"join_time"`
-		JoinSource    int       `db:"join_source"`
-		InviterUid    string    `db:"inviter_uid"`
-		OperatorUid   string    `db:"operator_uid"`
-		GroupNickname string    `db:"group_nickname"` // 群内昵称
-		GroupRemark   string    `db:"group_remark"`   // 群备注（仅自己可见）
+		Id            int64          `db:"id"`
+		GroupId       string         `db:"group_id"`
+		UserId        string         `db:"user_id"`
+		RoleLevel     int            `db:"role_level"`
+		JoinTime      sql.NullTime   `db:"join_time"`
+		JoinSource    sql.NullInt64  `db:"join_source"`
+		InviterUid    sql.NullString `db:"inviter_uid"`
+		OperatorUid   sql.NullString `db:"operator_uid"`
+		GroupNickname string         `db:"group_nickname"` // 群内昵称
+		GroupRemark   string         `db:"group_remark"`   // 群备注（仅自己可见）
 	}
 )
 

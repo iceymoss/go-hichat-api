@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"database/sql"
 	"strconv"
 	"time"
 
@@ -66,10 +67,10 @@ func (l *GroupCreateLogic) GroupCreate(in *social.GroupCreateReq) (*social.Group
 		GroupId:     strconv.Itoa(groups.Id),
 		UserId:      strconv.Itoa(creatorUidInt),
 		RoleLevel:   int(constants.CreatorGroupRoleLevel),
-		JoinTime:    time.Now(),
-		JoinSource:  0,
-		InviterUid:  strconv.Itoa(creatorUidInt),
-		OperatorUid: strconv.Itoa(creatorUidInt),
+		JoinTime:    sql.NullTime{Time: time.Now(), Valid: true},
+		JoinSource:  sql.NullInt64{Int64: 0, Valid: true},
+		InviterUid:  sql.NullString{String: strconv.Itoa(creatorUidInt), Valid: true},
+		OperatorUid: sql.NullString{String: strconv.Itoa(creatorUidInt), Valid: true},
 	}
 	res = tx.Table("group_members").Create(&groupMember)
 	if res.Error != nil || res.RowsAffected == 0 {

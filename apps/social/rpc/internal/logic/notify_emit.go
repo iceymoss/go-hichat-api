@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
-	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 
@@ -70,17 +69,5 @@ func notifyGroupAdmins(ctx context.Context, svcCtx *svc.ServiceContext, groupId,
 			GroupId:    groupId,
 			Content:    content,
 		})
-	}
-}
-
-// normalizeGroupMemberUid 把空的 inviter_uid/operator_uid 归一为 "0"（写入 INT 列为 0）。
-// 原因：列是 INT，空串写入报 Error 1366；而模型字段是 string、读取无法把 NULL 扫进 string，
-// 所以用 "0" 哨兵（无邀请人/操作人）既能写也能读，与全仓把这两列当非空 string 的约定一致。
-func normalizeGroupMemberUid(gm *socialmodels.GroupMembers) {
-	if gm.InviterUid == "" {
-		gm.InviterUid = "0"
-	}
-	if gm.OperatorUid == "" {
-		gm.OperatorUid = "0"
 	}
 }
