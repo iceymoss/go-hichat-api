@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,6 +52,44 @@ func TestWsClientCloseCancelsActiveDial(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("active dial did not exit after Close")
+	}
+}
+
+func TestWsClientHeartbeatStopsOnClose(t *testing.T) {
+	received := make(chan struct{}, 2)
+	upgrader := websocket.Upgrader{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		for {
+			var message Message
+			if err := conn.ReadJSON(&message); err != nil {
+				return
+			}
+			if message.FrameType == FrameNoAck && message.Method == "chat.ping" {
+				received <- struct{}{}
+			}
+		}
+	}))
+	defer server.Close()
+
+	host := strings.TrimPrefix(server.URL, "http://")
+	client := NewClient(host, WithClientPatten("/"), withClientHeartbeat(10*time.Millisecond))
+	select {
+	case <-received:
+	case <-time.After(time.Second):
+		t.Fatal("heartbeat was not sent")
+	}
+	if err := client.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-received:
+		t.Fatal("heartbeat continued after Close")
+	case <-time.After(50 * time.Millisecond):
 	}
 }
 

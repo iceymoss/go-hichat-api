@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	zLog "github.com/iceymoss/go-hichat-api/pkg/logger"
 
@@ -24,14 +25,15 @@ type Client interface {
 
 type client struct {
 	*websocket.Conn
-	host        string
-	opt         dailOption
-	mu          sync.Mutex
-	stateMu     sync.Mutex
-	closed      bool
-	dialCtx     context.Context
-	cancelDial  context.CancelFunc
-	dialContext func(context.Context, string, http.Header) (*websocket.Conn, *http.Response, error)
+	host              string
+	opt               dailOption
+	mu                sync.Mutex
+	stateMu           sync.Mutex
+	closed            bool
+	dialCtx           context.Context
+	cancelDial        context.CancelFunc
+	dialContext       func(context.Context, string, http.Header) (*websocket.Conn, *http.Response, error)
+	heartbeatInterval time.Duration
 }
 
 var errClientClosed = errors.New("websocket client is closed")
@@ -41,11 +43,12 @@ func NewClient(host string, opts ...DailOptions) *client {
 	dialCtx, cancelDial := context.WithCancel(context.Background())
 
 	c := &client{
-		opt:         opt,
-		host:        host,
-		dialCtx:     dialCtx,
-		cancelDial:  cancelDial,
-		dialContext: websocket.DefaultDialer.DialContext,
+		opt:               opt,
+		host:              host,
+		dialCtx:           dialCtx,
+		cancelDial:        cancelDial,
+		dialContext:       websocket.DefaultDialer.DialContext,
+		heartbeatInterval: opt.heartbeatInterval,
 	}
 
 	c.mu.Lock()
@@ -56,7 +59,25 @@ func NewClient(host string, opts ...DailOptions) *client {
 		panic(err)
 	}
 	c.Conn = conn
+	go c.heartbeat()
 	return c
+}
+
+func (c *client) heartbeat() {
+	interval := c.heartbeatInterval
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.dialCtx.Done():
+			return
+		case <-ticker.C:
+			_ = c.Send(&Message{FrameType: FrameNoAck, Method: "chat.ping"})
+		}
+	}
 }
 
 // dail 连接服务端
