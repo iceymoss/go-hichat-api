@@ -35,6 +35,9 @@ func (l *FriendPutInReadLogic) FriendPutInRead(in *social.FriendPutInReadReq) (*
 	if in.FriendReqId > 0 {
 		ids = append(ids, uint64(in.FriendReqId))
 	}
+	if len(ids) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "request ids are required")
+	}
 	var counts receiptCounts
 	err = transactionWithSQLiteRetry(l.ctx, l.svcCtx.DB, func(tx *gorm.DB) error {
 		if err := markReceiptsRead(tx, actor, receiptTypeFriend, ids); err != nil {

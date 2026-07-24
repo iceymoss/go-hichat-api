@@ -775,7 +775,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
    ═══════════════════════════════════════ */
 
 export default function FriendRequestList() {
-  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, friendRequestUnread, setFriendRequestUnread, invalidateFriends, friendRequestsVersion, invalidateFriendRequests, refreshFriendRequestUnread, friendReqNavTarget, clearFriendReqNavTarget, setNotificationUnreadCount, bumpNotificationVersion, friendPublicSyncTargets, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets } = useIMStore();
+  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, friendRequestUnread, setFriendRequestUnread, invalidateFriends, friendRequestsVersion, invalidateFriendRequests, refreshFriendRequestUnread, friendReqNavTarget, clearFriendReqNavTarget, refreshNotificationUnread, bumpNotificationVersion, friendPublicSyncTargets, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets } = useIMStore();
   const t = useT();
   const loadRequestFailureText = t('friend.loadReqFail');
   const locationNotFoundText = t('friend.requests.locationNotFound');
@@ -869,14 +869,14 @@ export default function FriendRequestList() {
               if (generation === requestGeneration.current) {
                 setRequests(current => current.map(request => unreadIds.includes(request.id) ? { ...request, readState: true } : request));
               }
-              setFriendRequestUnread(unread);
+              if (generation === requestGeneration.current) setFriendRequestUnread(unread);
               const targets = friendRequestNotificationTargets(unreadRequests);
               if (targets.length > 0) {
                 const snapshot = queueFriendPublicSyncTargets(targets);
                 try {
-                  const result = await markBusinessNotificationsRead(token, snapshot);
+                  await markBusinessNotificationsRead(token, snapshot);
                   if (useIMStore.getState().currentUser?.token !== token) return;
-                  setNotificationUnreadCount(result.unreadCount);
+                  void refreshNotificationUnread();
                   bumpNotificationVersion();
                   clearFriendPublicSyncTargets(snapshot);
                 } catch { /* queued snapshot remains retryable */ }
@@ -906,7 +906,7 @@ export default function FriendRequestList() {
         if (generation === requestGeneration.current) setLoading(false);
       });
     return () => { requestGeneration.current += 1; };
-  }, [token, activeTab, statusFilter, page, currentQuery, friendRequestsVersion, navigationVersion, refreshFriendRequestUnread, setFriendRequestUnread, clearFriendReqNavTarget, loadRequestFailureText, locationNotFoundText, setNotificationUnreadCount, bumpNotificationVersion, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets]);
+  }, [token, activeTab, statusFilter, page, currentQuery, friendRequestsVersion, navigationVersion, refreshFriendRequestUnread, setFriendRequestUnread, clearFriendReqNavTarget, loadRequestFailureText, locationNotFoundText, refreshNotificationUnread, bumpNotificationVersion, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets]);
 
   const retryRead = useCallback(async () => {
     const snapshot = readRetry.current;
@@ -923,9 +923,9 @@ export default function FriendRequestList() {
       if (targets.length > 0) {
         const committedTargets = queueFriendPublicSyncTargets(targets);
         try {
-          const result = await markBusinessNotificationsRead(token, committedTargets);
+          await markBusinessNotificationsRead(token, committedTargets);
           if (useIMStore.getState().currentUser?.token !== token) return;
-          setNotificationUnreadCount(result.unreadCount);
+          void refreshNotificationUnread();
           bumpNotificationVersion();
           clearFriendPublicSyncTargets(committedTargets);
         } catch { /* queued snapshot remains retryable */ }
@@ -933,19 +933,19 @@ export default function FriendRequestList() {
     } catch {
       setReadError(true);
     }
-  }, [token, setFriendRequestUnread, setNotificationUnreadCount, bumpNotificationVersion, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets]);
+  }, [token, setFriendRequestUnread, refreshNotificationUnread, bumpNotificationVersion, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets]);
 
   const retryPublicSync = useCallback(async () => {
     const targets = useIMStore.getState().friendPublicSyncTargets;
     if (!token || targets.length === 0) return;
     try {
-      const result = await markBusinessNotificationsRead(token, targets);
+      await markBusinessNotificationsRead(token, targets);
       if (useIMStore.getState().currentUser?.token !== token) return;
-      setNotificationUnreadCount(result.unreadCount);
+      void refreshNotificationUnread();
       bumpNotificationVersion();
       clearFriendPublicSyncTargets(targets);
     } catch { /* queued snapshot remains retryable */ }
-  }, [token, setNotificationUnreadCount, bumpNotificationVersion, clearFriendPublicSyncTargets]);
+  }, [token, refreshNotificationUnread, bumpNotificationVersion, clearFriendPublicSyncTargets]);
 
   // Handlers
   const handleBack = useCallback(() => {
@@ -983,9 +983,12 @@ export default function FriendRequestList() {
         if (mutation !== mutationGeneration.current || useIMStore.getState().currentUser?.token !== token) return;
         setRequests(prev => prev.map(r =>
           r.id === confirmTargetId
-            ? { ...r, status: 'accepted' as const, handleMsg: msg, readState: true }
+            ? { ...r, status: 'accepted' as const, handleMsg: msg, readState: true, actionable: false, handledAt: new Date() }
             : r
         ));
+        setDetailRequest(current => current?.id === confirmTargetId
+          ? { ...current, status: 'accepted', handleMsg: msg, readState: true, actionable: false, handledAt: new Date() }
+          : current);
         const req = requests.find(r => r.id === confirmTargetId);
         toast.success(t('friend.acceptedToast').replace('{name}', req?.nickname || ''));
         invalidateFriends();
@@ -994,9 +997,12 @@ export default function FriendRequestList() {
         if (mutation !== mutationGeneration.current || useIMStore.getState().currentUser?.token !== token) return;
         setRequests(prev => prev.map(r =>
           r.id === confirmTargetId
-            ? { ...r, status: 'rejected' as const, handleMsg: msg, readState: true }
+            ? { ...r, status: 'rejected' as const, handleMsg: msg, readState: true, actionable: false, handledAt: new Date() }
             : r
         ));
+        setDetailRequest(current => current?.id === confirmTargetId
+          ? { ...current, status: 'rejected', handleMsg: msg, readState: true, actionable: false, handledAt: new Date() }
+          : current);
         const req = requests.find(r => r.id === confirmTargetId);
         toast.success(t('friend.rejectedToast').replace('{name}', req?.nickname || ''));
       } else {
@@ -1017,6 +1023,9 @@ export default function FriendRequestList() {
       void refreshFriendRequestUnread();
       setConfirmOpen(false);
     } catch {
+      requestGeneration.current += 1;
+      invalidateFriendRequests();
+      void refreshFriendRequestUnread();
       toast.error(t('friend.opFailLater'));
     } finally {
       if (mutation === mutationGeneration.current) setConfirmLoading(false);

@@ -84,7 +84,10 @@ func (m *CommonNotifyTransfer) Consume(ctx context.Context, key, value string) e
 		logx.WithContext(ctx).Errorf("CommonNotifyTransfer malformed event: err=%v", err)
 		return m.publishDeadLetter(ctx, value, dlqMalformedJSON)
 	}
-	if in.ReceiverId == "" || in.ReceiverId == in.ActorId {
+	if in.ReceiverId == "" {
+		return m.publishDeadLetter(ctx, value, dlqRPCInvalidArgument)
+	}
+	if in.ReceiverId == in.ActorId {
 		return nil
 	}
 	createTime := in.CreateTime

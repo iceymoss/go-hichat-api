@@ -1303,6 +1303,109 @@ func TestGroupRequestUnavailableBecomesInvalidated(t *testing.T) {
 	require.Equal(t, "group:1:invalidated", outbox.BizID)
 }
 
+func TestGroupDisbandConvergesRequestsInvitationsAndReceipts(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedGroupMember(t, svcCtx.DB, 1, 2, 1)
+	now := time.Now()
+	pending := objects.GroupRequest{ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(groupRequestPending), SourceType: 1}
+	history := objects.GroupRequest{ReqID: "4", GroupID: 1, ReqTime: &now, HandleResult: intPtr(groupRequestRejected), SourceType: 1}
+	require.NoError(t, svcCtx.DB.Create(&pending).Error)
+	require.NoError(t, svcCtx.DB.Create(&history).Error)
+	require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroup, pending.ID, "1", receiptKindApply, 1, receiptPending, now, false, nil))
+	require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroup, pending.ID, "2", receiptKindApply, 1, receiptPending, now, false, nil))
+	invitation := seedInvitation(t, svcCtx.DB, 1, 2, 5, 1)
+	require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroupInvite, invitation.ID, "5", receiptKindInvite, 1, receiptPending, now, false, nil))
+
+	_, err := NewGroupDisbandLogic(context.Background(), svcCtx).GroupDisband(&social.GroupDisbandReq{GroupId: "1", UserId: "1"})
+	require.NoError(t, err)
+
+	assertGroupRequestState(t, svcCtx.DB, pending.ID, groupRequestInvalidated)
+	assertGroupRequestState(t, svcCtx.DB, history.ID, groupRequestRejected)
+	var invalidated objects.GroupRequest
+	require.NoError(t, svcCtx.DB.First(&invalidated, pending.ID).Error)
+	require.Equal(t, "group disbanded", invalidated.InvalidReason)
+	var latestInvitation objects.GroupInvitation
+	require.NoError(t, svcCtx.DB.First(&latestInvitation, invitation.ID).Error)
+	require.Equal(t, groupInvitationInvalidated, latestInvitation.Status)
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.GroupMember{}))
+	require.Equal(t, int64(2), countRows(t, svcCtx.DB, &objects.GroupRequest{}))
+
+	var applyReceipts []objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receipt_kind = ?", receiptTypeGroup, pending.ID, receiptKindApply).Find(&applyReceipts).Error)
+	require.Len(t, applyReceipts, 2)
+	for _, receipt := range applyReceipts {
+		require.Zero(t, receipt.IsActionable)
+		require.Equal(t, receiptInvalidated, receipt.Result)
+	}
+	var resultReceipt objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ? AND receipt_kind = ?", receiptTypeGroup, pending.ID, "3", receiptKindResult).First(&resultReceipt).Error)
+	require.Equal(t, receiptInvalidated, resultReceipt.Result)
+	var inviteReceipt objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ?", receiptTypeGroupInvite, invitation.ID).First(&inviteReceipt).Error)
+	require.Zero(t, inviteReceipt.IsActionable)
+	require.Equal(t, receiptInvalidated, inviteReceipt.Result)
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
+}
+
+func TestDepartingMemberInvitationsBecomeInvalidated(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(*svc.ServiceContext) error
+	}{
+		{name: "quit", run: func(svcCtx *svc.ServiceContext) error {
+			_, err := NewGroupQuitLogic(context.Background(), svcCtx).GroupQuit(&social.GroupQuitReq{GroupId: "1", UserId: "2"})
+			return err
+		}},
+		{name: "kick", run: func(svcCtx *svc.ServiceContext) error {
+			_, err := NewGroupKickLogic(context.Background(), svcCtx).GroupKick(&social.GroupKickReq{GroupId: "1", UserId: "1", MemberIds: []string{"2"}})
+			return err
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svcCtx, _ := newGroupTestContext(t)
+			require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+			seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+			seedGroupMember(t, svcCtx.DB, 1, 2, 0)
+			invitation := seedInvitation(t, svcCtx.DB, 1, 2, 5, 0)
+			require.NoError(t, createReceipt(svcCtx.DB, receiptTypeGroupInvite, invitation.ID, "5", receiptKindInvite, 1, receiptPending, time.Now(), false, nil))
+			require.NoError(t, tt.run(svcCtx))
+			var latest objects.GroupInvitation
+			require.NoError(t, svcCtx.DB.First(&latest, invitation.ID).Error)
+			require.Equal(t, groupInvitationInvalidated, latest.Status)
+			var receipt objects.SocialRequestReceipt
+			require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ?", receiptTypeGroupInvite, invitation.ID).First(&receipt).Error)
+			require.Zero(t, receipt.IsActionable)
+			require.Equal(t, receiptInvalidated, receipt.Result)
+		})
+	}
+}
+
+func TestGroupSetAdminIdempotentlyRepairsReceipts(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+	seedGroupMember(t, svcCtx.DB, 1, 2, 1)
+	now := time.Now()
+	request := objects.GroupRequest{ReqID: "3", GroupID: 1, ReqTime: &now, HandleResult: intPtr(groupRequestPending), SourceType: 1}
+	require.NoError(t, svcCtx.DB.Create(&request).Error)
+
+	_, err := NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{ActorUid: "1", UserId: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: true})
+	require.NoError(t, err)
+	var receipt objects.SocialRequestReceipt
+	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ? AND receiver_id = ?", receiptTypeGroup, request.ID, "2").First(&receipt).Error)
+	require.Equal(t, 1, receipt.IsActionable)
+
+	require.NoError(t, svcCtx.DB.Model(&objects.GroupMember{}).Where("group_id = ? AND user_id = ?", 1, 2).Update("role_level", 0).Error)
+	_, err = NewGroupSetAdminLogic(context.Background(), svcCtx).GroupSetAdmin(&social.GroupSetAdminReq{ActorUid: "1", UserId: "1", GroupId: "1", MemberIds: []string{"2"}, IsAdmin: false})
+	require.NoError(t, err)
+	require.NoError(t, svcCtx.DB.First(&receipt, receipt.ID).Error)
+	require.Zero(t, receipt.IsActionable)
+}
+
 func TestGroupRequestConcurrentResultsAndExistingMember(t *testing.T) {
 	t.Run("accept reject invariant", func(t *testing.T) {
 		svcCtx, recorder := newGroupTestContext(t)

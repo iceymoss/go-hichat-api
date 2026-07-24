@@ -74,6 +74,7 @@ func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social
 	var changedIDs []uint64
 	err = transactionWithSQLiteRetry(l.ctx, l.svcCtx.DB, func(tx *gorm.DB) error {
 		attemptChanged := make([]uint64, 0, len(memberIDs))
+		attemptConverged := make([]uint64, 0, len(memberIDs))
 		query := tx
 		if tx.Dialector.Name() != "sqlite" {
 			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
@@ -97,7 +98,11 @@ func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social
 		}
 		for _, memberID := range memberIDs {
 			member := members[memberID]
-			if member == nil || member.RoleLevel == int(constants.CreatorGroupRoleLevel) || member.RoleLevel == role {
+			if member == nil || member.RoleLevel == int(constants.CreatorGroupRoleLevel) {
+				continue
+			}
+			attemptConverged = append(attemptConverged, memberID)
+			if member.RoleLevel == role {
 				continue
 			}
 			result := tx.Model(&objects.GroupMember{}).Where("id = ?", member.ID).Updates(map[string]any{
@@ -108,7 +113,7 @@ func (l *GroupSetAdminLogic) GroupSetAdmin(in *social.GroupSetAdminReq) (*social
 			}
 			attemptChanged = append(attemptChanged, memberID)
 		}
-		if err := convergeAdminReceipts(tx, groupID, attemptChanged, in.IsAdmin); err != nil {
+		if err := convergeAdminReceipts(tx, groupID, attemptConverged, in.IsAdmin); err != nil {
 			return err
 		}
 		changedIDs = attemptChanged

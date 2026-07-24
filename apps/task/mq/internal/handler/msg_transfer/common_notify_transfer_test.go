@@ -263,6 +263,7 @@ func TestCommonNotifyTransferPoisonToDLQ(t *testing.T) {
 		classification string
 	}{
 		{name: "malformed JSON", raw: `{`, rpc: &fakeNotificationCreator{}, classification: dlqMalformedJSON},
+		{name: "missing receiver", raw: `{"notifyType":"friend.apply","bizId":"friend:1:apply"}`, rpc: &fakeNotificationCreator{}, classification: dlqRPCInvalidArgument},
 		{name: "RPC invalid argument", raw: validNotificationJSON(), rpc: &fakeNotificationCreator{results: []notificationRPCResult{{err: status.Error(codes.InvalidArgument, "bad receiver")}}}, classification: dlqRPCInvalidArgument},
 	}
 	for _, tt := range tests {

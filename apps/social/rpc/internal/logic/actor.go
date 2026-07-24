@@ -11,7 +11,8 @@ func validateScopedActor(actorUID string, legacyUIDs ...string) (string, error) 
 	if actorUID == "" {
 		return "", status.Error(codes.Unauthenticated, "actor uid is required")
 	}
-	if id, err := strconv.ParseUint(actorUID, 10, 64); err != nil || id == 0 {
+	id, err := strconv.ParseUint(actorUID, 10, 64)
+	if err != nil || id == 0 || strconv.FormatUint(id, 10) != actorUID {
 		return "", status.Error(codes.InvalidArgument, "actor uid must be a positive integer")
 	}
 	for _, legacyUID := range legacyUIDs {

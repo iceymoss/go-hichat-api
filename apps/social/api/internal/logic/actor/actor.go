@@ -12,7 +12,8 @@ import (
 
 func UID(ctx context.Context) (string, error) {
 	uid := ctxdata.GetUId(ctx)
-	if id, err := strconv.ParseUint(uid, 10, 64); err != nil || id == 0 {
+	id, err := strconv.ParseUint(uid, 10, 64)
+	if err != nil || id == 0 || strconv.FormatUint(id, 10) != uid {
 		return "", status.Error(codes.Unauthenticated, "missing or invalid user identity")
 	}
 	return uid, nil

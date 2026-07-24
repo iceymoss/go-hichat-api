@@ -114,6 +114,13 @@ func (l *GroupKickLogic) GroupKick(in *social.GroupKickReq) (*social.GroupKickRe
 			}
 			attemptRemoved = append(attemptRemoved, removedMember{userID: memberID, event: event, version: version})
 		}
+		removedIDs := make([]uint64, 0, len(attemptRemoved))
+		for _, member := range attemptRemoved {
+			removedIDs = append(removedIDs, member.userID)
+		}
+		if err := invalidateInvitationsByDepartingMembers(tx, groupID, removedIDs, time.Now()); err != nil {
+			return err
+		}
 		removed = attemptRemoved
 		return nil
 	})

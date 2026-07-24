@@ -124,7 +124,7 @@ func TestFriendScopedAPIBindsJWTActor(t *testing.T) {
 }
 
 func TestFriendScopedAPIRejectsInvalidJWTActor(t *testing.T) {
-	for _, actor := range []any{nil, "", "invalid", "0", 1} {
+	for _, actor := range []any{nil, "", "invalid", "0", "01", 1} {
 		t.Run(fmt.Sprint(actor), func(t *testing.T) {
 			ctx := context.Background()
 			if actor != nil {

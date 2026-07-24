@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { buildFriendRequestListURL, buildGroupRequestListURL, clearMatchingPublicNotificationTargets, friendRequestIDFromBizID, friendRequestNotificationTargets, groupInvitationAcceptPlan, groupRequestNotificationTargets, groupRequestTargetFromBizID, handleGroupInvitation, mapFriendRequest, mapGroupInvitation, mapGroupRequest, markFriendRequestsRead, markGroupInvitationsRead, markGroupRequestsRead, notificationNavigationTarget, samePublicNotificationTargets } from './social-request-api';
+import { buildFriendRequestListURL, buildGroupRequestListURL, clearMatchingPublicNotificationTargets, friendRequestIDFromBizID, friendRequestNotificationTargets, groupInvitationAcceptPlan, groupRequestNotificationTargets, groupRequestTargetFromBizID, handleGroupInvitation, handleGroupRequest, mapFriendRequest, mapGroupInvitation, mapGroupRequest, markFriendRequestsRead, markGroupInvitationsRead, markGroupRequestsRead, notificationNavigationTarget, samePublicNotificationTargets } from './social-request-api';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
@@ -57,10 +57,10 @@ describe('group request API contract', () => {
   });
 
   test('maps canonical request and invitation fields without rounding IDs', () => {
-    const request = mapGroupRequest({ request_id: '9007199254740993', applicant_uid: '8', inviter_user_id: '7', group_id: '9', user: { nickname: 'Alice', avatar: '/alice.png' }, group: { name: 'Builders', icon: '/group.png' }, handle_result: 0, actionable: true, read_state: 1, req_time: 2 }, 'received');
-    expect(request).toMatchObject({ id: '9007199254740993', applicantUid: '8', applicantName: 'Alice', applicantAvatar: '/alice.png', inviterUid: '7', groupName: 'Builders', groupIcon: '/group.png', status: 'pending', actionable: true, read: true });
-    const invitation = mapGroupInvitation({ id: '9007199254740995', inviter_uid: '7', invitee_uid: '8', group_id: '9', status: 4, actionable: false, read_state: 0, created_at: 3 });
-    expect(invitation).toMatchObject({ id: '9007199254740995', status: 'expired', actionable: false, read: false });
+    const request = mapGroupRequest({ request_id: '9007199254740993', applicant_uid: '8', inviter_user_id: '7', group_id: '9', user: { nickname: 'Alice', avatar: '/alice.png' }, group: { name: 'Builders', icon: '/group.png' }, handle_result: 3, handle_msg: 'not now', invalid_reason: 'group closed', actionable: false, read_state: 1, req_time: 2 }, 'received');
+    expect(request).toMatchObject({ id: '9007199254740993', applicantUid: '8', applicantName: 'Alice', applicantAvatar: '/alice.png', inviterUid: '7', groupName: 'Builders', groupIcon: '/group.png', status: 'invalidated', handleMessage: 'not now', invalidReason: 'group closed', actionable: false, read: true });
+    const invitation = mapGroupInvitation({ id: '9007199254740995', inviter_uid: '7', invitee_uid: '8', group_id: '9', status: 4, reject_reason: 'busy', actionable: false, read_state: 0, created_at: 3 });
+    expect(invitation).toMatchObject({ id: '9007199254740995', status: 'expired', rejectReason: 'busy', actionable: false, read: false });
   });
 
   test('locates exact cross-page notification targets', () => {
@@ -162,5 +162,15 @@ describe('group request API contract', () => {
       { result: 2, handle_msg: 'not now' },
       { result: 2 },
     ]);
+  });
+
+  test('sends an optional trimmed group rejection reason', async () => {
+    let body = '';
+    globalThis.fetch = (async (_input, init) => {
+      body = String(init?.body);
+      return new Response(JSON.stringify({ success: true, data: {} }), { status: 200 });
+    }) as typeof fetch;
+    await handleGroupRequest('token', '1', 2, '  group is full  ');
+    expect(JSON.parse(body)).toEqual({ request_id: '1', handle_result: 2, handle_msg: 'group is full' });
   });
 });

@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -73,6 +74,9 @@ func (l *GroupQuitLogic) GroupQuit(in *social.GroupQuitReq) (*social.GroupQuitRe
 			}
 		}
 		if err := tx.Delete(&objects.GroupMember{}, member.ID).Error; err != nil {
+			return err
+		}
+		if err := invalidateInvitationsByDepartingMembers(tx, groupID, []uint64{userID}, time.Now()); err != nil {
 			return err
 		}
 		var emitErr error

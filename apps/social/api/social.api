@@ -136,7 +136,7 @@ type (
 		Remark string `json:"remark,optional"` // 申请人为对方预设的备注
 	}
 	FriendPutInResp {
-		RequestId      int64 `json:"request_id"`
+		RequestId      string `json:"request_id"`
 		Status         int32 `json:"status"`
 		AlreadyPending bool  `json:"already_pending"`
 		AlreadyFriend  bool  `json:"already_friend"`
@@ -214,7 +214,7 @@ type (
 
 type (
 	FriendPutInReadReq {
-		FriendReqId int32    `json:"friend_req_id,omitempty"` // 0 或不传表示全部已读
+		FriendReqId int32    `json:"friend_req_id,optional"` // 0 或不传表示全部已读
 		RequestIds  []string `json:"request_ids,optional"`
 	}
 	FriendPutInReadResp {
@@ -237,7 +237,7 @@ type (
 		Total int64             `json:"total"`
 	}
 	FriendPutInDeleteReq {
-		FriendReqId int32  `json:"friend_req_id,omitempty"` // 申请ID
+		FriendReqId int32  `json:"friend_req_id,optional"` // 申请ID
 		RequestId   string `json:"request_id,optional"`
 	}
 	FriendPutInDeleteResp  {}
@@ -837,4 +837,3 @@ service social {
 	@handler groupAnnouncementPin
 	post /group/announcement/pin (GroupAnnouncementPinReq) returns (GroupAnnouncementPinResp)
 }
-

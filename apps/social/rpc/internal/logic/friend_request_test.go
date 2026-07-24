@@ -49,7 +49,7 @@ func TestFriendRequestListPaginationAndFields(t *testing.T) {
 	require.Greater(t, filtered.List[0].RequestId, uint64(math.MaxInt32))
 	require.Equal(t, "1", filtered.List[0].PeerUid)
 	require.Equal(t, "handled", filtered.List[0].HandleMsg)
-	all, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{UserId: "2", ActorUid: "2", Class: "1", Type: -1, Page: 2, Size: 2})
+	all, err := NewFriendPutInListLogic(context.Background(), svcCtx).FriendPutInList(&social.FriendPutInListReq{UserId: "2", ActorUid: "2", Class: "1", Page: 2, Size: 2})
 	require.NoError(t, err)
 	require.Equal(t, int64(3), all.Total)
 	require.Len(t, all.List, 1)
@@ -535,6 +535,7 @@ func TestFriendScopedActorValidation(t *testing.T) {
 	}{
 		{name: "missing", legacy: "1", code: codes.Unauthenticated},
 		{name: "malformed", actor: "invalid", legacy: "invalid", code: codes.InvalidArgument},
+		{name: "non canonical", actor: "01", legacy: "01", code: codes.InvalidArgument},
 		{name: "mismatch", actor: "1", legacy: "2", code: codes.PermissionDenied},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -548,4 +549,6 @@ func TestFriendScopedActorValidation(t *testing.T) {
 			require.Equal(t, tc.code, status.Code(err))
 		})
 	}
+	_, err := NewFriendPutInReadLogic(context.Background(), svcCtx).FriendPutInRead(&social.FriendPutInReadReq{ActorUid: "1", UserId: "1"})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
 }

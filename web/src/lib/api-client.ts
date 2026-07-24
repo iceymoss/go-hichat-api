@@ -293,9 +293,16 @@ export function markAllNotificationsRead(token: string) {
 }
 
 /** 按本次已提交的业务目标精确同步公共通知已读状态。 */
-export function markBusinessNotificationsRead(token: string, targets: NotificationBusinessTarget[]) {
+export async function markBusinessNotificationsRead(token: string, targets: NotificationBusinessTarget[]) {
   if (targets.length === 0) throw new Error('notification targets must not be empty');
-  return markNotificationsRead(token, { targets });
+  let affected = 0;
+  let unreadCount = 0;
+  for (let offset = 0; offset < targets.length; offset += 100) {
+    const result = await markNotificationsRead(token, { targets: targets.slice(offset, offset + 100) });
+    affected += result.affected;
+    unreadCount = result.unreadCount;
+  }
+  return { affected, unreadCount };
 }
 
 /** 获取会话列表 — 返回 {conversationList: Record<string, ConversationItem>} */

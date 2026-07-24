@@ -23,7 +23,6 @@ export default function NotificationCenter() {
   const notificationVersion = useIMStore(s => s.notificationVersion);
   const unread = useIMStore(s => s.notificationUnreadCount);
   const refreshNotificationUnread = useIMStore(s => s.refreshNotificationUnread);
-  const setNotificationUnreadCount = useIMStore(s => s.setNotificationUnreadCount);
   const bumpNotificationVersion = useIMStore(s => s.bumpNotificationVersion);
   const navigateToNotificationSource = useIMStore(s => s.navigateToNotificationSource);
   // 通知发起人头像/昵称：好友优先，非好友回退到 chat-store 拉取的用户资料
@@ -118,10 +117,10 @@ export default function NotificationCenter() {
     const generation = ++markAllGeneration.current;
     setMarkAllPending(true);
     markAllNotificationsRead(token)
-      .then(result => {
+      .then(() => {
         if (useIMStore.getState().currentUser?.token !== token) return;
         setItems(current => current.map(item => ({ ...item, isRead: 1 })));
-        setNotificationUnreadCount(result.unreadCount);
+        void refreshNotificationUnread();
         bumpNotificationVersion();
         toast.success(t('notify.center.allReadDone'));
       })
@@ -145,10 +144,10 @@ export default function NotificationCenter() {
     listGeneration.current += 1;
     setMarkRetryItem(null);
     markNotificationIdsRead(token, [n.id])
-      .then(result => {
+      .then(() => {
         if (useIMStore.getState().currentUser?.token !== token) return;
         setItems(current => current.map(item => item.id === n.id ? { ...item, isRead: 1 } : item));
-        setNotificationUnreadCount(result.unreadCount);
+        void refreshNotificationUnread();
         bumpNotificationVersion();
         void refreshNotificationUnread();
         if (click === clickGeneration.current) navigate(n);

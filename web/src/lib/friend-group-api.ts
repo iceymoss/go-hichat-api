@@ -30,6 +30,13 @@ export interface GroupSearchResult {
   total: number;
 }
 
+export interface SendFriendRequestResult {
+  requestId?: string;
+  status: number;
+  alreadyPending: boolean;
+  alreadyFriend: boolean;
+}
+
 /** 判断搜索词类型：手机号 / 邮箱 / 昵称（默认） */
 export function detectUserQueryKind(q: string): 'phone' | 'email' | 'name' {
   if (/^1[3-9]\d{2,10}$/.test(q)) return 'phone';
@@ -95,14 +102,21 @@ export async function searchGroups(
 }
 
 /** 发起加好友申请（可带验证内容与预设备注） */
-export async function sendFriendRequest(token: string, userUid: string, reqMsg?: string, remark?: string): Promise<boolean> {
+export async function sendFriendRequest(token: string, userUid: string, reqMsg?: string, remark?: string): Promise<SendFriendRequestResult> {
   const resp = await fetch('/api/social/friend/putIn', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ user_uid: userUid, ...(reqMsg ? { req_msg: reqMsg } : {}), ...(remark ? { remark } : {}) }),
   });
   const json = await resp.json();
-  return json.success === true;
+  if (!resp.ok || !json.success) throw new Error(json.message || 'Request failed');
+  const data = json.data || {};
+  return {
+    requestId: typeof data.request_id === 'string' && data.request_id ? data.request_id : undefined,
+    status: Number(data.status || 0),
+    alreadyPending: data.already_pending === true,
+    alreadyFriend: data.already_friend === true,
+  };
 }
 
 export interface SendGroupRequestResult {

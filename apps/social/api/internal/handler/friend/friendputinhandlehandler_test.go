@@ -31,3 +31,23 @@ func TestFriendPutInHandleRequestParsing(t *testing.T) {
 		})
 	}
 }
+
+func TestFriendReceiptRequestParsingWithoutLegacyID(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		body    string
+		decoded any
+	}{
+		{name: "mark read", path: "/api/social/friend/putIn/read", body: `{"request_ids":["1"]}`, decoded: &types.FriendPutInReadReq{}},
+		{name: "delete", path: "/api/social/friend/putIn/delete", body: `{"request_id":"1"}`, decoded: &types.FriendPutInDeleteReq{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("PUT", tt.path, strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			require.NoError(t, httpx.Parse(req, tt.decoded))
+		})
+	}
+}

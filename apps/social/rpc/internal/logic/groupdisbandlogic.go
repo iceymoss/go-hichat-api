@@ -2,19 +2,20 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
-	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type GroupDisbandLogic struct {
@@ -32,68 +33,142 @@ func NewGroupDisbandLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Grou
 }
 
 func (l *GroupDisbandLogic) GroupDisband(in *social.GroupDisbandReq) (*social.GroupDisbandResp, error) {
-	// 1) 校验群存在且操作者为群主
-	group, err := l.svcCtx.GroupsModel.FindOne(l.ctx, in.GroupId)
+	groupID, err := parsePositiveID(in.GroupId, "group id")
 	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "group not found %v", in.GroupId)
+		return nil, err
 	}
-	if group.CreatorUid != in.UserId {
-		return nil, errors.Wrapf(xerr.NewMsg("no permission"), "only owner can disband group")
+	actorID, err := parsePositiveID(in.UserId, "actor uid")
+	if err != nil {
+		return nil, err
 	}
-
-	// 已解散则幂等成功
-	if group.Status == 1 {
-		return &social.GroupDisbandResp{}, nil
-	}
-
-	now := time.Now()
-	mysqlConn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
-	tx := mysqlConn.Begin()
-
-	// 2) 标记群状态=已解散
-	group.Status = 1
-	group.UpdatedAt = now
-	if err := tx.Table("groups").Where("id = ?", group.Id).Updates(map[string]any{
-		"status":     group.Status,
-		"updated_at": group.UpdatedAt,
-	}).Error; err != nil {
-		tx.Rollback()
-		return nil, errors.Wrapf(xerr.NewDBErr(), "update group status err")
-	}
-
-	// 3) 清理成员（使群不可再访问）
-	if err := tx.Table("group_members").Where("group_id = ?", in.GroupId).Delete(nil).Error; err != nil {
-		tx.Rollback()
-		return nil, errors.Wrapf(xerr.NewDBErr(), "delete group members err")
-	}
-
-	// 4) 清理申请（可选，不影响幂等）
-	_ = tx.Table("group_requests").Where("group_id = ?", in.GroupId).Delete(nil).Error
-
-	// 5) 同事务写 outbox（群解散事件），与上述变更原子提交
 	ev := &mq.RelationChangeTransfer{
 		EventType:  constants.RelationEventGroupDisbanded,
 		GroupId:    in.GroupId,
 		OperatorId: in.UserId,
-		Timestamp:  now.UnixMilli(),
 	}
-	body, mErr := json.Marshal(ev)
-	if mErr != nil {
-		tx.Rollback()
-		return nil, errors.Wrapf(xerr.NewDBErr(), "marshal disband outbox err")
-	}
-	outboxRow := &objects.RelationOutbox{EventType: ev.EventType, GroupID: in.GroupId, Payload: string(body), Status: 0}
-	if err := l.svcCtx.RelationOutboxModel.InsertTx(tx, outboxRow); err != nil {
-		tx.Rollback()
-		return nil, errors.Wrapf(xerr.NewDBErr(), "insert disband outbox err")
-	}
+	var version uint64
+	err = transactionWithSQLiteRetry(l.ctx, l.svcCtx.DB, func(tx *gorm.DB) error {
+		query := tx
+		if tx.Dialector.Name() != "sqlite" {
+			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+		}
+		var group objects.Group
+		if err := query.First(&group, groupID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return status.Error(codes.NotFound, "group not found")
+			}
+			return err
+		}
+		if group.CreatorUID != actorID {
+			return status.Error(codes.PermissionDenied, "only the current group owner may disband the group")
+		}
+		if group.Status != nil && *group.Status == 1 {
+			return nil
+		}
+		if group.Status != nil && *group.Status != 0 {
+			return status.Error(codes.FailedPrecondition, "group is unavailable")
+		}
 
-	if err := tx.Commit().Error; err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "commit disband err")
+		now := time.Now()
+		updated := tx.Model(&objects.Group{}).Where("id = ? AND creator_uid = ? AND (status = ? OR status IS NULL)", groupID, actorID, 0).
+			Updates(map[string]any{"status": 1, "updated_at": now})
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected == 0 {
+			return status.Error(codes.Aborted, "group changed while being disbanded")
+		}
+		if err := invalidateGroupRequestsForUnavailableGroup(tx, l.svcCtx, groupID, actorID, now); err != nil {
+			return err
+		}
+		if err := invalidateGroupInvitationsForUnavailableGroup(tx, groupID, now); err != nil {
+			return err
+		}
+		if err := tx.Where("group_id = ?", groupID).Delete(&objects.GroupMember{}).Error; err != nil {
+			return err
+		}
+		ev.Timestamp = now.UnixMilli()
+		var emitErr error
+		version, emitErr = emitRelationChangeInTxWithVersion(tx, l.svcCtx, constants.RelationEventGroupDisbanded, in.GroupId, ev)
+		return emitErr
+	})
+	if err != nil {
+		return nil, normalizeGroupWriteError(err, "failed to disband group")
 	}
-
-	// 提交后 best-effort 失效整群缓存（失败由 relay + TTL 自愈）
-	bestEffortApplyCache(l.ctx, l.svcCtx.RelationCache, ev, int64(outboxRow.ID))
+	bestEffortApplyCache(l.ctx, l.svcCtx.RelationCache, ev, int64(version))
 
 	return &social.GroupDisbandResp{}, nil
+}
+
+func invalidateGroupRequestsForUnavailableGroup(tx *gorm.DB, svcCtx *svc.ServiceContext, groupID, actorID uint64, now time.Time) error {
+	var requests []objects.GroupRequest
+	if err := tx.Where("group_id = ? AND handle_result = ?", groupID, groupRequestPending).Find(&requests).Error; err != nil {
+		return err
+	}
+	actor := strconv.FormatUint(actorID, 10)
+	for _, request := range requests {
+		updated := tx.Model(&objects.GroupRequest{}).Where("id = ? AND handle_result = ?", request.ID, groupRequestPending).
+			Updates(map[string]any{"handle_result": groupRequestInvalidated, "handle_time": now, "active_key": nil, "invalid_reason": "group disbanded"})
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected == 0 {
+			continue
+		}
+		if err := resolveApplyReceipts(tx, receiptTypeGroup, []uint64{request.ID}, receiptInvalidated, now, ""); err != nil {
+			return err
+		}
+		createdAt := now
+		if request.ReqTime != nil {
+			createdAt = *request.ReqTime
+		}
+		if err := createResultReceipt(tx, receiptTypeGroup, request.ID, request.ReqID, receiptInvalidated, createdAt, now, false); err != nil {
+			return err
+		}
+		if err := emitRequestNotificationInTx(tx, svcCtx, NotifyGroupInvalidated, receiptTypeGroup, request.ID, request.ReqID, actor, groupID, receiptInvalidated, "group disbanded"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func invalidateGroupInvitationsForUnavailableGroup(tx *gorm.DB, groupID uint64, now time.Time) error {
+	var invitations []objects.GroupInvitation
+	if err := tx.Where("group_id = ? AND status = ?", groupID, groupInvitationPending).Find(&invitations).Error; err != nil {
+		return err
+	}
+	ids := make([]uint64, 0, len(invitations))
+	for _, invitation := range invitations {
+		updated := tx.Model(&objects.GroupInvitation{}).Where("id = ? AND status = ?", invitation.ID, groupInvitationPending).
+			Updates(map[string]any{"status": groupInvitationInvalidated, "handled_at": now})
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected == 1 {
+			ids = append(ids, invitation.ID)
+		}
+	}
+	return resolveInviteReceipts(tx, ids, receiptInvalidated, now, "")
+}
+
+func invalidateInvitationsByDepartingMembers(tx *gorm.DB, groupID uint64, inviterIDs []uint64, now time.Time) error {
+	if len(inviterIDs) == 0 {
+		return nil
+	}
+	var invitations []objects.GroupInvitation
+	if err := tx.Where("group_id = ? AND inviter_uid IN ? AND status = ?", groupID, inviterIDs, groupInvitationPending).Find(&invitations).Error; err != nil {
+		return err
+	}
+	ids := make([]uint64, 0, len(invitations))
+	for _, invitation := range invitations {
+		updated := tx.Model(&objects.GroupInvitation{}).Where("id = ? AND status = ?", invitation.ID, groupInvitationPending).
+			Updates(map[string]any{"status": groupInvitationInvalidated, "handled_at": now})
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected == 1 {
+			ids = append(ids, invitation.ID)
+		}
+	}
+	return resolveInviteReceipts(tx, ids, receiptInvalidated, now, "")
 }

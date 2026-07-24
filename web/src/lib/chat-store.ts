@@ -44,19 +44,22 @@ const tt = (key: string) => translate(key, useSettingsStore.getState().language)
 
 // 私聊被后端鉴权拦截（对方已删好友）时，顶部弹"重新添加好友"通知。
 // 与红感叹号（消息标 failed）并行：感叹号是消息级反馈，这条是关系级引导。
-// 文案硬编码中文，与本模块其余 toast（AddFriendPanel/GroupList 等）保持一致。
 function notifyFriendBlocked(peerId: string) {
-  toast('你们已不是好友，是否重新添加好友', {
+  toast(tt('friend.blockedPrompt'), {
     id: `friend-block-${peerId}`, // 稳定 id：连发多条只弹一个，不堆叠
     duration: 6000,
     action: {
-      label: '重新添加',
+      label: tt('friend.reAdd'),
       onClick: async () => {
         const token = useIMStore.getState().currentUser?.token;
         if (!token) return;
-        const ok = await sendFriendRequest(token, peerId);
-        if (ok) toast.success('好友请求已发送');
-        else toast.error('发送失败，请重试');
+        try {
+          const result = await sendFriendRequest(token, peerId);
+          if (result.alreadyFriend) toast(tt('friend.alreadyFriend'));
+          else toast.success(tt(result.alreadyPending ? 'friend.requestPending' : 'group.friendReqSent'));
+        } catch {
+          toast.error(tt('friend.sendFailRetry'));
+        }
       },
     },
   });
@@ -325,6 +328,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       if (n.notifyType === 'group.accept') {
         imStore.invalidateGroups();
         void get().fetchConversations(token);
+      }
+      if (n.notifyType === 'group.admin.set' || n.notifyType === 'group.admin.unset' || n.notifyType === 'group.owner.transferred') {
+        imStore.invalidateGroups();
+        imStore.invalidateGroupRequests();
+        void imStore.refreshGroupRequestUnread();
       }
       // 点击气泡跳到来源 + 子 tab（好友→新的朋友；群→群申请）
       const go = { label: tt('notify.toast.view'), onClick: () => useIMStore.getState().navigateToNotificationSource(n.notifyType!, n.bizId, n.groupId) };

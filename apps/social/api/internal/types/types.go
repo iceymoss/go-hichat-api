@@ -66,7 +66,7 @@ type FriendPinResp struct {
 }
 
 type FriendPutInDeleteReq struct {
-	FriendReqId int32  `json:"friend_req_id,omitempty"` // 申请ID
+	FriendReqId int32  `json:"friend_req_id,optional"` // 申请ID
 	RequestId   string `json:"request_id,optional"`
 }
 
@@ -111,7 +111,7 @@ type FriendPutInMessageCountResp struct {
 }
 
 type FriendPutInReadReq struct {
-	FriendReqId int32    `json:"friend_req_id,omitempty"` // 0 或不传表示全部已读
+	FriendReqId int32    `json:"friend_req_id,optional"` // 0 或不传表示全部已读
 	RequestIds  []string `json:"request_ids,optional"`
 }
 
@@ -128,10 +128,10 @@ type FriendPutInReq struct {
 }
 
 type FriendPutInResp struct {
-	RequestId      int64 `json:"request_id"`
-	Status         int32 `json:"status"`
-	AlreadyPending bool  `json:"already_pending"`
-	AlreadyFriend  bool  `json:"already_friend"`
+	RequestId      string `json:"request_id"`
+	Status         int32  `json:"status"`
+	AlreadyPending bool   `json:"already_pending"`
+	AlreadyFriend  bool   `json:"already_friend"`
 }
 
 type FriendRemarkReq struct {

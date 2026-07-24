@@ -76,7 +76,7 @@ func (l *FriendPutInLogic) FriendPutIn(req *types.FriendPutInReq) (resp *types.F
 	}
 
 	return &types.FriendPutInResp{
-		RequestId: rpcResp.RequestId, Status: rpcResp.Status,
+		RequestId: strconv.FormatInt(rpcResp.RequestId, 10), Status: rpcResp.Status,
 		AlreadyPending: rpcResp.AlreadyPending, AlreadyFriend: rpcResp.AlreadyFriend,
 	}, nil
 }

@@ -52,8 +52,6 @@ func (l *FriendPutInListLogic) FriendPutInList(in *social.FriendPutInListReq) (*
 	}
 	if in.Status != nil {
 		query = query.Where("handle_result = ?", *in.Status)
-	} else if in.Type >= 0 {
-		query = query.Where("handle_result = ?", in.Type)
 	}
 	var total int64
 	if err := query.Count(&total).Error; err != nil {

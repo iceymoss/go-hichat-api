@@ -381,9 +381,9 @@ export class IMWebSocket {
   // ---------- 重连 ----------
 
   private scheduleReconnect() {
-    if (this.reconnectRetries >= this.reconnectMaxRetries) return;
-    this.reconnectRetries++;
-    const delay = Math.min(this.reconnectInterval * 2 ** (this.reconnectRetries - 1), 30_000);
+    const exponent = Math.min(this.reconnectRetries, Math.max(0, this.reconnectMaxRetries - 1));
+    this.reconnectRetries = Math.min(this.reconnectRetries + 1, this.reconnectMaxRetries);
+    const delay = Math.min(this.reconnectInterval * 2 ** exponent, 30_000);
     this.reconnectTimer = setTimeout(() => this.connect(), delay);
   }
 

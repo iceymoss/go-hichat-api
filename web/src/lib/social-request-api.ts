@@ -20,6 +20,8 @@ export type GroupRequest = {
   groupName: string;
   groupIcon: string;
   message: string;
+  handleMessage: string;
+  invalidReason: string;
   status: GroupRequestStatus;
   actionable: boolean;
   read: boolean;
@@ -37,6 +39,7 @@ export type GroupInvitation = {
   groupName: string;
   groupIcon: string;
   message: string;
+  rejectReason: string;
   status: GroupRequestStatus;
   actionable: boolean;
   read: boolean;
@@ -245,6 +248,7 @@ export function mapGroupRequest(item: Record<string, unknown>, tab: 'received' |
     applicantName: String(user.nickname || ''), applicantAvatar: String(user.avatar || ''),
     inviterUid: String(item.inviter_user_id || ''), groupId: String(item.group_id || ''),
     groupName: String(group.name || ''), groupIcon: String(group.icon || ''), message: String(item.req_msg || ''),
+    handleMessage: String(item.handle_msg || ''), invalidReason: String(item.invalid_reason || ''),
     status: mapGroupStatus(item.handle_result), actionable: item.actionable === true, read: Number(item.read_state) === 1,
     createdAt: unixDate(item.req_time), handledAt: optionalUnixDate(item.handle_time), source: Number(item.actual_join_source || item.join_source || 1),
   };
@@ -254,7 +258,7 @@ export function mapGroupInvitation(item: Record<string, unknown>): GroupInvitati
   return {
     id: exactID(item.id, 'group invitation'), tab: 'invitations', inviterUid: String(item.inviter_uid || ''),
     inviteeUid: String(item.invitee_uid || ''), groupId: String(item.group_id || ''), groupName: '',
-    groupIcon: '', message: String(item.message || ''), status: mapGroupStatus(item.status),
+    groupIcon: '', message: String(item.message || ''), rejectReason: String(item.reject_reason || ''), status: mapGroupStatus(item.status),
     actionable: item.actionable === true, read: Number(item.read_state) === 1, createdAt: unixDate(item.created_at),
     handledAt: optionalUnixDate(item.handled_at), expiresAt: optionalUnixDate(item.expires_at),
   };
@@ -280,8 +284,9 @@ export async function listGroupRequests(token: string, tab: GroupRequestTab, sta
   };
 }
 
-export function handleGroupRequest(token: string, requestId: string, result: 1 | 2) {
-  return socialRequest('/api/social/group/putIn', token, { method: 'PUT', body: JSON.stringify({ request_id: requestId, handle_result: result }) });
+export function handleGroupRequest(token: string, requestId: string, result: 1 | 2, handleMsg?: string) {
+  const reason = handleMsg?.trim();
+  return socialRequest('/api/social/group/putIn', token, { method: 'PUT', body: JSON.stringify({ request_id: requestId, handle_result: result, ...(reason ? { handle_msg: reason } : {}) }) });
 }
 
 export async function handleGroupInvitation(token: string, invitationId: string, result: 1 | 2, handleMsg?: string): Promise<GroupInvitationHandleResult> {

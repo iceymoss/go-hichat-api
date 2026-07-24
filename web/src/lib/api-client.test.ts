@@ -47,4 +47,16 @@ describe('notification read API contract', () => {
     expect(() => markBusinessNotificationsRead('token', [])).toThrow('notification targets must not be empty');
     expect(called).toBe(false);
   });
+
+  test('batches more than 100 exact business targets', async () => {
+    const sizes: number[] = [];
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      sizes.push(body.targets.length);
+      return new Response(JSON.stringify({ affected: body.targets.length, unread_count: 3 }), { status: 200 });
+    }) as typeof fetch;
+    const targets = Array.from({ length: 205 }, (_, i) => ({ notify_type: 'friend.apply', biz_id: `friend:${i + 1}:apply` }));
+    await expect(markBusinessNotificationsRead('token', targets)).resolves.toEqual({ affected: 205, unreadCount: 3 });
+    expect(sizes).toEqual([100, 100, 5]);
+  });
 });
