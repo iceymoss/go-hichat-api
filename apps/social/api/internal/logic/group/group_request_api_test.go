@@ -3,6 +3,7 @@ package group
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
@@ -132,4 +133,12 @@ func TestGroupReadAndCountRejectInvalidJWTActor(t *testing.T) {
 			require.Equal(t, codes.Unauthenticated, status.Code(err))
 		})
 	}
+}
+
+func TestGroupInvitationHandleRejectsLongReason(t *testing.T) {
+	ctx := context.WithValue(context.Background(), ctxdata.Identify, "3")
+	_, err := NewGroupInvitationHandleLogic(ctx, &svc.ServiceContext{}).GroupInvitationHandle(&types.GroupInvitationHandleReq{
+		Id: "1", Result: 2, HandleMsg: strings.Repeat("拒", 256),
+	})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
 }

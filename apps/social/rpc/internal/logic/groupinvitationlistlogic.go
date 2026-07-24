@@ -104,7 +104,7 @@ func (l *GroupInvitationListLogic) expireInvitations(actor uint64) error {
 				ids = append(ids, invitation.ID)
 			}
 		}
-		return resolveInviteReceipts(tx, ids, receiptExpired, now, "")
+		return expireInviteReceipts(tx, ids, now)
 	})
 	if err != nil {
 		return status.Error(codes.Internal, "failed to expire group invitations")

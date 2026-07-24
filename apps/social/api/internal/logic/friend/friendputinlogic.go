@@ -53,7 +53,16 @@ func (l *FriendPutInLogic) FriendPutIn(req *types.FriendPutInReq) (resp *types.F
 	usersResp, err := l.svcCtx.User.GetUserById(l.ctx, &user.GetUserByIdRequest{Id: req.UserId})
 	if err != nil {
 		zLog.Error("get user by id err", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to validate target user")
+		switch status.Code(err) {
+		case codes.NotFound:
+			return nil, status.Error(codes.NotFound, "target user does not exist or is unavailable")
+		case codes.DeadlineExceeded:
+			return nil, status.Error(codes.DeadlineExceeded, "user service deadline exceeded")
+		case codes.Unavailable:
+			return nil, status.Error(codes.Unavailable, "user service unavailable")
+		default:
+			return nil, status.Error(codes.Internal, "failed to validate target user")
+		}
 	}
 
 	if usersResp == nil || usersResp.User == nil || usersResp.User.Status != 1 {

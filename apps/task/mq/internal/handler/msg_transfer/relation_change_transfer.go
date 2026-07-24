@@ -189,7 +189,7 @@ func (m *RelationChangeTransfer) pushRelationChanged(in *mq.RelationChangeTransf
 		})
 	case constants.RelationEventGroupMemberAdded:
 		m.sendRelationFrame(&ws.RelationChanged{ReceiverId: in.UserId, EventType: in.EventType, ConversationId: in.GroupId, GroupId: in.GroupId, OperatorId: in.OperatorId, Timestamp: in.Timestamp})
-	case constants.RelationEventFriendDeleted:
+	case constants.RelationEventFriendAdded, constants.RelationEventFriendDeleted:
 		// 双向通知：各自把对端会话置为失效。单聊会话 id = CombineId(双方)，对称。
 		convId := wuid.CombineId(in.FriendA, in.FriendB)
 		m.sendRelationFrame(&ws.RelationChanged{

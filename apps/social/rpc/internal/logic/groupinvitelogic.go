@@ -73,7 +73,7 @@ func (l *GroupInviteLogic) GroupInvite(in *social.GroupInviteReq) (*social.Group
 	invitations := make([]objects.GroupInvitation, 0, len(invitees))
 	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
 		invitations = make([]objects.GroupInvitation, 0, len(invitees))
-		if _, err := loadNormalGroup(tx, groupID); err != nil {
+		if _, err := loadNormalGroupLocked(tx, groupID); err != nil {
 			return err
 		}
 		member, err := loadGroupMember(tx, groupID, actor)

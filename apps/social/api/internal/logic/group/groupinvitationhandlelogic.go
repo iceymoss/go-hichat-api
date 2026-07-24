@@ -2,9 +2,10 @@ package group
 
 import (
 	"context"
+	"strconv"
+	"unicode/utf8"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/logic/actor"
-	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
@@ -36,6 +37,9 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(req *types.GroupInvit
 	}
 	if req.Result != 1 && req.Result != 2 {
 		return nil, status.Error(codes.InvalidArgument, "result must be 1 or 2")
+	}
+	if utf8.RuneCountInString(req.HandleMsg) > 255 {
+		return nil, status.Error(codes.InvalidArgument, "invitation rejection reason must not exceed 255 characters")
 	}
 	res, err := l.svcCtx.Social.GroupInvitationHandle(l.ctx, &social.GroupInvitationHandleReq{
 		Id: invitationID, ActorUid: uid, Result: req.Result, HandleMsg: req.HandleMsg,

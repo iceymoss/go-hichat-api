@@ -59,7 +59,7 @@ func (l *GroupPutinLogic) GroupPutin(in *social.GroupPutinReq) (*social.GroupPut
 	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
 		response = nil
 		createdPending = false
-		group, err := loadNormalGroup(tx, groupID)
+		group, err := loadNormalGroupLocked(tx, groupID)
 		if err != nil {
 			return err
 		}
@@ -162,7 +162,7 @@ func (l *GroupPutinLogic) groupPutInByTokenTx(tx *gorm.DB, in *social.GroupPutin
 	if err != nil {
 		return nil, err
 	}
-	group, err := loadNormalGroup(tx, groupID)
+	group, err := loadNormalGroupLocked(tx, groupID)
 	if err != nil {
 		return nil, err
 	}
@@ -268,8 +268,20 @@ func requireNormalUser(ctx context.Context, lookup svc.UserLookup, id string) er
 }
 
 func loadNormalGroup(tx *gorm.DB, id uint64) (*objects.Group, error) {
+	return loadNormalGroupWithLock(tx, id, false)
+}
+
+func loadNormalGroupLocked(tx *gorm.DB, id uint64) (*objects.Group, error) {
+	return loadNormalGroupWithLock(tx, id, true)
+}
+
+func loadNormalGroupWithLock(tx *gorm.DB, id uint64, locked bool) (*objects.Group, error) {
 	var group objects.Group
-	if err := tx.First(&group, id).Error; err != nil {
+	query := tx
+	if locked && tx.Dialector.Name() != "sqlite" {
+		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	if err := query.First(&group, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Error(codes.NotFound, "group not found")
 		}
@@ -403,7 +415,7 @@ func invalidatePendingGroupInvitations(tx *gorm.DB, groupID, userID uint64, now 
 func transactionWithSQLiteRetry(ctx context.Context, db *gorm.DB, fn func(*gorm.DB) error) error {
 	for attempt := 0; ; attempt++ {
 		err := db.WithContext(ctx).Transaction(fn)
-		if err == nil || db.Dialector.Name() != "sqlite" || attempt >= 9 || !isSQLiteLockError(err) {
+		if err == nil || attempt >= 9 || !isRetryableTransactionError(db.Dialector.Name(), err) {
 			return err
 		}
 		timer := time.NewTimer(time.Duration(attempt+1) * 10 * time.Millisecond)
@@ -416,9 +428,18 @@ func transactionWithSQLiteRetry(ctx context.Context, db *gorm.DB, fn func(*gorm.
 	}
 }
 
-func isSQLiteLockError(err error) bool {
+func isRetryableTransactionError(dialect string, err error) bool {
 	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "database is locked") || strings.Contains(message, "database table is locked") || strings.Contains(message, "sqlite_busy")
+	switch dialect {
+	case "sqlite":
+		return strings.Contains(message, "database is locked") || strings.Contains(message, "database table is locked") || strings.Contains(message, "sqlite_busy")
+	case "mysql":
+		return strings.Contains(message, "error 1213") || strings.Contains(message, "error 1205") || strings.Contains(message, "deadlock found") || strings.Contains(message, "lock wait timeout")
+	case "postgres":
+		return strings.Contains(message, "sqlstate 40001") || strings.Contains(message, "sqlstate 40p01")
+	default:
+		return false
+	}
 }
 
 func normalizeGroupWriteError(err error, fallback string) error {

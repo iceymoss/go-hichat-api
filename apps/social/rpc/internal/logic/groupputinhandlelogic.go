@@ -71,7 +71,7 @@ func (l *GroupPutInHandleLogic) GroupPutInHandle(in *social.GroupPutInHandleReq)
 	changed := false
 	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
 		changed = false
-		if _, err := loadNormalGroup(tx, request.GroupID); err != nil {
+		if _, err := loadNormalGroupLocked(tx, request.GroupID); err != nil {
 			if status.Code(err) != codes.FailedPrecondition && status.Code(err) != codes.NotFound {
 				return err
 			}

@@ -66,7 +66,7 @@ func (l *ExpireGroupInvitationsLogic) ExpireGroupInvitations(in *social.ExpireGr
 				ids = append(ids, invitation.ID)
 			}
 		}
-		if err := resolveInviteReceipts(tx, ids, receiptExpired, now, ""); err != nil {
+		if err := expireInviteReceipts(tx, ids, now); err != nil {
 			return err
 		}
 		expired = int32(len(ids))

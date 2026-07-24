@@ -6,7 +6,11 @@ import (
 	"testing"
 
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/im"
+	"github.com/iceymoss/go-hichat-api/apps/im/ws/websocket"
+	"github.com/iceymoss/go-hichat-api/apps/im/ws/ws"
+	"github.com/iceymoss/go-hichat-api/apps/task/mq/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
+	"github.com/iceymoss/go-hichat-api/pkg/constants"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
@@ -14,6 +18,17 @@ import (
 type ensureStub struct {
 	err     error
 	request *im.EnsureGroupConversationReq
+}
+
+type relationWSRecorder struct {
+	messages []websocket.Message
+}
+
+func (r *relationWSRecorder) Close() error   { return nil }
+func (r *relationWSRecorder) Read(any) error { return nil }
+func (r *relationWSRecorder) Send(value any) error {
+	r.messages = append(r.messages, value.(websocket.Message))
+	return nil
 }
 
 func TestValidGroupRelationEvent(t *testing.T) {
@@ -51,4 +66,23 @@ func TestEnsureGroupMemberConversation(t *testing.T) {
 		client := &ensureStub{err: expected}
 		require.ErrorIs(t, ensureGroupMemberConversation(context.Background(), client, event), expected)
 	})
+}
+
+func TestFriendAddedPushesRelationChangeToBothUsers(t *testing.T) {
+	recorder := &relationWSRecorder{}
+	consumer := &RelationChangeTransfer{BaseChatTransfer: NewBaseMsgChatTransfer(&svc.ServiceContext{WsClient: recorder})}
+	consumer.pushRelationChanged(&mq.RelationChangeTransfer{
+		EventType: constants.RelationEventFriendAdded,
+		FriendA:   "1",
+		FriendB:   "2",
+	})
+
+	require.Len(t, recorder.messages, 2)
+	first, ok := recorder.messages[0].Data.(*ws.RelationChanged)
+	require.True(t, ok)
+	second, ok := recorder.messages[1].Data.(*ws.RelationChanged)
+	require.True(t, ok)
+	require.Equal(t, constants.RelationEventFriendAdded, first.EventType)
+	require.Equal(t, []string{"1", "2"}, []string{first.ReceiverId, second.ReceiverId})
+	require.Equal(t, []string{"2", "1"}, []string{first.PeerId, second.PeerId})
 }

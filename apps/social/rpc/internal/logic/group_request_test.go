@@ -479,6 +479,34 @@ func TestGroupPutInConcurrentAndCooldown(t *testing.T) {
 	require.NotEqual(t, stable, resp.RequestId)
 }
 
+func TestGroupPutInConcurrentNoVerificationConvergesToOneHistory(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	require.NoError(t, svcCtx.DB.Create(testGroup(1, false)).Error)
+	seedGroupMember(t, svcCtx.DB, 1, 1, 2)
+
+	const workers = 20
+	var wg sync.WaitGroup
+	errs := make(chan error, workers)
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := NewGroupPutinLogic(context.Background(), svcCtx).GroupPutin(groupPutInReq("3", "3", "1"))
+			errs <- err
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.GroupRequest{}))
+	var members int64
+	require.NoError(t, svcCtx.DB.Model(&objects.GroupMember{}).Where("group_id = ? AND user_id = ?", 1, 3).Count(&members).Error)
+	require.Equal(t, int64(1), members)
+	require.Equal(t, int64(1), countRows(t, svcCtx.DB, &objects.RelationOutbox{}))
+}
+
 func TestGroupRequestReceiptsArePersonal(t *testing.T) {
 	svcCtx, _ := newGroupTestContext(t)
 	require.NoError(t, svcCtx.DB.Create(testGroup(1, true)).Error)
@@ -496,9 +524,11 @@ func TestGroupRequestReceiptsArePersonal(t *testing.T) {
 	read, err := NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: "1", ActorUid: "1", RequestIds: []uint64{created.RequestId}})
 	require.NoError(t, err)
 	require.Equal(t, int32(0), read.Apply)
+	_, err = NewMarkGroupReqReadLogic(context.Background(), svcCtx).MarkGroupReqRead(&social.MarkGroupReqReadReq{UserId: "2", ActorUid: "2", RequestIds: []uint64{created.RequestId}})
+	require.NoError(t, err)
 	otherCount, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "2", ActorUid: "2"})
 	require.NoError(t, err)
-	require.Equal(t, int32(1), otherCount.Apply)
+	require.Zero(t, otherCount.Apply)
 
 	_, err = NewGroupPutInHandleLogic(context.Background(), svcCtx).GroupPutInHandle(&social.GroupPutInHandleReq{RequestId: created.RequestId, ActorUid: "1", HandleResult: 1})
 	require.NoError(t, err)
@@ -508,6 +538,9 @@ func TestGroupRequestReceiptsArePersonal(t *testing.T) {
 	require.Equal(t, 1, receipts[0].IsRead)
 	require.Zero(t, receipts[1].IsRead)
 	require.Equal(t, receiptAccepted, receipts[1].Result)
+	otherCount, err = NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: "2", ActorUid: "2"})
+	require.NoError(t, err)
+	require.Equal(t, int32(1), otherCount.Apply)
 	require.Equal(t, int64(3), countRows(t, svcCtx.DB, &objects.SocialNotificationOutbox{}))
 
 	var applicantResult objects.SocialRequestReceipt
@@ -538,6 +571,15 @@ func TestGroupInvitationReceiptLifecycle(t *testing.T) {
 	require.NoError(t, svcCtx.DB.Where("request_type = ? AND request_id = ?", receiptTypeGroupInvite, created.Invitation.Id).First(&receipt).Error)
 	require.Zero(t, receipt.IsActionable)
 	require.Equal(t, receiptRejected, receipt.Result)
+}
+
+func TestGroupInvitationRejectReasonLength(t *testing.T) {
+	svcCtx, _ := newGroupTestContext(t)
+	_, err := NewGroupInvitationHandleLogic(context.Background(), svcCtx).GroupInvitationHandle(&social.GroupInvitationHandleReq{
+		Id: 1, ActorUid: "3", Result: 2, HandleMsg: strings.Repeat("拒", 256),
+	})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+	require.Zero(t, countRows(t, svcCtx.DB, &objects.GroupInvitation{}))
 }
 
 func TestGroupInvitationListExpiresPendingBeforeFiltering(t *testing.T) {

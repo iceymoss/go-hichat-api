@@ -39,20 +39,6 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 		return nil, err
 	}
 
-	var relationCount int64
-	err = l.DB.WithContext(l.ctx).Model(&objects.Friend{}).
-		Where("(user_id = ? AND friend_uid = ?) OR (user_id = ? AND friend_uid = ?)", actor, target, target, actor).
-		Count(&relationCount).Error
-	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to inspect friend relation")
-	}
-	switch relationCount {
-	case 2:
-		return &social.FriendPutInResp{Status: 1, AlreadyFriend: true}, nil
-	case 1:
-		return nil, status.Error(codes.FailedPrecondition, "one-way friend relation conflict")
-	}
-
 	activeKey := fmt.Sprintf("friend:%d:%d", actor, target)
 	pending := 0
 	visible := 1
@@ -65,9 +51,34 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 		HandleResult: &pending, Status: &visible, Remark: in.Remark, ActiveKey: &activeKey,
 	}
 	created := false
+	alreadyFriend := false
 	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
 		created = false
+		alreadyFriend = false
 		request.ID = 0
+		// Acceptance updates an existing request for this pair. Locking all pair
+		// requests serializes relation creation with a reverse request creation.
+		var pairRequests []objects.FriendRequest
+		query := tx.Where("(user_id = ? AND req_uid = ?) OR (user_id = ? AND req_uid = ?)", actor, target, target, actor)
+		if tx.Dialector.Name() != "sqlite" {
+			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+		}
+		if err := query.Find(&pairRequests).Error; err != nil {
+			return err
+		}
+		var relationCount int64
+		if err := tx.Model(&objects.Friend{}).
+			Where("(user_id = ? AND friend_uid = ?) OR (user_id = ? AND friend_uid = ?)", actor, target, target, actor).
+			Count(&relationCount).Error; err != nil {
+			return err
+		}
+		switch relationCount {
+		case 2:
+			alreadyFriend = true
+			return nil
+		case 1:
+			return status.Error(codes.FailedPrecondition, "one-way friend relation conflict")
+		}
 		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(request)
 		if result.Error != nil {
 			return result.Error
@@ -82,7 +93,13 @@ func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.Frien
 		return emitRequestNotificationInTx(tx, l.ServiceContext, NotifyFriendApply, receiptTypeFriend, request.ID, in.ReqUid, in.ActorUid, 0, receiptPending, in.ReqMsg)
 	})
 	if err != nil {
+		if status.Code(err) != codes.Unknown {
+			return nil, err
+		}
 		return nil, status.Error(codes.Internal, "failed to create friend request")
+	}
+	if alreadyFriend {
+		return &social.FriendPutInResp{Status: 1, AlreadyFriend: true}, nil
 	}
 
 	if created {

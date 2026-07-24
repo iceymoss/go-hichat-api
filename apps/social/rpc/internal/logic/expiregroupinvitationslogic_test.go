@@ -53,7 +53,14 @@ func TestExpireGroupInvitationsBatchesReceiptsAndIsIdempotent(t *testing.T) {
 	for _, receipt := range receipts {
 		require.Equal(t, receiptExpired, receipt.Result)
 		require.Zero(t, receipt.IsActionable)
+		require.Equal(t, 1, receipt.IsRead)
+		require.NotNil(t, receipt.ReadAt)
 		require.NotNil(t, receipt.ResolvedAt)
+	}
+	for i := 0; i < 3; i++ {
+		count, err := NewGroupRequestMessageCountLogic(context.Background(), svcCtx).GroupRequestMessageCount(&social.GroupRequestMessageCountReq{UserId: fmt.Sprint(i + 2), ActorUid: fmt.Sprint(i + 2)})
+		require.NoError(t, err)
+		require.Zero(t, count.Invite)
 	}
 	var pending int64
 	require.NoError(t, svcCtx.DB.Model(&objects.GroupInvitation{}).Where("status = ?", groupInvitationPending).Count(&pending).Error)

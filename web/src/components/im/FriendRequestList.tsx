@@ -775,7 +775,7 @@ function RequestCard({ request, onClick, onAccept, onReject, onDelete }: Request
    ═══════════════════════════════════════ */
 
 export default function FriendRequestList() {
-  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, friendRequestUnread, setFriendRequestUnread, invalidateFriends, friendRequestsVersion, invalidateFriendRequests, refreshFriendRequestUnread, friendReqNavTarget, clearFriendReqNavTarget, refreshNotificationUnread, bumpNotificationVersion, friendPublicSyncTargets, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets } = useIMStore();
+  const { currentUser, setShowFriendRequests, friendRequestUnreadCount, friendRequestUnread, invalidateFriends, friendRequestsVersion, invalidateFriendRequests, refreshFriendRequestUnread, friendReqNavTarget, clearFriendReqNavTarget, refreshNotificationUnread, bumpNotificationVersion, friendPublicSyncTargets, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets } = useIMStore();
   const t = useT();
   const loadRequestFailureText = t('friend.loadReqFail');
   const locationNotFoundText = t('friend.requests.locationNotFound');
@@ -864,12 +864,12 @@ export default function FriendRequestList() {
           const unreadIds = unreadRequests.map(request => request.id);
           if (unreadIds.length > 0) {
             try {
-              const unread = await markFriendRequestsRead(token, unreadIds);
+              await markFriendRequestsRead(token, unreadIds);
               if (useIMStore.getState().currentUser?.token !== token) return;
               if (generation === requestGeneration.current) {
                 setRequests(current => current.map(request => unreadIds.includes(request.id) ? { ...request, readState: true } : request));
               }
-              if (generation === requestGeneration.current) setFriendRequestUnread(unread);
+              await refreshFriendRequestUnread();
               const targets = friendRequestNotificationTargets(unreadRequests);
               if (targets.length > 0) {
                 const snapshot = queueFriendPublicSyncTargets(targets);
@@ -906,17 +906,17 @@ export default function FriendRequestList() {
         if (generation === requestGeneration.current) setLoading(false);
       });
     return () => { requestGeneration.current += 1; };
-  }, [token, activeTab, statusFilter, page, currentQuery, friendRequestsVersion, navigationVersion, refreshFriendRequestUnread, setFriendRequestUnread, clearFriendReqNavTarget, loadRequestFailureText, locationNotFoundText, refreshNotificationUnread, bumpNotificationVersion, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets]);
+  }, [token, activeTab, statusFilter, page, currentQuery, friendRequestsVersion, navigationVersion, refreshFriendRequestUnread, clearFriendReqNavTarget, loadRequestFailureText, locationNotFoundText, refreshNotificationUnread, bumpNotificationVersion, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets]);
 
   const retryRead = useCallback(async () => {
     const snapshot = readRetry.current;
     if (!token || snapshot.length === 0) return;
     try {
-      const unread = await markFriendRequestsRead(token, snapshot.map(request => request.id));
+      await markFriendRequestsRead(token, snapshot.map(request => request.id));
       if (useIMStore.getState().currentUser?.token !== token) return;
       const ids = new Set(snapshot.map(request => request.id));
       setRequests(current => current.map(request => ids.has(request.id) ? { ...request, readState: true } : request));
-      setFriendRequestUnread(unread);
+      await refreshFriendRequestUnread();
       readRetry.current = [];
       setReadError(false);
       const targets = friendRequestNotificationTargets(snapshot);
@@ -933,7 +933,7 @@ export default function FriendRequestList() {
     } catch {
       setReadError(true);
     }
-  }, [token, setFriendRequestUnread, refreshNotificationUnread, bumpNotificationVersion, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets]);
+  }, [token, refreshFriendRequestUnread, refreshNotificationUnread, bumpNotificationVersion, queueFriendPublicSyncTargets, clearFriendPublicSyncTargets]);
 
   const retryPublicSync = useCallback(async () => {
     const targets = useIMStore.getState().friendPublicSyncTargets;

@@ -322,7 +322,7 @@ function appQueryKey(token: string, tab: GroupRequestTab, status: AppStatusFilte
 
 export default function GroupList() {
   const t = useT();
-  const { setShowGroupPanel, groupAppUnreadCount, groupRequestUnread, setGroupRequestUnread, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupRequestsVersion, invalidateGroupRequests, groupsVersion, invalidateGroups, refreshGroupRequestUnread, groupAppNavTarget, clearGroupAppNavTarget, groupDetailNavId, clearGroupDetailNav, refreshNotificationUnread, bumpNotificationVersion, groupPublicSyncTargets, queueGroupPublicSyncTargets, clearGroupPublicSyncTargets } = useIMStore();
+  const { setShowGroupPanel, groupAppUnreadCount, groupRequestUnread, currentUser, friends, setActiveTab, setSelectedConversationId, setShowChatDetail, groupRequestsVersion, invalidateGroupRequests, groupsVersion, invalidateGroups, refreshGroupRequestUnread, groupAppNavTarget, clearGroupAppNavTarget, groupDetailNavId, clearGroupDetailNav, refreshNotificationUnread, bumpNotificationVersion, groupPublicSyncTargets, queueGroupPublicSyncTargets, clearGroupPublicSyncTargets } = useIMStore();
   const token = currentUser?.token || '';
   const myUserId = currentUser?.id || '';
 
@@ -595,14 +595,14 @@ export default function GroupList() {
     const generation = appsGeneration.current;
     const requestToken = token;
     const mark = appClass === 'invitations' ? markGroupInvitationsRead : markGroupRequestsRead;
-    mark(requestToken, ids).then(unread => {
+    mark(requestToken, ids).then(async () => {
       if (useIMStore.getState().currentUser?.token !== requestToken) return;
       if (generation === appsGeneration.current) {
         setCommittedAppQuery(current => current?.key === committedKey ? { ...current, items: current.items.map(item => ids.includes(item.id) ? { ...item, read: true } : item) } : current);
         setAppReadError(false);
         appReadRetry.current = null;
       }
-      if (generation === appsGeneration.current) setGroupRequestUnread(unread);
+      await refreshGroupRequestUnread();
       const targets = groupRequestNotificationTargets(unreadItems);
       if (targets.length === 0) return;
       const snapshot = queueGroupPublicSyncTargets(targets);
@@ -617,18 +617,18 @@ export default function GroupList() {
       appReadRetry.current = { key: committedKey, tab: appClass, items: unreadItems };
       setAppReadError(true);
     });
-  }, [view, token, appClass, appStatus, appPage, committedAppQuery, appLoading, setGroupRequestUnread, refreshNotificationUnread, bumpNotificationVersion, queueGroupPublicSyncTargets, clearGroupPublicSyncTargets]);
+  }, [view, token, appClass, appStatus, appPage, committedAppQuery, appLoading, refreshGroupRequestUnread, refreshNotificationUnread, bumpNotificationVersion, queueGroupPublicSyncTargets, clearGroupPublicSyncTargets]);
 
   const retryAppRead = useCallback(async () => {
     const snapshot = appReadRetry.current;
     if (!token || !snapshot || snapshot.items.length === 0) return;
     const mark = snapshot.tab === 'invitations' ? markGroupInvitationsRead : markGroupRequestsRead;
     try {
-      const unread = await mark(token, snapshot.items.map(item => item.id));
+      await mark(token, snapshot.items.map(item => item.id));
       if (useIMStore.getState().currentUser?.token !== token) return;
       const ids = new Set(snapshot.items.map(item => item.id));
       setCommittedAppQuery(current => current?.key === snapshot.key ? { ...current, items: current.items.map(item => ids.has(item.id) ? { ...item, read: true } : item) } : current);
-      setGroupRequestUnread(unread);
+      await refreshGroupRequestUnread();
       appReadRetry.current = null;
       setAppReadError(false);
       const targets = groupRequestNotificationTargets(snapshot.items);
@@ -643,7 +643,7 @@ export default function GroupList() {
         } catch { /* queued snapshot remains retryable */ }
       }
     } catch { setAppReadError(true); }
-  }, [token, setGroupRequestUnread, refreshNotificationUnread, bumpNotificationVersion, queueGroupPublicSyncTargets, clearGroupPublicSyncTargets]);
+  }, [token, refreshGroupRequestUnread, refreshNotificationUnread, bumpNotificationVersion, queueGroupPublicSyncTargets, clearGroupPublicSyncTargets]);
 
   const retryAppPublicSync = useCallback(async () => {
     const targets = useIMStore.getState().groupPublicSyncTargets;

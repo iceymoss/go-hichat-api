@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -35,6 +36,9 @@ func (l *GroupInvitationHandleLogic) GroupInvitationHandle(in *social.GroupInvit
 	}
 	if in.Result != 1 && in.Result != 2 {
 		return nil, status.Error(codes.InvalidArgument, "result must be 1 or 2")
+	}
+	if utf8.RuneCountInString(in.HandleMsg) > 255 {
+		return nil, status.Error(codes.InvalidArgument, "invitation rejection reason must not exceed 255 characters")
 	}
 	if in.ActorUid == "" {
 		return nil, status.Error(codes.Unauthenticated, "actor uid is required")

@@ -20,6 +20,7 @@ import (
 
 type apiUserLookupStub struct {
 	response *user.GetUserByIdResponse
+	err      error
 }
 
 type friendAPIRecorder struct {
@@ -53,7 +54,7 @@ func (r *friendAPIRecorder) FriendPutInDelete(_ context.Context, in *socialclien
 }
 
 func (s *apiUserLookupStub) GetUserById(context.Context, *user.GetUserByIdRequest, ...grpc.CallOption) (*user.GetUserByIdResponse, error) {
-	return s.response, nil
+	return s.response, s.err
 }
 
 func (s *apiUserLookupStub) FindUser(context.Context, *user.FindUserReq, ...grpc.CallOption) (*user.FindUserResp, error) {
@@ -62,11 +63,12 @@ func (s *apiUserLookupStub) FindUser(context.Context, *user.FindUserReq, ...grpc
 
 func TestFriendPutInAPIValidation(t *testing.T) {
 	tests := []struct {
-		name   string
-		ctx    context.Context
-		target string
-		user   *user.GetUserByIdResponse
-		code   codes.Code
+		name    string
+		ctx     context.Context
+		target  string
+		user    *user.GetUserByIdResponse
+		userErr error
+		code    codes.Code
 	}{
 		{name: "missing identity", ctx: context.Background(), target: "2", code: codes.Unauthenticated},
 		{name: "malformed identity", ctx: context.WithValue(context.Background(), ctxdata.Identify, "x"), target: "2", code: codes.Unauthenticated},
@@ -74,10 +76,12 @@ func TestFriendPutInAPIValidation(t *testing.T) {
 		{name: "self", ctx: context.WithValue(context.Background(), ctxdata.Identify, "1"), target: "1", code: codes.InvalidArgument},
 		{name: "nil user response", ctx: context.WithValue(context.Background(), ctxdata.Identify, "1"), target: "2", code: codes.NotFound},
 		{name: "disabled target", ctx: context.WithValue(context.Background(), ctxdata.Identify, "1"), target: "2", user: &user.GetUserByIdResponse{User: &user.UserEntity{Id: "2", Status: 0}}, code: codes.NotFound},
+		{name: "user RPC not found", ctx: context.WithValue(context.Background(), ctxdata.Identify, "1"), target: "2", userErr: status.Error(codes.NotFound, "missing"), code: codes.NotFound},
+		{name: "user RPC unavailable", ctx: context.WithValue(context.Background(), ctxdata.Identify, "1"), target: "2", userErr: status.Error(codes.Unavailable, "down"), code: codes.Unavailable},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logic := NewFriendPutInLogic(tt.ctx, &svc.ServiceContext{User: &apiUserLookupStub{response: tt.user}})
+			logic := NewFriendPutInLogic(tt.ctx, &svc.ServiceContext{User: &apiUserLookupStub{response: tt.user, err: tt.userErr}})
 			_, err := logic.FriendPutIn(&types.FriendPutInReq{UserId: tt.target})
 			require.Equal(t, tt.code, status.Code(err))
 		})

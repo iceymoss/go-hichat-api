@@ -113,6 +113,13 @@ func resolveApplyReceipts(tx *gorm.DB, requestType string, requestIDs []uint64, 
 		return err
 	}
 	if readActor != "" {
+		if requestType == receiptTypeGroup {
+			if err := tx.Model(&objects.SocialRequestReceipt{}).
+				Where("request_type = ? AND request_id IN ? AND receipt_kind = ? AND receiver_id <> ?", requestType, requestIDs, receiptKindApply, readActor).
+				Updates(map[string]any{"is_read": 0, "read_at": nil}).Error; err != nil {
+				return err
+			}
+		}
 		return tx.Model(&objects.SocialRequestReceipt{}).
 			Where("request_type = ? AND request_id IN ? AND receipt_kind = ? AND receiver_id = ?", requestType, requestIDs, receiptKindApply, readActor).
 			Updates(map[string]any{"is_read": 1, "read_at": now}).Error
@@ -139,6 +146,18 @@ func resolveInviteReceipts(tx *gorm.DB, invitationIDs []uint64, result int, now 
 			Updates(map[string]any{"is_read": 1, "read_at": now}).Error
 	}
 	return nil
+}
+
+func expireInviteReceipts(tx *gorm.DB, invitationIDs []uint64, now time.Time) error {
+	if err := resolveInviteReceipts(tx, invitationIDs, receiptExpired, now, ""); err != nil {
+		return err
+	}
+	if len(invitationIDs) == 0 {
+		return nil
+	}
+	return tx.Model(&objects.SocialRequestReceipt{}).
+		Where("request_type = ? AND request_id IN ? AND receipt_kind = ? AND is_read = ?", receiptTypeGroupInvite, invitationIDs, receiptKindInvite, 0).
+		Updates(map[string]any{"is_read": 1, "read_at": now}).Error
 }
 
 func markReceiptsRead(tx *gorm.DB, receiverID, requestType string, requestIDs []uint64) error {
