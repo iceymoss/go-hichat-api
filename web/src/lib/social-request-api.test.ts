@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { buildFriendRequestListURL, buildGroupRequestListURL, clearMatchingPublicNotificationTargets, friendRequestIDFromBizID, friendRequestNotificationTargets, groupInvitationAcceptPlan, groupRequestNotificationTargets, groupRequestTargetFromBizID, handleGroupInvitation, handleGroupRequest, mapFriendRequest, mapGroupInvitation, mapGroupRequest, markFriendRequestsRead, markGroupInvitationsRead, markGroupRequestsRead, notificationNavigationTarget, samePublicNotificationTargets } from './social-request-api';
+import { buildFriendRequestListURL, buildGroupRequestListURL, clearMatchingPublicNotificationTargets, friendRequestIDFromBizID, friendRequestNotificationTargets, groupInvitationAcceptPlan, groupRequestNotificationTargets, groupRequestTargetFromBizID, handleGroupInvitation, handleGroupRequest, listGroupRequests, mapFriendRequest, mapGroupInvitation, mapGroupRequest, markFriendRequestsRead, markGroupInvitationsRead, markGroupRequestsRead, notificationNavigationTarget, samePublicNotificationTargets } from './social-request-api';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
@@ -173,6 +173,21 @@ describe('group request API contract', () => {
       { result: 2, handle_msg: 'not now' },
       { result: 2 },
     ]);
+  });
+
+  test('enriches invitations with inviter and group profiles', async () => {
+    globalThis.fetch = (async input => {
+      const url = String(input);
+      if (url.startsWith('/api/social/group/invitations?')) return new Response(JSON.stringify({ success: true, data: { list: [{ id: '1', inviter_uid: '7', invitee_uid: '8', group_id: '9' }], total: 1 } }), { status: 200 });
+      if (url === '/api/user/search?ids=7') return new Response(JSON.stringify({ success: true, data: { users: [{ id: '7', nickname: 'Alice', avatar: '/alice.png' }] } }), { status: 200 });
+      if (url === '/api/social/group/detail?group_id=9') return new Response(JSON.stringify({ success: true, data: { group: { id: '9', name: 'Builders', icon: '/group.png' } } }), { status: 200 });
+      throw new Error(`Unexpected URL: ${url}`);
+    }) as typeof fetch;
+
+    await expect(listGroupRequests('token', 'invitations', 'all', 1, 20)).resolves.toMatchObject({
+      list: [{ inviterName: 'Alice', inviterAvatar: '/alice.png', groupName: 'Builders', groupIcon: '/group.png' }],
+      total: 1,
+    });
   });
 
   test('sends an optional trimmed group rejection reason', async () => {

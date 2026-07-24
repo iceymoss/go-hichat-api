@@ -34,6 +34,8 @@ export type GroupInvitation = {
   id: string;
   tab: 'invitations';
   inviterUid: string;
+  inviterName: string;
+  inviterAvatar: string;
   inviteeUid: string;
   groupId: string;
   groupName: string;
@@ -251,9 +253,9 @@ export function mapGroupRequest(item: Record<string, unknown>, tab: 'received' |
   return {
     id: exactID(item.request_id, 'group request'), tab,
     applicantUid: String(item.applicant_uid || item.user_id || ''),
-    applicantName: String(user.nickname || ''), applicantAvatar: String(user.avatar || ''),
+    applicantName: String(user.nickname || item.applicant_nickname || ''), applicantAvatar: String(user.avatar || item.applicant_avatar || ''),
     inviterUid: String(item.inviter_user_id || ''), groupId: String(item.group_id || ''),
-    groupName: String(group.name || ''), groupIcon: String(group.icon || ''), message: String(item.req_msg || ''),
+    groupName: String(group.name || item.group_name || ''), groupIcon: String(group.icon || item.group_icon || ''), message: String(item.req_msg || ''),
     handleMessage: String(item.handle_msg || ''), invalidReason: String(item.invalid_reason || ''),
     status: mapGroupStatus(item.handle_result), actionable: item.actionable === true, read: Number(item.read_state) === 1,
     createdAt: unixDate(item.req_time), handledAt: optionalUnixDate(item.handle_time), source: Number(item.actual_join_source || item.join_source || 1),
@@ -261,10 +263,13 @@ export function mapGroupRequest(item: Record<string, unknown>, tab: 'received' |
 }
 
 export function mapGroupInvitation(item: Record<string, unknown>): GroupInvitation {
+  const inviter = item.inviter && typeof item.inviter === 'object' ? item.inviter as Record<string, unknown> : {};
+  const group = item.group && typeof item.group === 'object' ? item.group as Record<string, unknown> : {};
   return {
     id: exactID(item.id, 'group invitation'), tab: 'invitations', inviterUid: String(item.inviter_uid || ''),
-    inviteeUid: String(item.invitee_uid || ''), groupId: String(item.group_id || ''), groupName: '',
-    groupIcon: '', message: String(item.message || ''), rejectReason: String(item.reject_reason || ''), status: mapGroupStatus(item.status),
+    inviterName: String(inviter.nickname || ''), inviterAvatar: String(inviter.avatar || ''),
+    inviteeUid: String(item.invitee_uid || ''), groupId: String(item.group_id || ''), groupName: String(group.name || ''),
+    groupIcon: String(group.icon || ''), message: String(item.message || ''), rejectReason: String(item.reject_reason || ''), status: mapGroupStatus(item.status),
     actionable: item.actionable === true, read: Number(item.read_state) === 1, createdAt: unixDate(item.created_at),
     handledAt: optionalUnixDate(item.handled_at), expiresAt: optionalUnixDate(item.expires_at),
   };
@@ -284,8 +289,41 @@ export async function listFriendRequests(token: string, requestClass: FriendRequ
 
 export async function listGroupRequests(token: string, tab: GroupRequestTab, status: GroupRequestStatusFilter, page: number, size: number) {
   const data = await socialRequest<{ list?: Record<string, unknown>[]; total?: number }>(buildGroupRequestListURL(tab, status, page, size), token);
+  const list = (data.list || []).map(item => tab === 'invitations' ? mapGroupInvitation(item) : mapGroupRequest(item, tab));
+  if (tab === 'invitations' && list.length > 0) {
+    const invitations = list as GroupInvitation[];
+    const inviterIds = [...new Set(invitations.map(item => item.inviterUid).filter(Boolean))];
+    const groupIds = [...new Set(invitations.map(item => item.groupId).filter(Boolean))];
+    const [userResponse, groupResponses] = await Promise.all([
+      inviterIds.length > 0
+        ? fetch(`/api/user/search?ids=${encodeURIComponent(inviterIds.join(','))}`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(response => response.ok ? response.json() : null)
+            .catch(() => null)
+        : null,
+      Promise.all(groupIds.map(groupId =>
+        fetch(`/api/social/group/detail?group_id=${encodeURIComponent(groupId)}`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(response => response.ok ? response.json() : null)
+          .catch(() => null),
+      )),
+    ]);
+    const users = Array.isArray(userResponse?.data?.users) ? userResponse.data.users as Record<string, unknown>[] : [];
+    const usersById = new Map(users.map(user => [String(user.id || ''), user]));
+    const groupsById = new Map<string, Record<string, unknown>>();
+    for (const response of groupResponses) {
+      const group = response?.data?.group;
+      if (group && typeof group === 'object') groupsById.set(String(group.id || ''), group as Record<string, unknown>);
+    }
+    for (const invitation of invitations) {
+      const inviter = usersById.get(invitation.inviterUid);
+      const group = groupsById.get(invitation.groupId);
+      invitation.inviterName = String(inviter?.nickname || '');
+      invitation.inviterAvatar = String(inviter?.avatar || '');
+      invitation.groupName = String(group?.name || '');
+      invitation.groupIcon = String(group?.icon || '');
+    }
+  }
   return {
-    list: (data.list || []).map(item => tab === 'invitations' ? mapGroupInvitation(item) : mapGroupRequest(item, tab)),
+    list,
     total: data.total ?? 0,
   };
 }

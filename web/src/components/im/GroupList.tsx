@@ -842,9 +842,9 @@ export default function GroupList() {
 
   const handleAcceptApp = useCallback((app: GroupRequestItem) => {
     const actor = app.tab === 'invitations'
-      ? t('group.invitation.inviterId').replace('{id}', app.inviterUid || t('group.idUnavailable'))
-      : t('group.request.applicantId').replace('{id}', app.applicantUid || t('group.idUnavailable'));
-    const group = t('group.request.groupId').replace('{id}', app.groupId || t('group.idUnavailable'));
+      ? app.inviterName || t('group.invitation.inviterId').replace('{id}', app.inviterUid || t('group.idUnavailable'))
+      : app.applicantName || t('group.request.applicantId').replace('{id}', app.applicantUid || t('group.idUnavailable'));
+    const group = app.groupName || t('group.request.groupId').replace('{id}', app.groupId || t('group.idUnavailable'));
     doConfirm(t('group.confirmAgreeTitle'), t('group.confirmAgreeDesc').replace('{user}', actor).replace('{group}', group), t('group.agree'), '#1BB45B', async () => {
       try {
         const outcome = await convergeMutation(app, 1);
@@ -1567,11 +1567,11 @@ export default function GroupList() {
                 const isInvitation = app.tab === 'invitations';
                 const isReceived = app.tab === 'received';
                 const actorName = isInvitation
-                  ? t('group.invitation.inviterId').replace('{id}', app.inviterUid || t('group.idUnavailable'))
+                  ? app.inviterName || t('group.invitation.inviterId').replace('{id}', app.inviterUid || t('group.idUnavailable'))
                   : isReceived
                     ? app.applicantName || t('group.request.applicantId').replace('{id}', app.applicantUid || t('group.idUnavailable'))
                     : app.groupName || t('group.request.groupId').replace('{id}', app.groupId || t('group.idUnavailable'));
-                const actorAvatar = isInvitation ? '' : app.applicantAvatar;
+                const actorAvatar = isInvitation ? app.inviterAvatar : app.applicantAvatar;
                 const isPending = app.status === 'pending';
                 return (
                   <div key={app.id} data-request-id={app.id} className="relative" style={{ background: highlightedAppId === app.id ? 'rgba(27,180,91,0.14)' : !app.read ? 'rgba(245,166,35,0.03)' : '#FFF', borderLeft: highlightedAppId === app.id ? '3px solid #1BB45B' : !app.read ? '3px solid #F5A623' : 'none', boxShadow: highlightedAppId === app.id ? 'inset 0 0 0 1px rgba(27,180,91,0.35)' : 'none', borderBottom: '1px solid rgba(0,0,0,0.05)', padding: '12px 16px', transition: 'background 0.2s, box-shadow 0.2s' }}>
