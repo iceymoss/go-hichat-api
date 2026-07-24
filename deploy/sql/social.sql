@@ -13,7 +13,8 @@ CREATE TABLE `friends` (
                            `friend_tags` text COMMENT '好友标签(JSON数组)',
                            `created_at` timestamp NULL DEFAULT NULL COMMENT '好友关系建立时间',
                            PRIMARY KEY (`id`),
-                           KEY `idx_user` (`user_id`) COMMENT '用户维度查询索引'
+                            KEY `idx_user` (`user_id`) COMMENT '用户维度查询索引',
+                            UNIQUE KEY `uk_friends_user_friend` (`user_id`,`friend_uid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='好友关系表';
 
 -- 好友请求表（好友申请记录）
@@ -28,9 +29,13 @@ CREATE TABLE `friend_requests` (
                                    `handled_at` timestamp NULL DEFAULT NULL COMMENT '处理操作时间',
                                    `read_state` tinyint NOT NULL DEFAULT '0' COMMENT '读取状态（0:未读 1:已读）',
                                    `receiver_read` tinyint NOT NULL DEFAULT '0' COMMENT '接收方已读（0:未读 1:已读）',
-                                   `sender_read` tinyint NOT NULL DEFAULT '0' COMMENT '发起方已读处理结果（0:未读 1:已读）',
-                                   PRIMARY KEY (`id`),
-                                   KEY `idx_user` (`user_id`) COMMENT '申请人维度索引'
+                                    `sender_read` tinyint NOT NULL DEFAULT '0' COMMENT '发起方已读处理结果（0:未读 1:已读）',
+                                    `status` int DEFAULT NULL COMMENT '消息状态（0:已删除 1:正常显示 2:忽略不显示）',
+                                    `remark` varchar(64) NOT NULL DEFAULT '' COMMENT '申请人为对方预设的备注',
+                                    `active_key` varchar(160) DEFAULT NULL COMMENT '待处理申请唯一键',
+                                    PRIMARY KEY (`id`),
+                                    KEY `idx_user` (`user_id`) COMMENT '申请人维度索引',
+                                    UNIQUE KEY `uk_friend_requests_active_key` (`active_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='好友请求表';
 
 -- 好友举报表
@@ -90,10 +95,75 @@ CREATE TABLE `group_requests` (
                                   `handle_user_id` int(11) unsigned DEFAULT NULL COMMENT '请求处理人ID',
                                   `handle_time` timestamp NULL DEFAULT NULL COMMENT '处理时间',
                                   `handle_result` tinyint DEFAULT NULL COMMENT '处理结果（0:待处理 1:同意 2:拒绝）',
-                                  `receiver_read` tinyint NOT NULL DEFAULT '0' COMMENT '接收方(群主/管理员)已读 0未读 1已读',
-                                  PRIMARY KEY (`id`),
-                                  KEY `idx_group` (`group_id`) COMMENT '群组维度查询索引'
+                                   `receiver_read` tinyint NOT NULL DEFAULT '0' COMMENT '接收方(群主/管理员)已读 0未读 1已读',
+                                   `active_key` varchar(160) DEFAULT NULL COMMENT '主动待处理申请唯一键',
+                                   `source_type` tinyint NOT NULL DEFAULT '1' COMMENT '来源类型 1主动申请 2成员邀请',
+                                   `source_invitation_id` bigint unsigned DEFAULT NULL COMMENT '来源邀请ID',
+                                   `actual_join_source` tinyint DEFAULT NULL COMMENT '最终实际入群来源',
+                                   `invalid_reason` varchar(128) NOT NULL DEFAULT '' COMMENT '系统失效原因',
+                                   `handle_msg` varchar(255) NOT NULL DEFAULT '' COMMENT '审批附言或拒绝原因',
+                                   PRIMARY KEY (`id`),
+                                   KEY `idx_group` (`group_id`) COMMENT '群组维度查询索引',
+                                   KEY `idx_group_request_lookup` (`group_id`,`req_id`,`handle_result`),
+                                   UNIQUE KEY `uk_group_requests_active_key` (`active_key`),
+                                   UNIQUE KEY `uk_group_requests_source_invitation` (`source_invitation_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='加群请求表';
+
+CREATE TABLE `group_invitations` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `group_id` bigint unsigned NOT NULL,
+  `inviter_uid` bigint unsigned NOT NULL,
+  `invitee_uid` bigint unsigned NOT NULL,
+  `inviter_role_snapshot` tinyint NOT NULL DEFAULT '0',
+  `message` varchar(255) NOT NULL DEFAULT '',
+  `status` tinyint NOT NULL DEFAULT '0',
+  `reject_reason` varchar(255) NOT NULL DEFAULT '',
+  `created_at` timestamp NOT NULL,
+  `handled_at` timestamp NULL DEFAULT NULL,
+  `expires_at` timestamp NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_group_invitation_invitee` (`invitee_uid`,`status`,`created_at`),
+  KEY `idx_group_invitation_group_invitee` (`group_id`,`invitee_uid`,`status`),
+  KEY `idx_group_invitation_expiry` (`status`,`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='群成员邀请';
+
+CREATE TABLE `social_request_receipts` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `request_type` varchar(16) NOT NULL,
+  `request_id` bigint unsigned NOT NULL,
+  `receiver_id` varchar(64) NOT NULL,
+  `receipt_kind` varchar(16) NOT NULL,
+  `is_read` tinyint NOT NULL DEFAULT '0',
+  `is_actionable` tinyint NOT NULL DEFAULT '0',
+  `result` tinyint NOT NULL DEFAULT '0',
+  `created_at` timestamp NOT NULL,
+  `read_at` timestamp NULL DEFAULT NULL,
+  `resolved_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_social_request_receipt` (`request_type`,`request_id`,`receiver_id`,`receipt_kind`),
+  KEY `idx_social_receipt_unread` (`receiver_id`,`is_read`,`request_type`),
+  KEY `idx_social_receipt_actionable` (`receiver_id`,`is_actionable`,`request_type`),
+  KEY `idx_social_receipt_request` (`request_type`,`request_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='社交申请个人回执';
+
+CREATE TABLE `social_notification_outbox` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `notify_type` varchar(64) NOT NULL,
+  `receiver_id` varchar(64) NOT NULL,
+  `actor_id` varchar(64) NOT NULL,
+  `biz_id` varchar(128) NOT NULL,
+  `group_id` varchar(64) NOT NULL DEFAULT '',
+  `payload` text NOT NULL,
+  `status` tinyint NOT NULL DEFAULT '0',
+  `attempts` int NOT NULL DEFAULT '0',
+  `next_retry_at` timestamp NULL DEFAULT NULL,
+  `last_error` varchar(512) NOT NULL DEFAULT '',
+  `created_at` timestamp NOT NULL,
+  `sent_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_social_notification` (`notify_type`,`receiver_id`,`biz_id`),
+  KEY `idx_social_notification_retry` (`status`,`next_retry_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='社交通知事务发件箱';
 
 -- 群邀请链接表（链接/二维码统一用 token 表示）
 CREATE TABLE IF NOT EXISTS `group_invite_links` (

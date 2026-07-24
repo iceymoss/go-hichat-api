@@ -409,7 +409,7 @@ function TrendCard({
                 <div
                   key={idx}
                   className="overflow-hidden cursor-pointer"
-                  style={{ borderRadius: 6, background: '#E8EDEF', aspectSquare: trend.resources.length > 1 ? 'auto' : undefined, maxHeight: trend.resources.length === 1 ? 200 : undefined }}
+                  style={{ borderRadius: 6, background: '#E8EDEF', maxHeight: trend.resources.length === 1 ? 200 : undefined }}
                   onClick={(e) => { e.stopPropagation(); setViewerIndex(idx); }}
                 >
                   <img src={img} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" style={{ display: 'block', ...(trend.resources.length === 1 ? { height: 200 } : { aspectRatio: '1' }) }} />

@@ -34,7 +34,6 @@ import {
 } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 import { getTrendMessageUnread } from '@/lib/trend-api';
-import { getNotificationUnreadCount } from '@/lib/api-client';
 import Logo from '@/components/brand/Logo';
 
 const navItems: { tab: TabType; icon: React.ReactNode }[] = [
@@ -45,7 +44,7 @@ const navItems: { tab: TabType; icon: React.ReactNode }[] = [
 ];
 
 export default function IMLayout() {
-  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, systemPanel, setSystemPanel, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, showUserCard, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, setNotificationUnreadCount, setGroupAppUnreadCount, friendRequestUnreadCount, groupAppUnreadCount } = useIMStore();
+  const { activeTab, setActiveTab, showChatDetail, selectedContactId, showFriendRequests, showGroupPanel, selectedTrendId, meSubPage, setMeSubPage, systemPanel, setSystemPanel, currentUser, friends, viewedProfile, floatingProfile, floatingProfileIsStranger, closeUserCard, openUserProfile, showUserCard, setSelectedConversationId, setShowChatDetail, momentsUnreadCount, setMomentsUnreadCount, notificationUnreadCount, refreshNotificationUnread, refreshSocialRequestUnread, friendRequestUnreadCount, groupAppUnreadCount } = useIMStore();
   // 「联系人」tab 角标 = 好友申请未读 + 群申请未读：看了对应申请列表即各自清零（与铃铛/通知中心解耦）
   const contactsUnread = friendRequestUnreadCount + groupAppUnreadCount;
   const chatConversations = useChatStore(s => s.conversations);
@@ -59,31 +58,16 @@ export default function IMLayout() {
       .catch(() => { /* silent */ });
   }, [currentUser?.token, setMomentsUnreadCount]);
 
-  // 登录后拉取公共通知未读数（持久化），驱动「联系人」tab 气泡；之后由 ws.on('notify') 实时 +1
+  // 登录后恢复公共通知未读数；WS 重连和实时通知使用同一个 generation-guarded action。
   React.useEffect(() => {
-    const token = currentUser?.token;
-    if (!token) return;
-    getNotificationUnreadCount(token)
-      .then(r => setNotificationUnreadCount(r.count ?? 0))
-      .catch(() => { /* silent */ });
-  }, [currentUser?.token, setNotificationUnreadCount]);
+    if (!currentUser?.token) return;
+    void refreshNotificationUnread();
+  }, [currentUser?.token, refreshNotificationUnread]);
 
-  // 登录后拉取入群申请未读数，驱动「我的群组」气泡。放 IMLayout（始终挂载）：activeTab 不持久化，
-  // 刷新后默认回到「会话」tab，ContactList 此时未挂载，必须在此全局拉取气泡才不会丢。
-  // 已读模型：未读 = 我收到的(申请人≠我) 且 receiver_read=0；进群申请列表会标已读清零。
   React.useEffect(() => {
-    const token = currentUser?.token;
-    const myId = currentUser?.id;
-    if (!token || !myId) return;
-    fetch('/api/social/group/putInsByUid?class=2', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => {
-        const list: Array<{ user_id?: string; receiver_read?: number }> = d?.data?.list || [];
-        const cnt = list.filter(x => String(x.user_id) !== String(myId) && (x.receiver_read ?? 0) === 0).length;
-        setGroupAppUnreadCount(cnt);
-      })
-      .catch(() => { /* silent */ });
-  }, [currentUser?.token, currentUser?.id, setGroupAppUnreadCount]);
+    if (!currentUser?.token) return;
+    void refreshSocialRequestUnread();
+  }, [currentUser?.token, refreshSocialRequestUnread]);
 
   // Resolve selected contact for detail panel from store friends, falling back
   // to viewedProfile (set when opening self / a non-friend from moments).

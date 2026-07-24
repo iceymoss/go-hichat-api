@@ -3,6 +3,8 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/transaction"
@@ -19,6 +21,7 @@ type (
 		usersModel
 		// ListByNamePage 按昵称模糊分页搜索，返回当前页数据与匹配总数
 		ListByNamePage(ctx context.Context, name string, offset, limit int64) ([]*Users, int64, error)
+		UpdateLastLogin(ctx context.Context, id uint64, lastLogin time.Time) error
 	}
 
 	customUsersModel struct {
@@ -51,6 +54,46 @@ func (m *customUsersModel) Create(ctx context.Context, data *Users) error {
 
 	// Email 有效，使用默认的 Create 方法
 	return m.defaultUsersModel.Create(ctx, data)
+}
+
+func (m *customUsersModel) UpdateLastLogin(ctx context.Context, id uint64, lastLogin time.Time) error {
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	if err := mysqlConn.Model(&Users{}).Where("id = ?", id).Update("last_login", lastLogin).Error; err != nil {
+		return err
+	}
+
+	usersIdKey := fmt.Sprintf("%s%v", cacheUsersIdPrefix, id)
+	m.DelCache(usersIdKey)
+	return nil
+}
+
+func (m *customUsersModel) UpdateByID(ctx context.Context, data *Users) error {
+	oldUser, err := m.FindOne(ctx, data.Id)
+	if err != nil && err != ErrNotFound {
+		return err
+	}
+
+	mysqlConn := transaction.GetTransactionOrDB(ctx, db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+	if err := mysqlConn.Model(&Users{}).Where("id = ?", data.Id).Updates(data).Error; err != nil {
+		return err
+	}
+
+	m.DelCache(fmt.Sprintf("%s%v", cacheUsersIdPrefix, data.Id))
+	if oldUser != nil {
+		if oldUser.Email.String != "" {
+			m.DelCache(fmt.Sprintf("%s%v", cacheUsersEmailPrefix, oldUser.Email))
+		}
+		if oldUser.Phone != "" {
+			m.DelCache(fmt.Sprintf("%s%v", cacheUsersPhonePrefix, oldUser.Phone))
+		}
+	}
+	if data.Email.String != "" && (oldUser == nil || oldUser.Email != data.Email) {
+		m.DelCache(fmt.Sprintf("%s%v", cacheUsersEmailPrefix, data.Email))
+	}
+	if data.Phone != "" && (oldUser == nil || oldUser.Phone != data.Phone) {
+		m.DelCache(fmt.Sprintf("%s%v", cacheUsersPhonePrefix, data.Phone))
+	}
+	return nil
 }
 
 // ListByNamePage 按昵称模糊分页搜索（GORM，三库兼容）。

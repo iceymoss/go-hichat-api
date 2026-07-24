@@ -65,6 +65,12 @@ const (
 	Social_GroupAnnouncementCreate_FullMethodName    = "/social.social/GroupAnnouncementCreate"
 	Social_GroupAnnouncementList_FullMethodName      = "/social.social/GroupAnnouncementList"
 	Social_GroupAnnouncementPin_FullMethodName       = "/social.social/GroupAnnouncementPin"
+	Social_GroupInvitationCreate_FullMethodName      = "/social.social/GroupInvitationCreate"
+	Social_GroupInvitationList_FullMethodName        = "/social.social/GroupInvitationList"
+	Social_GroupInvitationRead_FullMethodName        = "/social.social/GroupInvitationRead"
+	Social_GroupRequestMessageCount_FullMethodName   = "/social.social/GroupRequestMessageCount"
+	Social_GroupInvitationHandle_FullMethodName      = "/social.social/GroupInvitationHandle"
+	Social_ExpireGroupInvitations_FullMethodName     = "/social.social/ExpireGroupInvitations"
 )
 
 // SocialClient is the client API for Social service.
@@ -125,6 +131,12 @@ type SocialClient interface {
 	GroupAnnouncementCreate(ctx context.Context, in *GroupAnnouncementCreateReq, opts ...grpc.CallOption) (*GroupAnnouncementCreateResp, error)
 	GroupAnnouncementList(ctx context.Context, in *GroupAnnouncementListReq, opts ...grpc.CallOption) (*GroupAnnouncementListResp, error)
 	GroupAnnouncementPin(ctx context.Context, in *GroupAnnouncementPinReq, opts ...grpc.CallOption) (*GroupAnnouncementPinResp, error)
+	GroupInvitationCreate(ctx context.Context, in *GroupInvitationCreateReq, opts ...grpc.CallOption) (*GroupInvitationCreateResp, error)
+	GroupInvitationList(ctx context.Context, in *GroupInvitationListReq, opts ...grpc.CallOption) (*GroupInvitationListResp, error)
+	GroupInvitationRead(ctx context.Context, in *GroupInvitationReadReq, opts ...grpc.CallOption) (*GroupInvitationReadResp, error)
+	GroupRequestMessageCount(ctx context.Context, in *GroupRequestMessageCountReq, opts ...grpc.CallOption) (*GroupRequestMessageCountResp, error)
+	GroupInvitationHandle(ctx context.Context, in *GroupInvitationHandleReq, opts ...grpc.CallOption) (*GroupInvitationHandleResp, error)
+	ExpireGroupInvitations(ctx context.Context, in *ExpireGroupInvitationsReq, opts ...grpc.CallOption) (*ExpireGroupInvitationsResp, error)
 }
 
 type socialClient struct {
@@ -595,6 +607,66 @@ func (c *socialClient) GroupAnnouncementPin(ctx context.Context, in *GroupAnnoun
 	return out, nil
 }
 
+func (c *socialClient) GroupInvitationCreate(ctx context.Context, in *GroupInvitationCreateReq, opts ...grpc.CallOption) (*GroupInvitationCreateResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupInvitationCreateResp)
+	err := c.cc.Invoke(ctx, Social_GroupInvitationCreate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupInvitationList(ctx context.Context, in *GroupInvitationListReq, opts ...grpc.CallOption) (*GroupInvitationListResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupInvitationListResp)
+	err := c.cc.Invoke(ctx, Social_GroupInvitationList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupInvitationRead(ctx context.Context, in *GroupInvitationReadReq, opts ...grpc.CallOption) (*GroupInvitationReadResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupInvitationReadResp)
+	err := c.cc.Invoke(ctx, Social_GroupInvitationRead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupRequestMessageCount(ctx context.Context, in *GroupRequestMessageCountReq, opts ...grpc.CallOption) (*GroupRequestMessageCountResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupRequestMessageCountResp)
+	err := c.cc.Invoke(ctx, Social_GroupRequestMessageCount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) GroupInvitationHandle(ctx context.Context, in *GroupInvitationHandleReq, opts ...grpc.CallOption) (*GroupInvitationHandleResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GroupInvitationHandleResp)
+	err := c.cc.Invoke(ctx, Social_GroupInvitationHandle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *socialClient) ExpireGroupInvitations(ctx context.Context, in *ExpireGroupInvitationsReq, opts ...grpc.CallOption) (*ExpireGroupInvitationsResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExpireGroupInvitationsResp)
+	err := c.cc.Invoke(ctx, Social_ExpireGroupInvitations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SocialServer is the server API for Social service.
 // All implementations must embed UnimplementedSocialServer
 // for forward compatibility.
@@ -653,6 +725,12 @@ type SocialServer interface {
 	GroupAnnouncementCreate(context.Context, *GroupAnnouncementCreateReq) (*GroupAnnouncementCreateResp, error)
 	GroupAnnouncementList(context.Context, *GroupAnnouncementListReq) (*GroupAnnouncementListResp, error)
 	GroupAnnouncementPin(context.Context, *GroupAnnouncementPinReq) (*GroupAnnouncementPinResp, error)
+	GroupInvitationCreate(context.Context, *GroupInvitationCreateReq) (*GroupInvitationCreateResp, error)
+	GroupInvitationList(context.Context, *GroupInvitationListReq) (*GroupInvitationListResp, error)
+	GroupInvitationRead(context.Context, *GroupInvitationReadReq) (*GroupInvitationReadResp, error)
+	GroupRequestMessageCount(context.Context, *GroupRequestMessageCountReq) (*GroupRequestMessageCountResp, error)
+	GroupInvitationHandle(context.Context, *GroupInvitationHandleReq) (*GroupInvitationHandleResp, error)
+	ExpireGroupInvitations(context.Context, *ExpireGroupInvitationsReq) (*ExpireGroupInvitationsResp, error)
 	mustEmbedUnimplementedSocialServer()
 }
 
@@ -800,6 +878,24 @@ func (UnimplementedSocialServer) GroupAnnouncementList(context.Context, *GroupAn
 }
 func (UnimplementedSocialServer) GroupAnnouncementPin(context.Context, *GroupAnnouncementPinReq) (*GroupAnnouncementPinResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GroupAnnouncementPin not implemented")
+}
+func (UnimplementedSocialServer) GroupInvitationCreate(context.Context, *GroupInvitationCreateReq) (*GroupInvitationCreateResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupInvitationCreate not implemented")
+}
+func (UnimplementedSocialServer) GroupInvitationList(context.Context, *GroupInvitationListReq) (*GroupInvitationListResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupInvitationList not implemented")
+}
+func (UnimplementedSocialServer) GroupInvitationRead(context.Context, *GroupInvitationReadReq) (*GroupInvitationReadResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupInvitationRead not implemented")
+}
+func (UnimplementedSocialServer) GroupRequestMessageCount(context.Context, *GroupRequestMessageCountReq) (*GroupRequestMessageCountResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupRequestMessageCount not implemented")
+}
+func (UnimplementedSocialServer) GroupInvitationHandle(context.Context, *GroupInvitationHandleReq) (*GroupInvitationHandleResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GroupInvitationHandle not implemented")
+}
+func (UnimplementedSocialServer) ExpireGroupInvitations(context.Context, *ExpireGroupInvitationsReq) (*ExpireGroupInvitationsResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExpireGroupInvitations not implemented")
 }
 func (UnimplementedSocialServer) mustEmbedUnimplementedSocialServer() {}
 func (UnimplementedSocialServer) testEmbeddedByValue()                {}
@@ -1650,6 +1746,114 @@ func _Social_GroupAnnouncementPin_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Social_GroupInvitationCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupInvitationCreateReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupInvitationCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupInvitationCreate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupInvitationCreate(ctx, req.(*GroupInvitationCreateReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupInvitationList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupInvitationListReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupInvitationList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupInvitationList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupInvitationList(ctx, req.(*GroupInvitationListReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupInvitationRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupInvitationReadReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupInvitationRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupInvitationRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupInvitationRead(ctx, req.(*GroupInvitationReadReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupRequestMessageCount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupRequestMessageCountReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupRequestMessageCount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupRequestMessageCount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupRequestMessageCount(ctx, req.(*GroupRequestMessageCountReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_GroupInvitationHandle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GroupInvitationHandleReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).GroupInvitationHandle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_GroupInvitationHandle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).GroupInvitationHandle(ctx, req.(*GroupInvitationHandleReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Social_ExpireGroupInvitations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExpireGroupInvitationsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SocialServer).ExpireGroupInvitations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Social_ExpireGroupInvitations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SocialServer).ExpireGroupInvitations(ctx, req.(*ExpireGroupInvitationsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Social_ServiceDesc is the grpc.ServiceDesc for Social service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1840,6 +2044,30 @@ var Social_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GroupAnnouncementPin",
 			Handler:    _Social_GroupAnnouncementPin_Handler,
+		},
+		{
+			MethodName: "GroupInvitationCreate",
+			Handler:    _Social_GroupInvitationCreate_Handler,
+		},
+		{
+			MethodName: "GroupInvitationList",
+			Handler:    _Social_GroupInvitationList_Handler,
+		},
+		{
+			MethodName: "GroupInvitationRead",
+			Handler:    _Social_GroupInvitationRead_Handler,
+		},
+		{
+			MethodName: "GroupRequestMessageCount",
+			Handler:    _Social_GroupRequestMessageCount_Handler,
+		},
+		{
+			MethodName: "GroupInvitationHandle",
+			Handler:    _Social_GroupInvitationHandle_Handler,
+		},
+		{
+			MethodName: "ExpireGroupInvitations",
+			Handler:    _Social_ExpireGroupInvitations_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

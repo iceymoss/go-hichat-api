@@ -1,5 +1,17 @@
 #!/bin/bash
 
+set -u
+
+if [[ -f .env ]]; then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    key=${line%%=*}
+    value=${line#*=}
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    [[ -v "$key" ]] || export "$key=$value"
+  done < .env
+fi
+
 LOG_DIR="logs"
 mkdir -p "$LOG_DIR"
 declare -a PIDS=()

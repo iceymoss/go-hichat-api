@@ -1,13 +1,17 @@
 package websocket
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 type DailOptions func(option *dailOption)
 
 // 连接可以选项
 type dailOption struct {
-	pattern string
-	header  http.Header
+	pattern           string
+	header            http.Header
+	heartbeatInterval time.Duration
 }
 
 func newDailOptions(opts ...DailOptions) dailOption {
@@ -30,5 +34,11 @@ func WithClientPatten(pattern string) DailOptions {
 func WithClientHeader(header http.Header) DailOptions {
 	return func(opt *dailOption) {
 		opt.header = header
+	}
+}
+
+func withClientHeartbeat(interval time.Duration) DailOptions {
+	return func(opt *dailOption) {
+		opt.heartbeatInterval = interval
 	}
 }

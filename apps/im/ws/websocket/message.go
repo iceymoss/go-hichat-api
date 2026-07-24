@@ -26,8 +26,8 @@ const (
 type Message struct {
 	Id        string             `json:"id"`               // 消息id
 	AckSeq    int                `json:"ackSeq,omitempty"` // 消息确认序号
-	ackTime   time.Time          `json:"ackTime"`          // 消息确认时间
-	errCount  int                `json:"errCount"`         // 消息错误次数
+	ackTime   time.Time          // 消息确认时间
+	errCount  int                // 消息错误次数
 	FrameType `json:"frameType"` // 消息类型
 	Method    string             `json:"method,omitempty"` // 业务处理方法
 	UserId    string             `json:"userId,omitempty"` // 接受者id
@@ -36,10 +36,9 @@ type Message struct {
 }
 
 func NewMessageTest(srv *Server, conn *Conn, data interface{}) *Message {
-	fid := srv.GetUsers([]*Conn{conn})[0]
 	return &Message{
 		FrameType: FrameData,
-		FormId:    fid,
+		FormId:    conn.Uid,
 		Data:      data,
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
-	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
 
@@ -14,12 +13,16 @@ import (
 
 // 公共通知 notifyType 常量（与前端 ws.on('notify') 分发的 type 一一对应）。
 const (
-	NotifyFriendApply  = "friend.apply"  // 收到好友申请 -> 通知被申请人
-	NotifyFriendAccept = "friend.accept" // 好友申请通过 -> 通知申请人
-	NotifyFriendReject = "friend.reject" // 好友申请拒绝 -> 通知申请人
-	NotifyGroupApply   = "group.apply"   // 收到入群申请 -> 通知群主/管理员
-	NotifyGroupAccept  = "group.accept"  // 入群申请通过 -> 通知申请人
-	NotifyGroupReject  = "group.reject"  // 入群申请拒绝 -> 通知申请人
+	NotifyFriendApply            = "friend.apply"  // 收到好友申请 -> 通知被申请人
+	NotifyFriendAccept           = "friend.accept" // 好友申请通过 -> 通知申请人
+	NotifyFriendReject           = "friend.reject" // 好友申请拒绝 -> 通知申请人
+	NotifyGroupApply             = "group.apply"   // 收到入群申请 -> 通知群主/管理员
+	NotifyGroupAccept            = "group.accept"  // 入群申请通过 -> 通知申请人
+	NotifyGroupReject            = "group.reject"  // 入群申请拒绝 -> 通知申请人
+	NotifyGroupInvalidated       = "group.invalidated"
+	NotifyGroupInvite            = "group.invite" // 收到独立群邀请 -> 通知被邀请人
+	NotifyGroupRequestResolved   = "group.request.resolved"
+	NotifyGroupInviteInvalidated = "group.invite.invalidated"
 
 	NotifyGroupRemoved          = "group.removed"           // 被移出群 -> 通知被移出者
 	NotifyGroupAdminSet         = "group.admin.set"         // 被设为管理员 -> 通知本人
@@ -66,17 +69,5 @@ func notifyGroupAdmins(ctx context.Context, svcCtx *svc.ServiceContext, groupId,
 			GroupId:    groupId,
 			Content:    content,
 		})
-	}
-}
-
-// normalizeGroupMemberUid 把空的 inviter_uid/operator_uid 归一为 "0"（写入 INT 列为 0）。
-// 原因：列是 INT，空串写入报 Error 1366；而模型字段是 string、读取无法把 NULL 扫进 string，
-// 所以用 "0" 哨兵（无邀请人/操作人）既能写也能读，与全仓把这两列当非空 string 的约定一致。
-func normalizeGroupMemberUid(gm *socialmodels.GroupMembers) {
-	if gm.InviterUid == "" {
-		gm.InviterUid = "0"
-	}
-	if gm.OperatorUid == "" {
-		gm.OperatorUid = "0"
 	}
 }

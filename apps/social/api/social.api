@@ -41,6 +41,10 @@ type (
 		StatusText    string `json:"status_text,omitempty"` // 状态中文文本: 待处理, 已同意, 已拒绝, 已忽略
 		HandleMsg     string `json:"handle_msg,omitempty"`
 		ReadState     int    `json:"read_state,omitempty"` // 读取状态 0未读 1已读
+		RequestId     string `json:"request_id"`
+		PeerUid       string `json:"peer_uid"`
+		HandledAt     int64  `json:"handled_at,omitempty"`
+		Actionable    bool   `json:"actionable"`
 		// 用户信息字段
 		Nickname     string `json:"nickname,omitempty"` // 昵称
 		Avatar       string `json:"avatar,omitempty"` // 头像
@@ -59,12 +63,15 @@ type (
 		Id              string `json:"id,omitempty"`
 		Name            string `json:"name,omitempty"`
 		Icon            string `json:"icon,omitempty"`
+		Description     string `json:"description,omitempty"` // 群描述
 		Status          int64  `json:"status,omitempty"`
 		GroupType       int64  `json:"group_type,omitempty"`
 		IsVerify        bool   `json:"is_verify,omitempty"`
 		Notification    string `json:"notification,omitempty"`
 		NotificationUid string `json:"notification_uid,omitempty"`
 		CreateUid       string `json:"create_uid,omitempty"`
+		GroupNickname   string `json:"group_nickname,omitempty"`
+		GroupRemark     string `json:"group_remark,omitempty"`
 	}
 	User {
 		Id            string `json:"id,omitempty"`
@@ -80,38 +87,60 @@ type (
 		UserId        string `json:"user_id,omitempty"`
 		Nickname      string `json:"nickname,omitempty"`
 		UserAvatarUrl string `json:"user_avatar_url,omitempty"`
-		RoleLevel     int    `json:"role_level,omitempty"`
+		RoleLevel     int    `json:"role_level"`
 		InviterUid    string `json:"inviter_uid,omitempty"`
 		OperatorUid   string `json:"operator_uid,omitempty"`
+		GroupNickname string `json:"group_nickname,omitempty"`
+		GroupRemark   string `json:"group_remark,omitempty"`
 		User          User   `json:"user,omitempty"`
 	}
 	GroupRequests {
-		Id            int64  `json:"id,omitempty"`
-		UserId        string `json:"user_id,omitempty"`
-		GroupId       string `json:"group_id,omitempty"`
-		ReqMsg        string `json:"req_msg,omitempty"`
-		ReqTime       int64  `json:"req_time,omitempty"`
-		JoinSource    int64  `json:"join_source,omitempty"`
-		InviterUserId string `json:"inviter_user_id,omitempty"`
-		HandleUserId  string `json:"handle_user_id,omitempty"`
-		HandleTime    int64  `json:"handle_time,omitempty"`
-		HandleResult  int64  `json:"handle_result,omitempty"`
-		ReceiverRead  int64  `json:"receiver_read,omitempty"`
-		User          User   `json:"user,omitempty"`
-		Group         Groups `json:"group,omitempty"`
+		Id                 int64  `json:"id,omitempty"`
+		UserId             string `json:"user_id,omitempty"`
+		GroupId            string `json:"group_id,omitempty"`
+		ReqMsg             string `json:"req_msg,omitempty"`
+		ReqTime            int64  `json:"req_time,omitempty"`
+		JoinSource         int64  `json:"join_source,omitempty"`
+		InviterUserId      string `json:"inviter_user_id,omitempty"`
+		HandleUserId       string `json:"handle_user_id,omitempty"`
+		HandleTime         int64  `json:"handle_time,omitempty"`
+		HandleResult       int64  `json:"handle_result,omitempty"`
+		ReceiverRead       int64  `json:"receiver_read,omitempty"`
+		RequestId          string `json:"request_id"`
+		ApplicantUid       string `json:"applicant_uid"`
+		HandleMsg          string `json:"handle_msg,omitempty"`
+		InvalidReason      string `json:"invalid_reason,omitempty"`
+		ActualJoinSource   int32  `json:"actual_join_source,omitempty"`
+		SourceType         int32  `json:"source_type"`
+		SourceInvitationId string `json:"source_invitation_id,omitempty"`
+		ReadState          int32  `json:"read_state"`
+		Actionable         bool   `json:"actionable"`
+		User               User   `json:"user,omitempty"`
+		Group              Groups `json:"group,omitempty"`
 	}
-	GroupPutInsReadReq  {}
-	GroupPutInsReadResp  {}
+	GroupPutInsReadReq {
+		RequestIds []string `json:"request_ids"`
+	}
+	GroupPutInsReadResp {
+		Count  int32 `json:"count"`
+		Apply  int32 `json:"apply"`
+		Result int32 `json:"result"`
+		Invite int32 `json:"invite"`
+	}
 )
 
 type (
 	FriendPutInReq {
-		ReqMsg  string `json:"req_msg,omitempty"`
-		ReqTime int64  `json:"req_time,omitempty"`
-		UserId  string `json:"user_uid"`
-		Remark  string `json:"remark,optional"` // 申请人为对方预设的备注
+		ReqMsg string `json:"req_msg,omitempty"`
+		UserId string `json:"user_uid"`
+		Remark string `json:"remark,optional"` // 申请人为对方预设的备注
 	}
-	FriendPutInResp  {}
+	FriendPutInResp {
+		RequestId      string `json:"request_id"`
+		Status         int32 `json:"status"`
+		AlreadyPending bool  `json:"already_pending"`
+		AlreadyFriend  bool  `json:"already_friend"`
+	}
 )
 
 // 好友管理：备注/删除/拉黑/朋友圈权限/分享/通知/置顶/静音/标签/举报
@@ -169,36 +198,54 @@ type (
 
 type (
 	FriendPutInHandleReq {
-		FriendReqId  int32    `json:"friend_req_id,omitempty"`
-		HandleResult int32    `json:"handle_result,omitempty"` // 处理结果
-		Remark       string   `json:"remark,omitempty"` // 备注
-		Tags         []string `json:"tags,omitempty"` // 标签
+		FriendReqId  int32    `json:"friend_req_id,optional"`
+		RequestId    string   `json:"request_id,optional"`
+		HandleResult int32    `json:"handle_result"` // 处理结果
+		HandleMsg    string   `json:"handle_msg,optional"` // 处理附言/回复
+		Remark       string   `json:"remark,optional"` // 备注
+		Tags         []string `json:"tags,optional"` // 标签
 	}
-	FriendPutInHandleResp  {}
+	FriendPutInHandleResp {
+		RequestId    string `json:"request_id"`
+		HandleResult int32  `json:"handle_result"`
+		Idempotent   bool   `json:"idempotent"`
+	}
 )
 
 type (
 	FriendPutInReadReq {
-		FriendReqId int32 `json:"friend_req_id,omitempty"` // 0 或不传表示全部已读
+		FriendReqId int32    `json:"friend_req_id,optional"` // 0 或不传表示全部已读
+		RequestIds  []string `json:"request_ids,optional"`
 	}
-	FriendPutInReadResp  {}
+	FriendPutInReadResp {
+		Count  int32 `json:"count"`
+		Apply  int32 `json:"apply"`
+		Result int32 `json:"result"`
+	}
 )
 
 type (
 	FriendPutInListReq {
-		Type  int32  `form:"type,optional"` // 处理类型：0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
-		Class string `form:"class,optional"` // 申请列表类型：0-我发起的申请, 1-我收到的申请
+		Type   int32  `form:"type,optional"` // 处理类型：0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
+		Class  string `form:"class,optional"` // 申请列表类型：0-我发起的申请, 1-我收到的申请
+		Status *int32 `form:"status,optional"`
+		Page   int32  `form:"page,optional"`
+		Size   int32  `form:"size,optional"`
 	}
 	FriendPutInListResp {
-		List []*FriendRequests `json:"list"`
+		List  []*FriendRequests `json:"list"`
+		Total int64             `json:"total"`
 	}
 	FriendPutInDeleteReq {
-		FriendReqId int32 `json:"friend_req_id,omitempty"` // 申请ID
+		FriendReqId int32  `json:"friend_req_id,optional"` // 申请ID
+		RequestId   string `json:"request_id,optional"`
 	}
 	FriendPutInDeleteResp  {}
 	FriendPutInMessageCountReq  {}
 	FriendPutInMessageCountResp {
-		Count int32 `json:"count,omitempty"` // 消息数量
+		Count  int32 `json:"count"` // 未读消息数量（确保 0 也返回）
+		Apply  int32 `json:"apply"`
+		Result int32 `json:"result"`
 	}
 )
 
@@ -211,8 +258,9 @@ type (
 
 type (
 	GroupCreateReq {
-		Name string `json:"name,omitempty"`
-		Icon string `json:"icon,omitempty"`
+		Name        string `json:"name,omitempty"`
+		Icon        string `json:"icon,optional,omitempty"`
+		Description string `json:"description,optional"`
 	}
 	GroupCreateResp {
 		GroupId string `json:"group_id"`
@@ -221,48 +269,55 @@ type (
 
 type (
 	GroupPutInReq {
-		GroupId    string `json:"group_id,optional"` // 群ID（普通申请/邀请入群时必传，token入群时可为空）
-		ReqId      string `json:"req_id,optional"` // 申请者/被邀请者ID（邀请入群时必传，普通申请时为空则使用当前用户ID）
-		ReqMsg     string `json:"req_msg,optional"` // 申请消息
-		ReqTime    int64  `json:"req_time,optional"` // 请求时间
-		JoinSource int64  `json:"join_source,optional"` // 1=申请入群, 2=邀请入群, 3=邀请链接/二维码入群
-		InviterUid string `json:"inviter_uid,optional"` // 邀请人UID（邀请入群/token入群时必传）
-		Token      string `json:"token,optional"` // 邀请链接token（token入群时必传，此时groupId可为空）
+		GroupId string `json:"group_id"`
+		ReqMsg  string `json:"req_msg,optional"` // 申请消息
 	}
 	GroupPutInResp {
-		GroupId int `json:"group_id,omitempty"`
-		IsPass  int `json:"is_pass,omitempty"` // 1=直接进群, 0=进入申请流程
+		GroupId        string `json:"group_id"`
+		IsPass         int    `json:"is_pass"` // 1=直接进群, 0=进入申请流程
+		RequestId      string `json:"request_id,omitempty"`
+		Status         int32  `json:"status"`
+		AlreadyPending bool   `json:"already_pending,omitempty"`
+		AlreadyMember  bool   `json:"already_member,omitempty"`
 	}
 )
 
 type (
 	GroupPutInHandleReq {
-		GroupReqId   int32  `json:"group_req_id,omitempty"`
-		GroupId      string `json:"group_id,omitempty"`
+		RequestId    string `json:"request_id"`
 		HandleResult int32  `json:"handle_result,omitempty"` // 处理结果
+		HandleMsg    string `json:"handle_msg,optional"`
 	}
-	GroupPutInHandleResp  {}
+	GroupPutInHandleResp {
+		RequestId    string `json:"request_id"`
+		HandleResult int32  `json:"handle_result"`
+		Idempotent   bool   `json:"idempotent,omitempty"`
+	}
 )
 
 type (
 	GroupPutInListReq {
-		GroupId string  `json:"group_id,omitempty"`
-		Type    []int32 `json:"type,optional"`
-		Class   int32   `json:"class,optional"`
+		GroupId string  `form:"group_id,optional"`
+		Type    []int32 `form:"type,optional"`
+		Class   int32   `form:"class,optional"`
 	}
 	GroupPutInListResp {
-		List []*GroupRequests `json:"list,omitempty"`
+		List  []*GroupRequests `json:"list,omitempty"`
+		Total int64            `json:"total"`
 	}
 )
 
 type (
 	GetGroupPutListByUidReq {
-		Ids   []string `json:"ids,optional"` // 用户id列表
-		Class string   `json:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
-		Type  string   `json:"type,optional"` // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
+		Class  string `form:"class,optional"` // 类别：1-我发起的申请，2-我接受到的申请
+		Type   string `form:"type,optional"` // 状态：0-未处理，1-已通过，2-已拒绝，3-已忽略
+		Status *int32 `form:"status,optional"`
+		Page   int32  `form:"page,optional"`
+		Size   int32  `form:"size,optional"`
 	}
 	GetGroupPutListByUidResp {
-		List []*GroupRequests `json:"list,omitempty"`
+		List  []*GroupRequests `json:"list,omitempty"`
+		Total int64            `json:"total"`
 	}
 )
 
@@ -275,7 +330,7 @@ type (
 
 type (
 	GroupUserListReq {
-		GroupId string `json:"group_id,omitempty"`
+		GroupId string `form:"group_id,optional"`
 	}
 	GroupUserListResp {
 		List []*GroupMembers `json:"List,omitempty"`
@@ -306,10 +361,75 @@ type (
 )
 
 type (
+	GroupInvitation {
+		Id                  string `json:"id"`
+		GroupId             string `json:"group_id"`
+		InviterUid          string `json:"inviter_uid"`
+		InviteeUid          string `json:"invitee_uid"`
+		InviterRoleSnapshot int32  `json:"inviter_role_snapshot"`
+		Message             string `json:"message,omitempty"`
+		Status              int32  `json:"status"` // 0=pending, 1=accepted, 2=rejected, 3=invalidated, 4=expired
+		RejectReason        string `json:"reject_reason,omitempty"`
+		CreatedAt           int64  `json:"created_at"`
+		HandledAt           int64  `json:"handled_at,omitempty"`
+		ExpiresAt           int64  `json:"expires_at"`
+		ReadState           int32  `json:"read_state"`
+		Actionable          bool   `json:"actionable"`
+	}
+	GroupInvitationCreateReq {
+		GroupId    string `json:"group_id"`
+		InviteeUid string `json:"invitee_uid"`
+		Message    string `json:"message,optional"`
+	}
+	GroupInvitationCreateResp {
+		Invitation GroupInvitation `json:"invitation"`
+	}
+	GroupInvitationListReq {
+		Status *int32 `form:"status,optional"`
+		Page   int32  `form:"page,optional"`
+		Size   int32  `form:"size,optional"`
+	}
+	GroupInvitationListResp {
+		List  []GroupInvitation `json:"list"`
+		Total int64             `json:"total"`
+	}
+	GroupInvitationHandleReq {
+		Id        string `path:"id"`
+		Result    int32  `json:"result"`
+		HandleMsg string `json:"handle_msg,optional"`
+	}
+	GroupInvitationHandleResp {
+		InvitationId   string `json:"invitation_id"`
+		Status         int32  `json:"status"`
+		JoinState      string `json:"join_state"`
+		GroupRequestId string `json:"group_request_id,omitempty"`
+		Idempotent     bool   `json:"idempotent,omitempty"`
+		GroupId        string `json:"group_id"`
+	}
+	GroupInvitationReadReq {
+		InvitationIds []string `json:"invitation_ids"`
+	}
+	GroupInvitationReadResp {
+		Count  int32 `json:"count"`
+		Apply  int32 `json:"apply"`
+		Result int32 `json:"result"`
+		Invite int32 `json:"invite"`
+	}
+	GroupRequestMessageCountReq  {}
+	GroupRequestMessageCountResp {
+		Count  int32 `json:"count"`
+		Apply  int32 `json:"apply"`
+		Result int32 `json:"result"`
+		Invite int32 `json:"invite"`
+	}
+)
+
+type (
 	GroupUpdateReq {
 		GroupId      string `json:"group_id"`
 		Name         string `json:"name,optional"`
 		Icon         string `json:"icon,optional"`
+		Description  string `json:"description,optional"`
 		Notification string `json:"notification,optional"`
 		IsVerify     int32  `json:"is_verify,optional"` // -1不修改 0不需要验证 1需要验证
 	}
@@ -379,8 +499,8 @@ type (
 		ReqMsg string `json:"req_msg,optional"`
 	}
 	GroupJoinByTokenResp {
-		GroupId int32 `json:"group_id,omitempty"`
-		IsPass  int32 `json:"is_pass,omitempty"` // 1=直接进群 0=进入申请流程
+		GroupId string `json:"group_id"`
+		IsPass  int32  `json:"is_pass"` // 1=直接进群 0=进入申请流程
 	}
 )
 
@@ -473,7 +593,7 @@ type (
 
 type (
 	GroupUserOnlineReq {
-		GroupId string `json:"group_id,omitempty"`
+		GroupId string `form:"group_id,optional"`
 	}
 	GroupUserOnlineResp {
 		OnlineList map[string]bool `json:"onLineList"`
@@ -605,6 +725,10 @@ service social {
 	@handler getGroupPutListByUid
 	get /group/putInsByUid (GetGroupPutListByUidReq) returns (GetGroupPutListByUidResp)
 
+	@doc "群申请与邀请未读数量"
+	@handler groupRequestMessageCount
+	get /group/putIn/messageCount (GroupRequestMessageCountReq) returns (GroupRequestMessageCountResp)
+
 	@doc "把我管理的群收到的入群申请全部标记已读"
 	@handler groupPutInsRead
 	put /group/putIns/read (GroupPutInsReadReq) returns (GroupPutInsReadResp)
@@ -636,6 +760,22 @@ service social {
 	@doc "邀请群成员"
 	@handler groupInvite
 	post /group/invite (GroupInviteReq) returns (GroupInviteResp)
+
+	@doc "创建群邀请"
+	@handler groupInvitationCreate
+	post /group/invitations (GroupInvitationCreateReq) returns (GroupInvitationCreateResp)
+
+	@doc "收到的群邀请"
+	@handler groupInvitationList
+	get /group/invitations (GroupInvitationListReq) returns (GroupInvitationListResp)
+
+	@doc "标记收到的群邀请已读"
+	@handler groupInvitationRead
+	put /group/invitations/read (GroupInvitationReadReq) returns (GroupInvitationReadResp)
+
+	@doc "处理群邀请"
+	@handler groupInvitationHandle
+	put /group/invitations/:id (GroupInvitationHandleReq) returns (GroupInvitationHandleResp)
 
 	@doc "更新群信息"
 	@handler groupUpdate
@@ -697,4 +837,3 @@ service social {
 	@handler groupAnnouncementPin
 	post /group/announcement/pin (GroupAnnouncementPinReq) returns (GroupAnnouncementPinResp)
 }
-

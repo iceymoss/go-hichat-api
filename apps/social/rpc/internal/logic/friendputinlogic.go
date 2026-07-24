@@ -8,121 +8,151 @@ import (
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
-	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
+	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	"github.com/iceymoss/go-hichat-api/pkg/utils"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
-	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type FriendPutInLogic struct {
-	ctx    context.Context
-	svcCtx *svc.ServiceContext
+	ctx context.Context
+	*svc.ServiceContext
 	logx.Logger
 }
 
 func NewFriendPutInLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FriendPutInLogic {
-	return &FriendPutInLogic{
-		ctx:    ctx,
-		svcCtx: svcCtx,
-		Logger: logx.WithContext(ctx),
-	}
+	return &FriendPutInLogic{ctx: ctx, ServiceContext: svcCtx, Logger: logx.WithContext(ctx)}
 }
 
-// FriendPutIn 好友业务：请求好友
+// FriendPutIn creates one active request per directed user pair.
 func (l *FriendPutInLogic) FriendPutIn(in *social.FriendPutInReq) (*social.FriendPutInResp, error) {
-	// 申请人是否与目标是好友关系
-	friends, err := l.svcCtx.FriendsModel.FindByUidAndFid(l.ctx, in.UserId, in.ReqUid)
-	if err != nil && err != socialmodels.ErrNotFound {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "find friends by uid and fid err %v req %v ", err, in)
-	}
-	if friends != nil {
-		return &social.FriendPutInResp{}, err
-	}
-
-	// 是否已经有过申请，申请是不成功，没有完成
-	friendReqs, err := l.svcCtx.FriendRequestsModel.FindByReqUidAndUserId(l.ctx, in.ReqUid, in.UserId)
-	if err != nil && err != socialmodels.ErrNotFound {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "find friendsRequest by rid and uid err %v req %v ", err, in)
-	}
-
-	uidInt, err := strconv.Atoi(in.UserId)
+	actor, target, err := validateFriendActors(in.ActorUid, in.UserId, in.ReqUid)
 	if err != nil {
-		return &social.FriendPutInResp{}, err
+		return nil, err
+	}
+	if err := l.requireNormalUsers(in.ActorUid, in.ReqUid); err != nil {
+		return nil, err
 	}
 
-	reqUidInt, err := strconv.Atoi(in.ReqUid)
-	if err != nil {
-		return &social.FriendPutInResp{}, err
-	}
-
-	// 创建申请记录，使用中国时区
-	chinaNow := utils.NowInChina()
+	activeKey := fmt.Sprintf("friend:%d:%d", actor, target)
+	pending := 0
+	visible := 1
 	reqTime := time.Unix(in.ReqTime, 0).In(utils.ChinaLocation)
-
-	// 如果已存在申请记录，更新记录让消息重新生效
-	if friendReqs != nil {
-		friendReqs.Status = 1        // 正常显示
-		friendReqs.ReqMsg = in.ReqMsg
-		friendReqs.Remark = in.Remark // 申请人预设备注
-		friendReqs.ReqTime = reqTime
-		friendReqs.HandleResult = 0  // 重置为待处理
-		friendReqs.HandledAt = chinaNow
-		friendReqs.ReceiverRead = 0  // 重置接收方已读，让对方重新收到通知
-		friendReqs.SenderRead = 0    // 发起方也重置
-
-		// 使用事务更新记录
-		err = l.svcCtx.FriendRequestsModel.Trans(l.ctx, func(ctx context.Context, session sqlx.Session) error {
-			return l.svcCtx.FriendRequestsModel.Update(ctx, session, friendReqs)
-		})
-		if err != nil {
-			return nil, errors.Wrapf(xerr.NewDBErr(), "update friendRequest err %v req %v ", err, in)
+	if in.ReqTime <= 0 {
+		reqTime = utils.NowInChina()
+	}
+	request := &objects.FriendRequest{
+		UserID: actor, ReqUID: target, ReqMsg: in.ReqMsg, ReqTime: reqTime,
+		HandleResult: &pending, Status: &visible, Remark: in.Remark, ActiveKey: &activeKey,
+	}
+	created := false
+	alreadyFriend := false
+	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
+		created = false
+		alreadyFriend = false
+		request.ID = 0
+		// Acceptance updates an existing request for this pair. Locking all pair
+		// requests serializes relation creation with a reverse request creation.
+		var pairRequests []objects.FriendRequest
+		query := tx.Where("(user_id = ? AND req_uid = ?) OR (user_id = ? AND req_uid = ?)", actor, target, target, actor)
+		if tx.Dialector.Name() != "sqlite" {
+			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
 		}
-		// 失效接收方的气泡缓存
-		l.svcCtx.FriendRequestsModel.InvalidateCountCache(l.ctx, in.ReqUid)
-		// 公共通知：被申请人收到好友申请（实时红点 + 气泡）
-		emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
-			NotifyType: NotifyFriendApply,
-			ReceiverId: in.ReqUid,
-			ActorId:    in.UserId,
-			BizId:      fmt.Sprintf("friend.apply:%s:%s:%d", in.UserId, in.ReqUid, in.ReqTime),
-			Content:    in.ReqMsg,
-		})
-		return &social.FriendPutInResp{}, nil
-	}
-
-	// 创建新申请记录
-	_, err = l.svcCtx.FriendRequestsModel.Insert(l.ctx, &socialmodels.FriendRequests{
-		UserId:       uint64(uidInt),
-		ReqUid:       uint64(reqUidInt),
-		ReqMsg:       in.ReqMsg,
-		Remark:       in.Remark, // 申请人预设备注
-		Status:       1, // 1-正常显示
-		ReqTime:      reqTime,
-		HandleResult: 0, // 0-待处理
-		HandledAt:    chinaNow,
-		ReceiverRead: 0, // 接收方未读
-		SenderRead:   0, // 发起方未读
+		if err := query.Find(&pairRequests).Error; err != nil {
+			return err
+		}
+		var relationCount int64
+		if err := tx.Model(&objects.Friend{}).
+			Where("(user_id = ? AND friend_uid = ?) OR (user_id = ? AND friend_uid = ?)", actor, target, target, actor).
+			Count(&relationCount).Error; err != nil {
+			return err
+		}
+		switch relationCount {
+		case 2:
+			alreadyFriend = true
+			return nil
+		case 1:
+			return status.Error(codes.FailedPrecondition, "one-way friend relation conflict")
+		}
+		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(request)
+		if result.Error != nil {
+			return result.Error
+		}
+		created = result.RowsAffected == 1
+		if !created {
+			return tx.Where("active_key = ?", activeKey).First(request).Error
+		}
+		if err := createReceipt(tx, receiptTypeFriend, request.ID, in.ReqUid, receiptKindApply, 1, receiptPending, reqTime, false, nil); err != nil {
+			return err
+		}
+		return emitRequestNotificationInTx(tx, l.ServiceContext, NotifyFriendApply, receiptTypeFriend, request.ID, in.ReqUid, in.ActorUid, 0, receiptPending, in.ReqMsg)
 	})
-
 	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "insert friendRequest err %v req %v ", err, in)
+		if status.Code(err) != codes.Unknown {
+			return nil, err
+		}
+		return nil, status.Error(codes.Internal, "failed to create friend request")
+	}
+	if alreadyFriend {
+		return &social.FriendPutInResp{Status: 1, AlreadyFriend: true}, nil
 	}
 
-	// 失效接收方的气泡缓存
-	l.svcCtx.FriendRequestsModel.InvalidateCountCache(l.ctx, in.ReqUid)
+	if created {
+		if l.FriendRequestsModel != nil {
+			l.FriendRequestsModel.InvalidateCountCache(l.ctx, in.ReqUid)
+		}
+	}
+	return &social.FriendPutInResp{RequestId: int64(request.ID), Status: 0, AlreadyPending: !created}, nil
+}
 
-	// 公共通知：被申请人收到好友申请（实时红点 + 气泡）
-	emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
-		NotifyType: NotifyFriendApply,
-		ReceiverId: in.ReqUid,
-		ActorId:    in.UserId,
-		BizId:      fmt.Sprintf("friend.apply:%s:%s:%d", in.UserId, in.ReqUid, in.ReqTime),
-		Content:    in.ReqMsg,
-	})
+func validateFriendActors(actorUID, legacyUID, targetUID string) (uint64, uint64, error) {
+	if actorUID == "" {
+		return 0, 0, status.Error(codes.Unauthenticated, "actor uid is required")
+	}
+	if legacyUID != "" && legacyUID != actorUID {
+		return 0, 0, status.Error(codes.PermissionDenied, "actor uid does not match user id")
+	}
+	actor, err := strconv.ParseUint(actorUID, 10, 64)
+	if err != nil || actor == 0 {
+		return 0, 0, status.Error(codes.InvalidArgument, "actor uid must be a positive integer")
+	}
+	target, err := strconv.ParseUint(targetUID, 10, 64)
+	if err != nil || target == 0 {
+		return 0, 0, status.Error(codes.InvalidArgument, "target uid must be a positive integer")
+	}
+	if actor == target {
+		return 0, 0, status.Error(codes.InvalidArgument, "cannot send a friend request to yourself")
+	}
+	return actor, target, nil
+}
 
-	return &social.FriendPutInResp{}, nil
+func (l *FriendPutInLogic) requireNormalUsers(ids ...string) error {
+	for _, id := range ids {
+		resp, err := l.User.GetUserById(l.ctx, &user.GetUserByIdRequest{Id: id})
+		if err != nil {
+			return normalizeUserLookupError(err)
+		}
+		if resp == nil || resp.User == nil || resp.User.Status != 1 {
+			return status.Error(codes.NotFound, "user does not exist or is unavailable")
+		}
+	}
+	return nil
+}
+
+func normalizeUserLookupError(err error) error {
+	switch status.Code(err) {
+	case codes.NotFound:
+		return status.Error(codes.NotFound, "user does not exist or is unavailable")
+	case codes.DeadlineExceeded:
+		return status.Error(codes.DeadlineExceeded, "user service deadline exceeded")
+	case codes.Unavailable:
+		return status.Error(codes.Unavailable, "user service unavailable")
+	default:
+		return status.Error(codes.Internal, "failed to validate user")
+	}
 }

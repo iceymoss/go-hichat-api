@@ -34,6 +34,10 @@ func NewGroupInviteLinkCreateLogic(ctx context.Context, svcCtx *svc.ServiceConte
 
 // 邀请链接/二维码入群
 func (l *GroupInviteLinkCreateLogic) GroupInviteLinkCreate(in *social.GroupInviteLinkCreateReq) (*social.GroupInviteLinkCreateResp, error) {
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
+	if err != nil {
+		return nil, err
+	}
 	// 1) 校验群存在
 	group, err := l.svcCtx.GroupsModel.FindOne(l.ctx, in.GroupId)
 	if err != nil {
@@ -44,7 +48,7 @@ func (l *GroupInviteLinkCreateLogic) GroupInviteLinkCreate(in *social.GroupInvit
 	}
 
 	// 2) 权限：至少管理员/群主才能创建邀请链接（后续可扩展为群设置开关）
-	member, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.UserId, in.GroupId)
+	member, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, actor, in.GroupId)
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewMsg("no permission"), "not in group")
 	}
@@ -56,7 +60,7 @@ func (l *GroupInviteLinkCreateLogic) GroupInviteLinkCreate(in *social.GroupInvit
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewMsg("invalid groupId"), "invalid groupId")
 	}
-	uidInt, err := strconv.ParseUint(in.UserId, 10, 64)
+	uidInt, err := strconv.ParseUint(actor, 10, 64)
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewMsg("invalid userId"), "invalid userId")
 	}
@@ -84,15 +88,15 @@ func (l *GroupInviteLinkCreateLogic) GroupInviteLinkCreate(in *social.GroupInvit
 		token = base64.RawURLEncoding.EncodeToString(b) // ~43 chars
 
 		res := mysqlConn.Table("group_invite_links").Create(map[string]any{
-			"group_id":    groupIdInt,
-			"token":       token,
-			"created_by":  uidInt,
-			"expire_at":   expireAt,
-			"max_uses":    maxUses,
-			"used_count":  0,
-			"revoked":     0,
-			"revoked_at":  nil,
-			"created_at":  time.Now(),
+			"group_id":   groupIdInt,
+			"token":      token,
+			"created_by": uidInt,
+			"expire_at":  expireAt,
+			"max_uses":   maxUses,
+			"used_count": 0,
+			"revoked":    0,
+			"revoked_at": nil,
+			"created_at": time.Now(),
 		})
 		if res.Error == nil && res.RowsAffected > 0 {
 			break
@@ -120,7 +124,7 @@ func (l *GroupInviteLinkCreateLogic) GroupInviteLinkCreate(in *social.GroupInvit
 		Link: &social.GroupInviteLink{
 			Token:     token,
 			GroupId:   in.GroupId,
-			CreatedBy: in.UserId,
+			CreatedBy: actor,
 			CreatedAt: now,
 			ExpireAt:  exp,
 			MaxUses:   maxUses,

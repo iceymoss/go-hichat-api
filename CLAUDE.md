@@ -31,11 +31,11 @@ HiChat 2.0 — 基于 go-zero 的微服务 IM + 社交 + 动态空间。前后�
 入口契约：
 - HTTP: `apps/<svc>/api/<svc>.api`（user / social / im / trend）
 - gRPC: `apps/<svc>/rpc/<svc>.proto`（user / social / im / trend）
-- 自动汇总文档：`docs/specs/api.md`（运行 `/sync-api-docs` 更新）
+- 自动汇总文档：`docs/api.md`（运行 `/sync-api-docs` 更新）
 
 ## 启动 / 测试
 
-- 一键起所有服务：`./hichat2.sh`（前置：MySQL/Redis/Etcd/Mongo/Kafka 已起）
+- 一键起所有服务：`HICHAT_IM_RPC_AUTH_SECRET=<独立随机值> ./hichat2.sh`（前置：MySQL/Redis/Etcd/Mongo/Kafka 已起；secret 至少 32 字节且不得复用 JWT secret）
 - 单服务：`go run apps/<svc>/<layer>/<svc>.go -f apps/<svc>/<layer>/etc/<svc>-sample.yaml`
 - 测试：`go test ./... -count=1`
 - 前端：`cd web && bun dev`

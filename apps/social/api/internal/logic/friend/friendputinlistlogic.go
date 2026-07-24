@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/logic/actor"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -31,7 +32,10 @@ func NewFriendPutInListLogic(ctx context.Context, svcCtx *svc.ServiceContext, r 
 }
 
 func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (resp *types.FriendPutInListResp, err error) {
-	curUid := l.ctx.Value(Identify).(string)
+	curUid, err := actor.UID(l.ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	// 从请求参数获取type和class，如果没有则使用默认值
 	reqType := req.Type
@@ -55,13 +59,25 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 			class = "1" // 默认值：我收到的申请
 		}
 	}
+	statusFilter := req.Status
+	if statusFilter == nil && l.r.URL.Query().Has("type") {
+		statusFilter = &reqType
+	}
+	legacyType := reqType
+	if statusFilter == nil {
+		legacyType = -1
+	}
 
 	//Type: 0-待处理, 1-已通过, 2-已拒绝, 3-已忽略
 	//Class: 0-我发起的申请列表, 1-我收到的申请列表
 	res, err := l.svcCtx.Social.FriendPutInList(l.ctx, &social.FriendPutInListReq{
-		UserId: curUid,
-		Type:   reqType,
-		Class:  class,
+		UserId:   curUid,
+		ActorUid: curUid,
+		Type:     legacyType,
+		Class:    class,
+		Status:   statusFilter,
+		Page:     req.Page,
+		Size:     req.Size,
 	})
 	if err != nil {
 		return nil, err
@@ -94,7 +110,10 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 			Phone: "",
 			Ids:   userIds,
 		})
-		if err == nil && userList != nil {
+		if err != nil {
+			return nil, err
+		}
+		if userList != nil {
 			for _, u := range userList.User {
 				uidBindInfo[u.Id] = u
 			}
@@ -157,8 +176,12 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 			HandleResult:  handleResult, // 处理结果（0:待处理 1:已同意 2:已拒绝 3:已忽略），确保0值也会返回
 			Status:        status,
 			StatusText:    statusText,
-			HandleMsg:     "",
+			HandleMsg:     v.HandleMsg,
 			ReadState:     int(v.ReadState),
+			RequestId:     strconv.FormatUint(v.RequestId, 10),
+			PeerUid:       v.PeerUid,
+			HandledAt:     v.HandledAt,
+			Actionable:    v.Actionable,
 		}
 
 		// 填充用户信息
@@ -180,6 +203,6 @@ func (l *FriendPutInListLogic) FriendPutInList(req *types.FriendPutInListReq) (r
 		list = append(list, item)
 	}
 
-	resp = &types.FriendPutInListResp{List: list}
+	resp = &types.FriendPutInListResp{List: list, Total: res.Total}
 	return
 }

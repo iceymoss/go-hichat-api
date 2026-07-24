@@ -3,56 +3,67 @@ package msg_transfer
 import (
 	"context"
 	"encoding/json"
-	"path/filepath"
-	"runtime"
+	"os"
+	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	mq_client "github.com/iceymoss/go-hichat-api/apps/task/mq/mq_client"
-	pkgCfg "github.com/iceymoss/go-hichat-api/pkg/config"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
-	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 
+	redisv8 "github.com/go-redis/redis/v8"
 	"github.com/segmentio/kafka-go"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
-const intTestBroker = "127.0.0.1:9092"
 const intTestTopic = "relationChangeTransfer_inttest"
 
-// repoConfigDir 从本测试文件回溯仓库根定位 config 目录（apps/task/mq/internal/handler/msg_transfer -> 6 级）。
-func repoConfigDir() string {
-	_, thisFile, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..", "..", "..", "config")
-}
-
 // TestRelationChain_Integration 端到端验证关系变更链路（真实 MySQL/Redis/Kafka，不重启任何服务、不改配置）：
-//   warm 缓存 -> 同事务写 outbox -> relay ListPending -> client.Push 到 Kafka -> 读回 ->
-//   ApplyRelationEvent(消费者真实派发逻辑) -> 断言 Redis grp:mem 被 SREM -> MarkSent。
+//
+//	warm 缓存 -> 同事务写 outbox -> relay ListPending -> client.Push 到 Kafka -> 读回 ->
+//	ApplyRelationEvent(消费者真实派发逻辑) -> 断言 Redis grp:mem 被 SREM -> MarkSent。
+//
 // 任一基础设施不可用则 skip（遵守不 mock；测试数据用唯一前缀，结束清理）。
 func TestRelationChain_Integration(t *testing.T) {
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Skipf("config/mysql unavailable, skip: %v", r)
-			}
-		}()
-		pkgCfg.InitConfig("local", "", repoConfigDir())
-	}()
+	broker := os.Getenv("HICHAT_RELATION_CHAIN_KAFKA_BROKER")
+	if broker == "" {
+		broker = "127.0.0.1:9092"
+	}
+	mysqlDSN := os.Getenv("HICHAT_RELATION_CHAIN_MYSQL_DSN")
+	redisAddr := os.Getenv("HICHAT_RELATION_CHAIN_REDIS_ADDR")
+	if mysqlDSN == "" || redisAddr == "" || os.Getenv("HICHAT_ALLOW_DESTRUCTIVE_DB_TESTS") != "1" {
+		t.Skip("set explicit relation-chain dependencies and HICHAT_ALLOW_DESTRUCTIVE_DB_TESTS=1 to run")
+	}
+	mysqlDB, err := gorm.Open(mysql.Open(mysqlDSN), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open integration MySQL: %v", err)
+	}
+	var databaseName string
+	if err := mysqlDB.Raw("SELECT DATABASE()").Scan(&databaseName).Error; err != nil {
+		t.Fatalf("read integration database: %v", err)
+	}
+	matched, err := regexp.MatchString(`^hichat_[a-z0-9_]*_test$`, strings.ToLower(databaseName))
+	if err != nil || !matched {
+		t.Fatalf("relation integration requires a dedicated hichat_*_test database, got %q", databaseName)
+	}
+	rdb := redisv8.NewClient(&redisv8.Options{Addr: redisAddr})
+	t.Cleanup(func() { _ = rdb.Close() })
 
 	ctx := context.Background()
 
-	rdb := db.GetRedisConn()
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		t.Skipf("redis unavailable: %v", err)
 	}
 	rc := relationcache.New(rdb)
 
-	mysql := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
+	mysql := mysqlDB
 	if err := mysql.Exec("SELECT 1").Error; err != nil {
 		t.Skipf("mysql unavailable: %v", err)
 	}
@@ -75,7 +86,7 @@ func TestRelationChain_Integration(t *testing.T) {
 	}
 
 	// 2) social 侧：同事务写 outbox（这里直接用 model 模拟 emitRelationChange 的 outbox 写入）
-	om := socialmodels.NewRelationOutboxModel()
+	om := socialmodels.NewRelationOutboxModelWithDB(mysql)
 	ev := &mq.RelationChangeTransfer{
 		EventType:  constants.RelationEventGroupMemberRemoved,
 		GroupId:    gid,
@@ -107,14 +118,14 @@ func TestRelationChain_Integration(t *testing.T) {
 	}
 
 	// 4) relay 步骤：用 outbox.id 作版本号投递到 Kafka
-	client := mq_client.NewRelationChangeTransferClient([]string{intTestBroker}, intTestTopic)
+	client := mq_client.NewRelationChangeTransferClient([]string{broker}, intTestTopic)
 	ev.Version = int64(row.ID)
 	if err := client.Push(ev); err != nil {
 		t.Skipf("kafka unavailable (push): %v", err)
 	}
 
 	// 5) 从 Kafka 读回本事件（按唯一 gid 匹配，跳过历史消息）
-	got := readBackByGid(t, ctx, gid)
+	got := readBackByGid(t, ctx, broker, gid)
 	if got == nil {
 		t.Skip("kafka round-trip: own message not received in time (kafka slow/unavailable)")
 	}
@@ -153,10 +164,10 @@ func containsOutbox(rows []*objects.RelationOutbox, id uint64) bool {
 }
 
 // readBackByGid 从 intTestTopic 读消息，返回第一条 groupId 匹配的事件；超时返回 nil。
-func readBackByGid(t *testing.T, ctx context.Context, gid string) *mq.RelationChangeTransfer {
+func readBackByGid(t *testing.T, ctx context.Context, broker, gid string) *mq.RelationChangeTransfer {
 	t.Helper()
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:     []string{intTestBroker},
+		Brokers:     []string{broker},
 		Topic:       intTestTopic,
 		GroupID:     "inttest_reader_" + gid,
 		StartOffset: kafka.FirstOffset,

@@ -81,7 +81,7 @@ docker builder prune -f
 - **启动顺序**：严格对齐 `hichat2.sh`——
   `user-rpc → user-api → social-rpc → social-api → im-rpc → im-api → im-ws → task-mq → trend-rpc → trend-api → streaming → web`。
   每个后端服务带端口健康检查，下游 `depends_on` 上游 `service_healthy`，确保上游 RPC/WS 真正就绪后下游才启动。
-- **数据库初始化**：`migrate` 一次性容器运行 `deploy/sql_init.go`（GORM AutoMigrate）建好所有 MySQL 表，
+- **数据库初始化**：`migrate` 一次性容器运行项目级迁移 `deploy/main.go`（GORM AutoMigrate）建好所有 MySQL 表，
   完成后退出；其余服务 `depends_on` 它成功后才启动。MongoDB 集合首次写入自动创建。
 - **服务发现**：各 RPC 服务注册到 etcd，调用方经 etcd 发现，无需写死地址。
 - **数据持久化**：MySQL/Mongo/Redis/Kafka/etcd 数据与上传文件分别落在命名卷，`down` 不丢、`down -v` 清空。

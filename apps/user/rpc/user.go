@@ -21,7 +21,7 @@ import (
 var configFile = flag.String("f", "apps/user/rpc/etc/user-sample.yaml", "the config file")
 
 func main() {
-	pkcCfg.InitConfig("local", "", "config")
+	pkcCfg.InitConfig("local", "config")
 	flag.Parse()
 
 	var c config.Config

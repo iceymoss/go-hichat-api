@@ -2,13 +2,18 @@ package logic
 
 import (
 	"context"
+	"strconv"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 
-	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type FriendPutInDeleteLogic struct {
@@ -25,15 +30,52 @@ func NewFriendPutInDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 	}
 }
 
-// FriendPutInDelete 软删除好友申请记录（将 status 设为 0）
+// FriendPutInDelete hides no shared history; it only closes the caller's personal receipt.
 func (l *FriendPutInDeleteLogic) FriendPutInDelete(in *social.FriendPutInDeleteReq) (*social.FriendPutInDeleteResp, error) {
-	if in.FriendReqId <= 0 {
-		return nil, errors.Wrapf(xerr.NewMsg("申请记录ID不能为空"), "friend_req_id is required")
-	}
-
-	err := l.svcCtx.FriendRequestsModel.SoftDelete(l.ctx, uint64(in.FriendReqId), in.UserId)
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
 	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "soft delete friend request err %v, reqId %v", err, in.FriendReqId)
+		return nil, err
+	}
+	requestID := in.RequestId
+	if requestID == 0 && in.FriendReqId > 0 {
+		requestID = uint64(in.FriendReqId)
+	}
+	if requestID == 0 {
+		return nil, status.Error(codes.InvalidArgument, "friend request id must be positive")
+	}
+	err = l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
+		var request objects.FriendRequest
+		if err := tx.First(&request, requestID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return status.Error(codes.NotFound, "friend request not found")
+			}
+			return err
+		}
+		if strconv.FormatUint(request.UserID, 10) != actor && strconv.FormatUint(request.ReqUID, 10) != actor {
+			return status.Error(codes.PermissionDenied, "friend request does not belong to current user")
+		}
+		now := time.Now()
+		kind := receiptKindApply
+		if strconv.FormatUint(request.UserID, 10) == actor {
+			kind = receiptKindResult
+		}
+		receipt := objects.SocialRequestReceipt{
+			RequestType: receiptTypeFriend, RequestID: request.ID, ReceiverID: actor,
+			ReceiptKind: kind, IsRead: 1, IsActionable: 0, Result: receiptInvalidated,
+			ReadAt: &now, ResolvedAt: &now, CreatedAt: request.ReqTime,
+		}
+		return tx.Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "request_type"}, {Name: "request_id"}, {Name: "receiver_id"}, {Name: "receipt_kind"}},
+			DoUpdates: clause.Assignments(map[string]any{
+				"is_read": 1, "is_actionable": 0, "result": receiptInvalidated, "read_at": now, "resolved_at": now,
+			}),
+		}).Create(&receipt).Error
+	})
+	if err != nil {
+		if status.Code(err) != codes.Unknown {
+			return nil, err
+		}
+		return nil, status.Error(codes.Internal, "failed to hide friend request")
 	}
 
 	return &social.FriendPutInDeleteResp{}, nil

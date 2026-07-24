@@ -1,0 +1,231 @@
+package logic
+
+import (
+	"strconv"
+	"time"
+
+	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+const (
+	receiptTypeFriend      = "friend"
+	receiptTypeGroup       = "group"
+	receiptTypeGroupInvite = "group_invite"
+	receiptKindApply       = "apply"
+	receiptKindResult      = "result"
+	receiptKindInvite      = "invite"
+	receiptPending         = 0
+	receiptAccepted        = 1
+	receiptRejected        = 2
+	receiptInvalidated     = 3
+	receiptExpired         = 4
+)
+
+type receiptCounts struct {
+	Total  int32
+	Apply  int32
+	Result int32
+	Invite int32
+}
+
+func createReceipt(tx *gorm.DB, requestType string, requestID uint64, receiverID, kind string, actionable, result int, createdAt time.Time, read bool, resolvedAt *time.Time) error {
+	receipt := objects.SocialRequestReceipt{
+		RequestType: requestType, RequestID: requestID, ReceiverID: receiverID, ReceiptKind: kind,
+		IsActionable: actionable, Result: result, CreatedAt: createdAt, ResolvedAt: resolvedAt,
+	}
+	if read {
+		receipt.IsRead = 1
+		readAt := createdAt
+		if resolvedAt != nil {
+			readAt = *resolvedAt
+		}
+		receipt.ReadAt = &readAt
+	}
+	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&receipt).Error
+}
+
+func createGroupApplyReceipts(tx *gorm.DB, svcCtx *svc.ServiceContext, groupID, requestID uint64, actorID, content string, createdAt time.Time) error {
+	var members []objects.GroupMember
+	if err := tx.Where("group_id = ? AND role_level IN ?", groupID, []int{1, 2}).Find(&members).Error; err != nil {
+		return err
+	}
+	for _, member := range members {
+		if err := createReceipt(tx, receiptTypeGroup, requestID, strconv.FormatUint(member.UserID, 10), receiptKindApply, 1, receiptPending, createdAt, false, nil); err != nil {
+			return err
+		}
+		if err := emitRequestNotificationInTx(tx, svcCtx, NotifyGroupApply, receiptTypeGroup, requestID, strconv.FormatUint(member.UserID, 10), actorID, groupID, receiptPending, content); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func convergeAdminReceipts(tx *gorm.DB, groupID uint64, memberIDs []uint64, promoted bool) error {
+	if len(memberIDs) == 0 {
+		return nil
+	}
+	receivers := make([]string, len(memberIDs))
+	for i, id := range memberIDs {
+		receivers[i] = strconv.FormatUint(id, 10)
+	}
+	if !promoted {
+		return tx.Model(&objects.SocialRequestReceipt{}).
+			Where("request_type = ? AND receipt_kind = ? AND receiver_id IN ? AND request_id IN (SELECT id FROM group_requests WHERE group_id = ? AND handle_result = ?)", receiptTypeGroup, receiptKindApply, receivers, groupID, groupRequestPending).
+			Update("is_actionable", 0).Error
+	}
+	var requests []objects.GroupRequest
+	if err := tx.Where("group_id = ? AND handle_result = ?", groupID, groupRequestPending).Find(&requests).Error; err != nil {
+		return err
+	}
+	for _, request := range requests {
+		createdAt := time.Now()
+		if request.ReqTime != nil {
+			createdAt = *request.ReqTime
+		}
+		for _, receiver := range receivers {
+			receipt := objects.SocialRequestReceipt{
+				RequestType: receiptTypeGroup, RequestID: request.ID, ReceiverID: receiver,
+				ReceiptKind: receiptKindApply, IsActionable: 1, Result: receiptPending, CreatedAt: createdAt,
+			}
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "request_type"}, {Name: "request_id"}, {Name: "receiver_id"}, {Name: "receipt_kind"}},
+				DoUpdates: clause.Assignments(map[string]any{"is_read": 0, "read_at": nil, "is_actionable": 1, "result": receiptPending, "resolved_at": nil}),
+			}).Create(&receipt).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func resolveApplyReceipts(tx *gorm.DB, requestType string, requestIDs []uint64, result int, now time.Time, readActor string) error {
+	if len(requestIDs) == 0 {
+		return nil
+	}
+	updates := map[string]any{"is_actionable": 0, "result": result, "resolved_at": now}
+	if err := tx.Model(&objects.SocialRequestReceipt{}).
+		Where("request_type = ? AND request_id IN ? AND receipt_kind = ? AND result <> ?", requestType, requestIDs, receiptKindApply, receiptInvalidated).
+		Updates(updates).Error; err != nil {
+		return err
+	}
+	if readActor != "" {
+		if requestType == receiptTypeGroup {
+			if err := tx.Model(&objects.SocialRequestReceipt{}).
+				Where("request_type = ? AND request_id IN ? AND receipt_kind = ? AND receiver_id <> ?", requestType, requestIDs, receiptKindApply, readActor).
+				Updates(map[string]any{"is_read": 0, "read_at": nil}).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Model(&objects.SocialRequestReceipt{}).
+			Where("request_type = ? AND request_id IN ? AND receipt_kind = ? AND receiver_id = ?", requestType, requestIDs, receiptKindApply, readActor).
+			Updates(map[string]any{"is_read": 1, "read_at": now}).Error
+	}
+	return nil
+}
+
+func notifyOtherGroupApprovers(tx *gorm.DB, svcCtx *svc.ServiceContext, requestID, groupID uint64, result int, actorID string) error {
+	var receipts []objects.SocialRequestReceipt
+	if err := tx.Where("request_type = ? AND request_id = ? AND receipt_kind = ? AND receiver_id <> ?", receiptTypeGroup, requestID, receiptKindApply, actorID).Find(&receipts).Error; err != nil {
+		return err
+	}
+	for _, receipt := range receipts {
+		if err := emitRequestNotificationInTx(tx, svcCtx, NotifyGroupRequestResolved, receiptTypeGroup, requestID, receipt.ReceiverID, actorID, groupID, result); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func notifyInvalidatedInvitations(tx *gorm.DB, svcCtx *svc.ServiceContext, invitations []objects.GroupInvitation, actorID string) error {
+	for _, invitation := range invitations {
+		receiver := strconv.FormatUint(invitation.InviteeUID, 10)
+		eventActor := actorID
+		if receiver == eventActor {
+			eventActor = ""
+		}
+		if err := emitRequestNotificationInTx(tx, svcCtx, NotifyGroupInviteInvalidated, receiptTypeGroupInvite, invitation.ID, receiver, eventActor, invitation.GroupID, receiptInvalidated); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func createResultReceipt(tx *gorm.DB, requestType string, requestID uint64, receiverID string, result int, createdAt, now time.Time, read bool) error {
+	return createReceipt(tx, requestType, requestID, receiverID, receiptKindResult, 0, result, createdAt, read, &now)
+}
+
+func resolveInviteReceipts(tx *gorm.DB, invitationIDs []uint64, result int, now time.Time, readActor string) error {
+	if len(invitationIDs) == 0 {
+		return nil
+	}
+	if err := tx.Model(&objects.SocialRequestReceipt{}).
+		Where("request_type = ? AND request_id IN ? AND receipt_kind = ?", receiptTypeGroupInvite, invitationIDs, receiptKindInvite).
+		Updates(map[string]any{"is_actionable": 0, "result": result, "resolved_at": now}).Error; err != nil {
+		return err
+	}
+	if readActor != "" {
+		return tx.Model(&objects.SocialRequestReceipt{}).
+			Where("request_type = ? AND request_id IN ? AND receipt_kind = ? AND receiver_id = ?", receiptTypeGroupInvite, invitationIDs, receiptKindInvite, readActor).
+			Updates(map[string]any{"is_read": 1, "read_at": now}).Error
+	}
+	return nil
+}
+
+func expireInviteReceipts(tx *gorm.DB, invitationIDs []uint64, now time.Time) error {
+	if err := resolveInviteReceipts(tx, invitationIDs, receiptExpired, now, ""); err != nil {
+		return err
+	}
+	if len(invitationIDs) == 0 {
+		return nil
+	}
+	return tx.Model(&objects.SocialRequestReceipt{}).
+		Where("request_type = ? AND request_id IN ? AND receipt_kind = ? AND is_read = ?", receiptTypeGroupInvite, invitationIDs, receiptKindInvite, 0).
+		Updates(map[string]any{"is_read": 1, "read_at": now}).Error
+}
+
+func markReceiptsRead(tx *gorm.DB, receiverID, requestType string, requestIDs []uint64) error {
+	query := tx.Model(&objects.SocialRequestReceipt{}).
+		Where("receiver_id = ? AND request_type = ? AND is_read = ?", receiverID, requestType, 0)
+	if len(requestIDs) > 0 {
+		query = query.Where("request_id IN ?", requestIDs)
+	}
+	now := time.Now()
+	return query.Updates(map[string]any{"is_read": 1, "read_at": now}).Error
+}
+
+func countUnreadReceipts(tx *gorm.DB, receiverID string, group bool) (receiptCounts, error) {
+	type row struct {
+		RequestType string
+		ReceiptKind string
+		Count       int32
+	}
+	query := tx.Model(&objects.SocialRequestReceipt{}).
+		Select("request_type, receipt_kind, COUNT(*) AS count").
+		Where("receiver_id = ? AND is_read = ?", receiverID, 0)
+	if group {
+		query = query.Where("request_type IN ?", []string{receiptTypeGroup, receiptTypeGroupInvite})
+	} else {
+		query = query.Where("request_type = ?", receiptTypeFriend)
+	}
+	var rows []row
+	if err := query.Group("request_type, receipt_kind").Scan(&rows).Error; err != nil {
+		return receiptCounts{}, err
+	}
+	var counts receiptCounts
+	for _, item := range rows {
+		switch item.ReceiptKind {
+		case receiptKindApply:
+			counts.Apply += item.Count
+		case receiptKindResult:
+			counts.Result += item.Count
+		case receiptKindInvite:
+			counts.Invite += item.Count
+		}
+	}
+	counts.Total = counts.Apply + counts.Result + counts.Invite
+	return counts, nil
+}

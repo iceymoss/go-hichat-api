@@ -2,14 +2,16 @@ package logic
 
 import (
 	"context"
+	"fmt"
+	"math"
+	"strconv"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
-	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
-
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type GetGroupPutListByUidLogic struct {
@@ -18,64 +20,118 @@ type GetGroupPutListByUidLogic struct {
 	logx.Logger
 }
 
-func NewGetGroupPutListByUidLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetGroupPutListByUidLogic {
-	return &GetGroupPutListByUidLogic{
-		ctx:    ctx,
-		svcCtx: svcCtx,
-		Logger: logx.WithContext(ctx),
-	}
+func NewGetGroupPutListByUidLogic(ctx context.Context, s *svc.ServiceContext) *GetGroupPutListByUidLogic {
+	return &GetGroupPutListByUidLogic{ctx: ctx, svcCtx: s, Logger: logx.WithContext(ctx)}
 }
 
-// GetGroupPutListByUid 用户角度的群申请列表。
-// 前端只调一次（class=2）后在本地按"申请人是否=我"拆分「我发起的/我收到的」，因此这里需返回两类的并集：
-//   - 我发起的：req_id 属于 in.Ids（我提交的申请）
-//   - 我收到的：group_id 属于「我作为群主/管理员管理的群」（别人申请进我管理的群）
-// 仅保留 join_source ∈ (1主动申请, 3链接) 的真实申请，排除 2邀请 自动入群的噪声。
 func (l *GetGroupPutListByUidLogic) GetGroupPutListByUid(in *social.GetGroupPutListByUidReq) (*social.GroupPutinListResp, error) {
-	// 1. 汇总 in.Ids 作为群主/管理员管理的群（直接查 group_members 带 role_level，
-	//    不用 GroupMembersModel.ListByUserId：它的列清单不含 role_level，拿不到角色）。
-	var managed []string
-	conn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
-	if err := conn.WithContext(l.ctx).Table("group_members").
-		Where("user_id in ? AND role_level >= ?", in.Ids, int(constants.ManagerGroupRoleLevel)).
-		Pluck("group_id", &managed).Error; err != nil {
-		l.Errorf("GetGroupPutListByUid list managed groups failed: ids=%v err=%v", in.Ids, err)
+	actor, err := validateScopedActor(in.ActorUid)
+	if err != nil {
+		return nil, err
 	}
-
-	// 2. 查询：req_id 属于我 OR group_id 属于我管理的群
-	var rows []*socialmodels.GroupRequests
-	query := conn.WithContext(l.ctx).Table("group_requests").Where("join_source in ?", []int{1, 3})
-	if len(managed) > 0 {
-		query = query.Where("req_id in ? OR group_id in ?", in.Ids, managed)
+	if len(in.Ids) == 0 || (in.Class != "1" && in.Class != "2") {
+		return nil, status.Error(codes.InvalidArgument, "invalid group request list scope")
+	}
+	for _, id := range in.Ids {
+		if id != actor {
+			return nil, status.Error(codes.PermissionDenied, "actor uid does not match requested scope")
+		}
+	}
+	page, size := int(in.Page), int(in.Size)
+	if page <= 0 {
+		page = 1
+	}
+	if size <= 0 {
+		size = 20
+	}
+	if size > 100 {
+		size = 100
+	}
+	q := l.svcCtx.DB.WithContext(l.ctx).Model(&objects.GroupRequest{})
+	if in.Class == "1" {
+		q = q.Where("req_id = ?", actor)
 	} else {
-		query = query.Where("req_id in ?", in.Ids)
+		q = q.Where("EXISTS (SELECT 1 FROM social_request_receipts srr WHERE srr.request_type = ? AND srr.request_id = group_requests.id AND srr.receiver_id = ? AND srr.receipt_kind = ?)", receiptTypeGroup, actor, receiptKindApply)
 	}
-	if in.Type != "" && in.Type != "all" {
-		query = query.Where("handle_result = ?", in.Type)
+	if in.Status != nil {
+		q = q.Where("handle_result = ?", *in.Status)
+	} else if in.Type != "" && in.Type != "all" {
+		v, e := strconv.Atoi(in.Type)
+		if e != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid group request status")
+		}
+		q = q.Where("handle_result = ?", v)
 	}
-	if err := query.Order("id desc").Find(&rows).Error; err != nil {
-		l.Errorf("GetGroupPutListByUid query failed: ids=%v err=%v", in.Ids, err)
-		return &social.GroupPutinListResp{List: nil}, nil
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, status.Error(codes.Internal, "failed to count group requests")
 	}
-
-	respList := make([]*social.GroupRequests, 0, len(rows))
-	for _, req := range rows {
-		respList = append(respList, &social.GroupRequests{
-			Id:               int32(req.Id),
-			GroupId:          req.GroupId,
-			ReqId:            req.ReqId,
-			ReqMsg:           req.ReqMsg.String,
-			ReqTime:          req.ReqTime.Time.Unix(),
-			JoinSource:       int32(req.JoinSource.Int64),
-			InviterUid:       req.InviterUserId.String,
-			HandleUid:        req.HandleUserId.String,
-			HandleResult:     int32(req.HandleResult.Int64),
-			HandleResultTime: req.HandleTime.Unix(),
-			ReceiverRead:     int32(req.ReceiverRead),
-		})
+	var rows []objects.GroupRequest
+	if err := q.Order("req_time DESC, id DESC").Offset((page - 1) * size).Limit(size).Find(&rows).Error; err != nil {
+		return nil, status.Error(codes.Internal, "failed to list group requests")
 	}
-
-	return &social.GroupPutinListResp{
-		List: respList,
-	}, nil
+	ids := make([]uint64, len(rows))
+	for i := range rows {
+		ids[i] = rows[i].ID
+	}
+	receipts := map[string]objects.SocialRequestReceipt{}
+	if len(ids) > 0 {
+		var rs []objects.SocialRequestReceipt
+		if err := l.svcCtx.DB.WithContext(l.ctx).Where("request_type=? AND request_id IN ? AND receiver_id=? AND receipt_kind IN ?", receiptTypeGroup, ids, actor, []string{receiptKindApply, receiptKindResult}).Find(&rs).Error; err != nil {
+			return nil, status.Error(codes.Internal, "failed to list group request receipts")
+		}
+		for _, r := range rs {
+			receipts[fmt.Sprintf("%d:%s", r.RequestID, r.ReceiptKind)] = r
+		}
+	}
+	list := make([]*social.GroupRequests, 0, len(rows))
+	for _, r := range rows {
+		read := int32(r.ReceiverRead)
+		action := false
+		kind := receiptKindApply
+		if r.ReqID == actor {
+			kind = receiptKindResult
+		}
+		if receipt, ok := receipts[fmt.Sprintf("%d:%s", r.ID, kind)]; ok {
+			read = int32(receipt.IsRead)
+			action = receipt.IsActionable == 1
+		}
+		reqTime, handleTime := int64(0), int64(0)
+		if r.ReqTime != nil {
+			reqTime = r.ReqTime.Unix()
+		}
+		if r.HandleTime != nil {
+			handleTime = r.HandleTime.Unix()
+		}
+		join, result, actual := 0, 0, 0
+		if r.JoinSource != nil {
+			join = *r.JoinSource
+		}
+		if r.HandleResult != nil {
+			result = *r.HandleResult
+		}
+		if r.ActualJoinSource != nil {
+			actual = *r.ActualJoinSource
+		}
+		inviter, handler := "", ""
+		if r.InviterUserID != nil {
+			inviter = fmt.Sprint(*r.InviterUserID)
+		}
+		if r.HandleUserID != nil {
+			handler = fmt.Sprint(*r.HandleUserID)
+		}
+		if in.Class == "1" {
+			handler = ""
+		}
+		sourceInvitation := uint64(0)
+		if r.SourceInvitationID != nil {
+			sourceInvitation = *r.SourceInvitationID
+		}
+		legacyID := int32(0)
+		if r.ID <= math.MaxInt32 {
+			legacyID = int32(r.ID)
+		}
+		list = append(list, &social.GroupRequests{Id: legacyID, RequestId: r.ID, GroupId: fmt.Sprint(r.GroupID), ReqId: r.ReqID, ApplicantUid: r.ReqID, ReqMsg: r.ReqMsg, ReqTime: reqTime, JoinSource: int32(join), InviterUid: inviter, HandleUid: handler, HandleResult: int32(result), HandleResultTime: handleTime, ReceiverRead: read, ReadState: read, Actionable: action, HandleMsg: r.HandleMsg, InvalidReason: r.InvalidReason, ActualJoinSource: int32(actual), SourceType: int32(r.SourceType), SourceInvitationId: sourceInvitation})
+	}
+	return &social.GroupPutinListResp{List: list, Total: total}, nil
 }

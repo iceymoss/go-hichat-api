@@ -28,8 +28,12 @@ type defaultRelationOutboxModel struct {
 
 // NewRelationOutboxModel 用 hichat2 的 GORM 连接构造发件箱模型。
 func NewRelationOutboxModel() RelationOutboxModel {
+	return NewRelationOutboxModelWithDB(db.GetMysqlConn(db.MYSQL_DB_HICHAT2))
+}
+
+func NewRelationOutboxModelWithDB(conn *gorm.DB) RelationOutboxModel {
 	return &defaultRelationOutboxModel{
-		conn:  db.GetMysqlConn(db.MYSQL_DB_HICHAT2),
+		conn:  conn,
 		table: objects.RelationOutbox{}.TableName(),
 	}
 }

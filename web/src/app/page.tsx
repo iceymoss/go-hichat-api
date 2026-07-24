@@ -7,29 +7,6 @@ import IMLayout from '@/components/im/IMLayout';
 import AuthPage from '@/components/auth/AuthPage';
 import SettingsProvider from '@/components/SettingsProvider';
 
-async function fetchFriendsForStore(token: string) {
-  try {
-    const resp = await fetch('/api/social/friends', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const json = await resp.json();
-    const list = json?.list || json?.data?.list || [];
-    const mapped = list.map((f: any) => ({
-      // friend_uid is the friend's USER id — the canonical key used everywhere
-      // (moments comments/likes/author look up friends by user id). f.id is the
-      // friendship row id; using it here misclassifies friends as strangers in
-      // the profile card. Keep friend_uid first.
-      id: String(f.friend_uid || f.id || ''),
-      friend_uid: String(f.friend_uid || ''),
-      name: f.nickname || f.remark || String(f.friend_uid || ''),
-      remark: f.remark || '',
-      avatar: f.avatar || '',
-      pinyin: '', letter: '',
-    }));
-    useIMStore.getState().setFriends(mapped);
-  } catch { /* ignore */ }
-}
-
 // Refresh the persisted currentUser with the latest profile so views that
 // read name/avatar/introduction/momentsCover don't show stale or empty data.
 async function refreshCurrentUser(token: string) {
@@ -38,7 +15,7 @@ async function refreshCurrentUser(token: string) {
       headers: { Authorization: `Bearer ${token}` },
     });
     const json = await resp.json();
-    if (json?.success && json.data) {
+    if (json?.success && json.data && useIMStore.getState().currentUser?.token === token) {
       useIMStore.getState().updateCurrentUser(json.data);
     }
   } catch { /* ignore */ }
@@ -49,11 +26,12 @@ export default function Home() {
   const initWs = useChatStore(s => s.initWs);
   const destroyWs = useChatStore(s => s.destroyWs);
   const fetchConversations = useChatStore(s => s.fetchConversations);
+  const refreshFriends = useIMStore(s => s.refreshFriends);
   const [hydrated, setHydrated] = useState(false);
 
   const fetchFriendsAndConversations = async (token: string) => {
     await refreshCurrentUser(token);
-    await fetchFriendsForStore(token);
+    await refreshFriends();
     await fetchConversations(token);
   };
 
@@ -70,7 +48,7 @@ export default function Home() {
       fetchFriendsAndConversations(currentUser.token);
     }
     return () => { destroyWs(); };
-  }, [isAuthenticated, currentUser?.token, currentUser?.id]);
+  }, [isAuthenticated, currentUser?.token, currentUser?.id, initWs, destroyWs, fetchConversations, refreshFriends]);
 
   if (!hydrated) {
     return null;

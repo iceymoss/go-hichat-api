@@ -22,9 +22,12 @@ func main() {
 	var c config.Config
 
 	// 加载全局配置
-	pkcCfg.InitConfig("local", "", "config")
+	pkcCfg.InitConfig("local", "config")
 
 	conf.MustLoad(*configFile, &c)
+	if err := c.ApplyDefaultsAndValidate(); err != nil {
+		panic(err)
+	}
 	if err := c.SetUp(); err != nil {
 		panic(err)
 	}

@@ -1,5 +1,7 @@
 Name: im.ws
 ListenOn: 0.0.0.0:10091
+# 仅供本地开发；必须与 IM RPC、IM API 一致，生产环境使用 HICHAT_IM_RPC_AUTH_SECRET 覆盖
+RpcAuthSecret: hichat-local-im-rpc-auth-secret-change-me-2026
 
 Mysql:
   DataSource: root:123456789@tcp(127.0.0.1:3306)/hichat2?charset=utf8mb4&parseTime=true

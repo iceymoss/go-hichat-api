@@ -27,7 +27,7 @@ func newOutboxModelForTest(t *testing.T) RelationOutboxModel {
 			t.Skipf("config/mysql unavailable, skip: %v", r)
 		}
 	}()
-	pkgCfg.InitConfig("local", "", repoConfigDir())
+	pkgCfg.InitConfig("local", repoConfigDir())
 	conn := db.GetMysqlConn(db.MYSQL_DB_HICHAT2)
 	if err := conn.Exec("SELECT 1").Error; err != nil {
 		t.Skipf("mysql unavailable, skip: %v", err)

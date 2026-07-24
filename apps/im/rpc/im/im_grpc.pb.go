@@ -31,6 +31,7 @@ const (
 	Im_ListNotifications_FullMethodName          = "/im.Im/ListNotifications"
 	Im_MarkNotificationsRead_FullMethodName      = "/im.Im/MarkNotificationsRead"
 	Im_GetUnreadNotificationCount_FullMethodName = "/im.Im/GetUnreadNotificationCount"
+	Im_EnsureGroupConversation_FullMethodName    = "/im.Im/EnsureGroupConversation"
 )
 
 // ImClient is the client API for Im service.
@@ -61,6 +62,7 @@ type ImClient interface {
 	MarkNotificationsRead(ctx context.Context, in *MarkNotificationsReadReq, opts ...grpc.CallOption) (*MarkNotificationsReadResp, error)
 	// 公共通知通道：接收者未读数
 	GetUnreadNotificationCount(ctx context.Context, in *GetUnreadNotificationCountReq, opts ...grpc.CallOption) (*GetUnreadNotificationCountResp, error)
+	EnsureGroupConversation(ctx context.Context, in *EnsureGroupConversationReq, opts ...grpc.CallOption) (*EnsureGroupConversationResp, error)
 }
 
 type imClient struct {
@@ -191,6 +193,16 @@ func (c *imClient) GetUnreadNotificationCount(ctx context.Context, in *GetUnread
 	return out, nil
 }
 
+func (c *imClient) EnsureGroupConversation(ctx context.Context, in *EnsureGroupConversationReq, opts ...grpc.CallOption) (*EnsureGroupConversationResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EnsureGroupConversationResp)
+	err := c.cc.Invoke(ctx, Im_EnsureGroupConversation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ImServer is the server API for Im service.
 // All implementations must embed UnimplementedImServer
 // for forward compatibility.
@@ -219,6 +231,7 @@ type ImServer interface {
 	MarkNotificationsRead(context.Context, *MarkNotificationsReadReq) (*MarkNotificationsReadResp, error)
 	// 公共通知通道：接收者未读数
 	GetUnreadNotificationCount(context.Context, *GetUnreadNotificationCountReq) (*GetUnreadNotificationCountResp, error)
+	EnsureGroupConversation(context.Context, *EnsureGroupConversationReq) (*EnsureGroupConversationResp, error)
 	mustEmbedUnimplementedImServer()
 }
 
@@ -264,6 +277,9 @@ func (UnimplementedImServer) MarkNotificationsRead(context.Context, *MarkNotific
 }
 func (UnimplementedImServer) GetUnreadNotificationCount(context.Context, *GetUnreadNotificationCountReq) (*GetUnreadNotificationCountResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUnreadNotificationCount not implemented")
+}
+func (UnimplementedImServer) EnsureGroupConversation(context.Context, *EnsureGroupConversationReq) (*EnsureGroupConversationResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EnsureGroupConversation not implemented")
 }
 func (UnimplementedImServer) mustEmbedUnimplementedImServer() {}
 func (UnimplementedImServer) testEmbeddedByValue()            {}
@@ -502,6 +518,24 @@ func _Im_GetUnreadNotificationCount_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Im_EnsureGroupConversation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EnsureGroupConversationReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImServer).EnsureGroupConversation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Im_EnsureGroupConversation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImServer).EnsureGroupConversation(ctx, req.(*EnsureGroupConversationReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Im_ServiceDesc is the grpc.ServiceDesc for Im service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -556,6 +590,10 @@ var Im_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUnreadNotificationCount",
 			Handler:    _Im_GetUnreadNotificationCount_Handler,
+		},
+		{
+			MethodName: "EnsureGroupConversation",
+			Handler:    _Im_EnsureGroupConversation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -7,6 +7,9 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 type FriendPutInReadLogic struct {
@@ -24,22 +27,28 @@ func NewFriendPutInReadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *F
 }
 
 func (l *FriendPutInReadLogic) FriendPutInRead(in *social.FriendPutInReadReq) (*social.FriendPutInReadResp, error) {
-	// 如果 friendReqId 为 0，则标记全部已读
-	if in.FriendReqId == 0 {
-		err := l.svcCtx.FriendRequestsModel.MarkAllAsRead(l.ctx, in.UserId)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// 标记单条已读
-		err := l.svcCtx.FriendRequestsModel.MarkAsRead(l.ctx, in.FriendReqId, in.UserId)
-		if err != nil {
-			return nil, err
-		}
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
+	if err != nil {
+		return nil, err
 	}
-
-	// 失效当前用户的气泡缓存
-	l.svcCtx.FriendRequestsModel.InvalidateCountCache(l.ctx, in.UserId)
-
-	return &social.FriendPutInReadResp{}, nil
+	ids := append([]uint64(nil), in.RequestIds...)
+	if in.FriendReqId > 0 {
+		ids = append(ids, uint64(in.FriendReqId))
+	}
+	if len(ids) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "request ids are required")
+	}
+	var counts receiptCounts
+	err = transactionWithSQLiteRetry(l.ctx, l.svcCtx.DB, func(tx *gorm.DB) error {
+		if err := markReceiptsRead(tx, actor, receiptTypeFriend, ids); err != nil {
+			return err
+		}
+		var err error
+		counts, err = countUnreadReceipts(tx, actor, false)
+		return err
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to mark friend request receipts read")
+	}
+	return &social.FriendPutInReadResp{Count: counts.Total, Apply: counts.Apply, Result: counts.Result}, nil
 }

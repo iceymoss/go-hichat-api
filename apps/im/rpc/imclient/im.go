@@ -20,6 +20,8 @@ type (
 	CreateGroupConversationResp    = im.CreateGroupConversationResp
 	CreateNotificationReq          = im.CreateNotificationReq
 	CreateNotificationResp         = im.CreateNotificationResp
+	EnsureGroupConversationReq     = im.EnsureGroupConversationReq
+	EnsureGroupConversationResp    = im.EnsureGroupConversationResp
 	GetAtMeMessagesReq             = im.GetAtMeMessagesReq
 	GetAtMeMessagesResp            = im.GetAtMeMessagesResp
 	GetChatLogReq                  = im.GetChatLogReq
@@ -33,6 +35,7 @@ type (
 	MarkNotificationsReadReq       = im.MarkNotificationsReadReq
 	MarkNotificationsReadResp      = im.MarkNotificationsReadResp
 	Notification                   = im.Notification
+	NotificationReadTarget         = im.NotificationReadTarget
 	PutConversationsReq            = im.PutConversationsReq
 	PutConversationsResp           = im.PutConversationsResp
 	RecallMsgReq                   = im.RecallMsgReq
@@ -67,6 +70,7 @@ type (
 		MarkNotificationsRead(ctx context.Context, in *MarkNotificationsReadReq, opts ...grpc.CallOption) (*MarkNotificationsReadResp, error)
 		// 公共通知通道：接收者未读数
 		GetUnreadNotificationCount(ctx context.Context, in *GetUnreadNotificationCountReq, opts ...grpc.CallOption) (*GetUnreadNotificationCountResp, error)
+		EnsureGroupConversation(ctx context.Context, in *EnsureGroupConversationReq, opts ...grpc.CallOption) (*EnsureGroupConversationResp, error)
 	}
 
 	defaultIm struct {
@@ -150,4 +154,9 @@ func (m *defaultIm) MarkNotificationsRead(ctx context.Context, in *MarkNotificat
 func (m *defaultIm) GetUnreadNotificationCount(ctx context.Context, in *GetUnreadNotificationCountReq, opts ...grpc.CallOption) (*GetUnreadNotificationCountResp, error) {
 	client := im.NewImClient(m.cli.Conn())
 	return client.GetUnreadNotificationCount(ctx, in, opts...)
+}
+
+func (m *defaultIm) EnsureGroupConversation(ctx context.Context, in *EnsureGroupConversationReq, opts ...grpc.CallOption) (*EnsureGroupConversationResp, error) {
+	client := im.NewImClient(m.cli.Conn())
+	return client.EnsureGroupConversation(ctx, in, opts...)
 }

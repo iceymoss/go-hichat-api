@@ -34,7 +34,7 @@ func CallNotify(svcCtx *svc.ServiceContext) websocket.HandlerFunc {
 		sendMsg := websocket.NewMessage(constants.SYSTEM_ROOT_UID, &data)
 		// 显式设置 method，前端用 ws.on('call.signal') 接收（不污染聊天 push 路由）
 		sendMsg.Method = "call.signal"
-		if err := srv.Send(sendMsg, rconn[0]); err != nil {
+		if err := srv.Send(sendMsg, rconn...); err != nil {
 			zLog.Error("CallNotify.Send: send failed", zap.String("receiver", data.ReceiverId), zap.String("event", data.Event), zap.Error(err))
 			return
 		}

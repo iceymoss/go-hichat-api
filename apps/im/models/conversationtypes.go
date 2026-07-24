@@ -42,7 +42,8 @@ type Conversation struct {
 
 	// 被移出群的时刻（UnixMilli）：>0 表示该用户已被移出此群会话，
 	// 拉取群历史时只返回 sendTime <= RemovedAt 的消息（冻结历史）；重新入群时清零。
-	RemovedAt int64 `bson:"removedAt,omitempty"`
+	RemovedAt       int64 `bson:"removedAt,omitempty"`
+	RelationVersion int64 `bson:"relationVersion,omitempty"`
 
 	UpdateAt time.Time `bson:"updateAt,omitempty" json:"updateAt,omitempty"`
 	CreateAt time.Time `bson:"createAt,omitempty" json:"createAt,omitempty"`

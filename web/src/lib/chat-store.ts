@@ -6,6 +6,7 @@
  */
 
 import { create } from 'zustand';
+import { createLatestRequest } from './latest-request';
 import {
   createIMWs,
   getIMWs,
@@ -14,6 +15,7 @@ import {
   ContentType,
   type WsChatData,
 } from './ws-client';
+
 import {
   getChatLog,
   getConversations,
@@ -35,22 +37,29 @@ import type { CallSignal } from './call-engine';
 import type { Message, Conversation } from './types';
 import { toast } from 'sonner';
 import { sendFriendRequest } from './friend-group-api';
+import { t as translate } from './i18n';
+
+const conversationsRequest = createLatestRequest();
+const tt = (key: string) => translate(key, useSettingsStore.getState().language);
 
 // 私聊被后端鉴权拦截（对方已删好友）时，顶部弹"重新添加好友"通知。
 // 与红感叹号（消息标 failed）并行：感叹号是消息级反馈，这条是关系级引导。
-// 文案硬编码中文，与本模块其余 toast（AddFriendPanel/GroupList 等）保持一致。
 function notifyFriendBlocked(peerId: string) {
-  toast('你们已不是好友，是否重新添加好友', {
+  toast(tt('friend.blockedPrompt'), {
     id: `friend-block-${peerId}`, // 稳定 id：连发多条只弹一个，不堆叠
     duration: 6000,
     action: {
-      label: '重新添加',
+      label: tt('friend.reAdd'),
       onClick: async () => {
         const token = useIMStore.getState().currentUser?.token;
         if (!token) return;
-        const ok = await sendFriendRequest(token, peerId);
-        if (ok) toast.success('好友请求已发送');
-        else toast.error('发送失败，请重试');
+        try {
+          const result = await sendFriendRequest(token, peerId);
+          if (result.alreadyFriend) toast(tt('friend.alreadyFriend'));
+          else toast.success(tt(result.alreadyPending ? 'friend.requestPending' : 'group.friendReqSent'));
+        } catch {
+          toast.error(tt('friend.sendFailRetry'));
+        }
       },
     },
   });
@@ -130,6 +139,7 @@ interface ChatState {
   // Actions
   initWs: (token: string, userId: string, wsUrl?: string) => void;
   destroyWs: () => void;
+  resetAuthState: () => void;
   fetchConversations: (token: string) => Promise<void>;
   fetchMessages: (token: string, conversationId: string, oldestMsgId?: string) => Promise<void>;
   /** 哪些会话处于"浏览历史"态（跳转到了非最新窗口） */
@@ -179,6 +189,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   userProfiles: {},
   loadingConversations: false,
   loadingMessages: {},
+  resetAuthState: () => {
+    conversationsRequest.invalidate();
+    get().destroyWs();
+    set({ wsState: 'disconnected', conversations: [], messagesMap: {}, userProfiles: {}, groupMembers: {}, loadingConversations: false, loadingMessages: {}, anchoredConvs: {}, atMeMap: {}, disabledConversations: {} });
+  },
   disabledConversations: {},
   playedVoices: (() => {
     if (typeof window === 'undefined') return {};
@@ -210,7 +225,20 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     const ws = createIMWs({
       url: wsUrl || defaultWsUrl,
       token,
-      onStateChange: (state) => set({ wsState: state }),
+      onStateChange: (state) => {
+        set({ wsState: state });
+        if (state === 'connected') {
+          const imStore = useIMStore.getState();
+          void imStore.refreshSocialRequestUnread();
+          void imStore.refreshNotificationUnread();
+          imStore.bumpNotificationVersion();
+          imStore.invalidateFriendRequests();
+          imStore.invalidateGroupRequests();
+          imStore.invalidateFriends();
+          imStore.invalidateGroups();
+          void get().fetchConversations(token);
+        }
+      },
       onError: (err, msgId) => {
         // 业务错误帧（发送被鉴权拦截）：ACK 已先 resolve 了 send promise，故在此按消息 id 把对应消息标记失败（红感叹号）。
         if (msgId) {
@@ -262,9 +290,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     // 关系变更：好友删除走隐式（不禁用输入框，发送时红感叹号闭环）；仅群事件（被踢/解散）显式禁用 + 通知
     ws.on('relation.changed', (data) => {
       const evt = data as { conversationId?: string; eventType?: string; operatorId?: string } | null;
-      if (!evt?.conversationId) return;
-      if (evt.eventType !== 'group.member.removed' && evt.eventType !== 'group.disbanded') return;
-      get().markGroupRemoved(evt.conversationId, evt.eventType);
+      if (!evt?.eventType) return;
+      const imStore = useIMStore.getState();
+      if (evt.eventType === 'friend.added' || evt.eventType === 'friend.deleted') imStore.invalidateFriends();
+      if (evt.eventType.startsWith('group.')) {
+        imStore.invalidateGroups();
+        void get().fetchConversations(token);
+      }
+      if (evt.conversationId && (evt.eventType === 'group.member.removed' || evt.eventType === 'group.disbanded')) {
+        get().markGroupRemoved(evt.conversationId, evt.eventType);
+      }
     });
 
     // 音视频通话控制信令：来电/接听/拒接/挂断/超时 -> 通话 store 驱动来电与通话界面
@@ -275,49 +310,79 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     });
 
     // 公共通知（好友/群申请等）：按 notifyType 分发 —— 实时红点 + 气泡提示（点击跳到对应入口）。
-    // 文案硬编码中文，与本模块其余 toast 保持一致；历史列表/已读由通知中心走 REST 拉取。
     ws.on('notify', (data) => {
-      const n = data as { notifyType?: string } | null;
+      const n = data as { notifyType?: string; bizId?: string; groupId?: string } | null;
       if (!n?.notifyType) return;
       const imStore = useIMStore.getState();
+      const friendNotification = ['friend.apply', 'friend.accept', 'friend.reject'].includes(n.notifyType);
+      const groupNotification = ['group.apply', 'group.accept', 'group.reject', 'group.invalidated', 'group.invite', 'group.request.resolved', 'group.invite.invalidated'].includes(n.notifyType);
+      if (friendNotification) {
+        imStore.invalidateFriendRequests();
+        void imStore.refreshFriendRequestUnread();
+      }
+      if (groupNotification) {
+        imStore.invalidateGroupRequests();
+        void imStore.refreshGroupRequestUnread();
+      }
+      if (n.notifyType === 'friend.accept') imStore.invalidateFriends();
+      if (n.notifyType === 'group.accept') {
+        imStore.invalidateGroups();
+        void get().fetchConversations(token);
+      }
+      if (n.notifyType === 'group.admin.set' || n.notifyType === 'group.admin.unset' || n.notifyType === 'group.owner.transferred') {
+        imStore.invalidateGroups();
+        imStore.invalidateGroupRequests();
+        void imStore.refreshGroupRequestUnread();
+      }
       // 点击气泡跳到来源 + 子 tab（好友→新的朋友；群→群申请）
-      const go = { label: '查看', onClick: () => useIMStore.getState().navigateToNotificationSource(n.notifyType!) };
+      const go = { label: tt('notify.toast.view'), onClick: () => useIMStore.getState().navigateToNotificationSource(n.notifyType!, n.bizId, n.groupId) };
+      const groupDetailAction = n.groupId ? { action: go } : {};
       switch (n.notifyType) {
         case 'friend.apply':
-          imStore.setFriendRequestUnreadCount(imStore.friendRequestUnreadCount + 1);
-          toast('有人申请添加你为好友', { action: go });
+          toast(tt('notify.toast.friend.apply'), { action: go });
           break;
         case 'friend.accept':
-          toast.success('对方通过了你的好友申请', { action: go });
+          toast.success(tt('notify.toast.friend.accept'), { action: go });
           break;
         case 'friend.reject':
-          toast('对方拒绝了你的好友申请', { action: go });
+          toast(tt('notify.toast.friend.reject'), { action: go });
           break;
         case 'group.apply':
-          imStore.setGroupAppUnreadCount(imStore.groupAppUnreadCount + 1);
-          toast('有人申请加入你管理的群聊', { action: go });
+          toast(tt('notify.toast.group.apply'), { action: go });
           break;
         case 'group.accept':
-          toast.success('你的入群申请已通过', { action: go });
+          toast.success(tt('notify.toast.group.accept'), { action: go });
           break;
         case 'group.reject':
-          toast('你的入群申请被拒绝', { action: go });
+          toast(tt('notify.toast.group.reject'), { action: go });
+          break;
+        case 'group.invalidated':
+          toast(tt('notify.toast.group.invalidated'), { action: go });
+          break;
+        case 'group.invite':
+          toast(tt('notify.toast.group.invite'), { action: go });
+          break;
+        case 'group.request.resolved':
+          toast(tt('notify.toast.group.requestResolved'), { action: go });
+          break;
+        case 'group.invite.invalidated':
+          toast(tt('notify.toast.group.inviteInvalidated'), { action: go });
           break;
         case 'group.removed':
-          toast('你已被移出群聊');
+          toast(tt('notify.toast.group.removed'));
           break;
         case 'group.admin.set':
-          toast.success('你已被设为群管理员');
+          toast.success(tt('notify.toast.group.adminSet'), groupDetailAction);
           break;
         case 'group.admin.unset':
-          toast('你已被取消群管理员');
+          toast(tt('notify.toast.group.adminUnset'), groupDetailAction);
           break;
         case 'group.owner.transferred':
-          toast.success('你已成为新群主');
+          toast.success(tt('notify.toast.group.ownerTransferred'), groupDetailAction);
           break;
       }
-      // 通知未读总数 +1（驱动「联系人」tab 气泡 + 铃铛角标）并 bump 版本刷新通知中心
-      imStore.setNotificationUnreadCount(imStore.notificationUnreadCount + 1);
+      // 公共通知未读以 REST 为真相，避免 reconnect GET 与本地 +1 互相覆盖。
+      void imStore.refreshNotificationUnread();
       imStore.bumpNotificationVersion();
     });
 
@@ -364,10 +429,12 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   // ==================== REST API ====================
 
   fetchConversations: async (token) => {
+    const isLatest = conversationsRequest.begin();
     set({ loadingConversations: true });
     try {
       const resp = await getConversations(token);
       const map = resp?.conversationList || {};
+      if (!isLatest() || useIMStore.getState().currentUser?.token !== token) return;
       // 后端已附带 targetName/targetAvatar，mapConversation 直接使用
       const list: Conversation[] = Object.values(map).map(mapConversation);
       set({ conversations: list });
@@ -380,6 +447,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             headers: { Authorization: `Bearer ${token}` },
           });
           const onlineData = await onlineRes.json();
+          if (!isLatest() || useIMStore.getState().currentUser?.token !== token) return;
           if (onlineData.success && onlineData.data?.onLineList) {
             const onlineMap: Record<string, boolean> = onlineData.data.onLineList;
             set(s => ({
@@ -395,6 +463,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
         // 预加载群成员
         const groupConvs = list.filter(c => c.type === 'group');
+        if (!isLatest() || useIMStore.getState().currentUser?.token !== token) return;
         for (const gc of groupConvs) {
           get().fetchGroupMembers(token, gc.id);
         }
@@ -411,7 +480,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     } catch (e) {
       console.error('[ChatStore] fetch conversations error:', e);
     } finally {
-      set({ loadingConversations: false });
+      if (isLatest()) set({ loadingConversations: false });
     }
   },
 
@@ -793,6 +862,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         headers: { Authorization: `Bearer ${token}` },
       });
       const d = await res.json();
+      if (useIMStore.getState().currentUser?.token !== token) return;
       if (d.success && d.data?.List) {
         set(s => ({
           groupMembers: { ...s.groupMembers, [groupId]: d.data.List },
@@ -843,6 +913,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     });
   },
 }));
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('hichat:auth-reset', () => useChatStore.getState().resetAuthState());
+}
 
 // ========== 内部辅助函数 ==========
 
@@ -938,6 +1012,7 @@ async function resolveUserProfiles(token: string, userIds: string[]) {
       headers: { Authorization: `Bearer ${token}` },
     });
     const json = await resp.json();
+    if (useIMStore.getState().currentUser?.token !== token) return;
     const users: BackendUser[] = json.data?.users || [];
     const profiles: Record<string, UserProfile> = {};
     for (const u of users) {

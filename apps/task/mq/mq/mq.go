@@ -127,6 +127,10 @@ type RelationChangeTransfer struct {
 // 单一公共 topic（commonNotifyTransfer），notifyType 字符串区分业务，后续新增业务只加 type，不动通道。
 // 多接收者（如 group.apply 通知群主+管理员）在生产端展开为多条单接收者消息。
 type CommonNotify struct {
+	EventId     uint64 `json:"eventId,omitempty"`
+	RequestType string `json:"requestType,omitempty"`
+	RequestId   uint64 `json:"requestId,omitempty"`
+	Result      int32  `json:"result,omitempty"`
 	// 通知类型：friend.apply / friend.accept / friend.reject / group.apply / group.accept / group.reject ...
 	NotifyType string `json:"notifyType"`
 	// 接收者 uid（单接收者）
@@ -146,4 +150,3 @@ type CommonNotify struct {
 	// 创建时间(unix 秒)
 	CreateTime int64 `json:"createTime"`
 }
-

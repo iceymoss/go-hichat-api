@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
@@ -39,13 +40,20 @@ func (l *GroupUsersLogic) GroupUsers(in *social.GroupUsersReq) (*social.GroupUse
 			GroupId:     v.GroupId,
 			UserId:      v.UserId,
 			RoleLevel:   int32(v.RoleLevel),
-			JoinTime:    v.JoinTime.Unix(),
-			JoinSource:  int32(v.JoinSource),
-			InviterUid:  v.InviterUid,
-			OperatorUid: v.OperatorUid,
+			JoinTime:    nullableGroupMemberJoinTime(v.JoinTime),
+			JoinSource:  int32(v.JoinSource.Int64),
+			InviterUid:  v.InviterUid.String,
+			OperatorUid: v.OperatorUid.String,
 		})
 	}
 	return &social.GroupUsersResp{
 		List: respList,
 	}, nil
+}
+
+func nullableGroupMemberJoinTime(value sql.NullTime) int64 {
+	if !value.Valid {
+		return 0
+	}
+	return value.Time.Unix()
 }

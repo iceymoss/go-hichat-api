@@ -21,10 +21,13 @@ type TaskManager struct {
 	mu          sync.RWMutex
 	maxResults  int
 	withSeconds bool
+	rootCtx     context.Context
+	cancel      context.CancelFunc
 }
 
 // NewTaskManager 创建任务管理器
 func NewTaskManager(withSeconds bool, maxResults int) *TaskManager {
+	rootCtx, cancel := context.WithCancel(context.Background())
 	var c *cron.Cron
 	if withSeconds {
 		c = cron.New(cron.WithSeconds())
@@ -38,6 +41,8 @@ func NewTaskManager(withSeconds bool, maxResults int) *TaskManager {
 		results:     make(map[string][]types.TaskResult),
 		maxResults:  maxResults,
 		withSeconds: withSeconds,
+		rootCtx:     rootCtx,
+		cancel:      cancel,
 	}
 }
 
@@ -53,7 +58,7 @@ func (tm *TaskManager) RegisterTask(task types.Task) error {
 
 	// 添加任务到cron调度器
 	entryID, err := tm.cron.AddFunc(task.GetSpec(), func() {
-		tm.executeTask(context.Background(), task)
+		tm.executeTask(tm.rootCtx, task)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to add task %s to cron: %w", taskName, err)
@@ -104,13 +109,16 @@ func (tm *TaskManager) Start() error {
 // Stop 停止任务调度器
 func (tm *TaskManager) Stop() error {
 	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
 	if tm.cron == nil {
+		tm.mu.Unlock()
 		return fmt.Errorf("cron scheduler not initialized")
 	}
+	c := tm.cron
+	cancel := tm.cancel
+	tm.mu.Unlock()
 
-	ctx := tm.cron.Stop()
+	cancel()
+	ctx := c.Stop()
 	<-ctx.Done()
 	zLog.Info("Task scheduler stopped")
 	return nil

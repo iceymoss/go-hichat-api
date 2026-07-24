@@ -8,7 +8,9 @@ import (
 func Chat(srvCtx *svc.ServiceContext) libWebsocket.HandlerFunc {
 	return func(srv *libWebsocket.Server, conn *libWebsocket.Conn, msg *libWebsocket.Message) {
 		msg.Data = "pong"
-		err := srv.SendByUserId(libWebsocket.NewMessageTest(srv, conn, msg.Data), msg.UserId)
+		response := libWebsocket.NewMessageTest(srv, conn, msg.Data)
+		response.Method = msg.Method
+		err := srv.Send(response, conn)
 		srv.Info(err)
 	}
 }

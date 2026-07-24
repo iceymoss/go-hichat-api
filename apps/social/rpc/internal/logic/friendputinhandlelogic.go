@@ -2,203 +2,243 @@ package logic
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
-	"fmt"
+	"errors"
+	"strconv"
+	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
-	"github.com/iceymoss/go-hichat-api/apps/social/socialmodels"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	"github.com/iceymoss/go-hichat-api/pkg/utils"
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
 
-	"github.com/pkg/errors"
+	"github.com/zeromicro/go-zero/core/jsonx"
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
-var (
-	ErrFriendReqBeforePass   = xerr.NewMsg("好友申请并已经通过")
-	ErrFriendReqBeforeRefuse = xerr.NewMsg("好友申请已经被拒绝")
-)
+var errFriendRequestCASMiss = errors.New("friend request CAS missed")
 
 type FriendPutInHandleLogic struct {
-	ctx    context.Context
-	svcCtx *svc.ServiceContext
+	ctx context.Context
+	*svc.ServiceContext
 	logx.Logger
 }
 
 func NewFriendPutInHandleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FriendPutInHandleLogic {
-	return &FriendPutInHandleLogic{
-		ctx:    ctx,
-		svcCtx: svcCtx,
-		Logger: logx.WithContext(ctx),
-	}
+	return &FriendPutInHandleLogic{ctx: ctx, ServiceContext: svcCtx, Logger: logx.WithContext(ctx)}
 }
 
-// FriendPutInHandle 处理好友申请
+// FriendPutInHandle changes a pending request exactly once.
 func (l *FriendPutInHandleLogic) FriendPutInHandle(in *social.FriendPutInHandleReq) (*social.FriendPutInHandleResp, error) {
-	// 获取好友申请记录
-	firendReq, err := l.svcCtx.FriendRequestsModel.FindOne(l.ctx, uint64(in.FriendReqId), in.UserId)
+	requestID := in.RequestId
+	if requestID == 0 && in.FriendReqId > 0 {
+		requestID = uint64(in.FriendReqId)
+	}
+	if requestID == 0 || (in.FriendReqId > 0 && in.RequestId > 0 && uint64(in.FriendReqId) != in.RequestId) {
+		return nil, status.Error(codes.InvalidArgument, "friend request id must be positive")
+	}
+	if in.HandleResult != 1 && in.HandleResult != 2 {
+		return nil, status.Error(codes.InvalidArgument, "handle result must be 1 or 2")
+	}
+	actor, err := validateHandleActor(in.ActorUid, in.UserId)
 	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "find friendsRequest by friendReqid err %v req %v ", err,
-			in.FriendReqId)
+		return nil, err
 	}
 
-	// 验证是否有处理
-	switch constants.HandlerResult(firendReq.HandleResult) {
-	case constants.PassHandlerResult: //已经通过直接返回
-		return nil, errors.WithStack(ErrFriendReqBeforePass)
-	case constants.RefuseHandlerResult: //已经拒绝直接返回
-		return nil, errors.WithStack(ErrFriendReqBeforeRefuse)
-	case constants.IgnoreHandlerResult: //已经忽略直接返回
-		return nil, errors.WithStack(ErrFriendReqBeforeRefuse) // 使用相同的错误，因为忽略和拒绝都是不可再处理
+	var request objects.FriendRequest
+	if err := l.DB.WithContext(l.ctx).First(&request, requestID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, status.Error(codes.NotFound, "friend request not found")
+		}
+		return nil, status.Error(codes.Internal, "failed to load friend request")
+	}
+	if request.ReqUID != actor {
+		return nil, status.Error(codes.PermissionDenied, "only the requested user may handle this request")
+	}
+	if request.UserID == 0 || request.ReqUID == 0 || request.UserID == request.ReqUID {
+		return nil, status.Error(codes.FailedPrecondition, "friend request has invalid participants")
 	}
 
-	// 获取用户信息
-	friendRsep, err := l.svcCtx.User.GetUserById(l.ctx, &user.GetUserByIdRequest{
-		Id: in.UserId,
-	})
+	actorUser, err := l.normalUser(strconv.FormatUint(actor, 10))
 	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "get user by id err %v, req %v", err, in.UserId)
+		return nil, err
+	}
+	applicantUser, err := l.normalUser(strconv.FormatUint(request.UserID, 10))
+	if err != nil {
+		return nil, err
 	}
 
-	firendReq.HandleResult = int(in.HandleResult)
-	// 保存处理附言
-	if in.HandleMsg != "" {
-		firendReq.HandleMsg = in.HandleMsg
-	}
-	// 处理后：发起方需要收到结果通知，重置 sender_read=0
-	firendReq.SenderRead = 0
-	// 使用中国时区更新处理时间
-	chinaNow := utils.NowInChina()
-	firendReq.HandledAt = chinaNow
-
-	// 获取申请人的用户信息（用于设置默认备注）
-	applicantResp, _ := l.svcCtx.User.GetUserById(l.ctx, &user.GetUserByIdRequest{
-		Id: fmt.Sprint(firendReq.UserId),
-	})
-
-	isPass := constants.HandlerResult(in.HandleResult) == constants.PassHandlerResult
-
-	// reqUpdate 在调用方事务里更新本条申请状态，并把同一对用户之间其他待处理申请标记为已忽略。
-	// 复刻原 sqlx Update + IgnoreOtherPending 的列写入，改走 GORM 以便与 outbox 同事务原子提交。
-	reqUpdate := func(tx *gorm.DB) error {
-		updates := map[string]any{
-			"handle_result": firendReq.HandleResult,
-			"sender_read":   firendReq.SenderRead,
-			"handled_at":    firendReq.HandledAt,
+	tagsJSON := ""
+	if in.HandleResult == 1 && len(in.Tags) > 0 {
+		data, err := jsonx.Marshal(in.Tags)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid friend tags")
 		}
-		if in.HandleMsg != "" {
-			updates["handle_msg"] = firendReq.HandleMsg
-		}
-		if err := tx.Table("friend_requests").Where("id = ?", firendReq.Id).Updates(updates).Error; err != nil {
-			return errors.Wrapf(xerr.NewDBErr(), "update friend request err %v, req %v", err, firendReq)
-		}
-		// 将同一对用户之间其他待处理的申请标记为已忽略
-		if err := tx.Table("friend_requests").
-			Where("id != ?", firendReq.Id).
-			Where("handle_result = ?", 0).
-			Where("status = ?", 1).
-			Where("(user_id = ? AND req_uid = ?) OR (user_id = ? AND req_uid = ?)",
-				firendReq.UserId, firendReq.ReqUid, firendReq.ReqUid, firendReq.UserId).
-			Updates(map[string]any{"handle_result": 3}).Error; err != nil {
-			return errors.Wrapf(xerr.NewDBErr(), "ignore other pending err %v", err)
-		}
-		return nil
+		tagsJSON = string(data)
 	}
 
-	if isPass {
-		// 申请人好友列表中添加处理人：备注用申请预设，否则用处理人昵称作默认
-		applicantRemark := firendReq.Remark
-		if applicantRemark == "" {
-			applicantRemark = friendRsep.User.Nickname
-		}
-		friend1 := &socialmodels.Friends{
-			UserId:    firendReq.UserId,
-			FriendUid: firendReq.ReqUid,
-			Remark:    applicantRemark,
-			AddSource: 1,
-			CreatedAt: sql.NullTime{Time: chinaNow, Valid: true},
-		}
-		if len(in.Tags) > 0 {
-			tagBytes, _ := json.Marshal(in.Tags)
-			friend1.FriendTags = sql.NullString{String: string(tagBytes), Valid: true}
-		}
-
-		// 处理人好友列表中添加申请人：备注用处理人输入，否则用申请人昵称作默认
-		remark := in.Remark
-		if remark == "" && applicantResp != nil && applicantResp.User != nil {
-			remark = applicantResp.User.Nickname
-		}
-		friend2 := &socialmodels.Friends{
-			UserId:    firendReq.ReqUid,
-			FriendUid: firendReq.UserId,
-			Remark:    remark,
-			AddSource: 1,
-			CreatedAt: sql.NullTime{Time: chinaNow, Valid: true},
-		}
-
-		// 双向建立好友关系 + 同事务写 outbox（好友新增事件），提交后 best-effort 同步关系缓存
-		err = emitRelationChange(l.ctx, l.svcCtx, constants.RelationEventFriendAdded, "",
-			&mq.RelationChangeTransfer{
-				FriendA:    fmt.Sprint(firendReq.UserId),
-				FriendB:    fmt.Sprint(firendReq.ReqUid),
-				OperatorId: in.UserId,
-			},
-			func(tx *gorm.DB) error {
-				if err := reqUpdate(tx); err != nil {
-					return err
-				}
-				if err := tx.Table("friends").Create(friend1).Error; err != nil {
-					return errors.Wrapf(xerr.NewDBErr(), "friends insert err %v, req %v", err, friend1)
-				}
-				if err := tx.Table("friends").Create(friend2).Error; err != nil {
-					return errors.Wrapf(xerr.NewDBErr(), "friends insert err %v, req %v", err, friend2)
-				}
-				return nil
+	changed := false
+	var relationEvent *mq.RelationChangeTransfer
+	err = transactionWithSQLiteRetry(l.ctx, l.DB, func(tx *gorm.DB) error {
+		changed = false
+		relationEvent = nil
+		now := utils.NowInChina()
+		result := tx.Model(&objects.FriendRequest{}).
+			Where("id = ? AND req_uid = ? AND handle_result = ? AND status = ?", request.ID, actor, 0, 1).
+			Updates(map[string]any{
+				"handle_result": in.HandleResult, "handle_msg": in.HandleMsg, "handled_at": now,
+				"active_key": nil,
 			})
-	} else {
-		// 拒绝/忽略：仅更新申请状态，不建立好友关系、不发关系事件
-		tx := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).Begin()
-		if tx.Error != nil {
-			return nil, tx.Error
+		if result.Error != nil {
+			return result.Error
 		}
-		if e := reqUpdate(tx); e != nil {
-			tx.Rollback()
-			err = e
-		} else {
-			err = tx.Commit().Error
+		if result.RowsAffected == 0 {
+			return errFriendRequestCASMiss
 		}
-	}
-
-	// 失效双方气泡缓存：发起方收到结果通知，接收方数量也变了
-	l.svcCtx.FriendRequestsModel.InvalidateCountCache(l.ctx,
-		fmt.Sprint(firendReq.UserId), fmt.Sprint(firendReq.ReqUid))
-
-	// 公共通知：申请人收到处理结果（通过/拒绝；忽略不通知）。仅业务成功时发。
-	if err == nil {
-		var notifyType string
-		switch constants.HandlerResult(in.HandleResult) {
-		case constants.PassHandlerResult:
+		changed = true
+		if err := resolveApplyReceipts(tx, receiptTypeFriend, []uint64{request.ID}, int(in.HandleResult), now, in.ActorUid); err != nil {
+			return err
+		}
+		if err := createResultReceipt(tx, receiptTypeFriend, request.ID, strconv.FormatUint(request.UserID, 10), int(in.HandleResult), request.ReqTime, now, false); err != nil {
+			return err
+		}
+		notifyType := NotifyFriendReject
+		if in.HandleResult == 1 {
 			notifyType = NotifyFriendAccept
-		case constants.RefuseHandlerResult:
-			notifyType = NotifyFriendReject
 		}
-		if notifyType != "" {
-			emitCommonNotify(l.ctx, l.svcCtx, &mq.CommonNotify{
-				NotifyType: notifyType,
-				ReceiverId: fmt.Sprint(firendReq.UserId),
-				ActorId:    in.UserId,
-				BizId:      fmt.Sprintf("friend.handle:%d:%d", firendReq.Id, in.HandleResult),
-				Content:    in.HandleMsg,
-			})
+		if err := emitRequestNotificationInTx(tx, l.ServiceContext, notifyType, receiptTypeFriend, request.ID, strconv.FormatUint(request.UserID, 10), in.ActorUid, 0, int(in.HandleResult), in.HandleMsg); err != nil {
+			return err
 		}
+
+		if in.HandleResult == 2 {
+			return nil
+		}
+		var relationCount int64
+		if err := tx.Model(&objects.Friend{}).
+			Where("(user_id = ? AND friend_uid = ?) OR (user_id = ? AND friend_uid = ?)", request.UserID, request.ReqUID, request.ReqUID, request.UserID).
+			Count(&relationCount).Error; err != nil {
+			return err
+		}
+		if relationCount == 1 {
+			return status.Error(codes.FailedPrecondition, "one-way friend relation conflict")
+		}
+
+		applicantRemark := request.Remark
+		if applicantRemark == "" {
+			applicantRemark = actorUser.Nickname
+		}
+		actorRemark := in.Remark
+		if actorRemark == "" {
+			actorRemark = applicantUser.Nickname
+		}
+		createdAt := time.Now()
+		friends := []objects.Friend{
+			{UserID: request.UserID, FriendUID: request.ReqUID, Remark: applicantRemark, AddSource: intPtr(1), CreatedAt: &createdAt},
+			{UserID: request.ReqUID, FriendUID: request.UserID, Remark: actorRemark, AddSource: intPtr(1), FriendTags: tagsJSON, CreatedAt: &createdAt},
+		}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&friends).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&objects.Friend{}).
+			Where("(user_id = ? AND friend_uid = ?) OR (user_id = ? AND friend_uid = ?)", request.UserID, request.ReqUID, request.ReqUID, request.UserID).
+			Count(&relationCount).Error; err != nil || relationCount != 2 {
+			if err != nil {
+				return err
+			}
+			return status.Error(codes.Internal, "failed to establish bidirectional friendship")
+		}
+
+		var reverse []objects.FriendRequest
+		if err := tx.Where("id <> ? AND user_id = ? AND req_uid = ? AND handle_result = ? AND status = ?", request.ID, request.ReqUID, request.UserID, 0, 1).Find(&reverse).Error; err != nil {
+			return err
+		}
+		for _, reverseRequest := range reverse {
+			updated := tx.Model(&objects.FriendRequest{}).Where("id = ? AND handle_result = ?", reverseRequest.ID, 0).
+				Updates(map[string]any{"handle_result": 1, "handled_at": now, "active_key": nil})
+			if updated.Error != nil {
+				return updated.Error
+			}
+			if updated.RowsAffected == 0 {
+				continue
+			}
+			if err := resolveApplyReceipts(tx, receiptTypeFriend, []uint64{reverseRequest.ID}, receiptAccepted, now, ""); err != nil {
+				return err
+			}
+			if err := createResultReceipt(tx, receiptTypeFriend, reverseRequest.ID, strconv.FormatUint(reverseRequest.UserID, 10), receiptAccepted, reverseRequest.ReqTime, now, true); err != nil {
+				return err
+			}
+		}
+		relationEvent = &mq.RelationChangeTransfer{
+			FriendA: strconv.FormatUint(request.UserID, 10), FriendB: strconv.FormatUint(request.ReqUID, 10),
+			OperatorId: in.ActorUid,
+		}
+		return emitRelationChangeInTx(tx, l.ServiceContext, constants.RelationEventFriendAdded, "", relationEvent)
+	})
+	if err != nil {
+		if errors.Is(err, errFriendRequestCASMiss) {
+			var latest objects.FriendRequest
+			if loadErr := l.DB.WithContext(l.ctx).First(&latest, request.ID).Error; loadErr != nil {
+				return nil, status.Error(codes.Internal, "failed to reload friend request")
+			}
+			if latest.ReqUID != actor {
+				return nil, status.Error(codes.PermissionDenied, "only the requested user may handle this request")
+			}
+			if latest.HandleResult != nil && *latest.HandleResult == int(in.HandleResult) {
+				return &social.FriendPutInHandleResp{RequestId: int64(request.ID), HandleResult: in.HandleResult, Idempotent: true}, nil
+			}
+			current := "unknown"
+			if latest.HandleResult != nil {
+				current = strconv.Itoa(*latest.HandleResult)
+			}
+			return nil, alreadyHandledError("friend request already handled with a different result", current)
+		}
+		if status.Code(err) != codes.Unknown {
+			return nil, err
+		}
+		return nil, status.Error(codes.Internal, "failed to handle friend request")
+	}
+	if !changed {
+		return &social.FriendPutInHandleResp{RequestId: int64(request.ID), HandleResult: in.HandleResult, Idempotent: true}, nil
 	}
 
-	return &social.FriendPutInHandleResp{}, err
+	if relationEvent != nil {
+		bestEffortApplyCache(l.ctx, l.RelationCache, relationEvent, 0)
+	}
+	if l.FriendRequestsModel != nil {
+		l.FriendRequestsModel.InvalidateCountCache(l.ctx, strconv.FormatUint(request.UserID, 10), strconv.FormatUint(request.ReqUID, 10))
+	}
+	return &social.FriendPutInHandleResp{RequestId: int64(request.ID), HandleResult: in.HandleResult}, nil
 }
+
+func validateHandleActor(actorUID, legacyUID string) (uint64, error) {
+	if actorUID == "" {
+		return 0, status.Error(codes.Unauthenticated, "actor uid is required")
+	}
+	if legacyUID != "" && legacyUID != actorUID {
+		return 0, status.Error(codes.PermissionDenied, "actor uid does not match user id")
+	}
+	actor, err := strconv.ParseUint(actorUID, 10, 64)
+	if err != nil || actor == 0 {
+		return 0, status.Error(codes.InvalidArgument, "actor uid must be a positive integer")
+	}
+	return actor, nil
+}
+
+func (l *FriendPutInHandleLogic) normalUser(id string) (*user.UserEntity, error) {
+	resp, err := l.User.GetUserById(l.ctx, &user.GetUserByIdRequest{Id: id})
+	if err != nil {
+		return nil, normalizeUserLookupError(err)
+	}
+	if resp == nil || resp.User == nil || resp.User.Status != 1 {
+		return nil, status.Error(codes.NotFound, "user does not exist or is unavailable")
+	}
+	return resp.User, nil
+}
+
+func intPtr(v int) *int { return &v }

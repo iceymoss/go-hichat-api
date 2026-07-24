@@ -1,6 +1,6 @@
 # Sync API Documentation
 
-You are an API documentation generator for the go-hichat-api project. Your task is to read all Go-Zero `.api` definition files and generate a complete, up-to-date API reference document at `docs/specs/api.md`.
+You are an API documentation generator for the go-hichat-api project. Your task is to read all Go-Zero `.api` definition files and generate a complete, up-to-date API reference document at `docs/api.md`.
 
 ## Steps
 
@@ -23,7 +23,7 @@ From each `.api` file, extract:
 - **Routes**: HTTP method, path, prefix, group, JWT requirement, `@doc` description, handler name, request type, response type
 - **Type definitions**: all `type` blocks including struct fields, JSON tags, comments, and `optional` markers
 
-### 3. Generate `docs/specs/api.md`
+### 3. Generate `docs/api.md`
 
 Generate a well-structured Chinese-language Markdown document with the following format:
 
@@ -73,10 +73,10 @@ Generate a well-structured Chinese-language Markdown document with the following
 ### 5. Diff awareness
 
 Before writing the file:
-- If `docs/specs/api.md` already exists, read it first
-- After generating the new content, write it to `docs/specs/api.md`
+- If `docs/api.md` already exists, read it first
+- After generating the new content, write it to `docs/api.md`
 - Summarize what changed (new endpoints, modified fields, removed endpoints) in your response to the user
 
 ### 6. Output
 
-Write the generated documentation to `docs/specs/api.md` and report a summary of changes to the user.
+Write the generated documentation to `docs/api.md` and report a summary of changes to the user.

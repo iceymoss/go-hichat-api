@@ -36,11 +36,14 @@ func (l *GroupUserListLogic) GroupUserList(req *types.GroupUserListReq) (resp *t
 	//get user info
 	userIdList := make([]string, 0, len(groupMember.List))
 	for _, m := range groupMember.List {
+		if m == nil {
+			continue
+		}
 		userIdList = append(userIdList, m.UserId)
 	}
 
 	//获取用户信息
-	userBindUid := make(map[string]user.UserEntity)
+	userBindUid := make(map[string]*user.UserEntity)
 	userRes, err := l.svcCtx.User.FindUser(l.ctx, &user.FindUserReq{
 		Ids: userIdList,
 	})
@@ -49,16 +52,25 @@ func (l *GroupUserListLogic) GroupUserList(req *types.GroupUserListReq) (resp *t
 	}
 
 	for _, user := range userRes.User {
-		userBindUid[user.Id] = *user
+		if user == nil {
+			continue
+		}
+		userBindUid[user.Id] = user
 	}
 
 	list := make([]*types.GroupMembers, 0, len(userIdList))
 	for _, m := range groupMember.List {
+		if m == nil {
+			continue
+		}
 		var IsCurrentUser int
 		if m.UserId == uid {
 			IsCurrentUser = 1
 		}
 		userInfo := userBindUid[m.UserId]
+		if userInfo == nil {
+			userInfo = &user.UserEntity{}
+		}
 		list = append(list, &types.GroupMembers{
 			Id:            int64(m.Id),
 			GroupId:       m.GroupId,

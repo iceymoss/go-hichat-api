@@ -70,8 +70,8 @@ async function proxyToSocial(req: NextRequest, params: { path: string[] }) {
     // Check if it has a code field (error response) or is direct data
     if (data.code !== undefined && data.code !== 200) {
       return NextResponse.json(
-        { success: false, message: data.msg || '请求失败', data },
-        { status: 400 },
+        { success: false, message: data.msg || '请求失败', errorCode: data.error_code, data },
+        { status: resp.status },
       );
     }
 

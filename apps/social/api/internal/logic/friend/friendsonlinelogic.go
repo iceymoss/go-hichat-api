@@ -8,23 +8,8 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/zeromicro/go-zero/core/logx"
 )
-
-const onlineKeyPrefix = "user:online:"
-
-// Package-level Redis client (lazy init, reuse connection)
-var rdb *redis.Client
-
-func getRedis() *redis.Client {
-	if rdb == nil {
-		rdb = redis.NewClient(&redis.Options{
-			Addr: "127.0.0.1:6379",
-		})
-	}
-	return rdb
-}
 
 type FriendsOnlineLogic struct {
 	logx.Logger
@@ -58,23 +43,20 @@ func (l *FriendsOnlineLogic) FriendsOnline(req *types.FriendsOnlineReq) (resp *t
 	}
 
 	// 2. 批量查 Redis 在线状态
-	r := getRedis()
-	keys := make([]string, 0, len(friendListResp.List))
 	friendIds := make([]string, 0, len(friendListResp.List))
 
 	for _, f := range friendListResp.List {
 		friendIds = append(friendIds, f.FriendUid)
-		keys = append(keys, onlineKeyPrefix+f.FriendUid)
 	}
 
-	results, err := r.MGet(l.ctx, keys...).Result()
+	onlineMap, err = l.svcCtx.Presence.BatchOnline(l.ctx, friendIds)
 	if err != nil {
-		// Redis 错误不影响接口，返回全部离线
+		l.Errorf("query friend presence: %v", err)
+		onlineMap = make(map[string]bool, len(friendIds))
+		for _, id := range friendIds {
+			onlineMap[id] = false
+		}
 		return &types.FriendsOnlineResp{OnlineList: onlineMap}, nil
-	}
-
-	for i, val := range results {
-		onlineMap[friendIds[i]] = val != nil
 	}
 
 	return &types.FriendsOnlineResp{OnlineList: onlineMap}, nil

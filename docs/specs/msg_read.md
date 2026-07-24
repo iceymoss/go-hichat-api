@@ -75,7 +75,7 @@ X = bitmap 中已读人数（不含发送者自己）；N = 群成员总数 - 1�
 | ---------------------------------------------------------------- | ------------------------------------------------------------------- |
 | `pkg/constants/im.go`                                            | 显式 `ContentMakeRead MType = 6`                                    |
 | `pkg/db/objects/system.go` *(新)*                                | 定义 `SystemSetting` 结构体                                         |
-| `deploy/sql_init.go`                                             | 在 `tables` 列表加 `&objects.SystemSetting{}`                       |
+| `deploy/main.go`                                                 | 在 `tables` 列表加 `&objects.SystemSetting{}`                       |
 | `apps/user/models/systemconfigmodel.go` *(新)*                   | 提供 `GetBool(key) (bool, error)` 等读取接口                        |
 | `web/src/lib/settings-store.ts`                                  | 加 `readReceiptEnabled: boolean`（默认 `true`）并进入 saveToBackend |
 

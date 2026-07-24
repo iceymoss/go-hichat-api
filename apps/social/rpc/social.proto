@@ -28,6 +28,11 @@ message FriendRequests { //好友请求
   int64  reqTime = 5; //请求时间
   int32  handleResult = 6; // 处理结果
   int32  readState = 8; // [新增] 读取状态 0未读 1已读
+  uint64 requestId = 9;
+  string peerUid = 10;
+  string handleMsg = 11;
+  int64 handledAt = 12;
+  bool actionable = 13;
 }
 
 message Groups { //群
@@ -70,6 +75,15 @@ message GroupRequests { //
   int32  handleResult = 9; // 处理结果
   int64  handleResultTime = 10; // 处理时间
   int32  receiverRead = 11; // 接收方(群主/管理员)已读 0未读 1已读
+  uint64 requestId = 12;
+  string applicantUid = 13;
+  string handleMsg = 14;
+  string invalidReason = 15;
+  int32 actualJoinSource = 16;
+  int32 sourceType = 17;
+  uint64 sourceInvitationId = 18;
+  int32 readState = 19;
+  bool actionable = 20;
 }
 
 message GroupQuitReq {
@@ -89,8 +103,11 @@ message GroupInviteReq {
   string userId = 1; // Operator/Inviter
   string groupId = 2;
   repeated string friendIds = 3;
+  string actorUid = 4; // 当前操作者；公开 API 只能从 JWT 填充
 }
-message GroupInviteResp {}
+message GroupInviteResp {
+  repeated uint64 invitationIds = 1;
+}
 
 message GroupUpdateReq {
   string userId = 1; // Operator
@@ -130,6 +147,7 @@ message GroupInviteLinkCreateReq {
   string groupId = 2;
   int64  expireSeconds = 3; // 0=永不过期
   int32  maxUses = 4; // 0=无限
+  string actorUid = 5;
 }
 message GroupInviteLinkCreateResp {
   GroupInviteLink link = 1;
@@ -139,6 +157,7 @@ message GroupInviteLinkListReq {
   string userId = 1;
   string groupId = 2;
   bool   includeRevoked = 3;
+  string actorUid = 4;
 }
 message GroupInviteLinkListResp {
   repeated GroupInviteLink list = 1;
@@ -148,6 +167,7 @@ message GroupInviteLinkRevokeReq {
   string userId = 1;
   string groupId = 2;
   string token = 3;
+  string actorUid = 4;
 }
 message GroupInviteLinkRevokeResp {}
 
@@ -155,10 +175,12 @@ message GroupJoinByTokenReq {
   string userId = 1; // 当前登录用户
   string token = 2;
   string reqMsg = 3;
+  string actorUid = 4;
 }
 message GroupJoinByTokenResp {
-  int32 groupId = 1;
+  int32 groupId = 1; // legacy numeric ID
   int32 isPass = 2; // 1=直接进群 0=进入申请流程
+  string groupIdString = 3;
 }
 
 // ---------------- 群成员资料（群内昵称/群备注/@列表） ----------------
@@ -271,6 +293,7 @@ message GroupSetAdminReq {
   string groupId = 2;
   repeated string memberIds = 3;
   bool isAdmin = 4; // true=设为管理员 false=取消管理员
+  string actorUid = 5;
 }
 message GroupSetAdminResp {}
 
@@ -282,8 +305,14 @@ message FriendPutInReq {
   string reqMsg = 4;
   int64  reqTime = 5;
   string remark = 6; // 申请人为对方预设的备注（对方通过后写入申请人侧好友关系）
+  string actorUid = 7; // 当前操作者；公开 API 只能从 JWT 填充
 }
-message FriendPutInResp {}
+message FriendPutInResp {
+  int64 requestId = 1;
+  int32 status = 2; // 0=pending, 1=accepted, 2=rejected
+  bool alreadyPending = 3;
+  bool alreadyFriend = 4;
+}
 
 message FriendPutInHandleReq {
   int32  friendReqId = 1;
@@ -292,18 +321,32 @@ message FriendPutInHandleReq {
   string remark = 4;       // [新增] 备注
   repeated string tags = 5; // [新增] 标签
   string handleMsg = 6;    // 处理附言/回复
+  string actorUid = 7;     // 当前操作者；公开 API 只能从 JWT 填充
+  uint64 requestId = 8;
 }
-message FriendPutInHandleResp {}
+message FriendPutInHandleResp {
+  int64 requestId = 1;
+  int32 handleResult = 2;
+  bool idempotent = 3;
+}
 
 message FriendPutInReadReq {
   string userId = 1;
   int32  friendReqId = 2; // 0 表示全部已读
+  repeated uint64 requestIds = 3;
+  string actorUid = 4;
 }
-message FriendPutInReadResp {}
+message FriendPutInReadResp {
+  int32 count = 1;
+  int32 apply = 2;
+  int32 result = 3;
+}
 
 message FriendPutInDeleteReq {
   string userId = 1;
   int32  friendReqId = 2;
+  uint64 requestId = 3;
+  string actorUid = 4;
 }
 message FriendPutInDeleteResp {}
 
@@ -311,18 +354,26 @@ message FriendPutInListReq{
   string userId = 1;
   int32  type = 2; //获取什么类型：已拒绝；已通过，未处理
   string class = 3; //申请列表类型：0我发起的申请列表；1我接受到的好友申请列表
+  optional int32 status = 4;
+  int32 page = 5;
+  int32 size = 6;
+  string actorUid = 7;
 }
 
 message FriendPutInListResp{
   repeated FriendRequests list = 1;
+  int64 total = 2;
 }
 
 message FriendPutInMessageCountReq{
   string userId = 1;
+  string actorUid = 2;
 }
 
 message FriendPutInMessageCountResp{
   int32 count = 1; // 消息数量
+  int32 apply = 2;
+  int32 result = 3;
 }
 
 message FriendListReq{
@@ -422,10 +473,16 @@ message GroupPutinReq {
   int64  reqTime = 5;
   int32  joinSource = 6;
   string inviterUid = 7;
+  string actorUid = 8; // 当前操作者；主动申请必须与 reqId 一致
 }
 message GroupPutinResp {
-  int32 groupId = 1;
+  int32 groupId = 1; // legacy numeric ID
   int32 isPass = 2;
+  uint64 requestId = 3;
+  int32 status = 4; // 0=pending, 1=accepted, 2=rejected
+  bool alreadyPending = 5;
+  bool alreadyMember = 6;
+  string groupIdString = 7;
 }
 
 message GroupPutinListReq {
@@ -433,9 +490,11 @@ message GroupPutinListReq {
   repeated int32  type = 2; //获取处理类型：未处理，已通过，已拒绝
   int32  class = 3; //1：我发起的申请， 2：我接受到的申请
   string userId = 4; // 用户id
+  string actorUid = 5;
 }
 message GroupPutinListResp {
   repeated GroupRequests list = 1;
+  int64 total = 2;
 }
 
 message GroupPutInHandleReq {
@@ -446,10 +505,98 @@ message GroupPutInHandleReq {
 
   string username = 6;
   string userAvatarUrl = 7;
+  string actorUid = 8; // 当前操作者；公开 API 只能从 JWT 填充
+  string handleMsg = 9;
+  uint64 requestId = 10; // 新客户端使用；groupReqId 仅兼容旧客户端
 }
 message GroupPutInHandleResp {
   string groupId = 1;
   string reqId = 2; // 被处理的入群申请用户ID（通过后需要用它建立群会话）
+  uint64 requestId = 3;
+  int32 handleResult = 4;
+  bool idempotent = 5;
+}
+
+message GroupInvitation {
+  uint64 id = 1;
+  string groupId = 2;
+  string inviterUid = 3;
+  string inviteeUid = 4;
+  int32 inviterRoleSnapshot = 5;
+  string message = 6;
+  int32 status = 7; // 0=pending, 1=accepted, 2=rejected, 3=invalidated, 4=expired
+  string rejectReason = 8;
+  int64 createdAt = 9;
+  int64 handledAt = 10;
+  int64 expiresAt = 11;
+  int32 readState = 12;
+  bool actionable = 13;
+}
+
+message GroupInvitationCreateReq {
+  string actorUid = 1;
+  string groupId = 2;
+  string inviteeUid = 3;
+  string message = 4;
+}
+message GroupInvitationCreateResp {
+  GroupInvitation invitation = 1;
+}
+
+message GroupInvitationListReq {
+  string actorUid = 1;
+  int32 status = 2; // -1=all, 0..4=具体状态
+  int32 page = 3;
+  int32 size = 4;
+}
+message GroupInvitationListResp {
+  repeated GroupInvitation list = 1;
+  int64 total = 2;
+}
+
+message GroupInvitationHandleReq {
+  uint64 id = 1;
+  string actorUid = 2;
+  int32 result = 3; // 1=accept, 2=reject
+  string handleMsg = 4;
+}
+message GroupInvitationHandleResp {
+  uint64 invitationId = 1;
+  int32 status = 2;
+  string joinState = 3; // joined|pending_approval|approval_rejected|rejected|expired|invalidated
+  uint64 groupRequestId = 4;
+  bool idempotent = 5;
+  string groupId = 6;
+}
+
+message GroupInvitationReadReq {
+  string actorUid = 1;
+  repeated uint64 invitationIds = 2;
+}
+message GroupInvitationReadResp {
+  int32 count = 1;
+  int32 apply = 2;
+  int32 result = 3;
+  int32 invite = 4;
+}
+
+message ExpireGroupInvitationsReq {
+  int32 batch_size = 1;
+}
+message ExpireGroupInvitationsResp {
+  int32 expired = 1;
+  bool has_more = 2;
+}
+
+message GroupRequestMessageCountReq {
+  string userId = 1;
+  string actorUid = 2;
+}
+message GroupRequestMessageCountResp {
+  int32 count = 1;
+  int32 apply = 2;
+  int32 result = 3;
+  int32 invite = 4;
 }
 
 message GroupListReq{
@@ -475,9 +622,13 @@ message FindGroupListResp {
 }
 
 message GetGroupPutListByUidReq {
-  repeated string ids = 1;  // 用户id
+  repeated string ids = 1;  // 兼容重复字段；无服务鉴权时每项必须等于 actorUid
   string class = 2;         // 类别： 1：我发起的申请， 2：我接受到的申请
   string type = 3;          // 状态： 0未处理，1已通过，2已拒绝，3忽略
+  optional int32 status = 4;
+  int32 page = 5;
+  int32 size = 6;
+  string actorUid = 7;
 }
 
 // 群搜索（群号精确 + 群名模糊，分页）
@@ -501,8 +652,15 @@ message GroupSearchResp {
 
 message MarkGroupReqReadReq {
   string userId = 1; // 当前用户（群主/管理员），把其管理的群收到的申请标记已读
+  repeated uint64 requestIds = 2;
+  string actorUid = 3;
 }
-message MarkGroupReqReadResp {}
+message MarkGroupReqReadResp {
+  int32 count = 1;
+  int32 apply = 2;
+  int32 result = 3;
+  int32 invite = 4;
+}
 
 
 // svc
@@ -564,4 +722,10 @@ service social {
   rpc GroupAnnouncementCreate(GroupAnnouncementCreateReq) returns (GroupAnnouncementCreateResp); // 创建群公告
   rpc GroupAnnouncementList(GroupAnnouncementListReq) returns (GroupAnnouncementListResp); // 获取群公告
   rpc GroupAnnouncementPin(GroupAnnouncementPinReq) returns (GroupAnnouncementPinResp); // 置顶群公告
+  rpc GroupInvitationCreate(GroupInvitationCreateReq) returns (GroupInvitationCreateResp); // 创建独立群邀请
+  rpc GroupInvitationList(GroupInvitationListReq) returns (GroupInvitationListResp); // 查询当前用户收到的邀请
+  rpc GroupInvitationRead(GroupInvitationReadReq) returns (GroupInvitationReadResp); // 标记当前用户展示的邀请已读
+  rpc GroupRequestMessageCount(GroupRequestMessageCountReq) returns (GroupRequestMessageCountResp); // 群申请与邀请个人未读
+  rpc GroupInvitationHandle(GroupInvitationHandleReq) returns (GroupInvitationHandleResp); // 接受或拒绝群邀请
+  rpc ExpireGroupInvitations(ExpireGroupInvitationsReq) returns (ExpireGroupInvitationsResp); // 内部批量过期群邀请
 }

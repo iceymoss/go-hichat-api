@@ -22,7 +22,7 @@ func main() {
 	var c config.Config
 
 	//加载全局配置
-	pkcCfg.InitConfig("local", "", "config")
+	pkcCfg.InitConfig("local", "config")
 
 	conf.MustLoad(*configFile, &c)
 	if err := c.SetUp(); err != nil {
@@ -31,19 +31,19 @@ func main() {
 
 	// 创建服务组（管理多个后台服务）
 	serviceGroup := service.NewServiceGroup()
-	defer serviceGroup.Stop()
 
 	// 初始化服务上下文（传递配置）
 	svcCtx := svc.NewServiceContext(c)
+	defer func() {
+		svcCtx.Cancel()
+		serviceGroup.Stop()
+		_ = svcCtx.Close()
+	}()
 
 	// 创建消息监听器
 	listen := handler.NewListen(svcCtx)
-	for _, s := range listen.Services() {
-		// 将 Kafka 消费者加入服务组
-		serviceGroup.Add(s)
-	}
+	serviceGroup.Add(listen.Service())
 	fmt.Println("Starting mqueue server at...")
 
-	defer serviceGroup.Stop()
 	serviceGroup.Start()
 }

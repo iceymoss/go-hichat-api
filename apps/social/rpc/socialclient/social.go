@@ -15,6 +15,8 @@ import (
 
 type (
 	AtMember                       = social.AtMember
+	ExpireGroupInvitationsReq      = social.ExpireGroupInvitationsReq
+	ExpireGroupInvitationsResp     = social.ExpireGroupInvitationsResp
 	FindGroupListReq               = social.FindGroupListReq
 	FindGroupListResp              = social.FindGroupListResp
 	FriendBlockReq                 = social.FriendBlockReq
@@ -73,6 +75,15 @@ type (
 	GroupDetailResp                = social.GroupDetailResp
 	GroupDisbandReq                = social.GroupDisbandReq
 	GroupDisbandResp               = social.GroupDisbandResp
+	GroupInvitation                = social.GroupInvitation
+	GroupInvitationCreateReq       = social.GroupInvitationCreateReq
+	GroupInvitationCreateResp      = social.GroupInvitationCreateResp
+	GroupInvitationHandleReq       = social.GroupInvitationHandleReq
+	GroupInvitationHandleResp      = social.GroupInvitationHandleResp
+	GroupInvitationListReq         = social.GroupInvitationListReq
+	GroupInvitationListResp        = social.GroupInvitationListResp
+	GroupInvitationReadReq         = social.GroupInvitationReadReq
+	GroupInvitationReadResp        = social.GroupInvitationReadResp
 	GroupInviteLink                = social.GroupInviteLink
 	GroupInviteLinkCreateReq       = social.GroupInviteLinkCreateReq
 	GroupInviteLinkCreateResp      = social.GroupInviteLinkCreateResp
@@ -98,6 +109,8 @@ type (
 	GroupPutinResp                 = social.GroupPutinResp
 	GroupQuitReq                   = social.GroupQuitReq
 	GroupQuitResp                  = social.GroupQuitResp
+	GroupRequestMessageCountReq    = social.GroupRequestMessageCountReq
+	GroupRequestMessageCountResp   = social.GroupRequestMessageCountResp
 	GroupRequests                  = social.GroupRequests
 	GroupSearchItem                = social.GroupSearchItem
 	GroupSearchReq                 = social.GroupSearchReq
@@ -168,6 +181,12 @@ type (
 		GroupAnnouncementCreate(ctx context.Context, in *GroupAnnouncementCreateReq, opts ...grpc.CallOption) (*GroupAnnouncementCreateResp, error)
 		GroupAnnouncementList(ctx context.Context, in *GroupAnnouncementListReq, opts ...grpc.CallOption) (*GroupAnnouncementListResp, error)
 		GroupAnnouncementPin(ctx context.Context, in *GroupAnnouncementPinReq, opts ...grpc.CallOption) (*GroupAnnouncementPinResp, error)
+		GroupInvitationCreate(ctx context.Context, in *GroupInvitationCreateReq, opts ...grpc.CallOption) (*GroupInvitationCreateResp, error)
+		GroupInvitationList(ctx context.Context, in *GroupInvitationListReq, opts ...grpc.CallOption) (*GroupInvitationListResp, error)
+		GroupInvitationRead(ctx context.Context, in *GroupInvitationReadReq, opts ...grpc.CallOption) (*GroupInvitationReadResp, error)
+		GroupRequestMessageCount(ctx context.Context, in *GroupRequestMessageCountReq, opts ...grpc.CallOption) (*GroupRequestMessageCountResp, error)
+		GroupInvitationHandle(ctx context.Context, in *GroupInvitationHandleReq, opts ...grpc.CallOption) (*GroupInvitationHandleResp, error)
+		ExpireGroupInvitations(ctx context.Context, in *ExpireGroupInvitationsReq, opts ...grpc.CallOption) (*ExpireGroupInvitationsResp, error)
 	}
 
 	defaultSocial struct {
@@ -414,4 +433,34 @@ func (m *defaultSocial) GroupAnnouncementList(ctx context.Context, in *GroupAnno
 func (m *defaultSocial) GroupAnnouncementPin(ctx context.Context, in *GroupAnnouncementPinReq, opts ...grpc.CallOption) (*GroupAnnouncementPinResp, error) {
 	client := social.NewSocialClient(m.cli.Conn())
 	return client.GroupAnnouncementPin(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupInvitationCreate(ctx context.Context, in *GroupInvitationCreateReq, opts ...grpc.CallOption) (*GroupInvitationCreateResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupInvitationCreate(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupInvitationList(ctx context.Context, in *GroupInvitationListReq, opts ...grpc.CallOption) (*GroupInvitationListResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupInvitationList(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupInvitationRead(ctx context.Context, in *GroupInvitationReadReq, opts ...grpc.CallOption) (*GroupInvitationReadResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupInvitationRead(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupRequestMessageCount(ctx context.Context, in *GroupRequestMessageCountReq, opts ...grpc.CallOption) (*GroupRequestMessageCountResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupRequestMessageCount(ctx, in, opts...)
+}
+
+func (m *defaultSocial) GroupInvitationHandle(ctx context.Context, in *GroupInvitationHandleReq, opts ...grpc.CallOption) (*GroupInvitationHandleResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.GroupInvitationHandle(ctx, in, opts...)
+}
+
+func (m *defaultSocial) ExpireGroupInvitations(ctx context.Context, in *ExpireGroupInvitationsReq, opts ...grpc.CallOption) (*ExpireGroupInvitationsResp, error) {
+	client := social.NewSocialClient(m.cli.Conn())
+	return client.ExpireGroupInvitations(ctx, in, opts...)
 }

@@ -44,7 +44,9 @@ type Conn struct {
 	message chan *Message
 
 	// 当前连接状态
-	done chan struct{}
+	done      chan struct{}
+	closeOnce sync.Once
+	writeMu   sync.Mutex
 }
 
 // NewConn 将连接转为websocket 并且对该连接进行进一步封装
@@ -67,11 +69,11 @@ func NewConn(s *Server, w http.ResponseWriter, r *http.Request) *Conn {
 		readMessageSeq:    make(map[string]*Message, 2), // 记录客户端的两次消息
 		message:           make(chan *Message, 1),       // 用于同步消息给WriteHandler的chan,容量为1刚刚好使得channel是有缓存，但因为容量只有1可以保证发送和接收操作的顺序，从而确保数据的有序性。
 		done:              make(chan struct{}),
-		maxConnectionIdle: defaultMaxConnectionIdle,
+		maxConnectionIdle: s.opt.maxConnectionIdle,
 	}
+	c.SetPongHandler(func(string) error { conn.idleMu.Lock(); conn.idle = time.Now(); conn.idleMu.Unlock(); return nil })
 
-	// 对客户端进行健康检查
-	//go conn.keepalive()
+	go conn.keepalive()
 
 	return conn
 }
@@ -88,14 +90,14 @@ func (c *Conn) keepalive() {
 		select {
 		// 情况1：连接空闲超时定时器触发
 		case <-idleTimer.C:
-			c.mu.Lock()
+			c.idleMu.Lock()
 
 			// 获取连接的最后活跃时间
 			idle := c.idle
 
 			fmt.Printf("idle %v, maxIdle %v \n", c.idle, c.maxConnectionIdle)
 			if idle.IsZero() { // The connection is non-idle.
-				c.mu.Unlock()
+				c.idleMu.Unlock()
 				// 重置定时器，继续监控下一个周期
 				idleTimer.Reset(c.maxConnectionIdle)
 				continue
@@ -106,7 +108,7 @@ func (c *Conn) keepalive() {
 			fmt.Printf("val %v \n", val)
 
 			// 如果最后活跃时间为零值（表示连接处于活跃状态）
-			c.mu.Unlock()
+			c.idleMu.Unlock()
 
 			// 如果连接空闲时间超过阈值
 			if val <= 0 {
@@ -169,19 +171,27 @@ func (c *Conn) appendMsgMq(msg *Message) {
 func (c *Conn) ReadMessage() (messageType int, p []byte, err error) {
 	// 开始忙碌
 	messageType, p, err = c.Conn.ReadMessage()
-	c.idle = time.Time{}
+	if err == nil {
+		c.idleMu.Lock()
+		c.idle = time.Now()
+		c.idleMu.Unlock()
+	}
 	return
 }
 
 // WriteMessage 当我写入数据后，就被定义为空闲时间了
 func (c *Conn) WriteMessage(messageType int, data []byte) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	if c.s.opt.writeTimeout > 0 {
+		_ = c.Conn.SetWriteDeadline(time.Now().Add(c.s.opt.writeTimeout))
+	}
 	err := c.Conn.WriteMessage(messageType, data)
-	// 当写操作完成后当前连接就会进入空闲状态，并记录空闲的时间
-	c.idle = time.Now()
 	return err
 }
 
 func (c *Conn) Close() error {
-	close(c.done)
-	return c.Conn.Close()
+	var err error
+	c.closeOnce.Do(func() { close(c.done); err = c.Conn.Close() })
+	return err
 }

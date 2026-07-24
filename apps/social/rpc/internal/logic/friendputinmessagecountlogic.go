@@ -6,9 +6,9 @@ import (
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 
-	"github.com/iceymoss/go-hichat-api/pkg/xerr"
-	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type FriendPutInMessageCountLogic struct {
@@ -30,12 +30,16 @@ func NewFriendPutInMessageCountLogic(ctx context.Context, svcCtx *svc.ServiceCon
 // 1. 我发起的申请：handle_result=2（已拒绝）且 status=1（正常显示）的数量
 // 2. 我收到的申请：status=1（正常显示）且 handle_result=0（待处理）的数量
 func (l *FriendPutInMessageCountLogic) FriendPutInMessageCount(in *social.FriendPutInMessageCountReq) (*social.FriendPutInMessageCountResp, error) {
-	count, err := l.svcCtx.FriendRequestsModel.CountMessageRequests(l.ctx, in.UserId)
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
 	if err != nil {
-		return nil, errors.Wrapf(xerr.NewDBErr(), "count message requests err %v userId %v", err, in.UserId)
+		return nil, err
+	}
+	counts, err := countUnreadReceipts(l.svcCtx.DB.WithContext(l.ctx), actor, false)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to count friend request receipts")
 	}
 
 	return &social.FriendPutInMessageCountResp{
-		Count: int32(count),
+		Count: counts.Total, Apply: counts.Apply, Result: counts.Result,
 	}, nil
 }

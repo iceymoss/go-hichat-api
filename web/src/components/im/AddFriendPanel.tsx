@@ -156,11 +156,14 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
 
   const openUserChat = async (uid: string) => {
     if (!token || !myId) return;
-    try { await useChatStore.getState().getOrCreateConversation(token, myId, uid); } catch { /* ignore */ }
-    const parts = [myId, uid].sort();
-    setActiveTab('chats');
-    setSelectedConversationId(`${parts[0]}_${parts[1]}`);
-    handleClose();
+    try {
+      const conversation = await useChatStore.getState().getOrCreateConversation(token, myId, uid);
+      setActiveTab('chats');
+      setSelectedConversationId(conversation.id);
+      handleClose();
+    } catch {
+      toast.error(t('group.openConvFailed'));
+    }
   };
 
   const enterGroupChat = (gid: string) => {
@@ -171,10 +174,19 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
 
   const handleSendFriend = async (uid: string, msg?: string, remark?: string) => {
     if (!token) return false;
-    const ok = await sendFriendRequest(token, uid, msg, remark);
-    if (ok) { toast.success(t('group.friendReqSent')); onSent?.(); }
-    else toast.error(t('friend.sendFailRetry'));
-    return ok;
+    try {
+      const result = await sendFriendRequest(token, uid, msg, remark);
+      if (result.alreadyFriend) {
+        toast(t('friend.alreadyFriend'));
+        return true;
+      }
+      toast.success(t(result.alreadyPending ? 'friend.requestPending' : 'group.friendReqSent'));
+      onSent?.();
+      return true;
+    } catch {
+      toast.error(t('friend.sendFailRetry'));
+      return false;
+    }
   };
 
   const tabBtn = (t: Tab, label: string) => (
@@ -322,13 +334,16 @@ export default function AddFriendPanel({ open, onClose, onSent }: AddFriendPanel
                 {t('common.cancel')}
               </button>
               <button
-                onClick={async () => {
-                  if (friendSending) return;
-                  setFriendSending(true);
-                  const ok = await handleSendFriend(friendReqUser.id, friendReqMsg.trim() || undefined, friendRemark.trim() || undefined);
-                  setFriendSending(false);
-                  if (ok) { setFriendReqUser(null); setSelectedUser(null); }
-                }}
+                 onClick={async () => {
+                   if (friendSending) return;
+                   setFriendSending(true);
+                   try {
+                     const ok = await handleSendFriend(friendReqUser.id, friendReqMsg.trim() || undefined, friendRemark.trim() || undefined);
+                     if (ok) { setFriendReqUser(null); setSelectedUser(null); }
+                   } finally {
+                     setFriendSending(false);
+                   }
+                 }}
                 disabled={friendSending}
                 style={{ flex: 1, height: 38, borderRadius: 8, border: 'none', background: friendSending ? '#B9C4CE' : '#1BB45B', color: '#FFF', fontSize: 14, fontWeight: 600, cursor: friendSending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
               >

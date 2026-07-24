@@ -3,10 +3,10 @@ package group
 import (
 	"context"
 
+	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/logic/actor"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
-	"github.com/iceymoss/go-hichat-api/pkg/ctxdata"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,9 +27,21 @@ func NewGroupPutInsReadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *G
 }
 
 func (l *GroupPutInsReadLogic) GroupPutInsRead(req *types.GroupPutInsReadReq) (resp *types.GroupPutInsReadResp, err error) {
-	uid := ctxdata.GetUId(l.ctx)
-	_, err = l.svcCtx.Social.MarkGroupReqRead(l.ctx, &socialclient.MarkGroupReqReadReq{
-		UserId: uid,
+	uid, err := actor.UID(l.ctx)
+	if err != nil {
+		return nil, err
+	}
+	requestIDs, err := parseGroupIDs(req.RequestIds, "group request id")
+	if err != nil {
+		return nil, err
+	}
+	rpcResp, err := l.svcCtx.Social.MarkGroupReqRead(l.ctx, &socialclient.MarkGroupReqReadReq{
+		UserId:     uid,
+		ActorUid:   uid,
+		RequestIds: requestIDs,
 	})
-	return &types.GroupPutInsReadResp{}, err
+	if err != nil {
+		return nil, err
+	}
+	return &types.GroupPutInsReadResp{Count: rpcResp.Count, Apply: rpcResp.Apply, Result: rpcResp.Result, Invite: rpcResp.Invite}, nil
 }

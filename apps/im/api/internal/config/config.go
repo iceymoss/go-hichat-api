@@ -16,7 +16,8 @@ type Config struct {
 
 	UserRpc zrpc.RpcClientConf
 
-	ImRpc zrpc.RpcClientConf
+	ImRpc         zrpc.RpcClientConf
+	RpcAuthSecret string `json:",optional"`
 
 	// MsgRecallTransfer 撤回事件专用的 Kafka topic（生产端）
 	MsgRecallTransfer struct {

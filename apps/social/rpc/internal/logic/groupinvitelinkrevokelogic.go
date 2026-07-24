@@ -30,12 +30,16 @@ func NewGroupInviteLinkRevokeLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *GroupInviteLinkRevokeLogic) GroupInviteLinkRevoke(in *social.GroupInviteLinkRevokeReq) (*social.GroupInviteLinkRevokeResp, error) {
+	actor, err := validateScopedActor(in.ActorUid, in.UserId)
+	if err != nil {
+		return nil, err
+	}
 	if in.Token == "" {
 		return nil, errors.Wrapf(xerr.NewMsg("token required"), "token required")
 	}
 
 	// 至少群成员
-	member, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, in.UserId, in.GroupId)
+	member, err := l.svcCtx.GroupMembersModel.FindByGroudIdAndUserId(l.ctx, actor, in.GroupId)
 	if err != nil {
 		return nil, errors.Wrapf(xerr.NewMsg("no permission"), "not in group")
 	}
@@ -62,7 +66,7 @@ func (l *GroupInviteLinkRevokeLogic) GroupInviteLinkRevoke(in *social.GroupInvit
 	}
 
 	// 权限：管理员/群主 或 链接创建者
-	if member.RoleLevel < int(constants.ManagerGroupRoleLevel) && r.CreatedBy != in.UserId {
+	if member.RoleLevel < int(constants.ManagerGroupRoleLevel) && r.CreatedBy != actor {
 		return nil, errors.Wrapf(xerr.NewMsg("no permission"), "no permission to revoke")
 	}
 

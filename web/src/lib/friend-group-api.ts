@@ -5,7 +5,7 @@
  *  - 用户搜索: GET /api/user/search?name|phone|email=&page=&size=
  *  - 加好友:   POST /api/social/friend/putIn { user_uid, req_msg? }
  *  - 群搜索:   GET /api/social/group/search?keyword=&page=&size=
- *  - 加群:     POST /api/social/group/putIn { group_id, req_msg?, join_source:1 }
+ *  - 加群:     POST /api/social/group/putIn { group_id, req_msg? }
  *  - 群资料:   GET /api/social/group/detail?group_id=
  */
 
@@ -28,6 +28,13 @@ export interface GroupSearchItem {
 export interface GroupSearchResult {
   list: GroupSearchItem[];
   total: number;
+}
+
+export interface SendFriendRequestResult {
+  requestId?: string;
+  status: number;
+  alreadyPending: boolean;
+  alreadyFriend: boolean;
 }
 
 /** 判断搜索词类型：手机号 / 邮箱 / 昵称（默认） */
@@ -95,25 +102,46 @@ export async function searchGroups(
 }
 
 /** 发起加好友申请（可带验证内容与预设备注） */
-export async function sendFriendRequest(token: string, userUid: string, reqMsg?: string, remark?: string): Promise<boolean> {
+export async function sendFriendRequest(token: string, userUid: string, reqMsg?: string, remark?: string): Promise<SendFriendRequestResult> {
   const resp = await fetch('/api/social/friend/putIn', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ user_uid: userUid, ...(reqMsg ? { req_msg: reqMsg } : {}), ...(remark ? { remark } : {}) }),
   });
   const json = await resp.json();
-  return json.success === true;
+  if (!resp.ok || !json.success) throw new Error(json.message || 'Request failed');
+  const data = json.data || {};
+  return {
+    requestId: typeof data.request_id === 'string' && data.request_id ? data.request_id : undefined,
+    status: Number(data.status || 0),
+    alreadyPending: data.already_pending === true,
+    alreadyFriend: data.already_friend === true,
+  };
 }
 
-/** 发起加群申请（join_source=1 申请入群） */
-export async function sendGroupRequest(token: string, groupId: string, reqMsg?: string): Promise<boolean> {
+export interface SendGroupRequestResult {
+  groupId: string;
+  isPass: boolean;
+  requestId?: string;
+  alreadyPending: boolean;
+  alreadyMember: boolean;
+}
+
+/** 发起加群申请；后端决定直接入群或进入审核流程。 */
+export async function sendGroupRequest(token: string, groupId: string, reqMsg?: string): Promise<SendGroupRequestResult> {
   const resp = await fetch('/api/social/group/putIn', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ group_id: groupId, join_source: 1, ...(reqMsg ? { req_msg: reqMsg } : {}) }),
+    body: JSON.stringify({ group_id: groupId, ...(reqMsg ? { req_msg: reqMsg } : {}) }),
   });
   const json = await resp.json();
-  return json.success === true;
+  if (!json.success) throw new Error(json.message || 'Request failed');
+  const data = json.data || {};
+  return {
+    groupId: String(data.group_id || groupId), isPass: Number(data.is_pass) === 1,
+    requestId: typeof data.request_id === 'string' && data.request_id ? data.request_id : undefined,
+    alreadyPending: data.already_pending === true, alreadyMember: data.already_member === true,
+  };
 }
 
 export interface GroupDetail {

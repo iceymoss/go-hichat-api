@@ -2,13 +2,15 @@ package group
 
 import (
 	"context"
-	"fmt"
+
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/social/api/internal/types"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/social"
 	"github.com/iceymoss/go-hichat-api/apps/user/rpc/user"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type GroupDetailLogic struct {
@@ -32,10 +34,16 @@ func (l *GroupDetailLogic) GroupDetail(req *types.GroupDetailReq) (resp *types.G
 	if err != nil {
 		return nil, err
 	}
+	if rpcResp == nil || rpcResp.Group == nil {
+		return nil, status.Error(codes.Internal, "group detail response is incomplete")
+	}
 
 	// enrich member user profile via user-rpc
 	userIdList := make([]string, 0, len(rpcResp.Members))
 	for _, m := range rpcResp.Members {
+		if m == nil {
+			continue
+		}
 		userIdList = append(userIdList, m.UserId)
 	}
 
@@ -45,18 +53,24 @@ func (l *GroupDetailLogic) GroupDetail(req *types.GroupDetailReq) (resp *types.G
 		if err != nil {
 			return nil, err
 		}
-		for _, u := range userRes.User {
-			userInfo := u
-			userBindUid[u.Id] = userInfo
+		if userRes != nil {
+			for _, u := range userRes.User {
+				if u != nil {
+					userBindUid[u.Id] = u
+				}
+			}
 		}
-
-		fmt.Printf("userRes: %+v\n", userRes.User)
-		fmt.Printf("userBindUid: %+v\n", userBindUid)
 	}
 
 	members := make([]*types.GroupMembers, 0, len(rpcResp.Members))
 	for _, m := range rpcResp.Members {
+		if m == nil {
+			continue
+		}
 		u := userBindUid[m.UserId]
+		if u == nil {
+			u = &user.UserEntity{Id: m.UserId}
+		}
 		members = append(members, &types.GroupMembers{
 			Id:            int64(m.Id),
 			GroupId:       m.GroupId,

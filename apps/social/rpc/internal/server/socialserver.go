@@ -257,3 +257,33 @@ func (s *SocialServer) GroupAnnouncementPin(ctx context.Context, in *social.Grou
 	l := logic.NewGroupAnnouncementPinLogic(ctx, s.svcCtx)
 	return l.GroupAnnouncementPin(in)
 }
+
+func (s *SocialServer) GroupInvitationCreate(ctx context.Context, in *social.GroupInvitationCreateReq) (*social.GroupInvitationCreateResp, error) {
+	l := logic.NewGroupInvitationCreateLogic(ctx, s.svcCtx)
+	return l.GroupInvitationCreate(in)
+}
+
+func (s *SocialServer) GroupInvitationList(ctx context.Context, in *social.GroupInvitationListReq) (*social.GroupInvitationListResp, error) {
+	l := logic.NewGroupInvitationListLogic(ctx, s.svcCtx)
+	return l.GroupInvitationList(in)
+}
+
+func (s *SocialServer) GroupInvitationRead(ctx context.Context, in *social.GroupInvitationReadReq) (*social.GroupInvitationReadResp, error) {
+	l := logic.NewGroupInvitationReadLogic(ctx, s.svcCtx)
+	return l.GroupInvitationRead(in)
+}
+
+func (s *SocialServer) GroupRequestMessageCount(ctx context.Context, in *social.GroupRequestMessageCountReq) (*social.GroupRequestMessageCountResp, error) {
+	l := logic.NewGroupRequestMessageCountLogic(ctx, s.svcCtx)
+	return l.GroupRequestMessageCount(in)
+}
+
+func (s *SocialServer) GroupInvitationHandle(ctx context.Context, in *social.GroupInvitationHandleReq) (*social.GroupInvitationHandleResp, error) {
+	l := logic.NewGroupInvitationHandleLogic(ctx, s.svcCtx)
+	return l.GroupInvitationHandle(in)
+}
+
+func (s *SocialServer) ExpireGroupInvitations(ctx context.Context, in *social.ExpireGroupInvitationsReq) (*social.ExpireGroupInvitationsResp, error) {
+	l := logic.NewExpireGroupInvitationsLogic(ctx, s.svcCtx)
+	return l.ExpireGroupInvitations(in)
+}

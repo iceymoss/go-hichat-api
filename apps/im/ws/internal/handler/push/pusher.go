@@ -29,7 +29,9 @@ func Push(svcCtx *svc.ServiceContext) websocket.HandlerFunc {
 
 		switch data.ChatType {
 		case constants.SingleChatType:
-			single(srv, &data, data.RecvId)
+			if err := single(srv, &data, data.RecvId); err != nil {
+				zLog.Error("Push.single", zap.String("receiver", data.RecvId), zap.Error(err))
+			}
 		case constants.GroupChatType:
 			group(srv, &data)
 		}
@@ -66,7 +68,7 @@ func single(srv *websocket.Server, data *ws.Push, recvId string) error {
 		sendMsg.Id = data.MsgId
 	}
 	fmt.Printf("push到客户端的数据: %+v \n", sendMsg)
-	return srv.Send(sendMsg, rconn[0])
+	return srv.Send(sendMsg, rconn...)
 }
 
 // group 基于并发发送
@@ -74,7 +76,9 @@ func group(srv *websocket.Server, data *ws.Push) error {
 	for _, id := range data.RecvIdList {
 		func(id string) {
 			srv.TaskRunner.Schedule(func() {
-				single(srv, data, id)
+				if err := single(srv, data, id); err != nil {
+					zLog.Error("Push.group", zap.String("receiver", id), zap.Error(err))
+				}
 			})
 		}(id)
 	}

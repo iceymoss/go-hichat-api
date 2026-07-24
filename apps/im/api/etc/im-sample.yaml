@@ -1,6 +1,8 @@
 Name: im
 Host: 0.0.0.0
 Port: 8890
+# 仅供本地开发；生产环境使用 HICHAT_IM_RPC_AUTH_SECRET 覆盖
+RpcAuthSecret: hichat-local-im-rpc-auth-secret-change-me-2026
 # 富媒体上传上限：120MB（覆盖 go-zero 默认 1MB，给 100MB 文件留 multipart 余量）
 MaxBytes: 125829120
 

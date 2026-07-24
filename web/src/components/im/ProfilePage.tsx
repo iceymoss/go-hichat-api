@@ -59,7 +59,7 @@ export default function ProfilePage() {
             }}
             onClick={() => setMeSubPage('profile')}
           >
-            <Avatar className="w-16 h-16 shrink-0" style={{ ringColor: 'rgba(27,180,91,0.3)' }}>
+            <Avatar className="w-16 h-16 shrink-0">
               <AvatarImage src={displayAvatar} alt={displayName} />
               <AvatarFallback className="text-lg">{displayName[0]}</AvatarFallback>
             </Avatar>

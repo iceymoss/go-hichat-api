@@ -2,16 +2,15 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/internal/svc"
 	"github.com/iceymoss/go-hichat-api/apps/task/mq/mq"
 	"github.com/iceymoss/go-hichat-api/pkg/constants"
-	"github.com/iceymoss/go-hichat-api/pkg/db"
 	"github.com/iceymoss/go-hichat-api/pkg/db/objects"
 	"github.com/iceymoss/go-hichat-api/pkg/relationcache"
 
+	"github.com/zeromicro/go-zero/core/jsonx"
 	"gorm.io/gorm"
 )
 
@@ -25,7 +24,7 @@ func emitRelationChange(ctx context.Context, svcCtx *svc.ServiceContext, eventTy
 		ev.Timestamp = time.Now().UnixMilli()
 	}
 
-	tx := db.GetMysqlConn(db.MYSQL_DB_HICHAT2).Begin()
+	tx := svcCtx.DB.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -35,7 +34,7 @@ func emitRelationChange(ctx context.Context, svcCtx *svc.ServiceContext, eventTy
 		return err
 	}
 
-	body, err := json.Marshal(ev)
+	body, err := jsonx.Marshal(ev)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -58,16 +57,30 @@ func emitRelationChange(ctx context.Context, svcCtx *svc.ServiceContext, eventTy
 // 适用于成员新增等已自带 GORM 事务、不便交由 emitRelationChange 接管整段事务的入口。
 // 不做提交后即时缓存同步：群扇出对亚秒级新鲜度不敏感，靠 relay 投递 + 消费端版本门 + TTL 最终一致即可。
 func emitRelationChangeInTx(tx *gorm.DB, svcCtx *svc.ServiceContext, eventType, groupId string, ev *mq.RelationChangeTransfer) error {
+	_, err := emitRelationChangeInTxWithVersion(tx, svcCtx, eventType, groupId, ev)
+	return err
+}
+
+func emitRelationChangeInTxWithVersion(tx *gorm.DB, svcCtx *svc.ServiceContext, eventType, groupId string, ev *mq.RelationChangeTransfer) (uint64, error) {
 	ev.EventType = eventType
 	if ev.Timestamp == 0 {
 		ev.Timestamp = time.Now().UnixMilli()
 	}
-	body, err := json.Marshal(ev)
+	body, err := jsonx.Marshal(ev)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	row := &objects.RelationOutbox{EventType: eventType, GroupID: groupId, Payload: string(body), Status: 0}
-	return svcCtx.RelationOutboxModel.InsertTx(tx, row)
+	if svcCtx.RelationOutboxModel == nil {
+		if err := tx.Create(row).Error; err != nil {
+			return 0, err
+		}
+		return row.ID, nil
+	}
+	if err := svcCtx.RelationOutboxModel.InsertTx(tx, row); err != nil {
+		return 0, err
+	}
+	return row.ID, nil
 }
 
 // bestEffortApplyCache 提交后把变更同步进关系缓存。与消费端 applyCache 同构，失败忽略。

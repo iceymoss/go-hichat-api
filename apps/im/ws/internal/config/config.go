@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/zrpc"
+	"time"
 )
 
 type Config struct {
@@ -30,6 +31,12 @@ type Config struct {
 		Enabled    bool
 		GroupChat  bool
 		SingleChat bool
+	}
+	Presence struct {
+		NodeId           string        `json:",optional"`
+		TTL              time.Duration `json:",default=5m"`
+		Refresh          time.Duration `json:",default=2m"`
+		HeartbeatTimeout time.Duration `json:",default=75s"`
 	}
 }
 

@@ -393,10 +393,10 @@ sequenceDiagram
 │   ├── config-local.yaml
 │   └── config-sample.yaml
 ├── deploy
+│   ├── docker
 │   ├── dockerfile
+│   ├── main.go
 │   ├── sql
-│   ├── sql_init.go
-│   └── trendmig
 ├── docker-compose.yaml
 ├── docs
 │   ├── README.zh-CN.md

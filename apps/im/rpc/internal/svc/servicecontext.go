@@ -1,9 +1,15 @@
 package svc
 
 import (
+	"context"
+	"fmt"
+	"time"
+
 	models "github.com/iceymoss/go-hichat-api/apps/im/models"
 	"github.com/iceymoss/go-hichat-api/apps/im/rpc/internal/config"
 	"github.com/iceymoss/go-hichat-api/apps/social/rpc/socialclient"
+	"github.com/iceymoss/go-hichat-api/pkg/db"
+	"github.com/iceymoss/go-hichat-api/pkg/rpcauth"
 	"github.com/zeromicro/go-zero/zrpc"
 )
 
@@ -23,10 +29,26 @@ type ServiceContext struct {
 	models.NotificationModel
 
 	// 社交模块
-	Social socialclient.Social
+	Social    socialclient.Social
+	RPCAuth   *rpcauth.Auth
+	RPCReplay rpcauth.ReplayStore
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
+	rpcAuth, err := rpcauth.New(rpcauth.LoadSecret(c.RpcAuthSecret))
+	if err != nil {
+		panic(fmt.Errorf("im rpc startup: HICHAT_IM_RPC_AUTH_SECRET is required: %w", err))
+	}
+	conversationModel := models.NewConversationModel()
+	conversationsModel := models.NewConversationsModel()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := conversationModel.EnsureUniqueIndex(ctx); err != nil {
+		panic(err)
+	}
+	if err := conversationsModel.EnsureUniqueIndex(ctx); err != nil {
+		panic(err)
+	}
 
 	//// 使用正确的类型声明和检查逻辑
 	//var socialRpcClient *zrpc.Client
@@ -71,9 +93,11 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
 		Config:             c,
 		ChatLogModel:       models.NewChatLogModel(),
-		ConversationModel:  models.NewConversationModel(),
-		ConversationsModel: models.NewConversationsModel(),
+		ConversationModel:  conversationModel,
+		ConversationsModel: conversationsModel,
 		NotificationModel:  models.NewNotificationModel(),
 		Social:             socialclient.NewSocial(zrpc.MustNewClient(c.SocialRpc)),
+		RPCAuth:            rpcAuth,
+		RPCReplay:          rpcauth.NewRedisReplayStore(db.GetRedisConn()),
 	}
 }
