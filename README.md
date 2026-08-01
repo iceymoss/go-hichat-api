@@ -446,7 +446,8 @@ Generated with `tree -L 2`.
 │   └── xerr
 ├── resources
 │   └── sensitive
-└── web
+├── web
+└── website
     ├── Caddyfile
     ├── bun.lock
     ├── components.json
@@ -560,6 +561,21 @@ bun dev
 ```
 
 The web development server runs on port `3001` by default.
+
+### Start Marketing Website (Optional)
+
+The `website/` directory holds the standalone marketing site — separate from the
+`web/` application client.
+
+```bash
+cd website
+bun install
+bun run optimize:screenshots   # regenerate WebP from docs/screenshots (first run only)
+bun dev
+```
+
+`bun run build` produces a fully static export in `website/out/`, deployable to
+GitHub Pages, Vercel, or any CDN.
 
 ## Development
 
