@@ -1,0 +1,151 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─── Tailwind colour aliases → CSS custom properties ─────────────── */
+@theme inline {
+  /* shadcn/ui standard tokens */
+  --color-background:         var(--background);
+  --color-foreground:         var(--foreground);
+  --color-card:               var(--card);
+  --color-card-foreground:    var(--card-foreground);
+  --color-popover:            var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary:            var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary:          var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted:              var(--muted);
+  --color-muted-foreground:   var(--muted-foreground);
+  --color-accent:             var(--accent);
+  --color-accent-foreground:  var(--accent-foreground);
+  --color-destructive:        var(--destructive);
+  --color-border:             var(--border);
+  --color-input:              var(--input);
+  --color-ring:               var(--ring);
+
+  /* HiChat brand extras */
+  --color-brand:       var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-code-bg:     var(--code-bg);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Geist 仅 latin；Noto Sans SC 承接 CJK，避免中文回落到系统衬线字体 */
+  --font-sans: var(--font-geist-sans), var(--font-noto-sc), ui-sans-serif,
+    system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* ─── HiChat dark theme (dark-first — no light variant in MVP) ─────── */
+:root {
+  --radius: 0.625rem;
+
+  /* Brand */
+  --brand:       #1BB45B;
+  --brand-hover: #17A050;
+  --code-bg:     #0E0F12;
+
+  /* shadcn/ui tokens — overridden to HiChat dark palette */
+  --background:            #15161A;
+  --foreground:            #F4F4F5;
+
+  --card:                  #1E1F24;
+  --card-foreground:       #F4F4F5;
+
+  --popover:               #1E1F24;
+  --popover-foreground:    #F4F4F5;
+
+  /* primary = brand green */
+  --primary:               #1BB45B;
+  --primary-foreground:    #ffffff;
+
+  --secondary:             #1E1F24;
+  --secondary-foreground:  #F4F4F5;
+
+  --muted:                 #1E1F24;
+  --muted-foreground:      #A1A1AA;
+
+  --accent:                #1E1F24;
+  --accent-foreground:     #F4F4F5;
+
+  --destructive:           oklch(0.704 0.191 22.216);
+
+  --border:                #2A2B30;
+  --input:                 #2A2B30;
+  --ring:                  #1BB45B;
+}
+
+/* ─── Documentation prose ──────────────────────────────────────────── */
+.prose-custom {
+  @apply text-foreground;
+  max-width: 72ch;
+}
+.prose-custom .lead {
+  @apply text-lg text-muted-foreground leading-relaxed mt-4 mb-8;
+}
+.prose-custom h1 {
+  @apply text-3xl font-bold tracking-tight text-foreground sm:text-4xl mb-4;
+}
+.prose-custom h2 {
+  @apply text-xl font-semibold text-foreground mt-12 mb-4 border-t border-border pt-8;
+}
+.prose-custom h2:first-of-type {
+  @apply border-t-0 pt-0;
+}
+.prose-custom h3 {
+  @apply text-base font-semibold text-foreground mt-8 mb-3;
+}
+.prose-custom p {
+  @apply text-sm leading-7 text-muted-foreground mb-4;
+}
+.prose-custom ul, .prose-custom ol {
+  @apply pl-5 mb-4 flex flex-col gap-2;
+}
+.prose-custom ul { @apply list-disc; }
+.prose-custom ol { @apply list-decimal; }
+.prose-custom li {
+  @apply text-sm text-muted-foreground leading-relaxed;
+}
+.prose-custom li strong { @apply text-foreground; }
+.prose-custom strong { @apply font-semibold text-foreground; }
+.prose-custom code {
+  @apply font-mono text-xs text-brand bg-code-bg border border-border rounded px-1.5 py-0.5;
+}
+.prose-custom pre code { @apply bg-transparent border-0 p-0 text-foreground; }
+.prose-custom table {
+  @apply w-full text-sm border-collapse mb-6;
+}
+.prose-custom thead tr {
+  @apply border-b border-border;
+}
+.prose-custom th {
+  @apply text-left py-2 pr-4 font-medium text-muted-foreground;
+}
+.prose-custom td {
+  @apply py-2.5 pr-4 align-top text-muted-foreground border-b border-border/60 text-sm;
+}
+.prose-custom tr:last-child td { @apply border-b-0; }
+.prose-custom a {
+  @apply text-brand underline-offset-2 hover:underline;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
