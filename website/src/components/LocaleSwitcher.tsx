@@ -7,13 +7,11 @@ import type { Locale } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
- * 在当前路径上做语言前缀的增删跳转。
- * 中文在根路径（/features），英文带前缀（/en/features）。
+ * 替换当前路径的语言段，保留页面位置。
  */
 function swapLocale(pathname: string, target: Locale): string {
-  const stripped = pathname.replace(/^\/en(?=\/|$)/, "") || "/";
-  if (target === "zh") return stripped;
-  return stripped === "/" ? "/en" : `/en${stripped}`;
+  const stripped = pathname.replace(/^\/(?:zh|en)(?=\/|$)/, "") || "/";
+  return stripped === "/" ? `/${target}` : `/${target}${stripped}`;
 }
 
 interface Props {

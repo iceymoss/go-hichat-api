@@ -11,7 +11,7 @@ export default async function DocsLayout({
   params,
 }: {
   children: ReactNode;
-  params: Promise<{ locale?: string[] }>;
+  params: Promise<{ locale: string }>;
 }) {
   const locale = resolveLocale((await params).locale);
   const { docsNav } = getContent(locale);

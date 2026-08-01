@@ -3,20 +3,33 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  featureSections,
-  links,
-  SCREENSHOT_H,
-  SCREENSHOT_W,
-} from "@/lib/content";
+import { getContent, localeHref, localeParams, resolveLocale } from "@/i18n";
+import { links, SCREENSHOT_H, SCREENSHOT_W } from "@/i18n/shared";
 
-export const metadata: Metadata = {
-  title: "Features — HiChat",
-  description:
-    "Instant messaging, social graph, activity feed, WebRTC calls, realtime gateway, and async workers — every subsystem in HiChat 2.0.",
-};
+export function generateStaticParams() {
+  return localeParams();
+}
 
-export default function FeaturesPage() {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const locale = resolveLocale((await params).locale);
+  const page = getContent(locale).productPages.features;
+
+  return { title: page.metadataTitle, description: page.metadataDescription };
+}
+
+export default async function FeaturesPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = resolveLocale((await params).locale);
+  const { featureSections, productPages } = getContent(locale);
+  const page = productPages.features;
+
   return (
     <>
       {/* Page header */}
@@ -28,13 +41,12 @@ export default function FeaturesPage() {
           <div className="h-[300px] w-[700px] rounded-full bg-brand opacity-[0.06] blur-[120px]" />
         </div>
         <div className="relative mx-auto max-w-3xl text-center">
-          <p className="text-sm font-medium text-brand">Features</p>
+          <p className="text-sm font-medium text-brand">{page.eyebrow}</p>
           <h1 className="mt-3 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Six subsystems, one repo
+            {page.title}
           </h1>
           <p className="mt-5 text-base text-muted-foreground sm:text-lg">
-            Each domain owns its own contracts, storage, and async paths. Here
-            is what ships in every layer.
+            {page.description}
           </p>
         </div>
       </section>
@@ -78,7 +90,7 @@ export default function FeaturesPage() {
                 </ul>
 
                 <p className="mt-6 inline-flex items-center gap-2 rounded-md border border-border bg-secondary px-2.5 py-1.5">
-                  <span className="text-xs text-muted-foreground">Source</span>
+                   <span className="text-xs text-muted-foreground">{page.source}</span>
                   <code className="font-mono text-xs text-brand">
                     {section.service}
                   </code>
@@ -108,22 +120,21 @@ export default function FeaturesPage() {
       <section className="px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Run it yourself
+            {page.ctaTitle}
           </h2>
           <p className="mt-4 text-base text-muted-foreground">
-            One Docker Compose command brings the whole stack up, demo data
-            included.
+            {page.ctaDescription}
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button size="lg" asChild>
-              <Link href="/quick-start" className="gap-2">
-                Quick Start
+              <Link href={localeHref(locale, "/quick-start")} className="gap-2">
+                {page.quickStart}
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
             <Button variant="outline" size="lg" asChild>
               <a href={links.docsApi} target="_blank" rel="noopener noreferrer">
-                API Reference
+                {page.apiReference}
               </a>
             </Button>
           </div>

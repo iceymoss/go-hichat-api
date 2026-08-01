@@ -10,13 +10,13 @@ export function generateStaticParams() {
 
 type Props = {
   children: ReactNode;
-  params: Promise<{ locale?: string[] }>;
+  params: Promise<{ locale: string }>;
 };
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ locale?: string[] }>;
+  params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const locale = resolveLocale((await params).locale);
   const { site } = getContent(locale);
@@ -33,7 +33,7 @@ export async function generateMetadata({
     },
     alternates: {
       languages: {
-        "zh-CN": "/",
+        "zh-CN": "/zh",
         en: "/en",
       },
     },
@@ -46,7 +46,7 @@ export default async function LocaleLayout({ children, params }: Props) {
 
   return (
     <>
-      {/* lang 由 script 在客户端补到 <html> 上 —— 静态导出下根 layout 无法感知 locale */}
+      {/* lang 由 script 在客户端补到 <html> 上，根 layout 无法感知动态段。 */}
       <script
         dangerouslySetInnerHTML={{
           __html: `document.documentElement.lang=${JSON.stringify(

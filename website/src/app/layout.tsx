@@ -1,6 +1,17 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
+
+export const metadata: Metadata = {
+  icons: {
+    icon: [
+      { url: "/brand/appicon.svg", type: "image/svg+xml" },
+      { url: "/brand/icon-192.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: [{ url: "/brand/icon-192.png", sizes: "192x192" }],
+  },
+};
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,8 +36,8 @@ const notoSansSC = Noto_Sans_SC({
 
 /**
  * 根 layout 只提供 <html> / <body> 骨架。
- * lang 属性与 Navbar/Footer 由 [[...locale]]/layout.tsx 按语言决定 —— 静态导出下
- * 根 layout 拿不到 locale 参数（它在 catch-all 段之外）。
+ * lang 属性与 Navbar/Footer 由 [locale]/layout.tsx 按语言决定，根 layout
+ * 拿不到动态语言段参数。
  */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

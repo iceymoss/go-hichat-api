@@ -15,8 +15,68 @@ const site = {
   version: "2.0",
 } as const;
 
+const productPages = {
+  features: {
+    metadataTitle: "功能 — HiChat",
+    metadataDescription:
+      "全面了解 HiChat 2.0 的即时消息、社交关系、动态空间、WebRTC 音视频、实时网关与异步任务子系统。",
+    eyebrow: "功能",
+    title: "六个子系统，一个仓库",
+    description:
+      "每个领域都拥有自己的契约、存储与异步链路。以下是各层已经具备的完整能力。",
+    source: "源码",
+    ctaTitle: "亲自运行",
+    ctaDescription:
+      "一条 Docker Compose 命令即可启动完整技术栈，并包含演示数据。",
+    quickStart: "快速开始",
+    apiReference: "API 参考",
+  },
+  quickStart: {
+    metadataTitle: "快速开始 — HiChat",
+    metadataDescription:
+      "使用一条 Docker Compose 命令启动完整 HiChat 技术栈，或在本地原生运行 Go 服务进行开发。",
+    eyebrow: "快速开始",
+    title: "一分钟内运行起来",
+    description:
+      "Docker Compose 是最快的启动方式。如果更喜欢在本地原生运行 Go 服务，下方也提供了对应步骤。",
+    prerequisites: "准备条件",
+    dockerRequirement: "安装带 Compose 插件的 Docker",
+    memoryRequirement: "为完整技术栈预留约 4 GB 可用内存",
+    portsRequirement: "确保 2470、8887–8891、10090 和 10093 端口未被占用",
+    dockerCompose: "Docker Compose",
+    demoAccount: "演示账号",
+    demoAccountDescription: "完成第 3 步演示数据灌入后即可使用。",
+    phone: "手机号",
+    password: "密码",
+    url: "地址",
+    demoModeNote:
+      "演示模式下验证码会自动填充，因此无需短信服务商也可以注册新账号。",
+    exposedPorts: "暴露端口",
+    service: "服务",
+    port: "端口",
+    purpose: "用途",
+    localDevelopment: "本地开发",
+    localDevelopmentDescription:
+      "贡献者开发 Go 服务时，可以在 Docker 中运行中间件，在宿主机上运行服务。",
+    secretWarningTitle: "请设置独立的 RPC 鉴权密钥。",
+    secretWarningDescription:
+      "必须是至少 32 字节的随机数据，且不得复用 JWT secret。",
+    nextSteps: "后续步骤",
+    nextStepLinks: [
+      { label: "API 参考", href: links.docsApi, description: "全部 REST 与 gRPC 契约" },
+      { label: "开发指南", href: links.docsDevGuideZh, description: "项目结构与开发约定" },
+      { label: "Docker 部署", href: links.dockerDeploy, description: "反向代理、HTTPS 与 TURN" },
+      { label: "参与贡献", href: links.contributing, description: "如何提交第一个 PR" },
+    ],
+    helpTitle: "遇到问题？",
+    helpDescription: "请附上 Compose 日志创建 issue，我们会协助排查。",
+    openIssue: "创建 issue",
+  },
+} as const;
+
 /** 导航栏主菜单 */
 const navItems = [
+  { label: "首页", href: "/" },
   { label: "功能", href: "/features" },
   { label: "快速开始", href: "/quick-start" },
 ] as const;
@@ -480,11 +540,16 @@ const localDevSteps = [
 const docsNav = [
   {
     title: "概览",
-    items: [{ label: "简介", href: "/docs" }],
+    items: [
+      { label: "简介", href: "/docs" },
+      { label: "架构总览", href: "/docs/architecture" },
+      { label: "领域模块", href: "/docs/domains" },
+    ],
   },
   {
     title: "核心概念",
     items: [
+      { label: "核心数据流", href: "/docs/data-flows" },
       { label: "消息生命周期", href: "/docs/message-lifecycle" },
       { label: "实时网关", href: "/docs/realtime-gateway" },
     ],
@@ -578,6 +643,7 @@ const ui = {
 export const zh = {
   site,
   ui,
+  productPages,
   navItems,
   highlights,
   galleryTabs,

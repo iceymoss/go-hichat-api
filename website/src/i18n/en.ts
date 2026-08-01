@@ -15,6 +15,65 @@ const site = {
   version: "2.0",
 } as const;
 
+const productPages = {
+  features: {
+    metadataTitle: "Features — HiChat",
+    metadataDescription:
+      "Instant messaging, social graph, activity feed, WebRTC calls, realtime gateway, and async workers — every subsystem in HiChat 2.0.",
+    eyebrow: "Features",
+    title: "Six subsystems, one repo",
+    description:
+      "Each domain owns its own contracts, storage, and async paths. Here is what ships in every layer.",
+    source: "Source",
+    ctaTitle: "Run it yourself",
+    ctaDescription:
+      "One Docker Compose command brings the whole stack up, demo data included.",
+    quickStart: "Quick Start",
+    apiReference: "API Reference",
+  },
+  quickStart: {
+    metadataTitle: "Quick Start — HiChat",
+    metadataDescription:
+      "Bring up the full HiChat stack with one Docker Compose command, or run the Go services natively for development.",
+    eyebrow: "Quick Start",
+    title: "Up and running in a minute",
+    description:
+      "Docker Compose is the fastest path. Prefer running the Go services natively? That path is below too.",
+    prerequisites: "Prerequisites",
+    dockerRequirement: "Docker with the Compose plugin",
+    memoryRequirement: "Roughly 4 GB of free memory for the full stack",
+    portsRequirement: "Ports 2470, 8887–8891, 10090, and 10093 free",
+    dockerCompose: "Docker Compose",
+    demoAccount: "Demo account",
+    demoAccountDescription: "Available after seeding the demo dataset in step 3.",
+    phone: "Phone",
+    password: "Password",
+    url: "URL",
+    demoModeNote:
+      "Verification codes auto-fill in demo mode, so you can also register a fresh account without an SMS provider.",
+    exposedPorts: "Exposed ports",
+    service: "Service",
+    port: "Port",
+    purpose: "Purpose",
+    localDevelopment: "Local development",
+    localDevelopmentDescription:
+      "For contributors iterating on the Go services, run the middleware in Docker and the services on the host.",
+    secretWarningTitle: "Set a dedicated RPC auth secret.",
+    secretWarningDescription:
+      "must be at least 32 bytes of random data and must not reuse the JWT secret.",
+    nextSteps: "Next steps",
+    nextStepLinks: [
+      { label: "API Reference", href: links.docsApi, description: "Every REST and gRPC contract" },
+      { label: "Developer Guide", href: links.docsDevGuide, description: "Project layout and conventions" },
+      { label: "Docker Deploy", href: links.dockerDeploy, description: "Reverse proxy, HTTPS, TURN" },
+      { label: "Contributing", href: links.contributing, description: "How to open your first PR" },
+    ],
+    helpTitle: "Something not working?",
+    helpDescription: "Open an issue with your Compose logs and we'll take a look.",
+    openIssue: "Open an issue",
+  },
+} as const;
+
 const ui = {
   openMenu: "Open menu",
   closeMenu: "Close menu",
@@ -64,6 +123,7 @@ const ui = {
 } as const;
 
 const navItems = [
+  { label: "Home", href: "/" },
   { label: "Features", href: "/features" },
   { label: "Quick Start", href: "/quick-start" },
 ] as const;
@@ -489,11 +549,16 @@ const localDevSteps = [
 const docsNav = [
   {
     title: "Overview",
-    items: [{ label: "Introduction", href: "/docs" }],
+    items: [
+      { label: "Introduction", href: "/docs" },
+      { label: "Architecture", href: "/docs/architecture" },
+      { label: "Domain Map", href: "/docs/domains" },
+    ],
   },
   {
     title: "Core Concepts",
     items: [
+      { label: "Core Data Flows", href: "/docs/data-flows" },
       { label: "Message Lifecycle", href: "/docs/message-lifecycle" },
       { label: "Realtime Gateway", href: "/docs/realtime-gateway" },
     ],
@@ -538,6 +603,7 @@ const footerGroups = [
 export const en = {
   site,
   ui,
+  productPages,
   navItems,
   highlights,
   galleryTabs,

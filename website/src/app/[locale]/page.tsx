@@ -12,7 +12,7 @@ export function generateStaticParams() {
 export default async function Home({
   params,
 }: {
-  params: Promise<{ locale?: string[] }>;
+  params: Promise<{ locale: string }>;
 }) {
   const locale = resolveLocale((await params).locale);
   const content = getContent(locale);

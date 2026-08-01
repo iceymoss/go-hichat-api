@@ -97,6 +97,56 @@ export interface FooterGroup {
   items: readonly FooterItem[];
 }
 
+export interface ProductPages {
+  features: {
+    metadataTitle: string;
+    metadataDescription: string;
+    eyebrow: string;
+    title: string;
+    description: string;
+    source: string;
+    ctaTitle: string;
+    ctaDescription: string;
+    quickStart: string;
+    apiReference: string;
+  };
+  quickStart: {
+    metadataTitle: string;
+    metadataDescription: string;
+    eyebrow: string;
+    title: string;
+    description: string;
+    prerequisites: string;
+    dockerRequirement: string;
+    memoryRequirement: string;
+    portsRequirement: string;
+    dockerCompose: string;
+    demoAccount: string;
+    demoAccountDescription: string;
+    phone: string;
+    password: string;
+    url: string;
+    demoModeNote: string;
+    exposedPorts: string;
+    service: string;
+    port: string;
+    purpose: string;
+    localDevelopment: string;
+    localDevelopmentDescription: string;
+    secretWarningTitle: string;
+    secretWarningDescription: string;
+    nextSteps: string;
+    nextStepLinks: readonly {
+      label: string;
+      href: string;
+      description: string;
+    }[];
+    helpTitle: string;
+    helpDescription: string;
+    openIssue: string;
+  };
+}
+
 /** 组件内的零散 UI 字符串（按钮、aria-label、分区小标题）。 */
 export interface UIStrings {
   openMenu: string;
@@ -148,6 +198,7 @@ export interface SiteContent {
     version: string;
   };
   ui: UIStrings;
+  productPages: ProductPages;
   navItems: readonly NavItem[];
   highlights: readonly Highlight[];
   galleryTabs: readonly GalleryTab[];
